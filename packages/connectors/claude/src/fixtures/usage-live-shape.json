@@ -1,0 +1,101 @@
+{
+  "five_hour": {
+    "utilization": 69,
+    "resets_at": "2026-10-01T22:00:00Z",
+    "limit_dollars": null,
+    "used_dollars": null,
+    "remaining_dollars": null,
+    "locked_reason": null
+  },
+  "seven_day": {
+    "utilization": 62,
+    "resets_at": "2026-10-06T09:00:00Z",
+    "limit_dollars": null,
+    "used_dollars": null,
+    "remaining_dollars": null,
+    "locked_reason": null
+  },
+  "seven_day_oauth_apps": null,
+  "seven_day_opus": null,
+  "seven_day_sonnet": null,
+  "seven_day_cowork": null,
+  "cedar_ember": {
+    "eligible": false,
+    "ineligible_reason": "surface",
+    "at_limit": false,
+    "exhausted": [],
+    "grants": [],
+    "next_grant_id": null,
+    "weekly_resets_at": null,
+    "cooldown_until": null,
+    "event_props": null
+  },
+  "extra_usage": {
+    "is_enabled": false,
+    "monthly_limit": null,
+    "used_credits": null,
+    "utilization": null,
+    "currency": null,
+    "decimal_places": null,
+    "disabled_reason": null,
+    "user_disabled": true,
+    "spend_limit_reached": false,
+    "credits_ever_enabled": true,
+    "daily": null,
+    "weekly": null
+  },
+  "limits": [
+    {
+      "kind": "session",
+      "group": "session",
+      "percent": 69,
+      "severity": "normal",
+      "resets_at": "2026-10-01T22:00:00Z",
+      "scope": null,
+      "is_active": true
+    },
+    {
+      "kind": "weekly_all",
+      "group": "weekly",
+      "percent": 62,
+      "severity": "normal",
+      "resets_at": "2026-10-06T09:00:00Z",
+      "scope": null,
+      "is_active": false
+    },
+    {
+      "kind": "weekly_scoped",
+      "group": "weekly",
+      "percent": 0,
+      "severity": "normal",
+      "resets_at": "2026-10-06T09:00:00Z",
+      "scope": { "model": { "id": null, "display_name": "Fable" }, "surface": null },
+      "is_active": false
+    }
+  ],
+  "spend": {
+    "used": { "amount_minor": 0, "currency": "USD", "exponent": 2 },
+    "limit": null,
+    "percent": 0,
+    "severity": "normal",
+    "enabled": false,
+    "disabled_reason": null,
+    "cap": null,
+    "balance": null,
+    "auto_reload": null,
+    "disclaimer": "Synthetic disclaimer text.",
+    "can_purchase_credits": false,
+    "can_toggle": false
+  },
+  "member_dashboard_available": false,
+  "seven_day_breakdown": {
+    "as_of": "2026-10-01T18:00:00Z",
+    "window_started_at": "2026-09-29T09:00:00Z",
+    "rows": [
+      { "key": "claude_code", "display_name": "Claude Code", "percent": 92 },
+      { "key": "chat", "display_name": "Chats", "percent": 5 },
+      { "key": "cowork", "display_name": "Cowork", "percent": 2 },
+      { "key": "other", "display_name": "Other", "percent": 1 }
+    ]
+  }
+}

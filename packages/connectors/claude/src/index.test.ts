@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { CliLoginStatus, LoginRunner } from "@headroom/core";
 
 import { profileUrl, tokenUrl, usageUrl } from "./endpoints.ts";
+import usageLiveShape from "./fixtures/usage-live-shape.json";
 import usageMinimal from "./fixtures/usage-minimal.json";
 import usageFixture from "./fixtures/usage.json";
 import {
@@ -214,7 +215,28 @@ describe("Claude connector", () => {
     expect(Object.keys(byKey)).not.toContain("limits.scoped");
   });
 
-  test("missing utilization is unknown, disabled extra usage is unsupported, ineligible grants count zero", async () => {
+  test("the live response shape of 2026-10-01 parses: null scopes, null extra-usage amounts, empty grants", async () => {
+    const connector = createClaudeConnector({
+      runner: new FakeRunner(),
+      fetch: fakeFetch({ [usageUrl]: () => json(usageLiveShape) }).fetch,
+    });
+    const result = await connector.collect(
+      credentialFromCredentialsFile(credentialsFile),
+      identity,
+    );
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["five_hour"]).toMatchObject({ valueText: "69", availability: "available" });
+    expect(byKey["seven_day"]).toMatchObject({ valueText: "62", availability: "available" });
+    expect(byKey["limits.Fable"]).toMatchObject({ valueText: "0", availability: "available" });
+    expect(Object.keys(byKey)).not.toContain("extra_usage.used");
+    expect(Object.keys(byKey)).not.toContain("extra_usage.monthly_limit");
+    expect(Object.keys(byKey)).not.toContain("seven_day_sonnet");
+    expect(result.metrics.every((m) => m.availability === "available")).toBe(true);
+    expect(result.resetCredits).toEqual([]);
+    expect(result.failures).toEqual([]);
+  });
+
+  test("missing utilization is unknown, disabled extra usage emits nothing, ineligible grants count zero", async () => {
     const connector = createClaudeConnector({
       runner: new FakeRunner(),
       fetch: fakeFetch({ [usageUrl]: () => json(usageMinimal) }).fetch,
@@ -226,7 +248,7 @@ describe("Claude connector", () => {
     const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
     expect(byKey["five_hour"]).toMatchObject({ valueText: null, availability: "unknown" });
     expect(byKey["seven_day"]).toMatchObject({ valueText: "0", availability: "available" });
-    expect(byKey["extra_usage.used"]).toMatchObject({ availability: "unsupported" });
+    expect(Object.keys(byKey)).not.toContain("extra_usage.used");
     expect(byKey["reset_grants.available"]).toMatchObject({ valueText: "0" });
   });
 

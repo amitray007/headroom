@@ -264,7 +264,12 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
         { metricOrAction: "five_hour", availability: "available", ...sourceInspected },
         { metricOrAction: "seven_day", availability: "available", ...sourceInspected },
         { metricOrAction: "limits.weekly_scoped", availability: "available", ...sourceInspected },
-        { metricOrAction: "extra_usage", availability: "available", ...sourceInspected },
+        {
+          metricOrAction: "extra_usage",
+          availability: "available",
+          ...sourceInspected,
+          reason: "collected while extra usage is switched on for the account",
+        },
         { metricOrAction: "reset_grants", availability: "available", ...sourceInspected },
         {
           metricOrAction: "reset_grants.redeem",
@@ -361,15 +366,17 @@ function metricsFrom(usage: UsageResponse): {
     ["seven_day_sonnet", "window:604800s", usage.seven_day_sonnet],
   ];
   for (const [key, scope, window] of windows) {
-    if (window === undefined) continue;
+    // Absent: not in this response. Null: the bucket does not apply to this account (validated
+    // 2026-10-01 for the model buckets). Neither is a metric; an object without utilization is unknown.
+    if (window === undefined || window === null) continue;
     metrics.push({
       providerMetricKey: key,
       kind: "quota_percentage",
       scope,
-      valueText: window?.utilization === undefined ? null : String(window.utilization),
+      valueText: window.utilization === undefined ? null : String(window.utilization),
       unit: "percent",
-      resetsAt: parseDate(window?.resets_at),
-      availability: window?.utilization === undefined ? "unknown" : "available",
+      resetsAt: parseDate(window.resets_at),
+      availability: window.utilization === undefined ? "unknown" : "available",
       interface: "private",
     });
   }
@@ -387,34 +394,26 @@ function metricsFrom(usage: UsageResponse): {
       interface: "private",
     });
   }
-  if (usage.extra_usage) {
-    const enabled = usage.extra_usage.is_enabled === true;
+  // Extra usage switched off on the account is not missing data: no spend metric is emitted and
+  // the connection stays ready. The capability row says when the metric appears.
+  if (usage.extra_usage?.is_enabled === true) {
+    const usedCredits = usage.extra_usage.used_credits ?? undefined;
+    const monthlyLimit = usage.extra_usage.monthly_limit ?? undefined;
     metrics.push({
       providerMetricKey: "extra_usage.used",
       kind: "spend",
       scope: "month",
-      valueText:
-        enabled && usage.extra_usage.used_credits !== undefined
-          ? centsToDollars(usage.extra_usage.used_credits)
-          : null,
+      valueText: usedCredits === undefined ? null : centsToDollars(usedCredits),
       unit: "USD",
-      availability: enabled
-        ? usage.extra_usage.used_credits === undefined
-          ? "unknown"
-          : "available"
-        : "unsupported",
+      availability: usedCredits === undefined ? "unknown" : "available",
       interface: "private",
     });
-    if (
-      enabled &&
-      usage.extra_usage.monthly_limit !== undefined &&
-      usage.extra_usage.monthly_limit > 0
-    ) {
+    if (monthlyLimit !== undefined && monthlyLimit > 0) {
       metrics.push({
         providerMetricKey: "extra_usage.monthly_limit",
         kind: "spending_cap",
         scope: "month",
-        valueText: centsToDollars(usage.extra_usage.monthly_limit),
+        valueText: centsToDollars(monthlyLimit),
         unit: "USD",
         availability: "available",
         interface: "private",

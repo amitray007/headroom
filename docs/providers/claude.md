@@ -29,7 +29,8 @@ No official passive route exists. The status-line document says `rate_limits` ap
 | A long-lived `claude setup-token` (`CLAUDE_CODE_OAUTH_TOKEN`) can run the model but cannot read session and weekly limits | source-inspected | OpenUsage Claude provider doc [S8] |
 | Fallback sign-in uses PKCE with the Claude Code public OAuth client and a localhost callback on port 54545; a pasted callback URL is accepted | source-inspected | CLIProxyAPI `internal/auth/claude` and `sdk/auth/claude.go` [S6] |
 | `GET https://api.anthropic.com/api/oauth/usage` returns five-hour and seven-day windows, model-scoped seven-day buckets, extra usage and reset grants | source-inspected | ai-usagebar [S5, S7] |
-| Scoped model and reset-grant fields match the current account shape | unvalidated | Community collectors; not an official data contract |
+| With a Headroom CLI-login credential, `GET /api/oauth/usage?cedar_ember=1` answers 200 with `five_hour` and `seven_day` (`utilization` percent, `resets_at`, null `*_dollars` and `locked_reason`), many null model and surface buckets, `limits` with kinds `session`, `weekly_all` and `weekly_scoped` (the last with `scope.model.display_name`; the others with `scope: null`), `extra_usage` with null `used_credits` and `monthly_limit` while disabled, `cedar_ember` with `eligible`, `ineligible_reason`, empty `grants`, a `spend` block in minor units, and `seven_day_breakdown` rows per surface (Claude Code, Chats, Cowork, Other) | validated | Observed by this project on 2026-10-01 against Amit's Max account; only field names and types were recorded, values were not. The synthetic fixture `usage-live-shape.json` mirrors it. The first live collection failed on the three nullable fields and the schema was corrected |
+| Scoped model and reset-grant fields match the current account shape | validated | As above; reset grants were empty on the observed account, so the grant element shape stays source-inspected |
 | A prior OAuth usage response contained session and week values | prior observation | Sanitized earlier research; not a current test |
 
 ## Metrics
@@ -40,12 +41,13 @@ No official passive route exists. The status-line document says `rate_limits` ap
 | Weekly limit | `available` when returned | Used percentage and reset time | `private`. Do not derive it from a session value. |
 | Model-scoped weekly buckets | `available` when returned | Collector-specific bucket keys | `private`. Keep provider keys; do not invent a model label. |
 | Monthly limit | `unsupported` | Not in the response | Unavailable for v1. |
-| Extra usage | `available` when returned | `extra_usage` | `private`. Additional-use spending, not a prepaid wallet. |
+| Extra usage | `available` while switched on | `extra_usage` | `private`. Additional-use spending, not a prepaid wallet. Switched off on the account means no metric and no `partial` state; the account validated on 2026-10-01 had it off. |
 | Credits or prepaid balance | `unknown` | Not documented | Do not show a guessed wallet balance. |
 | Reset countdown | `available` when returned | Provider reset time | `private`. |
 | Banked reset count | `unknown` | Reset-grant shape in ai-usagebar | `private`. Unvalidated. Omitted output does not prove zero. |
 | Reset redemption | `unsupported` | Not documented as a supported action | Do not offer a reset button. |
 | Usage history | `unsupported` | Not account history | Headroom snapshots only. |
+| Seven-day share by surface | `unknown` | `seven_day_breakdown.rows[].percent` per surface | `private`. Present on the live response of 2026-10-01; not collected yet. |
 | Admin versus non-admin | Policy and workspace dependent | Anthropic rules | Do not infer access from a subscription tier. |
 
 ## Connect workflow

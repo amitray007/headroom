@@ -58,13 +58,15 @@ export const usageResponseSchema = z
         z
           .object({
             kind: z.string().optional(),
-            percent: z.number().optional(),
+            percent: z.number().nullable().optional(),
             resets_at: z.string().nullable().optional(),
+            /** Null on the live response for unscoped kinds such as `session`. */
             scope: z
               .object({
                 model: z.object({ display_name: z.string().optional() }).loose().optional(),
               })
               .loose()
+              .nullable()
               .optional(),
           })
           .loose(),
@@ -73,10 +75,10 @@ export const usageResponseSchema = z
     extra_usage: z
       .object({
         is_enabled: z.boolean().optional(),
-        /** Cents. */
-        used_credits: z.number().optional(),
-        /** Cents; 0 or absent means no cap. */
-        monthly_limit: z.number().optional(),
+        /** Cents; null on the live response while extra usage is disabled. */
+        used_credits: z.number().nullable().optional(),
+        /** Cents; null, 0 or absent means no cap. */
+        monthly_limit: z.number().nullable().optional(),
       })
       .loose()
       .nullable()
