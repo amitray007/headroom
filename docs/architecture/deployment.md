@@ -5,7 +5,7 @@ The target is one Bun-compiled binary, one SQLite file, one key file and three p
 ## Shape
 
 - One process serves the web interface, the API, the scheduler and every connector.
-- The image installs pinned CLIs for sign-in only, currently `@openai/codex` 0.159.3 from npm; `claude` and `grok` follow with their connectors. Check each binary's redistribution terms; where they forbid bundling, install at container build time from the vendor's channel and record the version. No CLI runs on the refresh path. The `Dockerfile` runs as an unprivileged user with the data directory and secret files on two volumes.
+- The image installs pinned CLIs for sign-in only: `@openai/codex` 0.159.3 and `@anthropic-ai/claude-code` 2.1.286 from npm, and `grok` from the vendor installer. The image has no browser and no `open`; the runner's shims make that explicit on every host. Check each binary's redistribution terms; where they forbid bundling, install at container build time from the vendor's channel and record the version. No CLI runs on the refresh path. The `Dockerfile` runs as an unprivileged user with the data directory and secret files on two volumes.
 - `HEADROOM_DATA_DIR` holds `headroom.db` in WAL mode and nothing else that must be backed up.
 - `HEADROOM_MASTER_KEY_FILE` points at a 32-byte hex key outside the data directory. Losing it loses every connection, and the user reconnects. Document that plainly.
 - `HEADROOM_AUTH_SECRET_FILE` holds the session signing secret, created on first run with mode 0600. Rotating it signs the owner out.

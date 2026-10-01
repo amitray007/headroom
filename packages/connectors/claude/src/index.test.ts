@@ -131,6 +131,7 @@ describe("Claude connector", () => {
     expect(begun).toMatchObject({
       status: "next_step",
       nextStep: { kind: "paste_redirect", accepts: "url_or_code" },
+      pollAfterMs: 2000,
     });
     expect((await connector.pollConnect({ attemptId: "c1" })).status).toBe("waiting");
     const done = await connector.submitInput(
@@ -140,6 +141,22 @@ describe("Claude connector", () => {
     expect(runner.written).toEqual(["code#state"]);
     expect(done.status).toBe("credentials");
     expect(runner.cleaned).toEqual(["c1"]);
+  });
+
+  test("cli login: a poll finds credentials the CLI wrote on its own, with no pasted code", async () => {
+    const runner = new FakeRunner();
+    runner.output = cliOutput;
+    const connector = createClaudeConnector({ runner, fetch: fakeFetch({}).fetch });
+    await connector.beginConnect({
+      attemptId: "c2",
+      method: "cli_login",
+      expiresAt: Date.now() + 60_000,
+    });
+    runner.credentials = credentialsFile;
+    const done = await connector.pollConnect({ attemptId: "c2" });
+    expect(done.status).toBe("credentials");
+    expect(runner.written).toEqual([]);
+    expect(runner.cleaned).toEqual(["c2"]);
   });
 
   test("identity reads the profile with the OAuth beta header", async () => {

@@ -130,7 +130,7 @@ export class ConnectService {
   async poll(attemptId: string, scope: ConnectionScope = "individual"): Promise<AttemptView> {
     const attempt = this.deps.attempts.get(attemptId);
     if (!attempt) throw new Error("attempt not found");
-    if (attempt.state !== "awaiting_user") return this.view(attemptId);
+    if (!this.polls(attempt)) return this.view(attemptId);
     if (attempt.expiresAt.getTime() <= this.now().getTime()) {
       this.deps.attempts.transition(attemptId, "expired");
       return this.view(attemptId);
@@ -159,7 +159,7 @@ export class ConnectService {
   view(attemptId: string): AttemptView {
     const attempt = this.deps.attempts.get(attemptId);
     if (!attempt) throw new Error("attempt not found");
-    const live = attempt.state === "awaiting_user";
+    const live = this.polls(attempt);
     return {
       id: attempt.id,
       provider: attempt.provider,
@@ -173,6 +173,16 @@ export class ConnectService {
     };
   }
 
+  /**
+   * Whether the connector is asked for progress: always while the provider site is awaited,
+   * and while input is awaited only when the connector's step asked to be polled meanwhile.
+   */
+  private polls(attempt: AttemptRow): boolean {
+    if (attempt.state === "awaiting_user") return true;
+    if (attempt.state !== "awaiting_input") return false;
+    return this.envelope(attempt.id).nextPollAt !== null;
+  }
+
   private async apply(
     attemptId: string,
     connector: Connector,
@@ -183,7 +193,8 @@ export class ConnectService {
       case "next_step":
         this.deps.attempts.setNextStep(attemptId, progress.nextStep, {
           connector: progress.privateState,
-          nextPollAt: null,
+          nextPollAt:
+            progress.pollAfterMs === undefined ? null : this.now().getTime() + progress.pollAfterMs,
         } satisfies PrivateEnvelope);
         return;
       case "waiting":

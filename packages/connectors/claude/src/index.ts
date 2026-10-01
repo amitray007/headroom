@@ -173,6 +173,9 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
           error: classified("provider_unavailable", "claude did not print an authorization URL"),
         };
       }
+      // The CLI also runs a loopback callback listener. It cannot receive a browser on another
+      // device, and the runner's browser shim stops it opening one on the server, but if the
+      // CLI ever completes on its own the next poll must notice the credentials file.
       return {
         status: "next_step",
         nextStep: {
@@ -182,6 +185,7 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
           accepts: "url_or_code",
         },
         privateState: { attemptId: begin.attemptId },
+        pollAfterMs: 2000,
       };
     },
 

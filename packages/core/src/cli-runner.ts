@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 /**
@@ -76,13 +76,15 @@ export class CliLoginRunner implements LoginRunner {
     const dir = this.attemptDir(spec.attemptId);
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const noBrowser = installBrowserShim(dir);
     const env: Record<string, string> = {
-      PATH: this.options.path ?? process.env["PATH"] ?? "/usr/bin:/bin",
+      PATH: `${noBrowser}:${this.options.path ?? process.env["PATH"] ?? "/usr/bin:/bin"}`,
       HOME: dir,
       [spec.homeVariable]: dir,
       TERM: "dumb",
       NO_COLOR: "1",
       LANG: "C.UTF-8",
+      BROWSER: join(noBrowser, "open"),
       ...spec.env,
     };
     const child = Bun.spawn([...spec.command], {
@@ -191,6 +193,22 @@ export class CliLoginRunner implements LoginRunner {
     }
     return removed;
   }
+}
+
+/**
+ * A CLI that finds `open` or `xdg-open` tries to open the sign-in page in a browser on the
+ * server, with a redirect to its own loopback listener. On the owner's own machine that
+ * silently succeeds outside Headroom's flow; in a container it fails. Both are wrong, so the
+ * attempt directory gets a `bin/` with no-op shims first on PATH, and the CLI falls back to
+ * printing the URL Headroom shows the owner.
+ */
+function installBrowserShim(dir: string): string {
+  const bin = join(dir, "bin");
+  mkdirSync(bin, { mode: 0o700 });
+  for (const name of ["open", "xdg-open"]) {
+    writeFileSync(join(bin, name), "#!/bin/sh\nexit 0\n", { mode: 0o700 });
+  }
+  return bin;
 }
 
 function readdir(dir: string): string[] {

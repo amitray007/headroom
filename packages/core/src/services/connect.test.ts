@@ -108,6 +108,56 @@ describe("ConnectService", () => {
     expect(snapshots.latestRun(connection.id)?.outcome).toBe("partial");
   });
 
+  test("a step awaiting input is polled when the connector asks, and may finish without input", async () => {
+    const { service, connector, advance } = setup();
+    connector.beginQueue.push({
+      status: "next_step",
+      nextStep: {
+        kind: "paste_redirect",
+        url: "https://example.com/authorize",
+        expiresAt: 1_700_000_060_000,
+        accepts: "url_or_code",
+      },
+      privateState: { attemptId: "cli-1" },
+      pollAfterMs: 2000,
+    });
+    const begun = await service.begin({ provider: "codex", method: "api_key" });
+    expect(begun.state).toBe("awaiting_input");
+    expect(begun.pollAfterMs).toBeGreaterThan(0);
+    // Inside the connector's interval the provider is left alone.
+    await service.poll(begun.id);
+    expect(connector.calls).not.toContain("poll");
+    advance(2500);
+    const stillWaiting = await service.poll(begun.id);
+    expect(stillWaiting.state).toBe("awaiting_input");
+    expect(stillWaiting.nextStep?.kind).toBe("paste_redirect");
+    expect(connector.calls.filter((c) => c === "poll")).toHaveLength(1);
+    // The fake answered "waiting" with a five-second interval; the next poll after it finds credentials.
+    advance(5500);
+    connector.pollQueue.push({ status: "credentials", credential: credentialFixture() });
+    const done = await service.poll(begun.id);
+    expect(done.state).toBe("succeeded");
+    expect(connector.calls).not.toContain("submit:code");
+  });
+
+  test("a step awaiting input without a poll request is never polled", async () => {
+    const { service, connector } = setup();
+    connector.beginQueue.push({
+      status: "next_step",
+      nextStep: {
+        kind: "api_key",
+        keyPageUrl: "https://example.com/keys",
+        fields: [{ name: "key", label: "API key", secret: true }],
+      },
+      privateState: null,
+    });
+    const begun = await service.begin({ provider: "codex", method: "api_key" });
+    expect(begun.pollAfterMs).toBe(0);
+    const same = await service.poll(begun.id);
+    expect(same.state).toBe("awaiting_input");
+    expect(connector.calls).not.toContain("poll");
+  });
+
   test("connecting an identity that already exists reconnects it instead of duplicating", async () => {
     const { service, connector, connections, credentials } = setup();
     connector.beginQueue.push({ status: "credentials", credential: credentialFixture("first") });

@@ -127,6 +127,13 @@ export type ConnectProgress =
       readonly status: "next_step";
       readonly nextStep: NextStepPayload;
       readonly privateState: unknown;
+      /**
+       * When set, the application keeps calling `pollConnect` at this interval while the
+       * step waits for the owner's input. A CLI login can finish on its own, for example
+       * when the provider redirects to the CLI's loopback listener, and the pasted code
+       * is then never needed.
+       */
+      readonly pollAfterMs?: number;
     }
   | { readonly status: "waiting"; readonly privateState: unknown; readonly pollAfterMs: number }
   | { readonly status: "credentials"; readonly credential: StoredCredential }

@@ -19,7 +19,7 @@ Cancel is part of an attempt, not an action on a connection: it kills any CLI pr
 1. The signed-in owner chooses a provider whose connector is enabled, or presses Reconnect on a connection.
 2. The backend creates a login attempt with a random identifier and an expiry. For a CLI login it also creates a temporary per-connection config directory; for a direct OAuth client it stores a PKCE verifier and state server-side.
 3. The connector returns a typed next step: a URL to open, a device code to enter, a field to paste a redirected URL or code into, an account to choose, a key to enter, or a credential file to paste.
-4. The browser shows only that step and polls the attempt status. No persistent HTTP connection is needed.
+4. The browser shows only that step and polls the attempt status at the interval the server returns. Steps that wait on the provider site always poll; steps that wait for pasted input poll only when the connector says it may finish on its own. No persistent HTTP connection is needed.
 5. The connector finishes the exchange: the CLI completes and writes its file, the provider token endpoint answers the poll, or the pasted input is consumed.
 6. The backend reads identity and runs one read-only collection with the new credentials.
 7. The backend stores the encrypted credentials, capabilities and first snapshot, deletes any temporary directory, and marks the connection `ready` or `partial`.
@@ -42,6 +42,8 @@ Never rewrite a provider's registered localhost redirect into the dashboard's do
 ## CLI login runner
 
 The runner is a plain `Bun.spawn` or pseudo-terminal wrapper in the backend, never a virtual shell. It sets only the CLI's config-directory variable (`CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `GROK_HOME` or the documented equivalent) plus `PATH` and `HOME` pointing inside the attempt's directory. It bounds runtime and output, redacts everything except the URL, code and exit state, and kills the process on expiry or cancel. The CLI is used for sign-in only. Refresh and collection are direct HTTP against the stored token, and the CLI never runs again for that connection.
+
+The runner also puts no-op `open` and `xdg-open` shims first on the CLI's `PATH` and points `BROWSER` at them. Claude Code's login spawns `open` with an authorization URL whose redirect is its own loopback listener; on the owner's machine that opens a browser outside Headroom's flow and completes the sign-in invisibly, and in a container it fails. With the shims every CLI falls back to printing the URL Headroom shows. A CLI step that awaits a pasted code still asks to be polled, so if a CLI ever completes on its own the credentials file is picked up on the next poll.
 
 ## Attempt states
 

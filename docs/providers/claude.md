@@ -22,7 +22,7 @@ No official passive route exists. The status-line document says `rate_limits` ap
 | Anthropic permits some hosted unmodified Claude Code use subject to conditions | documented | [S2] |
 | Claude Code supports remote and manual authentication scenarios | documented | [S1] |
 | Headless `claude auth login` (CLI 2.1.286) with no TTY prints `If the browser didn't open, visit: https://claude.com/cai/oauth/authorize?...&redirect_uri=https://platform.claude.com/oauth/code/callback...` and then `Paste code here if prompted >`, honouring `$CLAUDE_CONFIG_DIR` | validated | Run by this project on 2026-10-01 with an isolated config directory; no account was signed in. Writing of `.credentials.json` on success remains to be observed |
-| Interactive `claude` login on a desktop redirects to `http://localhost:<port>/callback?code=...&state=...` instead of the platform code page | prior observation | Amit observed it on 2026-10-01; Headroom uses the headless mode, so this redirect does not apply to it |
+| The same headless login also spawns `open <url>` where the URL's `redirect_uri` is `http://localhost:<random port>/callback`, served by a listener inside the CLI; the printed URL and the opened URL share one PKCE challenge and state | validated | Run by this project on 2026-10-01 with a logging `open` shim on `PATH`. On a machine with a browser the CLI completes the login through its own listener and the browser ends on `platform.claude.com/oauth/code/success`; the pasted code is then never asked for. Headroom's runner shadows `open` and `xdg-open` so only the printed URL is used |
 | OpenUsage reads `~/.claude/.credentials.json` or `$CLAUDE_CONFIG_DIR/.credentials.json` | source-inspected | OpenUsage Claude provider doc [S8] |
 | A long-lived `claude setup-token` (`CLAUDE_CODE_OAUTH_TOKEN`) can run the model but cannot read session and weekly limits | source-inspected | OpenUsage Claude provider doc [S8] |
 | Fallback sign-in uses PKCE with the Claude Code public OAuth client and a localhost callback on port 54545; a pasted callback URL is accepted | source-inspected | CLIProxyAPI `internal/auth/claude` and `sdk/auth/claude.go` [S6] |
@@ -50,8 +50,8 @@ No official passive route exists. The status-line document says `rate_limits` ap
 
 1. Show the connector only after the owner turns on the Claude enable flag and accepts the policy notice (D16).
 2. Create an attempt (`created`) and its directory. The runner starts the official `claude` login with `CLAUDE_CONFIG_DIR` set to that directory.
-3. Parse only the authorization URL. Return the next step `paste_redirect` (`awaiting_input`). The user signs in on Anthropic's site and copies the displayed code.
-4. The user pastes the code into Headroom. The runner writes it to the CLI. Stop on exit success, failure, timeout or expiry (`expired`). Support cancel (`cancelled`), which kills the process.
+3. Parse only the authorization URL. Return the next step `paste_redirect` (`awaiting_input`) and ask to be polled meanwhile. The user signs in on Anthropic's site and copies the displayed code. The runner's browser shim keeps the CLI from opening its loopback-redirect URL on the server.
+4. The user pastes the code into Headroom. The runner writes it to the CLI. If a poll finds `.credentials.json` before any paste, the login completed through the CLI's own listener and the step ends without input. Stop on exit success, failure, timeout or expiry (`expired`). Support cancel (`cancelled`), which kills the process.
 5. On success, read `.credentials.json` once, encrypt it and move to `validating`. Delete the attempt directory in every terminal state.
 6. Run one read-only `GET /api/oauth/usage`. Do not make a model request.
 7. Store the encrypted credentials, capabilities and first snapshot. Mark the attempt `succeeded` and the connection `ready`, or `partial` when usage fails.
@@ -107,7 +107,7 @@ Earlier research observed OAuth-backed values resembling session and weekly perc
 - Anthropic permits this connector. The posture is owner opt-in, own credentials only, no inference routed.
 - The private usage endpoint keeps its path or shape. A changed shape yields `invalid_response` for that metric.
 - A refresh token stays valid. Anthropic can revoke it; the connection then shows `reconnect_required`.
-- The localhost callback works from a remote server. The user must paste the code or redirect.
+- The localhost callback works from a remote server. The user must paste the code or redirect. A browser that lands on `platform.claude.com/oauth/code/success` instead of the code page went through a loopback listener, not through Headroom's step.
 - A long-lived `claude setup-token` (`CLAUDE_CODE_OAUTH_TOKEN`) is enough. It can run the model but cannot read session and weekly limits, so only a real login works for Headroom [S8].
 - Prepaid balance, banked reset inventory or redemption is available.
 - ACP or the status line gives passive collection.

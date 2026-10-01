@@ -91,6 +91,34 @@ describe("CliLoginRunner", () => {
     }
   });
 
+  test("shadows open and xdg-open so a CLI cannot open a browser on the server", async () => {
+    const base = mkdtempSync(join(tmpdir(), "headroom-runner-"));
+    try {
+      const script = join(base, "browser.ts");
+      writeFileSync(
+        script,
+        `const open = Bun.spawnSync(["open", "https://example.com/authorize"]);
+const xdg = Bun.spawnSync(["xdg-open", "https://example.com/authorize"]);
+process.stdout.write(\`open=\${open.exitCode} xdg=\${xdg.exitCode} which=\${Bun.which("open")} browser=\${process.env["BROWSER"]}\\n\`);`,
+      );
+      const runner = new CliLoginRunner({ attemptsDir: join(base, "attempts") });
+      runner.start({
+        attemptId: "attempt-3",
+        command: [process.execPath, script],
+        homeVariable: "FAKE_HOME",
+        credentialFile: "auth.json",
+        timeoutMs: 10_000,
+      });
+      await until(() => runner.status("attempt-3")?.state === "exited");
+      const shim = join(runner.attemptDir("attempt-3"), "bin", "open");
+      expect(runner.status("attempt-3")?.output.trim()).toBe(
+        `open=0 xdg=0 which=${shim} browser=${shim}`,
+      );
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
   test("rejects unsafe attempt ids and strips ANSI", () => {
     const runner = new CliLoginRunner({ attemptsDir: "/tmp/never-used" });
     expect(() => runner.attemptDir("../etc")).toThrow();

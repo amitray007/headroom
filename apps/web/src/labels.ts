@@ -33,7 +33,11 @@ export function isTerminal(state: AttemptState): boolean {
   );
 }
 
-/** Only the awaiting_user state is polled; awaiting_input waits for a form submit. */
+/**
+ * States in which the owner has nothing to type and the page shows a waiting notice. Whether
+ * the page polls is decided by the server through `pollAfterMs`, not by state: a step that
+ * awaits input can still be polled when the connector may finish on its own.
+ */
 export function shouldPoll(state: AttemptState): boolean {
   return state === "awaiting_user" || state === "validating" || state === "created";
 }

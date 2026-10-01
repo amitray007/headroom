@@ -196,7 +196,7 @@ function AttemptView(props: {
   const { onUpdate } = props;
 
   useEffect(() => {
-    if (!shouldPoll(attempt.state)) return;
+    if (attempt.pollAfterMs <= 0 && !shouldPoll(attempt.state)) return;
     const timer = setTimeout(
       () => {
         api.attempt(attempt.id).then(onUpdate, (cause: unknown) => setError(messageOf(cause)));

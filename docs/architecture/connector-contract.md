@@ -8,7 +8,7 @@ Each provider is one TypeScript module that implements one interface. The applic
 | --- | --- | --- |
 | `BeginConnect` | Attempt, method, provider options, optional existing connection for Reconnect | First next step and connector-private attempt state |
 | `SubmitInput` | Attempt and one typed input: pasted redirect URL, displayed code, API key, account or team selection | Next step, or credentials ready for validation |
-| `PollConnect` | Attempt | Still waiting, credentials ready, or terminal error; used by device-code and polling flows |
+| `PollConnect` | Attempt | Still waiting, credentials ready, or terminal error; used by device-code and polling flows, and by a next step that asks to be polled while input is awaited |
 | `CancelConnect` | Attempt | Cleanup of connector-private state |
 | `Identity` | Credentials | Provider account id, workspace or team choices, display label, assurance level |
 | `Capabilities` | Credentials, identity | Per-metric and per-action availability with interface label and evidence level |
