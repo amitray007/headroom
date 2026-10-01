@@ -10,6 +10,11 @@ import { handleServiceError } from "./errors.ts";
 const reconnectBody = z.object({ method: authMethodSchema });
 const pauseBody = z.object({ paused: z.boolean() });
 
+/** Every instant leaves the API as epoch milliseconds; the web client's schemas expect numbers, not ISO strings. */
+function ms(value: Date | null | undefined): number | null {
+  return value?.getTime() ?? null;
+}
+
 export function connectionRoutes(ctx: AppContext): Hono<Env> {
   const app = new Hono<Env>();
   app.use(requireSession(ctx));
@@ -45,24 +50,59 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
     const connection = ctx.connections.get(c.req.param("id"));
     if (!connection) return c.json({ error: "not_found" }, 404);
     const latest = ctx.snapshots.latest(connection.id);
+    const run = ctx.snapshots.latestRun(connection.id);
     return c.json({
       connection: {
         ...connection,
         createdAt: connection.createdAt.getTime(),
         updatedAt: connection.updatedAt.getTime(),
-        lastSuccessAt: connection.lastSuccessAt?.getTime() ?? null,
+        lastSuccessAt: ms(connection.lastSuccessAt),
       },
-      capabilities: ctx.snapshots.capabilities(connection.id),
+      capabilities: ctx.snapshots.capabilities(connection.id).map((row) => ({
+        metricOrAction: row.metricOrAction,
+        availability: row.availability,
+        interface: row.interface,
+        evidenceLevel: row.evidenceLevel,
+        reason: row.reason,
+        checkedAt: row.checkedAt.getTime(),
+      })),
       snapshot: latest
         ? {
             observedAt: latest.snapshot.observedAt.getTime(),
             receivedAt: latest.snapshot.receivedAt.getTime(),
             connectorVersion: latest.snapshot.connectorVersion,
-            metrics: latest.metrics,
-            resetCredits: latest.resetCredits,
+            metrics: latest.metrics.map((metric) => ({
+              providerMetricKey: metric.providerMetricKey,
+              kind: metric.kind,
+              scope: metric.scope,
+              valueText: metric.valueText,
+              valueNum: metric.valueNum,
+              unit: metric.unit,
+              unlimited: metric.unlimited,
+              windowStart: ms(metric.windowStart),
+              windowEnd: ms(metric.windowEnd),
+              resetsAt: ms(metric.resetsAt),
+              availability: metric.availability,
+              interface: metric.interface,
+            })),
+            resetCredits: latest.resetCredits.map((credit) => ({
+              providerCreditId: credit.providerCreditId,
+              eligible: credit.eligible,
+              usable: credit.usable,
+              expiresAt: ms(credit.expiresAt),
+              cooldownUntil: ms(credit.cooldownUntil),
+              rawLabel: credit.rawLabel,
+            })),
           }
         : null,
-      latestRun: ctx.snapshots.latestRun(connection.id),
+      latestRun: run
+        ? {
+            startedAt: run.startedAt.getTime(),
+            finishedAt: ms(run.finishedAt),
+            outcome: run.outcome,
+            error: run.sanitizedError,
+          }
+        : null,
     });
   });
 

@@ -89,10 +89,25 @@ describe("providers and attempts", () => {
 
     const detail = await get(`/api/connections/${connectionId}`);
     expect(detail.status).toBe(200);
+    // Mirrors the web client's detail schema: every instant is epoch milliseconds or null.
+    const instant = z.number().nullable();
     const body = z
       .object({
-        snapshot: z.object({ metrics: z.array(z.object({ valueText: z.string().nullable() })) }),
-        capabilities: z.array(z.object({ metricOrAction: z.string() })),
+        connection: z.object({ lastSuccessAt: instant, createdAt: z.number() }),
+        snapshot: z.object({
+          observedAt: z.number(),
+          metrics: z.array(
+            z.object({
+              valueText: z.string().nullable(),
+              windowStart: instant,
+              windowEnd: instant,
+              resetsAt: instant,
+            }),
+          ),
+          resetCredits: z.array(z.object({ expiresAt: instant, cooldownUntil: instant })),
+        }),
+        capabilities: z.array(z.object({ metricOrAction: z.string(), checkedAt: z.number() })),
+        latestRun: z.object({ startedAt: z.number(), finishedAt: instant, outcome: z.string() }),
       })
       .parse(await detail.json());
     expect(body.snapshot.metrics[0]?.valueText).toBe("42.5");
