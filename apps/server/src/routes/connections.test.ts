@@ -107,7 +107,12 @@ describe("providers and attempts", () => {
           resetCredits: z.array(z.object({ expiresAt: instant, cooldownUntil: instant })),
         }),
         capabilities: z.array(z.object({ metricOrAction: z.string(), checkedAt: z.number() })),
-        latestRun: z.object({ startedAt: z.number(), finishedAt: instant, outcome: z.string() }),
+        latestRun: z.object({
+          startedAt: z.number(),
+          finishedAt: instant,
+          outcome: z.string(),
+          sanitizedError: z.string().nullable(),
+        }),
       })
       .parse(await detail.json());
     expect(body.snapshot.metrics[0]?.valueText).toBe("42.5");

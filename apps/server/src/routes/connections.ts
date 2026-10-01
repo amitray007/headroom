@@ -100,7 +100,7 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
             startedAt: run.startedAt.getTime(),
             finishedAt: ms(run.finishedAt),
             outcome: run.outcome,
-            error: run.sanitizedError,
+            sanitizedError: run.sanitizedError,
           }
         : null,
     });
