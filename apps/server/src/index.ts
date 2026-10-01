@@ -2,6 +2,7 @@ import { loadConfig } from "@headroom/core";
 
 import { createApp, version } from "./app.ts";
 import { bootstrap } from "./bootstrap.ts";
+import { Scheduler } from "./scheduler.ts";
 
 if (Bun.argv.includes("--version")) {
   process.stdout.write(`headroom ${version}\n`);
@@ -19,6 +20,32 @@ const ctx = bootstrap({
   },
 });
 ctx.log("info", `headroom ${version} listening on :${config.port}, data in ${config.dataDir}`);
+ctx.log(
+  "info",
+  `enabled providers: ${
+    ctx.registry
+      .list()
+      .map((c) => c.provider)
+      .join(", ") || "none"
+  }`,
+);
+
+const scheduler = new Scheduler({
+  connections: ctx.connections,
+  attempts: ctx.attempts,
+  snapshots: ctx.snapshots,
+  collection: ctx.collection,
+  intervalMs: config.refreshIntervalSeconds * 1000,
+  log: ctx.log,
+});
+scheduler.start();
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    scheduler.stop();
+    ctx.log("info", `received ${signal}, shutting down`);
+    process.exit(0);
+  });
+}
 
 export default {
   port: config.port,

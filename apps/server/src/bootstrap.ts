@@ -3,16 +3,25 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { dirname, join } from "node:path";
 
 import {
+  AttemptStore,
   type Auth,
   baseUrl,
+  CollectionService,
   type Config,
+  ConnectionStore,
+  type Connector,
+  type ConnectorRegistry,
+  ConnectService,
   createAuth,
   CredentialStore,
   crypto,
   type Db,
   LeaseStore,
   openDatabase,
+  SnapshotStore,
 } from "@headroom/core";
+
+import { createRegistry } from "./registry.ts";
 
 /** Everything the routes need, built once at start or once per test. */
 export interface AppContext {
@@ -24,8 +33,15 @@ export interface AppContext {
   readonly auth: Auth;
   readonly credentials: CredentialStore;
   readonly leases: LeaseStore;
+  readonly attempts: AttemptStore;
+  readonly connections: ConnectionStore;
+  readonly snapshots: SnapshotStore;
+  readonly registry: ConnectorRegistry;
+  readonly connect: ConnectService;
+  readonly collection: CollectionService;
   /** Origins allowed for CORS, Better Auth and frame-ancestors. Always includes the base URL. */
   readonly trustedOrigins: readonly string[];
+  readonly now: () => Date;
   readonly log: (level: "debug" | "info" | "warn" | "error", message: string) => void;
 }
 
@@ -39,6 +55,9 @@ export interface BootstrapOptions {
   readonly authSecret?: string;
   /** Tests disable Better Auth rate limiting; production never passes this. */
   readonly rateLimit?: boolean;
+  /** Every connector the build knows about; the config decides which are enabled. */
+  readonly connectors?: readonly Connector[];
+  readonly now?: () => Date;
   readonly log?: AppContext["log"];
 }
 
@@ -64,6 +83,13 @@ export function bootstrap(options: BootstrapOptions): AppContext {
   const { db, sqlite } = openDatabase({ path: databasePath });
   const origin = baseUrl(config);
   const trustedOrigins = [...new Set([origin, ...config.trustedOrigins])];
+  const now = options.now ?? (() => new Date());
+  const credentials = new CredentialStore(db, keyring);
+  const leases = new LeaseStore(db, now);
+  const attempts = new AttemptStore(db, keyring, now);
+  const connections = new ConnectionStore(db, now);
+  const snapshots = new SnapshotStore(db, now);
+  const registry = createRegistry(options.connectors ?? [], config.enabledProviders);
   return {
     config,
     db,
@@ -77,9 +103,23 @@ export function bootstrap(options: BootstrapOptions): AppContext {
       log,
       ...(options.rateLimit === undefined ? {} : { rateLimit: options.rateLimit }),
     }),
-    credentials: new CredentialStore(db, keyring),
-    leases: new LeaseStore(db),
+    credentials,
+    leases,
+    attempts,
+    connections,
+    snapshots,
+    registry,
+    connect: new ConnectService({ registry, attempts, connections, credentials, snapshots, now }),
+    collection: new CollectionService({
+      registry,
+      connections,
+      credentials,
+      snapshots,
+      leases,
+      now,
+    }),
     trustedOrigins,
+    now,
     log,
   };
 }

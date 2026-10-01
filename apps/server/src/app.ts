@@ -11,6 +11,9 @@ import {
 
 import type { AppContext } from "./bootstrap.ts";
 import { type Env, rejectCrossSite, requireSession } from "./middleware/session.ts";
+import { attemptRoutes } from "./routes/attempts.ts";
+import { connectionRoutes } from "./routes/connections.ts";
+import { providerRoutes } from "./routes/providers.ts";
 
 export const version = "0.0.0";
 
@@ -71,6 +74,10 @@ export function createApp(ctx: AppContext): Hono {
     const { user } = c.get("session");
     return c.json({ id: user.id, name: user.name, email: user.email });
   });
+
+  api.route("/providers", providerRoutes(ctx));
+  api.route("/connections", connectionRoutes(ctx));
+  api.route("/attempts", attemptRoutes(ctx));
 
   app.route("/api", api);
   return app;

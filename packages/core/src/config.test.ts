@@ -11,6 +11,9 @@ test("defaults suit local development", () => {
     port: 8080,
     trustedOrigins: [],
     logLevel: "info",
+    enabledProviders: ["codex"],
+    refreshIntervalSeconds: 900,
+    staleAfterSeconds: 43_200,
   });
   expect(baseUrl(config)).toBe("http://localhost:8080");
 });
@@ -37,4 +40,10 @@ test("empty strings fall back to defaults and bad values fail loudly", () => {
   expect(() => loadConfig({ HEADROOM_PUBLIC_URL: "not a url" })).toThrow();
   expect(() => loadConfig({ HEADROOM_PUBLIC_URL: "https://example.com/dashboard" })).toThrow();
   expect(() => loadConfig({ HEADROOM_TRUSTED_ORIGINS: "https://ok.example, nope" })).toThrow();
+  expect(() => loadConfig({ HEADROOM_ENABLED_PROVIDERS: "codex,fireworks" })).toThrow();
+  expect(loadConfig({ HEADROOM_ENABLED_PROVIDERS: " claude , codex" }).enabledProviders).toEqual([
+    "claude",
+    "codex",
+  ]);
+  expect(() => loadConfig({ HEADROOM_REFRESH_INTERVAL_SECONDS: "5" })).toThrow();
 });

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { type Provider, providerSchema } from "./enums.ts";
+
 /**
  * Runtime configuration from the environment. Defaults suit local development only;
  * a deployment sets every path explicitly. See docs/architecture/deployment.md.
@@ -36,6 +38,25 @@ export const configSchema = z.object({
     )
     .pipe(z.array(originSchema)),
   logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  /** Connectors the owner has turned on, comma separated. Private-interface connectors stay off unless listed. */
+  enabledProviders: z
+    .string()
+    .default("codex")
+    .transform((raw) =>
+      raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0),
+    )
+    .pipe(z.array(providerSchema)),
+  /** Seconds between scheduled collections per connection. */
+  refreshIntervalSeconds: z.coerce.number().int().min(60).default(900),
+  /** Seconds after the last success before the card shows a stale notice. */
+  staleAfterSeconds: z.coerce
+    .number()
+    .int()
+    .min(60)
+    .default(12 * 60 * 60),
 });
 
 export type Config = z.infer<typeof configSchema>;
@@ -48,6 +69,9 @@ const envKeys = {
   publicUrl: "HEADROOM_PUBLIC_URL",
   trustedOrigins: "HEADROOM_TRUSTED_ORIGINS",
   logLevel: "HEADROOM_LOG_LEVEL",
+  enabledProviders: "HEADROOM_ENABLED_PROVIDERS",
+  refreshIntervalSeconds: "HEADROOM_REFRESH_INTERVAL_SECONDS",
+  staleAfterSeconds: "HEADROOM_STALE_AFTER_SECONDS",
 } as const satisfies Record<keyof Config, string>;
 
 export function loadConfig(env: Readonly<Record<string, string | undefined>>): Config {
@@ -62,4 +86,8 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
 /** The origin Headroom believes it is served from: the public URL, else localhost on the port. */
 export function baseUrl(config: Config): string {
   return config.publicUrl ?? `http://localhost:${config.port}`;
+}
+
+export function isProviderEnabled(config: Config, provider: Provider): boolean {
+  return config.enabledProviders.includes(provider);
 }

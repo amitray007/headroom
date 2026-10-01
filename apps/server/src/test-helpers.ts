@@ -1,11 +1,11 @@
-import { baseUrl, crypto, loadConfig } from "@headroom/core";
+import { baseUrl, type Connector, crypto, loadConfig } from "@headroom/core";
 
 import { type AppContext, bootstrap } from "./bootstrap.ts";
 
 /** In-memory context with throwaway secrets; never touches the filesystem. */
 export function testContext(
   env: Record<string, string> = {},
-  options: { rateLimit?: boolean } = {},
+  options: { rateLimit?: boolean; connectors?: readonly Connector[]; now?: () => Date } = {},
 ): AppContext {
   return bootstrap({
     config: loadConfig(env),
@@ -13,6 +13,8 @@ export function testContext(
     keyring: crypto.createKeyring({ 1: crypto.parseKeyHex(crypto.generateKeyHex()) }),
     authSecret: crypto.generateKeyHex(),
     rateLimit: options.rateLimit ?? false,
+    connectors: options.connectors ?? [],
+    ...(options.now ? { now: options.now } : {}),
   });
 }
 
@@ -47,4 +49,13 @@ export function jsonPost(
     headers: { "content-type": "application/json", origin: baseUrl(ctx.config), ...headers },
     body: JSON.stringify(body),
   };
+}
+
+/** Sign the owner up and return a Cookie header for authenticated requests. */
+export async function signedIn(
+  ctx: AppContext,
+  app: { request: (input: string, init?: RequestInit) => Response | Promise<Response> },
+): Promise<string> {
+  const response = await app.request(url(ctx, "/api/auth/sign-up/email"), jsonPost(ctx, owner));
+  return cookiesFrom(response);
 }
