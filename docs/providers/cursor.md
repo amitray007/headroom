@@ -31,8 +31,8 @@ The official `agent login` CLI is the fallback for members.
 | REST fallbacks for Enterprise and team accounts: `GET https://cursor.com/api/usage` and `GET https://cursor.com/api/usage-summary`; a Stripe balance route `cursor.com/api/auth/stripe`; a usage-events CSV export at `cursor.com/api/dashboard/export-usage-events-csv` | source-inspected | [S8] |
 | The REST fallback combines the included request allowance with structured percentages and user-scoped on-demand spend; neither REST response alone is the whole snapshot | source-inspected | [S8] |
 | `@rahularya01/pi-cursor` `src/index.ts` re-exports its auth and usage modules, and they run without the pi runtime | unvalidated | Default export takes the pi `ExtensionAPI`; verify the modules, otherwise port them |
-| Which member endpoint to adopt, and whether pool names match across them | unvalidated | Pin one primary, keep the REST fallback |
-| The member token from the polling flow is accepted by either usage endpoint | unvalidated | Needs a live check |
+| Which member endpoint to adopt | validated | `DashboardService/GetCurrentPeriodUsage` answered 200 on 2026-10-01 with `planUsage.{totalSpend, includedSpend, bonusSpend, limit, autoPercentUsed, apiPercentUsed, totalPercentUsed}`, `spendLimitUsage.{pooledUsed, limitType}` and `billingCycleStart`/`End` as epoch-millisecond strings; the REST fallback stays unneeded |
+| The member token from the polling flow is accepted by the dashboard endpoint | validated | Headroom's approval-poll login and first collection completed on 2026-10-01 |
 | A prior dashboard response had included and on-demand figures | prior observation | Sanitized earlier research; not a current test |
 
 ## Metrics

@@ -4,6 +4,7 @@ import { resetCreditsUrl, tokenUrl, usageUrl } from "./endpoints.ts";
 import resetCreditsFixture from "./fixtures/reset-credits.json";
 import usagePartial from "./fixtures/usage-partial.json";
 import usageFixture from "./fixtures/usage.json";
+import usageLiveShape from "./fixtures/usage-live-shape.json";
 import { createCodexConnector, credentialFromAuthFile, parseDeviceStep } from "./index.ts";
 import {
   accessToken,
@@ -222,6 +223,26 @@ describe("identity and collection", () => {
         rawLabel: "cooldown",
       },
     ]);
+  });
+
+  test("the live response shape of 2026-10-01 parses: null secondary window and null additional limits", async () => {
+    const http = fakeFetch({
+      [usageUrl]: () => json(usageLiveShape),
+      [resetCreditsUrl]: () => json({ detail: "not found" }, 404),
+    });
+    const connector = createCodexConnector({ runner: new FakeRunner(), fetch: http.fetch });
+    const result = await connector.collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["rate_limit.primary_window"]).toMatchObject({
+      valueText: "16",
+      scope: "window:604800s",
+      resetsAt: 1791441507000,
+      availability: "available",
+    });
+    expect(Object.keys(byKey)).not.toContain("rate_limit.secondary_window");
+    expect(byKey["credits.balance"]).toMatchObject({ valueText: "1234.5678", unlimited: false });
+    expect(byKey["reset_credits.available_count"]).toMatchObject({ valueText: "3" });
+    expect(result.failures).toHaveLength(1);
   });
 
   test("missing percentages are unknown, not zero; a failing reset-credits route is a capability failure", async () => {

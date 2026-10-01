@@ -1,0 +1,72 @@
+{
+  "id": 1,
+  "login": "owner-synthetic",
+  "access_type_sku": "synthetic_sku",
+  "analytics_tracking_id": "synthetic",
+  "assigned_date": "2026-01-01T00:00:00Z",
+  "can_signup_for_limited": false,
+  "chat_enabled": true,
+  "cli_enabled": true,
+  "copilot_plan": "individual",
+  "enterprise_list": [],
+  "organization_login_list": [],
+  "organization_list": [],
+  "endpoints": {
+    "api": "https://api.example.invalid",
+    "proxy": "https://proxy.example.invalid"
+  },
+  "can_upgrade_plan": true,
+  "quota_reset_date": "2026-11-01",
+  "quota_snapshots": {
+    "chat": {
+      "overage_count": 0,
+      "overage_permitted": false,
+      "percent_remaining": 100,
+      "quota_id": "chat",
+      "quota_remaining": 0,
+      "unlimited": true,
+      "timestamp_utc": "2026-10-01T18:23:32Z",
+      "has_quota": true,
+      "quota_reset_at": 0,
+      "token_based_billing": true,
+      "credits_used": 0,
+      "overage_entitlement": 0,
+      "remaining": 0,
+      "entitlement": 0
+    },
+    "completions": {
+      "overage_count": 0,
+      "overage_permitted": false,
+      "percent_remaining": 100,
+      "quota_id": "completions",
+      "quota_remaining": 0,
+      "unlimited": true,
+      "timestamp_utc": "2026-10-01T18:23:32Z",
+      "has_quota": true,
+      "quota_reset_at": 0,
+      "token_based_billing": true,
+      "credits_used": 0,
+      "overage_entitlement": 0,
+      "remaining": 0,
+      "entitlement": 0
+    },
+    "premium_interactions": {
+      "overage_count": 0,
+      "overage_permitted": false,
+      "percent_remaining": 99.6,
+      "quota_id": "premium_interactions",
+      "quota_remaining": 199.2,
+      "unlimited": false,
+      "timestamp_utc": "2026-10-01T18:23:32Z",
+      "has_quota": true,
+      "quota_reset_at": 0,
+      "token_based_billing": true,
+      "credits_used": 0,
+      "overage_entitlement": 0,
+      "remaining": 199,
+      "entitlement": 200
+    }
+  },
+  "quota_reset_date_utc": "2026-11-01T00:00:00Z",
+  "token_based_billing": true
+}

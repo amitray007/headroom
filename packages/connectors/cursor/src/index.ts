@@ -151,11 +151,12 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
         interface: "private" as const,
         evidenceLevel: "source_inspected" as const,
       };
+      const validated = { interface: "private" as const, evidenceLevel: "validated" as const };
       return Promise.resolve([
-        { metricOrAction: "included.total_percent", availability: "available", ...sourceInspected },
-        { metricOrAction: "included.auto_percent", availability: "available", ...sourceInspected },
-        { metricOrAction: "included.api_percent", availability: "available", ...sourceInspected },
-        { metricOrAction: "on_demand", availability: "available", ...sourceInspected },
+        { metricOrAction: "included.total_percent", availability: "available", ...validated },
+        { metricOrAction: "included.auto_percent", availability: "available", ...validated },
+        { metricOrAction: "included.api_percent", availability: "available", ...validated },
+        { metricOrAction: "on_demand", availability: "available", ...validated },
         {
           metricOrAction: "team_admin",
           availability: "unsupported",
@@ -240,15 +241,25 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
   };
 }
 
+/** Cycle bounds arrive as epoch-millisecond strings (observed 2026-10-01); ISO dates are accepted too. */
+function cycleDate(value: string | undefined): number | null {
+  if (value !== undefined && /^\d{10,13}$/.test(value)) {
+    const n = Number(value);
+    return value.length === 10 ? n * 1000 : n;
+  }
+  return parseDate(value);
+}
+
 function metricsFrom(usage: PeriodUsage): MetricObservation[] {
-  const windowStart = parseDate(usage.billingCycleStart);
-  const windowEnd = parseDate(usage.billingCycleEnd);
+  const windowStart = cycleDate(usage.billingCycleStart);
+  const windowEnd = cycleDate(usage.billingCycleEnd);
   const plan = usage.planUsage;
   const percent = (key: string, value: number | null | undefined): MetricObservation => ({
     providerMetricKey: key,
     kind: "quota_percentage",
     scope: "billing_cycle",
-    valueText: value === null || value === undefined ? null : String(value),
+    // The dashboard sends float noise such as 6.4750000000000005; two decimals is what Cursor shows.
+    valueText: value === null || value === undefined ? null : String(Math.round(value * 100) / 100),
     unit: "percent",
     unlimited: usage.isUnlimited ?? false,
     windowStart,

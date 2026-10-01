@@ -4,6 +4,7 @@ import type { CliLoginStatus, LoginRunner } from "@headroom/core";
 
 import { billingUrl, settingsUrl, tokenUrl } from "./endpoints.ts";
 import billingZero from "./fixtures/billing-zero.json";
+import billingLiveShape from "./fixtures/billing-live-shape.json";
 import billingFixture from "./fixtures/billing.json";
 import { createGrokConnector, credentialFromAuthFile, parseDeviceStep } from "./index.ts";
 
@@ -149,6 +150,28 @@ describe("Grok connector", () => {
       label: "owner@example.com (SuperGrok)",
       assurance: "strong",
     });
+  });
+
+  test("the live billing shape of 2026-10-01 adds on-demand spend, prepaid balance and per-product percentages", async () => {
+    const connector = createGrokConnector({
+      runner: new FakeRunner(),
+      fetch: fakeFetch({ [billingUrl]: () => json(billingLiveShape) }).fetch,
+    });
+    const result = await connector.collect(credentialFromAuthFile(authFile), identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["weekly_pool.used_percent"]).toMatchObject({
+      valueText: "1",
+      resetsAt: Date.parse("2026-10-02T05:53:50Z"),
+    });
+    expect(byKey["on_demand.used"]).toMatchObject({
+      valueText: "0",
+      kind: "spend",
+      unit: "grok_credits",
+    });
+    expect(byKey["prepaid_balance"]).toMatchObject({ valueText: "0", kind: "credits" });
+    expect(byKey["product.grok_code.used_percent"]).toMatchObject({ valueText: "1" });
+    expect(byKey["product.grok_chat.used_percent"]).toMatchObject({ valueText: "0" });
+    expect(result.metrics.every((m) => m.availability === "available")).toBe(true);
   });
 
   test("collect maps the weekly pool and cap; an absent percent is a genuine zero", async () => {

@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 
 import { pollUrl, refreshUrl, usageUrl } from "./endpoints.ts";
+import periodUsageLiveShape from "./fixtures/period-usage-live-shape.json";
 import periodUsage from "./fixtures/period-usage.json";
 import { buildLoginUrl, createCursorConnector, pkce } from "./index.ts";
 
@@ -117,6 +118,24 @@ describe("Cursor connector", () => {
       scope: "on_demand:user",
     });
     expect(byKey["on_demand.limit"]).toMatchObject({ valueText: "50.00" });
+  });
+
+  test("the live dashboard shape of 2026-10-01 parses: epoch-string cycle bounds, rounded percentages", async () => {
+    const connector = createCursorConnector({
+      fetch: fakeFetch({ [usageUrl]: () => json(periodUsageLiveShape) }).fetch,
+    });
+    const result = await connector.collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["included.api_percent"]).toMatchObject({
+      valueText: "6.48",
+      windowStart: 1790870400000,
+      windowEnd: 1793462400000,
+      resetsAt: 1793462400000,
+    });
+    expect(byKey["included.total_percent"]).toMatchObject({ valueText: "17" });
+    expect(byKey["included.limit"]).toMatchObject({ valueText: "20.00" });
+    expect(byKey["on_demand.used"]).toMatchObject({ valueText: "0.00", scope: "on_demand:user" });
+    expect(result.metrics.every((m) => m.availability === "available")).toBe(true);
   });
 
   test("missing percentages are unknown; 401 is definitive", async () => {

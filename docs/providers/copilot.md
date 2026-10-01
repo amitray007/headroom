@@ -33,8 +33,8 @@ Treat account quota, session metrics, organization billing, and analytics as sep
 | Org-managed Business or Enterprise seats return no per-seat percent; `premium_interactions` may carry `credits_used` with `entitlement` 0 | source-inspected | [S5] |
 | Any GitHub OAuth token works, including the `gh auth login` token | source-inspected | [S5] |
 | `GET /orgs/{org}/settings/billing/usage/summary` reports Copilot AI-credit usage for org owners and billing managers | documented | [S4] |
-| The public client id of the `gh` CLI or Copilot CLI works for a third-party device flow | unvalidated | Read the id from source at implementation |
-| A token from that flow is accepted by `copilot_internal/user` with the pinned headers | unvalidated | Needs a live check |
+| The public client id of the `gh` CLI works for a third-party device flow with `read:user` | validated | Headroom's device flow completed on 2026-10-01 with Amit's account |
+| A token from that flow is accepted by `copilot_internal/user` with the pinned headers | validated | 200 on 2026-10-01 with `copilot_plan`, `quota_reset_date`, `token_based_billing` and `quota_snapshots.{chat, completions, premium_interactions}` each carrying `entitlement`, `remaining`, `percent_remaining`, `unlimited`, `overage_count`, `credits_used`; the synthetic fixture `usage-live-shape.json` mirrors it |
 | A prior account returned an entitlement, used interactions, and percentage remaining | prior observation | Sanitized earlier research; not a current test |
 
 ## Metrics

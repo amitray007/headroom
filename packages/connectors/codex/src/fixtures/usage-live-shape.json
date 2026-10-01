@@ -1,0 +1,54 @@
+{
+  "user_id": "user-synthetic",
+  "account_id": "acct-synthetic",
+  "email": "owner@example.com",
+  "plan_type": "pro",
+  "rate_limit": {
+    "allowed": true,
+    "limit_reached": false,
+    "primary_window": {
+      "used_percent": 16,
+      "limit_window_seconds": 604800,
+      "reset_after_seconds": 562424,
+      "reset_at": 1791441507
+    },
+    "secondary_window": null
+  },
+  "code_review_rate_limit": null,
+  "additional_rate_limits": null,
+  "model_usage": {
+    "gpt-synthetic": {
+      "available": true,
+      "available_at": null,
+      "credits_would_enable": false
+    }
+  },
+  "chatpass": {
+    "windows": [
+      {
+        "used_percent": 0,
+        "limit_window_seconds": 604800,
+        "reset_after_seconds": 604800,
+        "reset_at": 1791483883
+      }
+    ]
+  },
+  "credits": {
+    "has_credits": true,
+    "unlimited": false,
+    "overage_limit_reached": false,
+    "balance": "1234.5678",
+    "approx_local_messages": [15000, 7000, 3000],
+    "approx_cloud_messages": [2400, 1200, 600]
+  },
+  "spend_control": {
+    "reached": false,
+    "individual_limit": null
+  },
+  "rate_limit_reset_credits_type": null,
+  "promo": null,
+  "rate_limit_reset_credits": {
+    "available_count": 3,
+    "applicable_available_count": 0
+  }
+}

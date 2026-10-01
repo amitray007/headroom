@@ -232,24 +232,27 @@ export function createCodexConnector(options: CodexConnectorOptions): Connector 
         interface: "private" as const,
         evidenceLevel: "source_inspected" as const,
       };
+      const validated = { interface: "private" as const, evidenceLevel: "validated" as const };
       return Promise.resolve([
-        {
-          metricOrAction: "rate_limit.primary_window",
-          availability: "available",
-          ...sourceInspected,
-        },
+        { metricOrAction: "rate_limit.primary_window", availability: "available", ...validated },
         {
           metricOrAction: "rate_limit.secondary_window",
           availability: "available",
           ...sourceInspected,
+          reason: "null on the validated Pro account, which has one window",
         },
-        { metricOrAction: "additional_rate_limits", availability: "available", ...sourceInspected },
-        { metricOrAction: "credits", availability: "available", ...sourceInspected },
+        {
+          metricOrAction: "additional_rate_limits",
+          availability: "available",
+          ...sourceInspected,
+          reason: "null on the validated account; present only with model-specific limits",
+        },
+        { metricOrAction: "credits", availability: "available", ...validated },
         {
           metricOrAction: "reset_credits",
-          availability: "unknown",
-          ...sourceInspected,
-          reason: "read route unvalidated",
+          availability: "available",
+          ...validated,
+          reason: "count read from the usage body; the detail route is best effort",
         },
         {
           metricOrAction: "reset_credits.consume",

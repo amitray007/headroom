@@ -50,6 +50,12 @@ export const billingResponseSchema = z.object({
       creditUsagePercent: z.number().optional(),
       currentPeriod: z.object({ type: z.string(), start: z.string(), end: z.string() }).loose(),
       onDemandCap: z.object({ val: z.number().optional() }).loose().optional(),
+      /** Observed 2026-10-01: on-demand spend, prepaid balance and per-product percentages. */
+      onDemandUsed: z.object({ val: z.number().optional() }).loose().optional(),
+      prepaidBalance: z.object({ val: z.number().optional() }).loose().optional(),
+      productUsage: z
+        .array(z.object({ product: z.string(), usagePercent: z.number().optional() }).loose())
+        .optional(),
       isUnifiedBillingUser: z.boolean().optional(),
     })
     .loose(),

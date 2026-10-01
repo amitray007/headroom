@@ -1,0 +1,25 @@
+{
+  "billingCycleStart": "1790870400000",
+  "billingCycleEnd": "1793462400000",
+  "planUsage": {
+    "totalSpend": 4249,
+    "includedSpend": 2000,
+    "bonusSpend": 2249,
+    "limit": 2000,
+    "remainingBonus": false,
+    "bonusTooltip": "Synthetic tooltip.",
+    "autoPercentUsed": 19,
+    "apiPercentUsed": 6.4750000000000005,
+    "totalPercentUsed": 16.996
+  },
+  "spendLimitUsage": {
+    "pooledUsed": 0,
+    "limitType": "user"
+  },
+  "displayThreshold": 200,
+  "enabled": true,
+  "displayMessage": "Synthetic message.",
+  "autoModelSelectedDisplayMessage": "Synthetic.",
+  "namedModelSelectedDisplayMessage": "Synthetic.",
+  "autoBucketModels": ["model-a", "model-b"]
+}

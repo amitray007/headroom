@@ -237,11 +237,12 @@ export function createCopilotConnector(options: CopilotConnectorOptions = {}): C
         interface: "private" as const,
         evidenceLevel: "source_inspected" as const,
       };
+      const validated = { interface: "private" as const, evidenceLevel: "validated" as const };
       return Promise.resolve([
-        { metricOrAction: "credits", availability: "available", ...sourceInspected },
-        { metricOrAction: "extra_usage", availability: "available", ...sourceInspected },
-        { metricOrAction: "chat", availability: "available", ...sourceInspected },
-        { metricOrAction: "completions", availability: "available", ...sourceInspected },
+        { metricOrAction: "credits", availability: "available", ...validated },
+        { metricOrAction: "extra_usage", availability: "available", ...validated },
+        { metricOrAction: "chat", availability: "available", ...validated },
+        { metricOrAction: "completions", availability: "available", ...validated },
         {
           metricOrAction: "organization_billing",
           availability: "unsupported",

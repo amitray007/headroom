@@ -26,7 +26,7 @@ Use the same design for Go, Plus, Pro, Business, Enterprise and future ChatGPT p
 | Identity (email, account id, plan) comes from the id-token JWT claims | source-inspected | CLIProxyAPI `internal/auth/codex/jwt_parser.go` [S4] |
 | `GET https://chatgpt.com/backend-api/wham/usage` returns quota, credits and plan | source-inspected | CLIProxyAPI `internal/runtime/executor/helps/codex_quota.go` [S4]; ai-usagebar [S5] |
 | Usage fields: `plan_type`, `rate_limits` (primary and secondary windows), `additional_rate_limits`, `code_review_rate_limits`, `credits`, `metered_limit_name` | source-inspected | CLIProxyAPI `codex_quota.go` [S4] |
-| A reset-credit inventory read route exists under `wham/rate-limit-reset-credits` | unvalidated | ai-usagebar [S5] |
+| A reset-credit inventory read route exists under `wham/rate-limit-reset-credits` | validated | Observed by this project on 2026-10-01 with a Headroom CLI-login credential: 200 with `credits[]` carrying a status and expiry per credit; the count matched `rate_limit_reset_credits.available_count` in the usage body |
 | A direct HTTP route to consume a reset credit | unvalidated | Only the app-server method is documented [S1] |
 | App-server exposes rate limits, reset-credit inventory, redemption and token history | documented | [S1] |
 | Using the ChatGPT OAuth client outside OpenAI's apps is permitted for hosted services | documented (contradicted) | [S1] says it is not permitted |

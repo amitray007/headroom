@@ -58,10 +58,11 @@ const windowSchema = z
   })
   .loose();
 
+/** Windows are null when the plan has only one; observed 2026-10-01 on a Pro account. */
 const rateLimitSchema = z
   .object({
-    primary_window: windowSchema.optional(),
-    secondary_window: windowSchema.optional(),
+    primary_window: windowSchema.nullable().optional(),
+    secondary_window: windowSchema.nullable().optional(),
   })
   .loose();
 
@@ -69,17 +70,19 @@ const rateLimitSchema = z
 export const usageResponseSchema = z
   .object({
     plan_type: z.string().optional(),
-    rate_limit: rateLimitSchema.optional(),
+    rate_limit: rateLimitSchema.nullable().optional(),
+    /** Null, not an empty array, when no model-specific limit applies (observed 2026-10-01). */
     additional_rate_limits: z
       .array(
         z
           .object({
             limit_name: z.string().optional(),
             metered_feature: z.string().optional(),
-            rate_limit: rateLimitSchema.optional(),
+            rate_limit: rateLimitSchema.nullable().optional(),
           })
           .loose(),
       )
+      .nullable()
       .optional(),
     credits: z
       .object({

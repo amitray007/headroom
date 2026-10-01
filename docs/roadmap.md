@@ -8,7 +8,7 @@ Status: complete. Product scope, architecture, seven provider dossiers, research
 
 ## M1: Core service and Codex
 
-Status: implemented against synthetic fixtures on 2026-10-01; live validation with Amit's account is the remaining step. Better Auth replaced the password-only owner sign-in (D22).
+Status: implemented on 2026-10-01 and validated live the same day with Amit's account: CLI device login, usage, credits and reset-credit inventory collected. Better Auth replaced the password-only owner sign-in (D22). The Linux headless proof and the forced `invalid_grant` test remain.
 
 Deliverables:
 
@@ -37,7 +37,7 @@ Completion criteria:
 
 ## M2: API-key providers
 
-Status: Vercel and Grok implemented against fixtures on 2026-10-01; live validation pending. The Grok management-API balance connection is not started.
+Status: Vercel and Grok implemented and validated live on 2026-10-01. Vercel stays `partial` on a Hobby team because the spend report is Pro-only. The Grok management-API balance connection is deferred; the CLI billing body already carries the prepaid balance.
 
 - Vercel AI Gateway: key validation, team scope, `getCredits()` and `getSpendReport()` through the pinned `@ai-sdk/gateway` package, spend report where the plan allows it.
 - Grok: `grok login --device-auth` through the CLI runner, credential import, refresh at `auth.x.ai`, weekly shared pool and pay-as-you-go cap from `cli-chat-proxy.grok.com/v1/billing`, plan from `/v1/settings`. Team or business logins answer 412 and become `partial`. Management API prepaid balance as a separate `api_key` connection.
@@ -46,7 +46,7 @@ Completion: each connector passes the shared checks in [validation](validation.m
 
 ## M3: OAuth family
 
-Status: Claude and Antigravity implemented against fixtures on 2026-10-01; Claude is off by default. Live validation pending for both.
+Status: Claude and Antigravity implemented and validated live on 2026-10-01; Claude is off by default. Both first collections exposed shape differences that are now fixed and recorded in the dossiers.
 
 - Claude: `claude` login through the CLI runner with its URL and pasted code, credential import of `.credentials.json`, token refresh, collection from `api/oauth/usage` with five-hour, seven-day, model-scoped buckets and reset grants. A `setup-token` cannot read limits, so only a real login counts. Off by default; the owner enables it knowingly. Direct PKCE client as fallback.
 - Antigravity: direct Google OAuth with the client constants CLIProxyAPI uses, pasted redirect, project id lookup, collection from `retrieveUserQuotaSummary` with the legacy per-model endpoints as fallback. Credits stay `unknown` until a source exists.
@@ -55,7 +55,7 @@ Completion: each connector proves remote approval, refresh, revocation handling 
 
 ## M4: Copilot and Cursor
 
-Status: Copilot and the Cursor member connector implemented against fixtures on 2026-10-01. Cursor team admin and Copilot organization billing remain.
+Status: Copilot and the Cursor member connector implemented and validated live on 2026-10-01. Cursor team admin and Copilot organization billing remain.
 
 - Copilot: GitHub device flow with a public CLI client id, collection from `copilot_internal/user` with the headers OpenUsage documents: AI-credits percent, extra usage, chat and completions, plan and reset. Org-managed seats return no per-seat percent; owners and billing managers get org totals from the official billing REST API as a separate `organization` capability.
 - Cursor member: pi-cursor sign-in and refresh if its auth module runs without the pi runtime, otherwise a port of it; collection from the dashboard RPC with the `cursor.com/api/usage` and `usage-summary` REST fallbacks, both pools and the billing cycle.

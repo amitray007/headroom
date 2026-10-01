@@ -260,17 +260,23 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
         interface: "private" as const,
         evidenceLevel: "source_inspected" as const,
       };
+      const validated = { interface: "private" as const, evidenceLevel: "validated" as const };
       return Promise.resolve([
-        { metricOrAction: "five_hour", availability: "available", ...sourceInspected },
-        { metricOrAction: "seven_day", availability: "available", ...sourceInspected },
-        { metricOrAction: "limits.weekly_scoped", availability: "available", ...sourceInspected },
+        { metricOrAction: "five_hour", availability: "available", ...validated },
+        { metricOrAction: "seven_day", availability: "available", ...validated },
+        { metricOrAction: "limits.weekly_scoped", availability: "available", ...validated },
         {
           metricOrAction: "extra_usage",
           availability: "available",
           ...sourceInspected,
           reason: "collected while extra usage is switched on for the account",
         },
-        { metricOrAction: "reset_grants", availability: "available", ...sourceInspected },
+        {
+          metricOrAction: "reset_grants",
+          availability: "available",
+          ...validated,
+          reason: "count validated; the grant element shape is source-inspected",
+        },
         {
           metricOrAction: "reset_grants.redeem",
           availability: "unsupported",

@@ -24,7 +24,7 @@ API billing is a separate connection with the next step `api_key`, not part of t
 | CLI supports an API-key fallback for xAI API use | documented | API Key section [S1] |
 | CLI cached credentials auto-refresh in documented cases | documented | Refresh section [S1] |
 | The CLI writes `~/.grok/auth.json`, which OpenUsage reads | source-inspected | OpenUsage Grok provider doc [S3] |
-| The variable that relocates the auth file is `GROK_HOME` | unvalidated | OpenUsage references `GROK_HOME` for sessions only [S3] |
+| The variable that relocates the auth file is `GROK_HOME` | validated | Headless `grok login --device-auth` (CLI 1.0.46) wrote `auth.json` under `$GROK_HOME` on 2026-10-01, and Headroom's login completed through it the same day |
 | `GET https://cli-chat-proxy.grok.com/v1/billing?format=credits` returns the weekly shared pool usage percent with reset and the pay-as-you-go cap | source-inspected | OpenUsage doc and `GrokUsageClient.swift` [S3] |
 | `GET https://cli-chat-proxy.grok.com/v1/settings` returns the plan tier | source-inspected | OpenUsage `GrokUsageClient.swift` [S3] |
 | Both routes need `Authorization: Bearer <access token>` and `X-XAI-Token-Auth: xai-grok-cli` | source-inspected | OpenUsage `GrokUsageClient.swift` [S3] |
@@ -34,9 +34,9 @@ API billing is a separate connection with the next step `api_key`, not part of t
 | Legacy monthly credits meter exists for older accounts | source-inspected | OpenUsage marks it legacy [S3] |
 | Direct device flow (`StartDeviceFlow`, `WaitForAuthorization`) | source-inspected | CLIProxyAPI `sdk/auth/xai.go`, `internal/auth/xai` [S4] |
 | SuperGrok collector with `GetRemainingResets` parsing | source-inspected | ai-usagebar [S2]; secondary reference, private contract |
-| `GET https://management-api.x.ai/v1/billing/teams/{team}/prepaid/balance` returns the prepaid balance with a management API key | unvalidated | Official management API, documented by reference in ai-usagebar [S2]; not tested for Headroom |
+| `GET https://management-api.x.ai/v1/billing/teams/{team}/prepaid/balance` returns the prepaid balance with a management API key | unvalidated | Official management API, documented by reference. Less needed now: the CLI billing body itself carries `prepaidBalance.val` (validated 2026-10-01) |
 | Headless `grok login --device-auth` on Linux writes `auth.json` without a keyring | unvalidated | Needs the Linux proof in the checklist |
-| Billing routes work for every Grok plan | unvalidated | Live validation required |
+| Billing routes work for every Grok plan | validated for one plan | `GET /v1/billing?format=credits` answered 200 on 2026-10-01 for Amit's individual plan with `config.currentPeriod` (weekly), `creditUsagePercent`, `onDemandCap.val`, `onDemandUsed.val`, `prepaidBalance.val`, `productUsage[].{product, usagePercent}` and `isUnifiedBillingUser`; `/v1/settings` returned `subscription_tier_display`. Team logins (412) remain unobserved |
 
 Earlier research reviewed community collectors and a prior account observation. That is not a fresh account check. No quota percentage, plan name, account id or credential is present here.
 

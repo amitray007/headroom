@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { accessTokenUrl, deviceCodeUrl, usageUrl, userUrl } from "./endpoints.ts";
 import orgSeat from "./fixtures/usage-org-seat.json";
+import liveShape from "./fixtures/usage-live-shape.json";
 import paid from "./fixtures/usage-paid.json";
 import { createCopilotConnector, credentialFromAppsFile } from "./index.ts";
 
@@ -162,6 +163,24 @@ describe("Copilot connector", () => {
     expect(byKey["extra_usage.count"]).toMatchObject({ availability: "unsupported" });
     expect(byKey["chat.used"]).toMatchObject({ valueText: "15", unlimited: false });
     expect(byKey["completions.used"]).toMatchObject({ valueText: "500" });
+  });
+
+  test("the live individual-plan shape of 2026-10-01 parses and maps to five metrics", async () => {
+    const connector = createCopilotConnector({
+      fetch: fakeFetch({ [usageUrl]: () => json(liveShape) }).fetch,
+    });
+    const result = await connector.collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["credits.used_percent"]).toMatchObject({
+      valueText: "0.4",
+      availability: "available",
+    });
+    expect(byKey["credits.used_count"]).toMatchObject({ valueText: "0" });
+    expect(byKey["extra_usage.count"]).toMatchObject({ valueText: "0" });
+    expect(byKey["chat.used"]).toMatchObject({ unlimited: true });
+    expect(byKey["completions.used"]).toMatchObject({ unlimited: true });
+    expect(result.metrics).toHaveLength(5);
+    expect(result.metrics.every((m) => m.resetsAt === Date.parse("2026-11-01"))).toBe(true);
   });
 
   test("401 is definitive, secondary rate limit 403 is transient, token is not refreshable", async () => {

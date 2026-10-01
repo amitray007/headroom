@@ -229,10 +229,14 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
         interface: "private" as const,
         evidenceLevel: "source_inspected" as const,
       };
+      const validated = { interface: "private" as const, evidenceLevel: "validated" as const };
       return Promise.resolve([
-        { metricOrAction: "weekly_pool", availability: "available", ...sourceInspected },
-        { metricOrAction: "on_demand_cap", availability: "available", ...sourceInspected },
-        { metricOrAction: "plan", availability: "available", ...sourceInspected },
+        { metricOrAction: "weekly_pool", availability: "available", ...validated },
+        { metricOrAction: "product_usage", availability: "available", ...validated },
+        { metricOrAction: "on_demand_cap", availability: "available", ...validated },
+        { metricOrAction: "on_demand_used", availability: "available", ...validated },
+        { metricOrAction: "prepaid_balance", availability: "available", ...validated },
+        { metricOrAction: "plan", availability: "available", ...validated },
         {
           metricOrAction: "reset_credits",
           availability: "unsupported",
@@ -281,6 +285,47 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
           interface: "private",
         },
       ];
+      // Observed 2026-10-01: the billing body also carries on-demand spend, the prepaid balance and
+      // per-product percentages of the same weekly pool. Absent fields stay unknown, never zero.
+      if (config.onDemandUsed !== undefined)
+        metrics.push({
+          providerMetricKey: "on_demand.used",
+          kind: "spend",
+          scope: "window:weekly",
+          valueText: config.onDemandUsed.val === undefined ? null : String(config.onDemandUsed.val),
+          unit: "grok_credits",
+          windowStart: start,
+          windowEnd: end,
+          availability: config.onDemandUsed.val === undefined ? "unknown" : "available",
+          interface: "private",
+        });
+      if (config.prepaidBalance !== undefined)
+        metrics.push({
+          providerMetricKey: "prepaid_balance",
+          kind: "credits",
+          scope: "account",
+          valueText:
+            config.prepaidBalance.val === undefined ? null : String(config.prepaidBalance.val),
+          unit: "grok_credits",
+          availability: config.prepaidBalance.val === undefined ? "unknown" : "available",
+          interface: "private",
+        });
+      for (const product of config.productUsage ?? []) {
+        const key = product.product.replace(/[^A-Za-z0-9_-]+/g, "_");
+        if (key === "") continue;
+        metrics.push({
+          providerMetricKey: `product.${key}.used_percent`,
+          kind: "quota_percentage",
+          scope: "window:weekly",
+          valueText: product.usagePercent === undefined ? null : String(product.usagePercent),
+          unit: "percent",
+          windowStart: start,
+          windowEnd: end,
+          resetsAt: end,
+          availability: product.usagePercent === undefined ? "unknown" : "available",
+          interface: "private",
+        });
+      }
       return { observedAt, metrics, failures: [] };
     },
 

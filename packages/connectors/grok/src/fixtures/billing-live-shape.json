@@ -1,0 +1,33 @@
+{
+  "config": {
+    "currentPeriod": {
+      "type": "USAGE_PERIOD_TYPE_WEEKLY",
+      "start": "2026-09-25T05:53:50Z",
+      "end": "2026-10-02T05:53:50Z"
+    },
+    "creditUsagePercent": 1,
+    "onDemandCap": {
+      "val": 0
+    },
+    "onDemandUsed": {
+      "val": 0
+    },
+    "productUsage": [
+      {
+        "product": "grok_code",
+        "usagePercent": 1
+      },
+      {
+        "product": "grok_chat",
+        "usagePercent": 0
+      }
+    ],
+    "isUnifiedBillingUser": true,
+    "prepaidBalance": {
+      "val": 0
+    },
+    "topUpMethod": "TOP_UP_METHOD_SYNTHETIC",
+    "billingPeriodStart": "2026-09-25T05:53:50Z",
+    "billingPeriodEnd": "2026-10-02T05:53:50Z"
+  }
+}
