@@ -145,26 +145,29 @@ describe("origins", () => {
   });
 });
 
+/** Run `count` requests one after another; rate limiting depends on order, so no Promise.all. */
+async function sequentialStatuses(
+  count: number,
+  request: () => Promise<Response> | Response,
+): Promise<number[]> {
+  if (count === 0) return [];
+  const response = await request();
+  const rest = await sequentialStatuses(count - 1, request);
+  return [response.status, ...rest];
+}
+
 describe("rate limiting", () => {
   test("repeated failed sign-ins from one address are throttled", async () => {
     const ctx = testContext({}, { rateLimit: true });
     const app = createApp(ctx);
-    await app.request(
-      url(ctx, "/api/auth/sign-up/email"),
-      jsonPost(ctx, owner, { "x-forwarded-for": "203.0.113.7" }),
-    );
-    const statuses: number[] = [];
-    for (let i = 0; i < 7; i += 1) {
-      const response = await app.request(
+    const from = { "x-forwarded-for": "203.0.113.7" };
+    await app.request(url(ctx, "/api/auth/sign-up/email"), jsonPost(ctx, owner, from));
+    const statuses = await sequentialStatuses(7, () =>
+      app.request(
         url(ctx, "/api/auth/sign-in/username"),
-        jsonPost(
-          ctx,
-          { username: owner.username, password: "wrong password here" },
-          { "x-forwarded-for": "203.0.113.7" },
-        ),
-      );
-      statuses.push(response.status);
-    }
+        jsonPost(ctx, { username: owner.username, password: "wrong password here" }, from),
+      ),
+    );
     expect(statuses.slice(0, 5)).toEqual([401, 401, 401, 401, 401]);
     expect(statuses.slice(5)).toEqual([429, 429]);
   });
