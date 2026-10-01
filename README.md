@@ -32,9 +32,12 @@ mise run install      # bun install --frozen-lockfile
 mise run check        # docs, format, lint, typecheck, knip, test
 mise run build        # dist/headroom single binary
 mise run dev          # server with reload
+mise run start        # build, then run the binary with your local environment
 mise run smoke        # drive the binary through sign-up and a cancelled Codex login (needs codex on PATH)
 mise run docker       # build the container image
 ```
+
+`mise run start` reads `HEADROOM_*` from an uncommitted `.mise.local.toml` in this folder (port, public URL, enabled providers, and the actions flag when you want it). The database lives in `.data/` and the master key and session secret in `.state/`, which are the config defaults and are ignored by Git. Keep `.state/headroom.key` with `.data/headroom.db`: without the key every connection must be reconnected. CLI sign-ins use the `codex`, `grok` and `claude` binaries on your PATH.
 
 `make check` runs the same gate. The docs check validates internal Markdown paths, anchors, structure, provider coverage and canonical state names; it does not prove external links or provider integrations work. No command contacts a provider. See [ADR 0002](docs/decisions/0002-stack-and-tooling.md) for the tooling.
 

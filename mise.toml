@@ -45,6 +45,11 @@ run = "bun run build"
 description = "Run the server with reload"
 run = "bun run dev"
 
+[tasks.start]
+description = "Build, then run the compiled binary with the environment from .mise.local.toml (data in .data, secrets in .state)"
+depends = ["build"]
+run = "./dist/headroom"
+
 [tasks.smoke]
 description = "Build, then drive the binary through owner sign-up and a cancelled Codex CLI login (needs network and codex on PATH)"
 depends = ["build"]
