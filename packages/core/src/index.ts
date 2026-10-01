@@ -16,3 +16,12 @@ export {
   minimumPasswordLength,
   sessionTtlMs,
 } from "./auth/owner.ts";
+export * from "./connector.ts";
+export {
+  AttemptStore,
+  ConnectionStore,
+  InvalidTransitionError,
+  IdentityMismatchError,
+  type AttemptRow,
+  type ConnectionRow,
+} from "./lifecycle.ts";
