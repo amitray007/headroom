@@ -1,0 +1,99 @@
+import { describe, expect, test } from "bun:test";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { CliLoginRunner, stripAnsi } from "./cli-runner.ts";
+
+/** A stand-in CLI: prints a URL and code with ANSI colour, then writes auth.json when it reads "ok" on stdin. */
+const fakeCli = `
+const home = process.env["FAKE_HOME"];
+process.stdout.write("\\u001B[94mhttps://example.com/device\\u001B[0m\\ncode \\u001B[1mABCD-EFGH\\u001B[0m\\n");
+if (process.env["FAKE_SECRET_LEAK"]) process.stdout.write("leaked " + process.env["FAKE_SECRET_LEAK"] + "\\n");
+const reader = process.stdin;
+for await (const chunk of reader) {
+  if (new TextDecoder().decode(chunk).trim() === "ok") {
+    await Bun.write(home + "/auth.json", JSON.stringify({ tokens: { access_token: "a" } }));
+    process.exit(0);
+  }
+}
+`;
+
+async function until(predicate: () => boolean, ms = 3000, start = Date.now()): Promise<void> {
+  if (predicate()) return;
+  if (Date.now() - start > ms) throw new Error("timed out waiting");
+  await Bun.sleep(20);
+  await until(predicate, ms, start);
+}
+
+describe("CliLoginRunner", () => {
+  test("isolates the environment, captures stripped output, feeds stdin, reads credentials, cleans up", async () => {
+    const base = mkdtempSync(join(tmpdir(), "headroom-runner-"));
+    try {
+      const script = join(base, "fake-cli.ts");
+      writeFileSync(script, fakeCli);
+      const runner = new CliLoginRunner({ attemptsDir: join(base, "attempts") });
+      process.env["FAKE_SECRET_LEAK"] = "host-secret";
+      runner.start({
+        attemptId: "attempt-1",
+        command: [process.execPath, script],
+        homeVariable: "FAKE_HOME",
+        credentialFile: "auth.json",
+        timeoutMs: 10_000,
+      });
+      await until(() => (runner.status("attempt-1")?.output ?? "").includes("ABCD-EFGH"));
+      const status = runner.status("attempt-1")!;
+      expect(status.state).toBe("running");
+      expect(status.output).toContain("https://example.com/device");
+      expect(status.output).not.toContain("\u001B[");
+      // The host environment is not inherited.
+      expect(status.output).not.toContain("host-secret");
+      expect(status.credentialsPresent).toBe(false);
+
+      runner.write("attempt-1", "ok");
+      await until(() => runner.status("attempt-1")?.state === "exited");
+      expect(runner.status("attempt-1")?.credentialsPresent).toBe(true);
+      expect(JSON.parse(runner.readCredentials("attempt-1") ?? "{}")).toEqual({
+        tokens: { access_token: "a" },
+      });
+      const dir = runner.attemptDir("attempt-1");
+      expect(existsSync(dir)).toBe(true);
+      await runner.cleanup("attempt-1");
+      expect(existsSync(dir)).toBe(false);
+      expect(runner.status("attempt-1")).toBeNull();
+    } finally {
+      delete process.env["FAKE_SECRET_LEAK"];
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  test("times out and kills a CLI that never finishes; sweep removes leftovers", async () => {
+    const base = mkdtempSync(join(tmpdir(), "headroom-runner-"));
+    try {
+      const script = join(base, "sleep.ts");
+      writeFileSync(script, "await Bun.sleep(60_000);");
+      const runner = new CliLoginRunner({ attemptsDir: join(base, "attempts") });
+      runner.start({
+        attemptId: "attempt-2",
+        command: [process.execPath, script],
+        homeVariable: "FAKE_HOME",
+        credentialFile: "auth.json",
+        timeoutMs: 200,
+      });
+      await until(() => runner.status("attempt-2")?.state === "timed_out");
+      await runner.kill("attempt-2");
+      writeFileSync(join(base, "attempts", "stale-dir-marker"), "x");
+      const other = new CliLoginRunner({ attemptsDir: join(base, "attempts") });
+      expect(other.sweep()).toBeGreaterThanOrEqual(1);
+      expect(existsSync(join(base, "attempts", "attempt-2"))).toBe(false);
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects unsafe attempt ids and strips ANSI", () => {
+    const runner = new CliLoginRunner({ attemptsDir: "/tmp/never-used" });
+    expect(() => runner.attemptDir("../etc")).toThrow();
+    expect(stripAnsi("\u001B[94mhttps://x\u001B[0m \u001B[1;32mok\u001B[0m")).toBe("https://x ok");
+  });
+});

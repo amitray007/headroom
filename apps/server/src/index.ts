@@ -1,3 +1,4 @@
+import { createCodexConnector } from "@headroom/connector-codex";
 import { loadConfig } from "@headroom/core";
 
 import { createApp, version } from "./app.ts";
@@ -14,6 +15,7 @@ const levels = { debug: 10, info: 20, warn: 30, error: 40 } as const;
 const threshold = levels[config.logLevel];
 const ctx = bootstrap({
   config,
+  connectors: (runner) => [createCodexConnector({ runner })],
   log: (level, message) => {
     if (levels[level] < threshold) return;
     process.stderr.write(`${new Date().toISOString()} ${level} ${message}\n`);

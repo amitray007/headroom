@@ -48,8 +48,9 @@ The project is registered with PM as `headroom`. On a machine with PM configured
 | Configuration, SQLite schema and embedded migrations | Implemented |
 | Encrypted credential store, leases, Better Auth owner sign-in with username, password and passkeys | Implemented |
 | Connector contract and attempt/connection lifecycle | Implemented |
-| Connect orchestration, scheduler, snapshots and API | Not implemented |
-| Provider sign-in, refresh and quota collection | Not implemented |
+| Connect orchestration, scheduler, snapshots and API | Implemented |
+| Codex connector: CLI login, auth.json import, usage, reset credits, refresh | Implemented against fixtures; live validation pending |
+| Other providers | Not implemented |
 | Web UI | Not implemented |
 | Docker packaging and production deployment | Planned |
 | Public repository, release and domain | Not created |

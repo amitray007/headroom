@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 
 import {
   AttemptStore,
+  CliLoginRunner,
   type Auth,
   baseUrl,
   CollectionService,
@@ -37,6 +38,7 @@ export interface AppContext {
   readonly connections: ConnectionStore;
   readonly snapshots: SnapshotStore;
   readonly registry: ConnectorRegistry;
+  readonly runner: CliLoginRunner;
   readonly connect: ConnectService;
   readonly collection: CollectionService;
   /** Origins allowed for CORS, Better Auth and frame-ancestors. Always includes the base URL. */
@@ -55,8 +57,8 @@ export interface BootstrapOptions {
   readonly authSecret?: string;
   /** Tests disable Better Auth rate limiting; production never passes this. */
   readonly rateLimit?: boolean;
-  /** Every connector the build knows about; the config decides which are enabled. */
-  readonly connectors?: readonly Connector[];
+  /** Every connector the build knows about; the config decides which are enabled. Receives the runner. */
+  readonly connectors?: readonly Connector[] | ((runner: CliLoginRunner) => readonly Connector[]);
   readonly now?: () => Date;
   readonly log?: AppContext["log"];
 }
@@ -89,7 +91,13 @@ export function bootstrap(options: BootstrapOptions): AppContext {
   const attempts = new AttemptStore(db, keyring, now);
   const connections = new ConnectionStore(db, now);
   const snapshots = new SnapshotStore(db, now);
-  const registry = createRegistry(options.connectors ?? [], config.enabledProviders);
+  const runner = new CliLoginRunner({ attemptsDir: join(config.dataDir, "attempts") });
+  if (databasePath !== ":memory:") runner.sweep();
+  const available =
+    typeof options.connectors === "function"
+      ? options.connectors(runner)
+      : (options.connectors ?? []);
+  const registry = createRegistry(available, config.enabledProviders);
   return {
     config,
     db,
@@ -109,6 +117,7 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     connections,
     snapshots,
     registry,
+    runner,
     connect: new ConnectService({ registry, attempts, connections, credentials, snapshots, now }),
     collection: new CollectionService({
       registry,

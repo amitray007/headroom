@@ -8,7 +8,7 @@ Status: complete. Product scope, architecture, seven provider dossiers, research
 
 ## M1: Core service and Codex
 
-Status: not started. Gate: Amit confirms ADR 0001.
+Status: implemented against synthetic fixtures on 2026-10-01; live validation with Amit's account is the remaining step. Better Auth replaced the password-only owner sign-in (D22).
 
 Deliverables:
 

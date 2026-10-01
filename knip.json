@@ -12,6 +12,10 @@
     "packages/core": {
       "entry": ["src/**/*.test.ts", "auth-schema.config.ts"],
       "project": ["src/**/*.ts", "*.ts"]
+    },
+    "packages/connectors/codex": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
     }
   }
 }

@@ -6,7 +6,8 @@
   "license": "MIT",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "packages/connectors/*"
   ],
   "type": "module",
   "scripts": {

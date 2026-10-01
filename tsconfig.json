@@ -15,7 +15,8 @@
     "isolatedModules": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "resolveJsonModule": true
   },
-  "include": ["apps/*/src", "packages/*/src"]
+  "include": ["apps/*/src", "packages/*/src", "packages/connectors/*/src"]
 }

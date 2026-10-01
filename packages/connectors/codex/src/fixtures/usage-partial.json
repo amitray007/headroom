@@ -1,0 +1,5 @@
+{
+  "plan_type": "plus",
+  "rate_limit": { "primary_window": { "limit_window_seconds": 18000, "reset_at": 1700003600 } },
+  "credits": { "has_credits": false }
+}

@@ -1,12 +1,13 @@
 {
-  "name": "@headroom/server",
-  "version": "0.0.0",
+  "name": "@headroom/connector-codex",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "dependencies": {
-    "@headroom/connector-codex": "workspace:*",
     "@headroom/core": "workspace:*",
-    "hono": "4.13.12",
     "zod": "4.6.5"
   }
 }

@@ -17,6 +17,7 @@ Use the same design for Go, Plus, Pro, Business, Enterprise and future ChatGPT p
 | Claim | Status | Basis |
 | --- | --- | --- |
 | Device-code login exists for the official CLI as `codex login --device-auth` (beta) | documented | [S2] |
+| Headless `codex login --device-auth` v0.159.3 needs no TTY, honours `CODEX_HOME`, prints the verification URL and a one-time code that expires in fifteen minutes, and polls until killed | validated | Run by this project on 2026-10-01 with an isolated home and stdin closed; no account was signed in |
 | The CLI caches login details in a plaintext `auth.json` under `$CODEX_HOME` (default `~/.codex`) | documented | [S2] |
 | OpenUsage reads the same `auth.json`, respects `$CODEX_HOME` and refreshes the token itself | source-inspected | OpenUsage Codex provider doc [S6] |
 | Refresh posts the stored refresh token to the ChatGPT OAuth token endpoint | source-inspected | CLIProxyAPI [S4] |

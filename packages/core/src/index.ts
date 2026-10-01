@@ -42,3 +42,10 @@ export {
   type ConnectorRegistry,
 } from "./services/connect.ts";
 export { CollectionService, type CollectionOutcome } from "./services/collect.ts";
+export {
+  CliLoginRunner,
+  stripAnsi,
+  type LoginRunner,
+  type CliLoginSpec,
+  type CliLoginStatus,
+} from "./cli-runner.ts";

@@ -43,6 +43,12 @@ Source for the Codex correction: [official Auth endpoints section](https://learn
 
 Run the checks in [the validation plan](../validation.md) after implementation and account-owner approval. Record tool versions, platform, product surface, operation and sanitized result. Use immutable source revisions when an adapter is adopted. Do not infer readiness from a package's provider list alone.
 
+## Headroom validation results
+
+| Date | Check | Result |
+| --- | --- | --- |
+| 2026-10-01 | `codex login --device-auth` (CLI 0.159.3) run headless on macOS with `CODEX_HOME` set to an empty directory and stdin closed | Printed the verification URL and a one-time code with a fifteen-minute expiry, wrote only `log/codex-login.log`, polled until killed. No sign-in was completed, so `auth.json` creation and refresh remain to be observed |
+
 ## OpenUsage inspection
 
 Inspected on 2026-10-01 from the [repository](https://github.com/robinebers/openusage): `docs/providers/{grok,copilot,antigravity,cursor,claude,codex}.md` and `Sources/OpenUsage/Providers/{Grok,Copilot}/*UsageClient.swift`. Findings carried into the dossiers: Grok's billing route on `cli-chat-proxy.grok.com` with the `X-XAI-Token-Auth` header and the 412 behaviour for team logins; Copilot's exact client headers, the AI-credits billing model since June 2026 and the org billing REST path; Antigravity's `retrieveUserQuotaSummary` as the only merged-pool endpoint with legacy per-model fallbacks; Cursor's REST fallbacks; the fact that a Claude `setup-token` cannot read limits. OpenUsage reads local credentials and has no login flows. None of it was executed. It is source-inspected evidence.

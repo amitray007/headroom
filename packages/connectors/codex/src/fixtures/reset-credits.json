@@ -1,0 +1,7 @@
+{
+  "available_count": 2,
+  "credits": [
+    { "id": "rc_1", "status": "available", "expires_at": 1702592000 },
+    { "id": "rc_2", "status": "cooldown", "expires_at": "2026-12-31T00:00:00Z" }
+  ]
+}
