@@ -47,8 +47,8 @@ Earlier research observed model-group usage output and tried a credits command. 
 | Plan name | `available` when returned | `userTier` | `private`. Provider label; do not map it to an allowance. |
 | Per-model five-hour window | `available` when returned | Legacy `fetchAvailableModels` and `retrieveUserQuota`, merged by worst remaining fraction | `private`. Fallback only; no weekly window. |
 | Connection state | Yes | Direct sign-in | `private`. Login does not prove quota read. |
-| Gemini pool quota | `available` when returned | `retrieveUserQuotaSummary`, five-hour and weekly windows | `private`. Preserve each window. |
-| Claude/GPT pool quota | `available` when returned | `retrieveUserQuotaSummary`, five-hour and weekly windows | `private`. Separate pool; do not add to Gemini. |
+| Gemini pool quota | `available` when returned | `retrieveUserQuotaSummary`, five-hour and weekly windows | `private`. Preserve each window. A bucket the tier does not report is omitted, not `unknown`; the free tier validated on 2026-10-01 reported only `gemini-weekly`. |
+| Claude/GPT pool quota | `available` when returned | `retrieveUserQuotaSummary`, five-hour and weekly windows | `private`. Separate pool; do not add to Gemini. Same tier rule; only `3p-weekly` on the validated account. |
 | Pool reset time | `available` when returned | Reset fields in the summary | `private`. Preserve per-bucket window. |
 | Session or context usage | Candidate through ACP | ACP session usage | `official`. Not subscription allowance. |
 | Credits or wallet balance | `unknown` | No validated response | `private`. Do not display zero. |

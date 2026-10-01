@@ -126,7 +126,7 @@ describe("Antigravity connector", () => {
     });
   });
 
-  test("collect converts remaining fractions to used percent, keeps unknown buckets, fills missing known ones", async () => {
+  test("collect converts remaining fractions to used percent, keeps unknown buckets, omits unreported ones", async () => {
     const http = fakeFetch({
       [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
       [`${daily}${quotaSummaryPath}`]: () => json(quotaFixture),
@@ -145,7 +145,8 @@ describe("Antigravity connector", () => {
     expect(byKey["quota.gemini-weekly"]).toMatchObject({ valueText: "60.00" });
     expect(byKey["quota.3p-5h"]).toMatchObject({ valueText: "0.00" });
     expect(byKey["quota.unknown-bucket"]).toMatchObject({ valueText: "50.00", scope: "window" });
-    expect(byKey["quota.3p-weekly"]).toMatchObject({ valueText: null, availability: "unknown" });
+    expect(Object.keys(byKey)).not.toContain("quota.3p-weekly");
+    expect(result.metrics.every((m) => m.availability === "available")).toBe(true);
     const headers = z.record(z.string(), z.string()).parse(http.calls[0]?.init?.headers);
     expect(headers["user-agent"]).toBe("antigravity");
     expect(http.calls[0]?.init?.method).toBe("POST");

@@ -263,7 +263,8 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
         metricOrAction: `quota.${bucket}`,
         availability: "available",
         interface: "private",
-        evidenceLevel: "source_inspected",
+        evidenceLevel: bucket.endsWith("-weekly") ? "validated" : "source_inspected",
+        reason: "present when the account's tier reports this window",
       }));
       capabilities.push({
         metricOrAction: "credits",
@@ -310,18 +311,8 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
           });
         }
       }
-      for (const id of Object.keys(knownBuckets)) {
-        if (seen.has(id)) continue;
-        metrics.push({
-          providerMetricKey: `quota.${id}`,
-          kind: "quota_percentage",
-          scope: knownBuckets[id]!.scope,
-          valueText: null,
-          unit: "percent",
-          availability: "unknown",
-          interface: "private",
-        });
-      }
+      // Buckets the tier does not report are not missing data: the free tier of 2026-10-01 carried
+      // only the weekly buckets. Known ids only supply scope and label.
       return { observedAt, metrics, failures: [] };
     },
 
