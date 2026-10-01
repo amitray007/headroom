@@ -45,8 +45,12 @@ The project is registered with PM as `headroom`. On a machine with PM configured
 | PM registration and Git repository | Created locally |
 | Product, architecture, provider research and validation plan | Written |
 | Workspace, lint, format, typecheck, tests, CI | Scaffolded; `mise run check` passes |
-| Web UI, application authentication and database migrations | Not implemented |
+| Configuration, SQLite schema and embedded migrations | Implemented |
+| Encrypted credential store, leases, owner sign-in and sessions | Implemented |
+| Connector contract and attempt/connection lifecycle | Implemented |
+| Connect orchestration, scheduler, snapshots and API | Not implemented |
 | Provider sign-in, refresh and quota collection | Not implemented |
+| Web UI | Not implemented |
 | Docker packaging and production deployment | Planned |
 | Public repository, release and domain | Not created |
 
