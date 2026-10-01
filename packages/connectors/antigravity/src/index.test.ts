@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import {
   cloudCodeHosts,
+  loadCodeAssistBody,
   loadCodeAssistPath,
   quotaSummaryPath,
   tokenUrl,
@@ -126,7 +127,10 @@ describe("Antigravity connector", () => {
   });
 
   test("collect converts remaining fractions to used percent, keeps unknown buckets, fills missing known ones", async () => {
-    const http = fakeFetch({ [`${daily}${quotaSummaryPath}`]: () => json(quotaFixture) });
+    const http = fakeFetch({
+      [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+      [`${daily}${quotaSummaryPath}`]: () => json(quotaFixture),
+    });
     const connector = createAntigravityConnector({
       fetch: http.fetch,
       now: () => 1_700_000_000_000,
@@ -145,16 +149,41 @@ describe("Antigravity connector", () => {
     const headers = z.record(z.string(), z.string()).parse(http.calls[0]?.init?.headers);
     expect(headers["user-agent"]).toBe("antigravity");
     expect(http.calls[0]?.init?.method).toBe("POST");
+    // loadCodeAssist carries the client metadata; the quota summary carries the project it returned.
+    expect(http.calls[0]?.init?.body).toBe(JSON.stringify(loadCodeAssistBody));
+    expect(http.calls[1]?.url).toBe(`${daily}${quotaSummaryPath}`);
+    expect(http.calls[1]?.init?.body).toBe(JSON.stringify({ project: "proj" }));
+  });
+
+  test("a quota summary 403 is permission_denied, as is an account without a project", async () => {
+    const forbidden = createAntigravityConnector({
+      fetch: fakeFetch({
+        [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: { id: "p2" } }),
+        [`${daily}${quotaSummaryPath}`]: () => json({ error: { code: 403 } }, 403),
+      }).fetch,
+    });
+    expect(await rejection(forbidden.collect(credential, identity))).toMatchObject({
+      category: "permission_denied",
+    });
+    const projectless = createAntigravityConnector({
+      fetch: fakeFetch({ [`${daily}${loadCodeAssistPath}`]: () => json({ currentTier: {} }) })
+        .fetch,
+    });
+    expect(await rejection(projectless.collect(credential, identity))).toMatchObject({
+      category: "permission_denied",
+    });
   });
 
   test("falls back to the second host on a 5xx, and 401 is definitive", async () => {
     const first = fakeFetch({
+      [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
       [`${daily}${quotaSummaryPath}`]: () => json({}, 503),
       [`${cloudCodeHosts[1]}${quotaSummaryPath}`]: () => json(quotaFixture),
     });
     const connector = createAntigravityConnector({ fetch: first.fetch });
     expect((await connector.collect(credential, identity)).metrics.length).toBeGreaterThan(0);
     expect(first.calls.map((c) => c.url)).toEqual([
+      `${daily}${loadCodeAssistPath}`,
       `${daily}${quotaSummaryPath}`,
       `${cloudCodeHosts[1]}${quotaSummaryPath}`,
     ]);

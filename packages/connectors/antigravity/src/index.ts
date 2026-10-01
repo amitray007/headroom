@@ -26,6 +26,7 @@ import {
   cloudCodeHeaders,
   cloudCodeHosts,
   knownBuckets,
+  loadCodeAssistBody,
   loadCodeAssistPath,
   quotaSummaryPath,
   redirectUri,
@@ -86,8 +87,13 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
   const now = options.now ?? (() => Date.now());
   const randomState = options.randomState ?? (() => randomBytes(24).toString("base64url"));
 
-  /** POST an empty JSON body to the Cloud Code path, trying each host in order until one answers. */
-  async function cloudCode(path: string, accessToken: string, hostIndex = 0): Promise<unknown> {
+  /** POST a JSON body to the Cloud Code path, trying each host in order until one answers. */
+  async function cloudCode(
+    path: string,
+    accessToken: string,
+    body: unknown,
+    hostIndex = 0,
+  ): Promise<unknown> {
     const host = cloudCodeHosts[hostIndex];
     if (!host)
       throw new ConnectorError("provider_unavailable", `${path}: every cloud code host failed`);
@@ -96,10 +102,10 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
       response = await http(`${host}${path}`, {
         method: "POST",
         headers: cloudCodeHeaders(accessToken),
-        body: "{}",
+        body: JSON.stringify(body),
       });
     } catch {
-      return cloudCode(path, accessToken, hostIndex + 1);
+      return cloudCode(path, accessToken, body, hostIndex + 1);
     }
     if (response.status === 401)
       throw new ConnectorError("authentication_required", `${path} returned 401`);
@@ -108,8 +114,21 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
     if (response.status === 429)
       throw new ConnectorError("rate_limited", `${path} returned 429`, 60_000);
     if (response.ok) return response.json().catch(() => null);
-    if (response.status >= 500) return cloudCode(path, accessToken, hostIndex + 1);
+    if (response.status >= 500) return cloudCode(path, accessToken, body, hostIndex + 1);
     throw new ConnectorError("invalid_response", `${path} returned ${response.status}`);
+  }
+
+  /** Tier names and the Cloud AI Companion project the quota summary must be asked for. */
+  async function loadCodeAssist(accessToken: string) {
+    const load = loadCodeAssistSchema.safeParse(
+      await cloudCode(loadCodeAssistPath, accessToken, loadCodeAssistBody),
+    );
+    if (!load.success) throw new ConnectorError("invalid_response", "loadCodeAssist shape changed");
+    const project = load.data.cloudaicompanionProject;
+    return {
+      plan: load.data.paidTier?.name ?? load.data.currentTier?.name ?? null,
+      project: typeof project === "string" ? project : (project?.id ?? null),
+    };
   }
 
   return {
@@ -225,12 +244,7 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
       if (!info.success) throw new ConnectorError("invalid_response", "userinfo shape changed");
       let plan: string | null = null;
       try {
-        const load = loadCodeAssistSchema.safeParse(
-          await cloudCode(loadCodeAssistPath, secret.accessToken),
-        );
-        plan = load.success
-          ? (load.data.paidTier?.name ?? load.data.currentTier?.name ?? null)
-          : null;
+        plan = (await loadCodeAssist(secret.accessToken)).plan;
       } catch {
         plan = null;
       }
@@ -263,8 +277,11 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
 
     async collect(credential: StoredCredential): Promise<CollectResult> {
       const secret = antigravityCredentialSchema.parse(credential.secret);
+      const { project } = await loadCodeAssist(secret.accessToken);
+      if (project === null)
+        throw new ConnectorError("permission_denied", "loadCodeAssist returned no project");
       const summary = quotaSummarySchema.safeParse(
-        await cloudCode(quotaSummaryPath, secret.accessToken),
+        await cloudCode(quotaSummaryPath, secret.accessToken, { project }),
       );
       if (!summary.success)
         throw new ConnectorError("invalid_response", "quota summary shape changed");

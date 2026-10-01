@@ -26,8 +26,16 @@ export const cloudCodeHosts = [
   "https://daily-cloudcode-pa.googleapis.com",
   "https://cloudcode-pa.googleapis.com",
 ];
+/**
+ * Needs `{ project }` with the account's Cloud AI Companion project from `loadCodeAssist`.
+ * Validated 2026-10-01: an empty body answers 403 "You do not have a valid license of this product".
+ */
 export const quotaSummaryPath = "/v1internal:retrieveUserQuotaSummary";
 export const loadCodeAssistPath = "/v1internal:loadCodeAssist";
+/** Client metadata `loadCodeAssist` expects; the values CLIProxyAPI sends for Antigravity. */
+export const loadCodeAssistBody = {
+  metadata: { ideType: "ANTIGRAVITY", platform: "PLATFORM_UNSPECIFIED", pluginType: "GEMINI" },
+} as const;
 
 export function cloudCodeHeaders(accessToken: string): Record<string, string> {
   return {

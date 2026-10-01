@@ -42,7 +42,10 @@ export const quotaSummarySchema = z.union([
 
 export const loadCodeAssistSchema = z
   .object({
-    cloudaicompanionProject: z.string().optional(),
+    /** A plain project id on the live response of 2026-10-01; CLIProxyAPI also handles an object form. */
+    cloudaicompanionProject: z
+      .union([z.string(), z.object({ id: z.string().optional() }).loose()])
+      .optional(),
     currentTier: z.object({ name: z.string().optional() }).loose().optional(),
     paidTier: z.object({ name: z.string().optional() }).loose().optional(),
   })

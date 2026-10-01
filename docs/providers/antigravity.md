@@ -10,13 +10,14 @@ CLIProxyAPI's Antigravity code is sign-in only (client id, scopes, token endpoin
 
 Policy posture: this is a private interface and Google publishes no terms for it. Headroom is personal self-hosted software that stores only the owner's own credentials, routes no inference and must not be offered as a hosted service. The connector ships behind a per-provider enable flag. Never accept a Google password or MFA code.
 
-The credits balance stays `unknown`. The quota read is unvalidated.
+The credits balance stays `unknown`. The quota read was validated on 2026-10-01 once the request carried the account's Cloud AI Companion project.
 
 ## Evidence status
 
 | Claim | Status | Basis |
 | --- | --- | --- |
-| Headroom's connector builds the Google authorization URL with the installed-app client, `access_type=offline`, `prompt=consent` and a state, exchanges the pasted loopback URL at `oauth2.googleapis.com/token`, reads identity from `oauth2/v2/userinfo` and the plan from `loadCodeAssist`, and collects `retrieveUserQuotaSummary` with an empty JSON body and the `antigravity` user agent on the daily host with the standard host as fallback | source-inspected | Implemented 2026-10-01 against synthetic fixtures from CLIProxyAPI and OpenUsage source; the summary reports `remainingFraction` per bucket, which Headroom stores as used percent |
+| Headroom's connector builds the Google authorization URL with the installed-app client, `access_type=offline`, `prompt=consent` and a state, exchanges the pasted loopback URL at `oauth2.googleapis.com/token`, reads identity from `oauth2/v2/userinfo` and the plan from `loadCodeAssist`, and collects `retrieveUserQuotaSummary` with `{ project }` from `loadCodeAssist` and the `antigravity` user agent on the daily host with the standard host as fallback | validated | Implemented 2026-10-01 against synthetic fixtures, then run against Amit's account the same day; the summary reports `remainingFraction` per bucket, which Headroom stores as used percent |
+| `retrieveUserQuotaSummary` with an empty body answers 403 `You do not have a valid license of this product` on both hosts. With `{ "project": <cloudaicompanionProject> }` it answers 200 with `groups[].buckets[]` carrying `bucketId`, `displayName`, `window`, `resetTime` and `remainingFraction`, grouped under display names such as `Gemini Models`. `loadCodeAssist` needs the metadata body `{ ideType: ANTIGRAVITY, platform: PLATFORM_UNSPECIFIED, pluginType: GEMINI }` and returned `currentTier`, `paidTier`, `allowedTiers`, `gcpManaged` and a plain-string `cloudaicompanionProject` | validated | Observed by this project on 2026-10-01; field names and types recorded, values not. The first live collection failed on the empty body and the connector was corrected |
 | Google OAuth with the Antigravity client id and scopes, redirect `http://localhost:<port>/oauth-callback`, then code exchange | source-inspected | CLIProxyAPI `internal/auth/antigravity/auth.go`, `constants.go`, `sdk/auth/antigravity.go` [S4] |
 | Constants: auth endpoint `https://accounts.google.com/o/oauth2/v2/auth`, token endpoint `https://oauth2.googleapis.com/token`, user info `https://www.googleapis.com/oauth2/v2/userinfo`, redirect `http://localhost:51121/oauth-callback` | source-inspected | CLIProxyAPI `internal/auth/antigravity/constants.go` [S4] |
 | Scopes: cloud-platform, userinfo.email, userinfo.profile, cclog, experimentsandconfigs | source-inspected | CLIProxyAPI `constants.go` [S4] |
@@ -28,7 +29,7 @@ The credits balance stays `unknown`. The quota read is unvalidated.
 | `v1internal:retrieveUserQuotaSummary` is the only endpoint reporting the merged Gemini and Claude/GPT pools with both five-hour and weekly windows | source-inspected | OpenUsage Antigravity provider doc [S6]; ai-usagebar [S5] |
 | Legacy fallbacks `fetchAvailableModels` and `retrieveUserQuota` know only five-hour windows per model; OpenUsage merges them by worst remaining fraction | source-inspected | OpenUsage [S6] |
 | Plan name comes from `userTier` | source-inspected | OpenUsage [S6] |
-| The quota summary works for Headroom's token and account | unvalidated | Private interface; not tested |
+| The quota summary works for Headroom's token and account | validated | 2026-10-01, see above; a free-tier account with the Starter Quota |
 | Remote CLI prints a secure authorization URL and the browser shows a code to paste | documented | Remote SSH flow [S1] |
 | Local CLI uses a native secure keyring | documented | Authentication section [S1] |
 | Gemini API-key mode does not establish an account session | documented | API-key section [S1] |
@@ -64,7 +65,7 @@ Earlier research observed model-group usage output and tried a credits command. 
 3. The user signs in with Google. The browser redirects to `http://localhost:<port>/oauth-callback`, which a remote server cannot receive. The user pastes the redirected URL into Headroom.
 4. Verify state, exchange the code (`ExchangeAntigravityCode` shape) and move to `validating`.
 5. Read user info for the email and look up the project id (`FetchAntigravityUserInfo`, `FetchAntigravityProjectID` shapes).
-6. Run one read-only `POST …:retrieveUserQuotaSummary`. Do not make a model request.
+6. Run one read-only `POST …:loadCodeAssist` for the project, then one `POST …:retrieveUserQuotaSummary` with it. Do not make a model request.
 7. Encrypt and store tokens, capabilities and the first snapshot. Mark the attempt `succeeded` and the connection `ready`, or `partial` when quota access fails.
 8. Refresh at the Google token endpoint before collection when the token nears expiry, or after a 401. Persist a rotated refresh token first. A definitive failure sets `reconnect_required`.
 9. When `retrieveUserQuotaSummary` fails or is absent, fall back to `fetchAvailableModels` and `retrieveUserQuota` and keep only five-hour windows. Record the missing weekly window as `unknown`.
@@ -81,7 +82,7 @@ The fallback is the official `agy` remote URL and code flow: an isolated `agy` l
 | Token exchange and refresh | `POST https://oauth2.googleapis.com/token` | `private` | Exchange the code; refresh in the connector. |
 | User info | `GET https://www.googleapis.com/oauth2/v2/userinfo` | `private` | Email for identity. |
 | Project lookup | Antigravity project id lookup per CLIProxyAPI `FetchAntigravityProjectID` | `private` | Required for quota calls. Endpoint pinned during validation. |
-| Quota summary | `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary` | `private` | Merged pools with five-hour and weekly windows, plus `userTier`. Unvalidated for Headroom. |
+| Quota summary | `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary` with `{ project }` | `private` | Merged pools with five-hour and weekly windows. Validated for Headroom on 2026-10-01; 403 without the project. |
 | Legacy quota | `fetchAvailableModels` and `retrieveUserQuota` on the same hosts | `private` | Five-hour windows per model only. Fallback. |
 | Status line JSON | `agy` runtime data: `quota` with `remaining_fraction`, `reset_time`, `reset_in_seconds` | `official` | Fallback and shape reference. |
 | `/usage` (alias `/quota`) and `/credits` | CLI commands [S2] | `official` | Fallback only. Command existence does not establish credit access. |
