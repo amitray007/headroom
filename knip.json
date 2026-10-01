@@ -10,7 +10,7 @@
       "project": ["src/**/*.ts"]
     },
     "packages/core": {
-      "entry": ["src/**/*.test.ts", "auth-schema.config.ts"],
+      "entry": ["src/contracts.ts", "src/**/*.test.ts", "auth-schema.config.ts"],
       "project": ["src/**/*.ts", "*.ts"]
     },
     "packages/connectors/codex": {

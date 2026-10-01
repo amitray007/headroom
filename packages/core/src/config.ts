@@ -43,6 +43,8 @@ export const configSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  /** Directory with the built web UI (index.html and assets). Empty disables static serving. */
+  webDir: z.string().default("apps/web/dist"),
   /** Connectors the owner has turned on, comma separated. Private-interface connectors stay off unless listed. */
   enabledProviders: z
     .string()
@@ -75,6 +77,7 @@ const envKeys = {
   trustedOrigins: "HEADROOM_TRUSTED_ORIGINS",
   logLevel: "HEADROOM_LOG_LEVEL",
   trustProxy: "HEADROOM_TRUST_PROXY",
+  webDir: "HEADROOM_WEB_DIR",
   enabledProviders: "HEADROOM_ENABLED_PROVIDERS",
   refreshIntervalSeconds: "HEADROOM_REFRESH_INTERVAL_SECONDS",
   staleAfterSeconds: "HEADROOM_STALE_AFTER_SECONDS",

@@ -12,6 +12,7 @@ test("defaults suit local development", () => {
     trustedOrigins: [],
     logLevel: "info",
     trustProxy: false,
+    webDir: "apps/web/dist",
     enabledProviders: ["codex"],
     refreshIntervalSeconds: 900,
     staleAfterSeconds: 43_200,

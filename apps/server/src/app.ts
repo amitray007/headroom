@@ -1,5 +1,8 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
 import { Hono } from "hono";
-import { getConnInfo } from "hono/bun";
+import { getConnInfo, serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 
@@ -89,6 +92,13 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/attempts", attemptRoutes(ctx));
 
   app.route("/api", api);
+
+  // Built web UI, when present: static assets, then index.html for client-side routes.
+  const webDir = ctx.config.webDir;
+  if (webDir && existsSync(join(webDir, "index.html"))) {
+    app.use("/assets/*", serveStatic({ root: webDir }));
+    app.get("*", serveStatic({ root: webDir, path: "index.html" }));
+  }
   return app;
 }
 
