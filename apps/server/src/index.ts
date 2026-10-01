@@ -1,3 +1,4 @@
+import { createAntigravityConnector } from "@headroom/connector-antigravity";
 import { createClaudeConnector } from "@headroom/connector-claude";
 import { createCodexConnector } from "@headroom/connector-codex";
 import { createGrokConnector } from "@headroom/connector-grok";
@@ -22,6 +23,7 @@ const ctx = bootstrap({
     createCodexConnector({ runner }),
     createClaudeConnector({ runner }),
     createGrokConnector({ runner }),
+    createAntigravityConnector(),
     createVercelConnector(),
   ],
   log: (level, message) => {

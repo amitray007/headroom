@@ -1,0 +1,23 @@
+{
+  "groups": [
+    {
+      "name": "gemini",
+      "buckets": [
+        { "bucketId": "gemini-5h", "remainingFraction": 0.75, "resetTime": "2026-10-01T18:00:00Z" },
+        {
+          "bucketId": "gemini-weekly",
+          "remainingFraction": 0.4,
+          "resetTime": "2026-10-05T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "3p",
+      "buckets": [
+        { "bucketId": "3p-5h", "remainingFraction": 1, "resetTime": "2026-10-01T18:00:00Z" },
+        { "bucketId": "unknown-bucket", "remainingFraction": 0.5 }
+      ]
+    }
+  ],
+  "futureField": true
+}

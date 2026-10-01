@@ -16,6 +16,7 @@ The credits balance stays `unknown`. The quota read is unvalidated.
 
 | Claim | Status | Basis |
 | --- | --- | --- |
+| Headroom's connector builds the Google authorization URL with the installed-app client, `access_type=offline`, `prompt=consent` and a state, exchanges the pasted loopback URL at `oauth2.googleapis.com/token`, reads identity from `oauth2/v2/userinfo` and the plan from `loadCodeAssist`, and collects `retrieveUserQuotaSummary` with an empty JSON body and the `antigravity` user agent on the daily host with the standard host as fallback | source-inspected | Implemented 2026-10-01 against synthetic fixtures from CLIProxyAPI and OpenUsage source; the summary reports `remainingFraction` per bucket, which Headroom stores as used percent |
 | Google OAuth with the Antigravity client id and scopes, redirect `http://localhost:<port>/oauth-callback`, then code exchange | source-inspected | CLIProxyAPI `internal/auth/antigravity/auth.go`, `constants.go`, `sdk/auth/antigravity.go` [S4] |
 | Constants: auth endpoint `https://accounts.google.com/o/oauth2/v2/auth`, token endpoint `https://oauth2.googleapis.com/token`, user info `https://www.googleapis.com/oauth2/v2/userinfo`, redirect `http://localhost:51121/oauth-callback` | source-inspected | CLIProxyAPI `internal/auth/antigravity/constants.go` [S4] |
 | Scopes: cloud-platform, userinfo.email, userinfo.profile, cclog, experimentsandconfigs | source-inspected | CLIProxyAPI `constants.go` [S4] |
