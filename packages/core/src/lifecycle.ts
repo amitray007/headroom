@@ -177,6 +177,15 @@ export class AttemptStore {
     return this.get(id)!;
   }
 
+  /** Attach the resulting connection so the browser can navigate to it. */
+  bindConnection(id: string, connectionId: string): void {
+    this.db
+      .update(schema.authAttempts)
+      .set({ connectionId, updatedAt: this.now() })
+      .where(eq(schema.authAttempts.id, id))
+      .run();
+  }
+
   /** Expire every non-terminal attempt past its deadline. Returns the ids expired. */
   expireOverdue(): string[] {
     const now = this.now();

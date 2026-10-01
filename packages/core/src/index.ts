@@ -26,3 +26,19 @@ export {
   type AttemptRow,
   type ConnectionRow,
 } from "./lifecycle.ts";
+export {
+  SnapshotStore,
+  schemaVersion,
+  type SnapshotRow,
+  type MetricRow,
+  type SyncRunRow,
+} from "./snapshots.ts";
+export {
+  ConnectService,
+  ProviderDisabledError,
+  UnsupportedMethodError,
+  InvalidAttemptStateError,
+  type AttemptView,
+  type ConnectorRegistry,
+} from "./services/connect.ts";
+export { CollectionService, type CollectionOutcome } from "./services/collect.ts";

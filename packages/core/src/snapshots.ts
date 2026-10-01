@@ -1,0 +1,196 @@
+import { desc, eq } from "drizzle-orm";
+
+import type { Capability, ClassifiedError, CollectResult } from "./connector.ts";
+import { type Db, schema } from "./db/index.ts";
+import type { SyncRunOutcome } from "./enums.ts";
+
+/**
+ * Sync runs, snapshots, metrics, reset credits and capabilities.
+ * A run is opened before collection and closed with an outcome; a snapshot
+ * exists only for a run that produced observations.
+ */
+
+export type SnapshotRow = typeof schema.snapshots.$inferSelect;
+export type MetricRow = typeof schema.metrics.$inferSelect;
+export type ResetCreditRow = typeof schema.resetCredits.$inferSelect;
+export type SyncRunRow = typeof schema.syncRuns.$inferSelect;
+export type CapabilityRow = typeof schema.connectionCapabilities.$inferSelect;
+
+export const schemaVersion = 1;
+
+export class SnapshotStore {
+  constructor(
+    private readonly db: Db,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
+
+  startRun(connectionId: string): SyncRunRow {
+    const id = Bun.randomUUIDv7();
+    this.db.insert(schema.syncRuns).values({ id, connectionId, startedAt: this.now() }).run();
+    return this.db.select().from(schema.syncRuns).where(eq(schema.syncRuns.id, id)).get()!;
+  }
+
+  finishRun(runId: string, outcome: SyncRunOutcome, error?: ClassifiedError): void {
+    const retryAfter =
+      error?.retryAfterMs === undefined
+        ? null
+        : new Date(this.now().getTime() + error.retryAfterMs);
+    this.db
+      .update(schema.syncRuns)
+      .set({
+        finishedAt: this.now(),
+        outcome,
+        retryAfter,
+        sanitizedError: error ? `${error.category}: ${error.message}` : null,
+      })
+      .where(eq(schema.syncRuns.id, runId))
+      .run();
+  }
+
+  latestRun(connectionId: string): SyncRunRow | null {
+    return (
+      this.db
+        .select()
+        .from(schema.syncRuns)
+        .where(eq(schema.syncRuns.connectionId, connectionId))
+        .orderBy(desc(schema.syncRuns.startedAt))
+        .limit(1)
+        .get() ?? null
+    );
+  }
+
+  /** Persist one collection result. Metrics and reset credits are written in the same transaction. */
+  record(
+    connectionId: string,
+    runId: string,
+    result: CollectResult,
+    connectorVersion: string,
+  ): SnapshotRow {
+    const snapshotId = Bun.randomUUIDv7();
+    const receivedAt = this.now();
+    this.db.transaction((tx) => {
+      tx.insert(schema.snapshots)
+        .values({
+          id: snapshotId,
+          connectionId,
+          syncRunId: runId,
+          observedAt: new Date(result.observedAt),
+          receivedAt,
+          connectorVersion,
+          schemaVersion,
+        })
+        .run();
+      for (const metric of result.metrics) {
+        const valueNum = metric.valueText === null ? null : Number(metric.valueText);
+        tx.insert(schema.metrics)
+          .values({
+            id: Bun.randomUUIDv7(),
+            snapshotId,
+            providerMetricKey: metric.providerMetricKey,
+            kind: metric.kind,
+            scope: metric.scope,
+            valueText: metric.valueText,
+            valueNum: valueNum === null || Number.isNaN(valueNum) ? null : valueNum,
+            unit: metric.unit,
+            unlimited: metric.unlimited ?? false,
+            windowStart: toDate(metric.windowStart),
+            windowEnd: toDate(metric.windowEnd),
+            resetsAt: toDate(metric.resetsAt),
+            availability: metric.availability,
+            interface: metric.interface,
+          })
+          .run();
+      }
+      for (const credit of result.resetCredits ?? []) {
+        tx.insert(schema.resetCredits)
+          .values({
+            id: Bun.randomUUIDv7(),
+            snapshotId,
+            providerCreditId: credit.providerCreditId,
+            eligible: credit.eligible,
+            usable: credit.usable,
+            expiresAt: toDate(credit.expiresAt),
+            cooldownUntil: toDate(credit.cooldownUntil),
+            rawLabel: credit.rawLabel ?? null,
+          })
+          .run();
+      }
+    });
+    return this.db
+      .select()
+      .from(schema.snapshots)
+      .where(eq(schema.snapshots.id, snapshotId))
+      .get()!;
+  }
+
+  latest(
+    connectionId: string,
+  ): { snapshot: SnapshotRow; metrics: MetricRow[]; resetCredits: ResetCreditRow[] } | null {
+    const snapshot = this.db
+      .select()
+      .from(schema.snapshots)
+      .where(eq(schema.snapshots.connectionId, connectionId))
+      .orderBy(desc(schema.snapshots.observedAt), desc(schema.snapshots.receivedAt))
+      .limit(1)
+      .get();
+    if (!snapshot) return null;
+    return {
+      snapshot,
+      metrics: this.db
+        .select()
+        .from(schema.metrics)
+        .where(eq(schema.metrics.snapshotId, snapshot.id))
+        .all(),
+      resetCredits: this.db
+        .select()
+        .from(schema.resetCredits)
+        .where(eq(schema.resetCredits.snapshotId, snapshot.id))
+        .all(),
+    };
+  }
+
+  history(connectionId: string, limit = 500): SnapshotRow[] {
+    return this.db
+      .select()
+      .from(schema.snapshots)
+      .where(eq(schema.snapshots.connectionId, connectionId))
+      .orderBy(desc(schema.snapshots.observedAt))
+      .limit(limit)
+      .all();
+  }
+
+  /** Replace the connection's capability rows with the connector's current view. */
+  setCapabilities(connectionId: string, capabilities: readonly Capability[]): void {
+    const checkedAt = this.now();
+    this.db.transaction((tx) => {
+      tx.delete(schema.connectionCapabilities)
+        .where(eq(schema.connectionCapabilities.connectionId, connectionId))
+        .run();
+      for (const capability of capabilities) {
+        tx.insert(schema.connectionCapabilities)
+          .values({
+            connectionId,
+            metricOrAction: capability.metricOrAction,
+            availability: capability.availability,
+            interface: capability.interface,
+            evidenceLevel: capability.evidenceLevel,
+            reason: capability.reason ?? null,
+            checkedAt,
+          })
+          .run();
+      }
+    });
+  }
+
+  capabilities(connectionId: string): CapabilityRow[] {
+    return this.db
+      .select()
+      .from(schema.connectionCapabilities)
+      .where(eq(schema.connectionCapabilities.connectionId, connectionId))
+      .all();
+  }
+}
+
+function toDate(value: number | null | undefined): Date | null {
+  return value === null || value === undefined ? null : new Date(value);
+}
