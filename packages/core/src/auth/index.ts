@@ -13,6 +13,8 @@ import { type Db, schema } from "../db/index.ts";
  */
 
 export const minimumPasswordLength = 12;
+/** Internal header carrying the resolved client address into Better Auth's rate limiter. */
+export const clientIpHeader = "x-headroom-client-ip";
 export const minimumUsernameLength = 3;
 
 export interface AuthOptions {
@@ -76,6 +78,8 @@ export function createAuth(options: AuthOptions) {
       },
     },
     advanced: {
+      /** Headroom sets this header itself from the socket or trusted proxy; clients cannot spoof it. */
+      ipAddress: { ipAddressHeaders: [clientIpHeader], disableIpTracking: false },
       cookiePrefix: "headroom",
       useSecureCookies: base.protocol === "https:",
       database: { generateId: () => Bun.randomUUIDv7() },

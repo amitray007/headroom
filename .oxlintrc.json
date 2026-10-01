@@ -36,6 +36,14 @@
       "rules": {
         "typescript/no-unsafe-type-assertion": "off"
       }
+    },
+    {
+      "files": ["scripts/*.ts"],
+      "rules": {
+        "no-console": "off",
+        "typescript/no-unsafe-type-assertion": "off",
+        "no-await-in-loop": "off"
+      }
     }
   ],
   "ignorePatterns": ["dist/**", "node_modules/**", "**/fixtures/**"],

@@ -44,3 +44,12 @@ run = "bun run build"
 [tasks.dev]
 description = "Run the server with reload"
 run = "bun run dev"
+
+[tasks.smoke]
+description = "Build, then drive the binary through owner sign-up and a cancelled Codex CLI login (needs network and codex on PATH)"
+depends = ["build"]
+run = "bun scripts/smoke.ts"
+
+[tasks.docker]
+description = "Build the container image locally"
+run = "docker build -t headroom:dev ."

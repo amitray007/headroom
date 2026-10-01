@@ -32,6 +32,8 @@ mise run install      # bun install --frozen-lockfile
 mise run check        # docs, format, lint, typecheck, knip, test
 mise run build        # dist/headroom single binary
 mise run dev          # server with reload
+mise run smoke        # drive the binary through sign-up and a cancelled Codex login (needs codex on PATH)
+mise run docker       # build the container image
 ```
 
 `make check` runs the same gate. The docs check validates internal Markdown paths, anchors, structure, provider coverage and canonical state names; it does not prove external links or provider integrations work. No command contacts a provider. See [ADR 0002](docs/decisions/0002-stack-and-tooling.md) for the tooling.

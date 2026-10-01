@@ -1,9 +1,11 @@
 import { Hono } from "hono";
+import { getConnInfo } from "hono/bun";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 
 import {
   appliedMigrations,
+  clientIpHeader,
   minimumPasswordLength,
   minimumUsernameLength,
   ownerExists,
@@ -63,7 +65,14 @@ export function createApp(ctx: AppContext): Hono {
   api.use(rejectCrossSite(ctx));
 
   /** Better Auth owns everything under /api/auth, including its own origin checks and rate limits. */
-  api.on(["GET", "POST"], "/auth/*", (c) => ctx.auth.handler(c.req.raw));
+  api.on(["GET", "POST"], "/auth/*", (c) => {
+    const headers = new Headers(c.req.raw.headers);
+    headers.set(
+      clientIpHeader,
+      clientAddress(c.req.raw, ctx.config.trustProxy, () => socketAddress(c)),
+    );
+    return ctx.auth.handler(new Request(c.req.raw, { headers }));
+  });
 
   /** The only unauthenticated read besides /healthz: whether the owner has signed up yet. */
   api.get("/setup", (c) =>
@@ -81,6 +90,31 @@ export function createApp(ctx: AppContext): Hono {
 
   app.route("/api", api);
   return app;
+}
+
+/**
+ * The address Better Auth throttles on. A client-supplied value is always discarded;
+ * X-Forwarded-For is honoured only when the deployment says a trusted proxy sets it.
+ */
+export function clientAddress(
+  request: Request,
+  trustProxy: boolean,
+  socket: () => string | null,
+): string {
+  if (trustProxy) {
+    const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    if (forwarded) return forwarded;
+  }
+  return socket() ?? "unknown";
+}
+
+function socketAddress(c: Parameters<typeof getConnInfo>[0]): string | null {
+  try {
+    return getConnInfo(c).remote.address ?? null;
+  } catch {
+    // app.request() in tests has no socket.
+    return null;
+  }
 }
 
 export function describeDatabase(ctx: AppContext): { migrations: string[] } {

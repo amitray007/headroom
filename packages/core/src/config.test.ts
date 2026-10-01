@@ -11,6 +11,7 @@ test("defaults suit local development", () => {
     port: 8080,
     trustedOrigins: [],
     logLevel: "info",
+    trustProxy: false,
     enabledProviders: ["codex"],
     refreshIntervalSeconds: 900,
     staleAfterSeconds: 43_200,
@@ -46,4 +47,6 @@ test("empty strings fall back to defaults and bad values fail loudly", () => {
     "codex",
   ]);
   expect(() => loadConfig({ HEADROOM_REFRESH_INTERVAL_SECONDS: "5" })).toThrow();
+  expect(loadConfig({ HEADROOM_TRUST_PROXY: "true" }).trustProxy).toBe(true);
+  expect(() => loadConfig({ HEADROOM_TRUST_PROXY: "yes" })).toThrow();
 });

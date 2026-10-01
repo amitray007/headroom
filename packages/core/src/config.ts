@@ -38,6 +38,11 @@ export const configSchema = z.object({
     )
     .pipe(z.array(originSchema)),
   logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  /** Trust X-Forwarded-For from the reverse proxy for the client address. Off unless Headroom sits behind one. */
+  trustProxy: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   /** Connectors the owner has turned on, comma separated. Private-interface connectors stay off unless listed. */
   enabledProviders: z
     .string()
@@ -69,6 +74,7 @@ const envKeys = {
   publicUrl: "HEADROOM_PUBLIC_URL",
   trustedOrigins: "HEADROOM_TRUSTED_ORIGINS",
   logLevel: "HEADROOM_LOG_LEVEL",
+  trustProxy: "HEADROOM_TRUST_PROXY",
   enabledProviders: "HEADROOM_ENABLED_PROVIDERS",
   refreshIntervalSeconds: "HEADROOM_REFRESH_INTERVAL_SECONDS",
   staleAfterSeconds: "HEADROOM_STALE_AFTER_SECONDS",

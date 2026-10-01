@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 
-import { createApp } from "./app.ts";
+import { clientAddress, createApp } from "./app.ts";
 import { cookiesFrom, jsonPost, owner, testContext, url } from "./test-helpers.ts";
 
 const setupSchema = z.object({ ownerExists: z.boolean(), minimumPasswordLength: z.number() });
@@ -170,5 +170,19 @@ describe("rate limiting", () => {
     );
     expect(statuses.slice(0, 5)).toEqual([401, 401, 401, 401, 401]);
     expect(statuses.slice(5)).toEqual([429, 429]);
+  });
+});
+
+describe("client address", () => {
+  test("ignores forwarded headers unless the proxy is trusted; never trusts the internal header", () => {
+    const request = new Request("http://localhost/", {
+      headers: {
+        "x-forwarded-for": "198.51.100.9, 10.0.0.1",
+        "x-headroom-client-ip": "203.0.113.1",
+      },
+    });
+    expect(clientAddress(request, false, () => "127.0.0.1")).toBe("127.0.0.1");
+    expect(clientAddress(request, true, () => "127.0.0.1")).toBe("198.51.100.9");
+    expect(clientAddress(new Request("http://localhost/"), true, () => null)).toBe("unknown");
   });
 });

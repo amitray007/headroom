@@ -11,6 +11,7 @@ export {
 export { LeaseStore, LeaseHeldError } from "./leases.ts";
 export {
   createAuth,
+  clientIpHeader,
   ownerExists,
   minimumPasswordLength,
   minimumUsernameLength,
