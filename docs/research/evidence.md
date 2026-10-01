@@ -48,6 +48,8 @@ Run the checks in [the validation plan](../validation.md) after implementation a
 | Date | Check | Result |
 | --- | --- | --- |
 | 2026-10-01 | `codex login --device-auth` (CLI 0.159.3) run headless on macOS with `CODEX_HOME` set to an empty directory and stdin closed | Printed the verification URL and a one-time code with a fifteen-minute expiry, wrote only `log/codex-login.log`, polled until killed. No sign-in was completed, so `auth.json` creation and refresh remain to be observed |
+| 2026-10-01 | Compiled Headroom binary driven through owner sign-up, `POST /api/attempts` for Codex `cli_login`, poll and cancel | The real CLI ran under the runner, the attempt showed the URL and code, cancel killed it and removed the attempt directory, no connection was created |
+| 2026-10-01 | `grok login --device-auth` (CLI 1.0.46) run headless with `GROK_HOME` set to an empty directory | Printed the device URL carrying the code and the code itself on stderr, honoured the home variable, polled until killed. No sign-in was completed |
 
 ## OpenUsage inspection
 

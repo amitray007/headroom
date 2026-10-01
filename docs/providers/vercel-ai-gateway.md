@@ -16,6 +16,7 @@ Do not use ACP. Do not use a general Vercel personal access token for these read
 
 | Claim | Evidence level | Basis |
 | --- | --- | --- |
+| `@ai-sdk/gateway` 4.0.102 calls `GET /v1/credits` and `GET /v1/report?start_date&end_date&group_by` on `https://ai-gateway.vercel.sh`, maps `total_used` to `totalUsed` and `total_cost` to `totalCost`, and wraps HTTP failures in `GatewayError` with a `statusCode` | source-inspected | Package bundle read on 2026-10-01 |
 | `getCredits()` returns team `balance` and `total_used` | documented | AI SDK documentation [S1] |
 | `getSpendReport` exists and is available on Pro and Enterprise plans | documented | [S1] |
 | Credit and report methods require a Gateway key or OIDC | documented | Authentication section [S1] |

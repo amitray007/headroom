@@ -26,7 +26,7 @@
   },
   "overrides": [
     {
-      "files": ["apps/server/src/index.ts", "drizzle.config.ts"],
+      "files": ["apps/server/src/index.ts", "drizzle.config.ts", "apps/web/vite.config.ts"],
       "rules": {
         "import/no-default-export": "off"
       }
@@ -43,6 +43,18 @@
         "no-console": "off",
         "typescript/no-unsafe-type-assertion": "off",
         "no-await-in-loop": "off"
+      }
+    },
+    {
+      "files": ["apps/web/**"],
+      "plugins": ["react", "jsx-a11y"],
+      "env": {
+        "browser": true
+      },
+      "rules": {
+        "react/react-in-jsx-scope": "off",
+        "typescript/consistent-return": "off",
+        "import/no-unassigned-import": "off"
       }
     }
   ],

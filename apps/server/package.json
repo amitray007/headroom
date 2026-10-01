@@ -5,6 +5,8 @@
   "type": "module",
   "dependencies": {
     "@headroom/connector-codex": "workspace:*",
+    "@headroom/connector-grok": "workspace:*",
+    "@headroom/connector-vercel-ai-gateway": "workspace:*",
     "@headroom/core": "workspace:*",
     "hono": "4.13.12",
     "zod": "4.6.5"

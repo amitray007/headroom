@@ -18,5 +18,5 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["apps/*/src", "packages/*/src", "packages/connectors/*/src"]
+  "include": ["apps/server/src", "packages/*/src", "packages/connectors/*/src"]
 }

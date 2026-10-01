@@ -1,0 +1,14 @@
+{
+  "name": "@headroom/connector-vercel-ai-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/gateway": "4.0.102",
+    "@headroom/core": "workspace:*",
+    "zod": "4.6.5"
+  }
+}

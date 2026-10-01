@@ -12,19 +12,21 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch apps/server/src/index.ts",
-    "build": "bun build --compile --minify --sourcemap apps/server/src/index.ts --outfile dist/headroom",
+    "build": "bun run web:build && bun build --compile --minify --sourcemap apps/server/src/index.ts --outfile dist/headroom",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "lint": "oxlint --type-aware --deny-warnings",
     "lint:fix": "oxlint --type-aware --fix",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/web/tsconfig.json",
     "test": "bun test",
     "knip": "knip",
     "docs:check": "python3 scripts/check_docs.py",
     "check": "bun run docs:check && bun run format:check && bun run lint && bun run typecheck && bun run knip && bun run test",
     "audit:dependencies": "bun audit --audit-level=high",
     "db:generate": "drizzle-kit generate",
-    "auth:generate": "cd packages/core && bunx auth@1.7.7 generate --config auth-schema.config.ts --output src/db/auth-schema.ts --yes"
+    "auth:generate": "cd packages/core && bunx auth@1.7.7 generate --config auth-schema.config.ts --output src/db/auth-schema.ts --yes",
+    "web:dev": "bun run --cwd apps/web dev",
+    "web:build": "bun run --cwd apps/web build"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",

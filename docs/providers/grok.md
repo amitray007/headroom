@@ -16,6 +16,8 @@ API billing is a separate connection with the next step `api_key`, not part of t
 
 | Claim | Status | Basis |
 | --- | --- | --- |
+| Headless `grok login --device-auth` (CLI 1.0.46) needs no TTY, honours `$GROK_HOME`, prints `https://accounts.x.ai/oauth2/device?user_code=<code>` and the code on stderr, and polls until killed | validated | Run by this project on 2026-10-01 with an isolated home; no account was signed in |
+| The official installer places the binary with `GROK_BIN_DIR` and downloads under `$HOME/.grok/downloads` | validated | Installer run on 2026-10-01 into a temporary prefix |
 | `grok login --device-auth` supports headless and remote environments | documented | Grok CLI documentation [S1] |
 | It prints a URL and code, and polls for confirmation | documented | Device Code Flow [S1] |
 | `grok login` replaces a cached session; `grok logout` clears it | documented | Re-authentication [S1] |

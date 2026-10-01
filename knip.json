@@ -10,10 +10,22 @@
       "project": ["src/**/*.ts"]
     },
     "packages/core": {
-      "entry": ["src/contracts.ts", "src/**/*.test.ts", "auth-schema.config.ts"],
+      "entry": ["src/**/*.test.ts", "auth-schema.config.ts"],
       "project": ["src/**/*.ts", "*.ts"]
     },
     "packages/connectors/codex": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "apps/web": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.{ts,tsx}", "*.ts"]
+    },
+    "packages/connectors/vercel-ai-gateway": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/connectors/grok": {
       "entry": ["src/**/*.test.ts"],
       "project": ["src/**/*.ts"]
     }

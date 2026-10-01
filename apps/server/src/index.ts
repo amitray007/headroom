@@ -1,4 +1,6 @@
 import { createCodexConnector } from "@headroom/connector-codex";
+import { createGrokConnector } from "@headroom/connector-grok";
+import { createVercelConnector } from "@headroom/connector-vercel-ai-gateway";
 import { loadConfig } from "@headroom/core";
 
 import { createApp, version } from "./app.ts";
@@ -15,7 +17,11 @@ const levels = { debug: 10, info: 20, warn: 30, error: 40 } as const;
 const threshold = levels[config.logLevel];
 const ctx = bootstrap({
   config,
-  connectors: (runner) => [createCodexConnector({ runner })],
+  connectors: (runner) => [
+    createCodexConnector({ runner }),
+    createGrokConnector({ runner }),
+    createVercelConnector(),
+  ],
   log: (level, message) => {
     if (levels[level] < threshold) return;
     process.stderr.write(`${new Date().toISOString()} ${level} ${message}\n`);

@@ -37,7 +37,7 @@ Completion criteria:
 
 ## M2: API-key providers
 
-Status: not started. Dependency: M1 core.
+Status: Vercel and Grok implemented against fixtures on 2026-10-01; live validation pending. The Grok management-API balance connection is not started.
 
 - Vercel AI Gateway: key validation, team scope, `getCredits()` and `getSpendReport()` through the pinned `@ai-sdk/gateway` package, spend report where the plan allows it.
 - Grok: `grok login --device-auth` through the CLI runner, credential import, refresh at `auth.x.ai`, weekly shared pool and pay-as-you-go cap from `cli-chat-proxy.grok.com/v1/billing`, plan from `/v1/settings`. Team or business logins answer 412 and become `partial`. Management API prepaid balance as a separate `api_key` connection.

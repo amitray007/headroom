@@ -52,8 +52,10 @@ The project is registered with PM as `headroom`. On a machine with PM configured
 | Connector contract and attempt/connection lifecycle | Implemented |
 | Connect orchestration, scheduler, snapshots and API | Implemented |
 | Codex connector: CLI login, auth.json import, usage, reset credits, refresh | Implemented against fixtures; live validation pending |
-| Other providers | Not implemented |
-| Web UI | Not implemented |
+| Grok connector: CLI login, auth.json import, weekly pool, cap, refresh | Implemented against fixtures; live validation pending |
+| Vercel AI Gateway connector: API key, credits, spend report | Implemented against the official SDK; live validation pending |
+| Claude, Antigravity, Copilot, Cursor | Not implemented |
+| Web UI: setup, sign-in with passkeys, connect wizard, connections, detail, account | Implemented, functional only |
 | Docker packaging and production deployment | Planned |
 | Public repository, release and domain | Not created |
 
