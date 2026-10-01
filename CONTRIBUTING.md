@@ -9,9 +9,13 @@ Headroom is in the specification stage. The next implementation task is the Code
 3. Label evidence as documented, source-inspected, prior observation or unvalidated.
 4. Record the review date and direct source links. Pin source revisions when implementing an adapter.
 5. Update [the documentation index](docs/README.md) if a path changes.
-6. Run `make check`.
+6. Run `mise run check`.
 
 Keep one provider dossier per integration family. Put shared behavior in the architecture docs instead of repeating it in every provider file.
+
+## Code changes
+
+Read [ADR 0002](docs/decisions/0002-stack-and-tooling.md) for the toolchain. `mise run check` must pass. Every connector module ships an endpoints file, a Zod schema file and synthetic fixtures for success, partial response and schema drift. No `any`, no unhandled promise, no console output in library code, no default export outside the server entry.
 
 ## Connector changes
 

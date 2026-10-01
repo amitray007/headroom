@@ -1,0 +1,38 @@
+{
+  "name": "headroom",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Self-hosted dashboard for AI account allowances, balances and usage",
+  "license": "MIT",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch apps/server/src/index.ts",
+    "build": "bun build --compile --minify --sourcemap apps/server/src/index.ts --outfile dist/headroom",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "lint": "oxlint --type-aware --deny-warnings",
+    "lint:fix": "oxlint --type-aware --fix",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test",
+    "knip": "knip",
+    "docs:check": "python3 scripts/check_docs.py",
+    "check": "bun run docs:check && bun run format:check && bun run lint && bun run typecheck && bun run knip && bun run test",
+    "audit:dependencies": "bun audit --audit-level=high"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "knip": "6.39.0",
+    "oxfmt": "0.71.0",
+    "oxlint": "1.86.0",
+    "oxlint-tsgolint": "7.0.2003",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "bun": "1.4.2"
+  },
+  "packageManager": "bun@1.4.2"
+}

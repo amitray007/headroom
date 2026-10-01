@@ -12,7 +12,7 @@ Status: not started. Gate: Amit confirms ADR 0001.
 
 Deliverables:
 
-- Bun workspace with Hono, Drizzle on SQLite and Zod; modules for config, store, crypto, owner auth, CLI login runner, scheduler, API, web and one `connectors/codex` module.
+- Bun workspace with Hono, Drizzle on SQLite and Zod; modules for config, store, crypto, owner auth, CLI login runner, scheduler, API, web and one `connectors/codex` module. The workspace, tooling, CI and canonical enumerations exist from the scaffold in [ADR 0002](decisions/0002-stack-and-tooling.md).
 - SQLite schema from [the data model](architecture/data-model.md) with embedded migrations.
 - Owner bootstrap on first run, password sign-in, secure session cookie, CSRF protection on mutations.
 - Encrypted credential store with key versioning and a per-connection lease.

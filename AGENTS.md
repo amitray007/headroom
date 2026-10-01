@@ -13,5 +13,7 @@ This repository currently contains the project specification and research, not a
 - Preserve evidence labels: documented, source-inspected, prior observation, validated, and unvalidated. Label every metric `official` or `private`. A successful login does not prove quota access.
 - Monitoring must not generate model requests, redeem resets or purchase credits. Mutating account actions require their own explicit user action and validated provider support.
 - Zed is outside the current scope. A laptop helper is not part of the connection design. Headroom is personal self-hosted software and must not be designed as a hosted multi-user service.
-- Run `make check` after documentation changes. Update the index when adding a document.
+- Run `mise run check` before claiming any change is done; it covers docs, format, type-aware lint, typecheck, Knip and tests. Use `mise run <task>` or `mise exec -- <command>`, never a global Bun. Update the docs index when adding a document.
+- Enumerations live in `packages/core/src/enums.ts`. Add a state there and in the data model together, never in only one place.
+- Pin every dependency to an exact version. Fix a lint or type error at its cause; do not add a disable directive without a one-line reason.
 - Do not add copied global skills or speculative infrastructure. Record material implementation choices in `docs/decisions/`.

@@ -1,0 +1,11 @@
+{
+  "name": "@headroom/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@headroom/core": "workspace:*",
+    "hono": "4.13.12",
+    "zod": "4.6.5"
+  }
+}

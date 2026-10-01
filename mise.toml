@@ -1,0 +1,46 @@
+[tools]
+bun = "1.4.2"
+
+[settings]
+lockfile = true
+
+[tasks.install]
+description = "Install workspace dependencies with the locked versions"
+run = "bun install --frozen-lockfile"
+
+[tasks.docs]
+description = "Check Markdown links, structure and provider dossiers"
+run = "python3 scripts/check_docs.py"
+
+[tasks.format]
+description = "Format all files with oxfmt"
+run = "bun run format"
+
+[tasks.lint]
+description = "Lint with oxlint, type-aware, warnings denied"
+run = "bun run lint"
+
+[tasks.typecheck]
+description = "Type-check every workspace with tsc"
+run = "bun run typecheck"
+
+[tasks.test]
+description = "Run bun test across the workspace"
+run = "bun run test"
+
+[tasks.knip]
+description = "Report unused files, exports and dependencies"
+run = "bun run knip"
+
+[tasks.check]
+description = "Everything CI runs: docs, format, lint, typecheck, knip, test"
+depends = ["docs"]
+run = "bun run check"
+
+[tasks.build]
+description = "Compile the server into a single binary at dist/headroom"
+run = "bun run build"
+
+[tasks.dev]
+description = "Run the server with reload"
+run = "bun run dev"

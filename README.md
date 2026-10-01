@@ -24,13 +24,17 @@ Support multiple accounts per provider, including separate Codex personal and bu
 
 ## Repository commands
 
-The current check needs Python 3 and Make. It installs no packages and contacts no providers.
+Tool versions come from `mise.toml`. Install mise, then:
 
 ```sh
-make check
+mise install          # Bun 1.4.2
+mise run install      # bun install --frozen-lockfile
+mise run check        # docs, format, lint, typecheck, knip, test
+mise run build        # dist/headroom single binary
+mise run dev          # server with reload
 ```
 
-The check validates internal Markdown paths, local anchors, document structure and provider coverage. It does not prove external links or provider integrations work.
+`make check` runs the same gate. The docs check validates internal Markdown paths, anchors, structure, provider coverage and canonical state names; it does not prove external links or provider integrations work. No command contacts a provider. See [ADR 0002](docs/decisions/0002-stack-and-tooling.md) for the tooling.
 
 The project is registered with PM as `headroom`. On a machine with PM configured, use `pm z headroom` to select it. PM is a maintainer convenience, not a future end-user requirement.
 
@@ -40,12 +44,13 @@ The project is registered with PM as `headroom`. On a machine with PM configured
 | --- | --- |
 | PM registration and Git repository | Created locally |
 | Product, architecture, provider research and validation plan | Written |
+| Workspace, lint, format, typecheck, tests, CI | Scaffolded; `mise run check` passes |
 | Web UI, application authentication and database migrations | Not implemented |
 | Provider sign-in, refresh and quota collection | Not implemented |
 | Docker packaging and production deployment | Planned |
 | Public repository, release and domain | Not created |
 
-TypeScript on Bun, SQLite and a single compiled binary are the proposed stack in [ADR 0001](docs/decisions/0001-direct-provider-clients.md). There is no package manifest or install command yet.
+TypeScript on Bun, SQLite and a single compiled binary are the stack in [ADR 0001](docs/decisions/0001-direct-provider-clients.md) and [ADR 0002](docs/decisions/0002-stack-and-tooling.md). The server currently serves only a health endpoint.
 
 ## Contributing and license
 
