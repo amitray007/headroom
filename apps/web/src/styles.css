@@ -7,6 +7,9 @@
 }
 body {
   margin: 0;
+  /* Follow color-scheme on every surface, including headless screenshots. */
+  background: Canvas;
+  color: CanvasText;
 }
 header {
   display: flex;
