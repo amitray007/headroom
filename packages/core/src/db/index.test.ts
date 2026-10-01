@@ -14,8 +14,11 @@ describe("openDatabase", () => {
       .map((row) => row.name);
     expect(tables).toEqual(
       expect.arrayContaining([
-        "owner",
-        "sessions",
+        "user",
+        "session",
+        "account",
+        "verification",
+        "passkey",
         "connections",
         "credentials",
         "auth_attempts",

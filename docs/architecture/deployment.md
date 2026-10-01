@@ -7,11 +7,13 @@ The target is one Bun-compiled binary, one SQLite file, one key file and three p
 - One process serves the web interface, the API, the scheduler and every connector.
 - The image bundles pinned `codex`, `claude` and `grok` CLIs for sign-in only. Check each binary's redistribution terms; where they forbid bundling, install at container build time from the vendor's channel and record the version. No CLI runs on the refresh path.
 - `HEADROOM_DATA_DIR` holds `headroom.db` in WAL mode and nothing else that must be backed up.
-- `HEADROOM_MASTER_KEY_FILE` points at a 32-byte key outside the data directory. Losing it loses every connection, and the user reconnects. Document that plainly.
+- `HEADROOM_MASTER_KEY_FILE` points at a 32-byte hex key outside the data directory. Losing it loses every connection, and the user reconnects. Document that plainly.
+- `HEADROOM_AUTH_SECRET_FILE` holds the session signing secret, created on first run with mode 0600. Rotating it signs the owner out.
+- `HEADROOM_PUBLIC_URL` is the public origin. It fixes the passkey relying party, Secure cookies and HSTS. `HEADROOM_TRUSTED_ORIGINS` adds origins allowed to call the API and embed the UI.
 - TLS terminates at a reverse proxy. Headroom listens on one HTTP port and sets secure cookies when it sees a trusted forwarded scheme.
 - A long-running process is required. Serverless request lifetimes cannot own a device-code poll or a token refresh.
 
-Dashboard authentication and provider authentication are separate. Signing in to Headroom grants nothing at any provider.
+Dashboard authentication is Better Auth with username, password and passkeys for one owner, rate-limited per address. Provider authentication is separate. Signing in to Headroom grants nothing at any provider.
 
 ## Isolation
 

@@ -25,6 +25,7 @@ This register distinguishes user requirements from implementation proposals. Dat
 | D19 | Usage endpoints and headers taken from OpenUsage source | Proposed | Most precise current reference; Grok and Copilot routes revised from it |
 | D20 | No virtual shell as the CLI runner | Decided 2026-10-01 | just-bash cannot execute native binaries; use `Bun.spawn` or a pseudo-terminal |
 | D21 | Stack and tooling baseline: Bun, Hono, Zod, Drizzle on SQLite, Oxlint type-aware, Oxfmt, Knip, TypeScript 7, mise, GitHub Actions | Applied; see [ADR 0002](0002-stack-and-tooling.md) | `mise run check` is the single gate |
+| D22 | Better Auth with username, password and passkeys for the single owner; trusted origins from env | User decision 2026-10-01; applied | Replaces the hand-written owner store; see ADR 0002 |
 
 ## Decisions still needed
 

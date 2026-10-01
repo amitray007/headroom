@@ -33,6 +33,19 @@ apps/web/         M5 only; Vite and React, embedded into the binary
 
 Workspace packages export TypeScript source directly; Bun runs it without a build step and `tsc` type-checks everything from the root.
 
+## Authentication (D22, added 2026-10-01)
+
+Amit chose Better Auth over the hand-written owner store so the dashboard gets username, password and passkey sign-in from a maintained library. Decisions taken with it:
+
+- `better-auth` 1.7.7 with the `username` plugin and `@better-auth/passkey`, on the Drizzle SQLite adapter. Its tables (`user`, `session`, `account`, `verification`, `passkey`) are generated into `packages/core/src/db/auth-schema.ts` by `bun run auth:generate` and migrated with the rest of the schema.
+- Single owner: a `user.create.before` hook refuses a second sign-up with 403. `/api/setup` tells the UI whether the owner exists.
+- Passkeys use the public URL's host as relying-party id and the public origin as WebAuthn origin, so passkeys only work on the configured domain.
+- Rate limits are on in every environment: five sign-ins per minute per address, three sign-ups, ten passkey sign-ins. The store is in-memory, which is correct for one process.
+- Sessions last thirty days, refresh daily, and are cached in a signed cookie for five minutes. Cookies are prefixed `headroom`, HttpOnly, Lax, and Secure under an https public URL.
+- The session signing secret lives in its own 0600 file next to the master key, created on first run. Rotating it signs the owner out and nothing else.
+- Trusted origins come from `HEADROOM_TRUSTED_ORIGINS` plus the public URL and feed three places at once: Better Auth's origin check, the CORS allowlist with credentials, and the CSP `frame-ancestors` list. `X-Frame-Options` is off because `frame-ancestors` supersedes it.
+- Headroom's own mutating routes are additionally guarded by `Sec-Fetch-Site` and `Origin` checks against the same list.
+
 ## Rules the tooling enforces
 
 - No `any`, no unhandled promise, no non-exhaustive switch, no default export outside the server entry, no `console` in library code.
@@ -44,5 +57,4 @@ Workspace packages export TypeScript source directly; Bun runs it without a buil
 
 - Biome, ESLint and Prettier: Oxlint and Oxfmt cover the same ground faster and are already Amit's direction.
 - Vitest: `bun test` is built in and sufficient.
-- Better Auth: a single owner with a password needs `Bun.password` and a signed cookie, not an auth framework.
 - Lefthook or other Git hooks: CI is the gate; hooks can be added if review shows unformatted commits.

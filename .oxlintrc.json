@@ -30,6 +30,12 @@
       "rules": {
         "import/no-default-export": "off"
       }
+    },
+    {
+      "files": ["packages/core/auth-schema.config.ts"],
+      "rules": {
+        "typescript/no-unsafe-type-assertion": "off"
+      }
     }
   ],
   "ignorePatterns": ["dist/**", "node_modules/**", "**/fixtures/**"],

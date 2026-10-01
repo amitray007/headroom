@@ -46,7 +46,7 @@ The project is registered with PM as `headroom`. On a machine with PM configured
 | Product, architecture, provider research and validation plan | Written |
 | Workspace, lint, format, typecheck, tests, CI | Scaffolded; `mise run check` passes |
 | Configuration, SQLite schema and embedded migrations | Implemented |
-| Encrypted credential store, leases, owner sign-in and sessions | Implemented |
+| Encrypted credential store, leases, Better Auth owner sign-in with username, password and passkeys | Implemented |
 | Connector contract and attempt/connection lifecycle | Implemented |
 | Connect orchestration, scheduler, snapshots and API | Not implemented |
 | Provider sign-in, refresh and quota collection | Not implemented |

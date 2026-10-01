@@ -10,12 +10,13 @@ export {
 } from "./credentials.ts";
 export { LeaseStore, LeaseHeldError } from "./leases.ts";
 export {
-  OwnerStore,
-  OwnerExistsError,
-  WeakPasswordError,
+  createAuth,
+  ownerExists,
   minimumPasswordLength,
-  sessionTtlMs,
-} from "./auth/owner.ts";
+  minimumUsernameLength,
+  type Auth,
+  type SessionInfo,
+} from "./auth/index.ts";
 export * from "./connector.ts";
 export {
   AttemptStore,
