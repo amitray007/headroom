@@ -91,7 +91,7 @@ describe("CliLoginRunner", () => {
     }
   });
 
-  test("shadows open and xdg-open so a CLI cannot open a browser on the server", async () => {
+  test("shadows open, xdg-open and security so a CLI neither opens a browser nor reaches a keychain", async () => {
     const base = mkdtempSync(join(tmpdir(), "headroom-runner-"));
     try {
       const script = join(base, "browser.ts");
@@ -99,7 +99,9 @@ describe("CliLoginRunner", () => {
         script,
         `const open = Bun.spawnSync(["open", "https://example.com/authorize"]);
 const xdg = Bun.spawnSync(["xdg-open", "https://example.com/authorize"]);
-process.stdout.write(\`open=\${open.exitCode} xdg=\${xdg.exitCode} which=\${Bun.which("open")} browser=\${process.env["BROWSER"]}\\n\`);`,
+const find = Bun.spawnSync(["security", "find-generic-password", "-a", "u", "-w", "-s", "svc"]);
+const add = Bun.spawnSync(["security", "-i"], { stdin: Buffer.from("add-generic-password -U -a u -s svc -X 00\\n") });
+process.stdout.write(\`open=\${open.exitCode} xdg=\${xdg.exitCode} find=\${find.exitCode} add=\${add.exitCode} out=\${add.stdout.length + add.stderr.length} which=\${Bun.which("open")} browser=\${process.env["BROWSER"]}\\n\`);`,
       );
       const runner = new CliLoginRunner({ attemptsDir: join(base, "attempts") });
       runner.start({
@@ -112,7 +114,7 @@ process.stdout.write(\`open=\${open.exitCode} xdg=\${xdg.exitCode} which=\${Bun.
       await until(() => runner.status("attempt-3")?.state === "exited");
       const shim = join(runner.attemptDir("attempt-3"), "bin", "open");
       expect(runner.status("attempt-3")?.output.trim()).toBe(
-        `open=0 xdg=0 which=${shim} browser=${shim}`,
+        `open=0 xdg=0 find=44 add=1 out=0 which=${shim} browser=${shim}`,
       );
     } finally {
       rmSync(base, { recursive: true, force: true });

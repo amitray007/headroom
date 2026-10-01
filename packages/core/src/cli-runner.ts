@@ -76,15 +76,15 @@ export class CliLoginRunner implements LoginRunner {
     const dir = this.attemptDir(spec.attemptId);
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true, mode: 0o700 });
-    const noBrowser = installBrowserShim(dir);
+    const shims = installShims(dir);
     const env: Record<string, string> = {
-      PATH: `${noBrowser}:${this.options.path ?? process.env["PATH"] ?? "/usr/bin:/bin"}`,
+      PATH: `${shims}:${this.options.path ?? process.env["PATH"] ?? "/usr/bin:/bin"}`,
       HOME: dir,
       [spec.homeVariable]: dir,
       TERM: "dumb",
       NO_COLOR: "1",
       LANG: "C.UTF-8",
-      BROWSER: join(noBrowser, "open"),
+      BROWSER: join(shims, "open"),
       ...spec.env,
     };
     const child = Bun.spawn([...spec.command], {
@@ -196,18 +196,38 @@ export class CliLoginRunner implements LoginRunner {
 }
 
 /**
- * A CLI that finds `open` or `xdg-open` tries to open the sign-in page in a browser on the
- * server, with a redirect to its own loopback listener. On the owner's own machine that
- * silently succeeds outside Headroom's flow; in a container it fails. Both are wrong, so the
- * attempt directory gets a `bin/` with no-op shims first on PATH, and the CLI falls back to
- * printing the URL Headroom shows the owner.
+ * macOS `security` answers for the Claude CLI's keychain storage. With HOME redirected there is
+ * no keychain, macOS shows a "Keychain Not Found" dialog and the login ends without a file.
+ * Claude Code (2.1.286, source-inspected) treats exit 44 from `find-generic-password` as "no
+ * item" and any other non-zero, non-timeout exit as a definitive keychain failure, after which
+ * it writes `.credentials.json` (mode 0600) under its config directory instead. The shim gives
+ * exactly those answers, reads any stdin to /dev/null so a token payload never reaches a
+ * terminal, and logs nothing.
  */
-function installBrowserShim(dir: string): string {
+const securityShim = `#!/bin/sh
+# Headroom: CLI logins must write their credentials file, never an OS keychain.
+case "$1" in
+  find-generic-password|delete-generic-password) exit 44 ;;
+  -i) cat >/dev/null 2>&1; exit 1 ;;
+  *) exit 1 ;;
+esac
+`;
+
+/**
+ * Shims first on the CLI's PATH, created per attempt:
+ * - `open` and `xdg-open` do nothing. A CLI that finds them opens the sign-in page in a browser
+ *   on the server, with a redirect to its own loopback listener. On the owner's machine that
+ *   silently succeeds outside Headroom's flow; in a container it fails. Both are wrong, so the
+ *   CLI falls back to printing the URL Headroom shows the owner.
+ * - `security` refuses keychain storage so the CLI writes its credentials file.
+ */
+function installShims(dir: string): string {
   const bin = join(dir, "bin");
   mkdirSync(bin, { mode: 0o700 });
   for (const name of ["open", "xdg-open"]) {
     writeFileSync(join(bin, name), "#!/bin/sh\nexit 0\n", { mode: 0o700 });
   }
+  writeFileSync(join(bin, "security"), securityShim, { mode: 0o700 });
   return bin;
 }
 
