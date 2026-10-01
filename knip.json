@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
     ".": {
-      "entry": ["drizzle.config.ts"],
+      "entry": [],
       "project": ["*.ts"]
     },
     "apps/server": {
