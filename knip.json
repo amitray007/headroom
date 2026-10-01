@@ -36,6 +36,14 @@
     "packages/connectors/antigravity": {
       "entry": ["src/**/*.test.ts"],
       "project": ["src/**/*.ts"]
+    },
+    "packages/connectors/copilot": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/connectors/cursor": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
     }
   }
 }

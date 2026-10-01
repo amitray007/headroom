@@ -17,6 +17,7 @@ The official `agent login` CLI is the fallback for members.
 
 | Claim | Evidence level | Basis |
 | --- | --- | --- |
+| Headroom's member connector ports pi-cursor's PKCE login (`loginDeepControl` with S256 challenge, `auth/poll` returning 404 until approved, `exchange_user_api_key` refresh) and reads `DashboardService/GetCurrentPeriodUsage` with the Connect protocol header: total, Auto and API percent, included limit, on-demand spend and limit in cents | source-inspected | Implemented 2026-10-01 against synthetic fixtures; the admin-key connection is not built |
 | `agent login` uses browser login and stores credentials locally; the location is undocumented | documented | [S1] |
 | API key login is supported for automation | documented | [S1] |
 | Admin API uses an admin-created API key and reads usage/spending | documented | [S2] |

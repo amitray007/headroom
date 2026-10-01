@@ -56,7 +56,8 @@ The project is registered with PM as `headroom`. On a machine with PM configured
 | Vercel AI Gateway connector: API key, credits, spend report | Implemented against the official SDK; live validation pending |
 | Claude connector: CLI login with pasted code, .credentials.json import, usage windows, scoped limits, extra usage, reset grants, refresh; off by default | Implemented against fixtures; live validation pending |
 | Antigravity connector: direct Google OAuth with pasted redirect, quota summary pools, refresh, revoke | Implemented against fixtures; live validation pending |
-| Copilot, Cursor | Not implemented |
+| Copilot connector: GitHub device flow, apps.json import, AI-credits usage | Implemented against fixtures; live validation pending |
+| Cursor member connector: PKCE login with polling, dashboard usage, refresh | Implemented against fixtures; admin-key route not built |
 | Web UI: setup, sign-in with passkeys, connect wizard, connections, detail, account | Implemented, functional only |
 | Docker packaging and production deployment | Planned |
 | Public repository, release and domain | Not created |

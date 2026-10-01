@@ -7,6 +7,8 @@
     "@headroom/connector-antigravity": "workspace:*",
     "@headroom/connector-claude": "workspace:*",
     "@headroom/connector-codex": "workspace:*",
+    "@headroom/connector-copilot": "workspace:*",
+    "@headroom/connector-cursor": "workspace:*",
     "@headroom/connector-grok": "workspace:*",
     "@headroom/connector-vercel-ai-gateway": "workspace:*",
     "@headroom/core": "workspace:*",

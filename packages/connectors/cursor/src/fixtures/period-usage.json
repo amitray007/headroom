@@ -1,0 +1,18 @@
+{
+  "billingCycleStart": "2026-09-15T00:00:00Z",
+  "billingCycleEnd": "2026-10-15T00:00:00Z",
+  "membershipType": "pro",
+  "enabled": true,
+  "isUnlimited": false,
+  "planUsage": {
+    "limit": 2000,
+    "includedSpend": 1250,
+    "totalSpend": 1250,
+    "remaining": 750,
+    "totalPercentUsed": 62.5,
+    "autoPercentUsed": 40,
+    "apiPercentUsed": 22.5
+  },
+  "spendLimitUsage": { "limitType": "user", "individualLimit": 5000, "individualUsed": 300 },
+  "futureField": true
+}

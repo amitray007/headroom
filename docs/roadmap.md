@@ -55,7 +55,7 @@ Completion: each connector proves remote approval, refresh, revocation handling 
 
 ## M4: Copilot and Cursor
 
-Status: not started. Dependency: M1 core.
+Status: Copilot and the Cursor member connector implemented against fixtures on 2026-10-01. Cursor team admin and Copilot organization billing remain.
 
 - Copilot: GitHub device flow with a public CLI client id, collection from `copilot_internal/user` with the headers OpenUsage documents: AI-credits percent, extra usage, chat and completions, plan and reset. Org-managed seats return no per-seat percent; owners and billing managers get org totals from the official billing REST API as a separate `organization` capability.
 - Cursor member: pi-cursor sign-in and refresh if its auth module runs without the pi runtime, otherwise a port of it; collection from the dashboard RPC with the `cursor.com/api/usage` and `usage-summary` REST fallbacks, both pools and the billing cycle.

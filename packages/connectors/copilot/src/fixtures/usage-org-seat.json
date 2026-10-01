@@ -1,0 +1,16 @@
+{
+  "copilot_plan": "business",
+  "quota_reset_date": "2026-11-01",
+  "quota_snapshots": {
+    "premium_interactions": {
+      "entitlement": 0,
+      "remaining": 0,
+      "percent_remaining": 0,
+      "unlimited": false,
+      "overage_permitted": true,
+      "credits_used": 42
+    },
+    "chat": { "entitlement": 50, "remaining": 35 },
+    "completions": { "entitlement": 2000, "remaining": 1500 }
+  }
+}

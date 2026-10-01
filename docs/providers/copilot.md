@@ -20,6 +20,7 @@ Treat account quota, session metrics, organization billing, and analytics as sep
 
 | Claim | Evidence level | Basis |
 | --- | --- | --- |
+| Headroom's connector runs the GitHub device flow with the gh CLI's public client id and the `read:user` scope, imports `apps.json`, reads identity from `/user`, and maps `copilot_internal/user` into credits percent used, personal credits count, extra usage, chat and completions with the unlimited sentinel; tokens are not refreshable and revocation needs a client secret Headroom lacks | source-inspected | Implemented 2026-10-01 against synthetic fixtures from OpenUsage source; whether the gh client id and `read:user` scope satisfy the endpoint is unvalidated |
 | Copilot CLI supports device-code login | documented | [S1] |
 | SDK exposes account quota through `account.getQuota` | documented | [S2] |
 | SDK quota shape: `quotaSnapshots` with `entitlementRequests` (`-1` is unlimited), `usedRequests`, `remainingPercentage`, `resetDate` | documented | [S2] |

@@ -1,6 +1,8 @@
 import { createAntigravityConnector } from "@headroom/connector-antigravity";
 import { createClaudeConnector } from "@headroom/connector-claude";
 import { createCodexConnector } from "@headroom/connector-codex";
+import { createCopilotConnector } from "@headroom/connector-copilot";
+import { createCursorConnector } from "@headroom/connector-cursor";
 import { createGrokConnector } from "@headroom/connector-grok";
 import { createVercelConnector } from "@headroom/connector-vercel-ai-gateway";
 import { loadConfig } from "@headroom/core";
@@ -24,6 +26,8 @@ const ctx = bootstrap({
     createClaudeConnector({ runner }),
     createGrokConnector({ runner }),
     createAntigravityConnector(),
+    createCopilotConnector(),
+    createCursorConnector(),
     createVercelConnector(),
   ],
   log: (level, message) => {
