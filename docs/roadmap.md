@@ -46,7 +46,7 @@ Completion: each connector passes the shared checks in [validation](validation.m
 
 ## M3: OAuth family
 
-Status: not started. Dependency: M1 core, `paste_redirect` next step.
+Status: Claude implemented against fixtures on 2026-10-01 and off by default; Antigravity not started.
 
 - Claude: `claude` login through the CLI runner with its URL and pasted code, credential import of `.credentials.json`, token refresh, collection from `api/oauth/usage` with five-hour, seven-day, model-scoped buckets and reset grants. A `setup-token` cannot read limits, so only a real login counts. Off by default; the owner enables it knowingly. Direct PKCE client as fallback.
 - Antigravity: direct Google OAuth with the client constants CLIProxyAPI uses, pasted redirect, project id lookup, collection from `retrieveUserQuotaSummary` with the legacy per-model endpoints as fallback. Credits stay `unknown` until a source exists.

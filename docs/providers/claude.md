@@ -21,7 +21,8 @@ No official passive route exists. The status-line document says `rate_limits` ap
 | Anthropic restricts third-party handling of Claude.ai credentials | documented | [S2] |
 | Anthropic permits some hosted unmodified Claude Code use subject to conditions | documented | [S2] |
 | Claude Code supports remote and manual authentication scenarios | documented | [S1] |
-| Headless `claude` login prints an authorization URL, accepts a pasted code and writes `.credentials.json` under `$CLAUDE_CONFIG_DIR` | unvalidated | Behaviour of the current version not tested; [S1] documents remote and manual authentication |
+| Headless `claude auth login` (CLI 2.1.286) with no TTY prints `If the browser didn't open, visit: https://claude.com/cai/oauth/authorize?...&redirect_uri=https://platform.claude.com/oauth/code/callback...` and then `Paste code here if prompted >`, honouring `$CLAUDE_CONFIG_DIR` | validated | Run by this project on 2026-10-01 with an isolated config directory; no account was signed in. Writing of `.credentials.json` on success remains to be observed |
+| Interactive `claude` login on a desktop redirects to `http://localhost:<port>/callback?code=...&state=...` instead of the platform code page | prior observation | Amit observed it on 2026-10-01; Headroom uses the headless mode, so this redirect does not apply to it |
 | OpenUsage reads `~/.claude/.credentials.json` or `$CLAUDE_CONFIG_DIR/.credentials.json` | source-inspected | OpenUsage Claude provider doc [S8] |
 | A long-lived `claude setup-token` (`CLAUDE_CODE_OAUTH_TOKEN`) can run the model but cannot read session and weekly limits | source-inspected | OpenUsage Claude provider doc [S8] |
 | Fallback sign-in uses PKCE with the Claude Code public OAuth client and a localhost callback on port 54545; a pasted callback URL is accepted | source-inspected | CLIProxyAPI `internal/auth/claude` and `sdk/auth/claude.go` [S6] |

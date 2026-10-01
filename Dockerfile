@@ -6,6 +6,7 @@ WORKDIR /src
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/package.json
 COPY packages/core/package.json packages/core/package.json
+COPY packages/connectors/claude/package.json packages/connectors/claude/package.json
 COPY packages/connectors/codex/package.json packages/connectors/codex/package.json
 COPY packages/connectors/grok/package.json packages/connectors/grok/package.json
 COPY packages/connectors/vercel-ai-gateway/package.json packages/connectors/vercel-ai-gateway/package.json
@@ -15,7 +16,7 @@ RUN bun run build
 
 FROM oven/bun:1.4.2-slim AS runtime
 # Pinned official CLIs, used once per Connect for sign-in only. Versions match ADR 0002.
-RUN bun add -g @openai/codex@0.159.3 && codex --version
+RUN bun add -g @openai/codex@0.159.3 @anthropic-ai/claude-code@2.1.286 && codex --version && claude --version
 # Grok ships a prebuilt binary through its official installer; GROK_BIN_DIR places it, HOME holds the download.
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /opt/grok && GROK_BIN_DIR=/usr/local/bin HOME=/opt/grok bash -c "$(curl -fsSL https://x.ai/cli/install.sh)" \

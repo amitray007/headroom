@@ -54,7 +54,8 @@ The project is registered with PM as `headroom`. On a machine with PM configured
 | Codex connector: CLI login, auth.json import, usage, reset credits, refresh | Implemented against fixtures; live validation pending |
 | Grok connector: CLI login, auth.json import, weekly pool, cap, refresh | Implemented against fixtures; live validation pending |
 | Vercel AI Gateway connector: API key, credits, spend report | Implemented against the official SDK; live validation pending |
-| Claude, Antigravity, Copilot, Cursor | Not implemented |
+| Claude connector: CLI login with pasted code, .credentials.json import, usage windows, scoped limits, extra usage, reset grants, refresh; off by default | Implemented against fixtures; live validation pending |
+| Antigravity, Copilot, Cursor | Not implemented |
 | Web UI: setup, sign-in with passkeys, connect wizard, connections, detail, account | Implemented, functional only |
 | Docker packaging and production deployment | Planned |
 | Public repository, release and domain | Not created |

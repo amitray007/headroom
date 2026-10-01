@@ -1,0 +1,6 @@
+{
+  "five_hour": { "resets_at": null },
+  "seven_day": { "utilization": 0 },
+  "extra_usage": { "is_enabled": false },
+  "cedar_ember": { "eligible": false, "grants": [] }
+}

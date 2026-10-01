@@ -1,3 +1,4 @@
+import { createClaudeConnector } from "@headroom/connector-claude";
 import { createCodexConnector } from "@headroom/connector-codex";
 import { createGrokConnector } from "@headroom/connector-grok";
 import { createVercelConnector } from "@headroom/connector-vercel-ai-gateway";
@@ -19,6 +20,7 @@ const ctx = bootstrap({
   config,
   connectors: (runner) => [
     createCodexConnector({ runner }),
+    createClaudeConnector({ runner }),
     createGrokConnector({ runner }),
     createVercelConnector(),
   ],
