@@ -26,7 +26,7 @@
   },
   "overrides": [
     {
-      "files": ["apps/server/src/index.ts"],
+      "files": ["apps/server/src/index.ts", "drizzle.config.ts"],
       "rules": {
         "import/no-default-export": "off"
       }

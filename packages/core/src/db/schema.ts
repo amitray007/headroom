@@ -1,0 +1,239 @@
+import { sql } from "drizzle-orm";
+import {
+  blob,
+  index,
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
+
+import {
+  accountActionStates,
+  attemptStates,
+  authMethods,
+  availabilities,
+  connectionScopes,
+  connectionStates,
+  evidenceLevels,
+  interfaceLabels,
+  metricKinds,
+  nextSteps,
+  providers,
+  reconnectReasons,
+  refreshStates,
+  syncRunOutcomes,
+} from "../enums.ts";
+
+/**
+ * Logical schema from docs/architecture/data-model.md. Timestamps are integer epoch
+ * milliseconds. Enumerated columns are text constrained by the canonical lists in enums.ts.
+ */
+
+const now = sql`(unixepoch('subsec') * 1000)`;
+
+export const owner = sqliteTable("owner", {
+  id: text("id").primaryKey(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    /** SHA-256 of the cookie token, base64url. The raw token never touches the database. */
+    tokenHash: text("token_hash").primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => owner.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("sessions_expires_at").on(t.expiresAt)],
+);
+
+export const connections = sqliteTable(
+  "connections",
+  {
+    id: text("id").primaryKey(),
+    provider: text("provider", { enum: providers }).notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    workspaceId: text("workspace_id"),
+    scope: text("scope", { enum: connectionScopes }).notNull(),
+    label: text("label").notNull(),
+    authMethod: text("auth_method", { enum: authMethods }).notNull(),
+    state: text("state", { enum: connectionStates }).notNull(),
+    reconnectReason: text("reconnect_reason", { enum: reconnectReasons }),
+    lastSuccessAt: integer("last_success_at", { mode: "timestamp_ms" }),
+    interface: text("interface", { enum: interfaceLabels }).notNull(),
+    connectorVersion: text("connector_version").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+  },
+  (t) => [
+    uniqueIndex("connections_identity").on(t.provider, t.providerAccountId, t.workspaceId, t.scope),
+    index("connections_state").on(t.state),
+  ],
+);
+
+export const credentials = sqliteTable("credentials", {
+  connectionId: text("connection_id")
+    .primaryKey()
+    .references(() => connections.id, { onDelete: "cascade" }),
+  ciphertext: blob("ciphertext", { mode: "buffer" }).notNull(),
+  nonce: blob("nonce", { mode: "buffer" }).notNull(),
+  keyVersion: integer("key_version").notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
+  refreshedAt: integer("refreshed_at", { mode: "timestamp_ms" }),
+  refreshState: text("refresh_state", { enum: refreshStates }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+
+export const authAttempts = sqliteTable(
+  "auth_attempts",
+  {
+    id: text("id").primaryKey(),
+    provider: text("provider", { enum: providers }).notNull(),
+    method: text("method", { enum: authMethods }).notNull(),
+    state: text("state", { enum: attemptStates }).notNull(),
+    /** Set for Reconnect; the attempt must resolve to this connection's identity. */
+    connectionId: text("connection_id").references(() => connections.id, { onDelete: "cascade" }),
+    nextStep: text("next_step", { enum: nextSteps }),
+    /** Browser-visible payload for the next step: URL, user code, field list. Never a secret. */
+    nextStepPayload: text("next_step_payload", { mode: "json" }),
+    /** Connector-private state (PKCE verifier, device auth id, runner handle), encrypted. */
+    privateCiphertext: blob("private_ciphertext", { mode: "buffer" }),
+    privateNonce: blob("private_nonce", { mode: "buffer" }),
+    keyVersion: integer("key_version"),
+    sanitizedError: text("sanitized_error"),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+  },
+  (t) => [index("auth_attempts_state").on(t.state, t.expiresAt)],
+);
+
+export const connectionCapabilities = sqliteTable(
+  "connection_capabilities",
+  {
+    connectionId: text("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    metricOrAction: text("metric_or_action").notNull(),
+    availability: text("availability", { enum: availabilities }).notNull(),
+    interface: text("interface", { enum: interfaceLabels }).notNull(),
+    evidenceLevel: text("evidence_level", { enum: evidenceLevels }).notNull(),
+    reason: text("reason"),
+    checkedAt: integer("checked_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.connectionId, t.metricOrAction] })],
+);
+
+export const syncRuns = sqliteTable(
+  "sync_runs",
+  {
+    id: text("id").primaryKey(),
+    connectionId: text("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    startedAt: integer("started_at", { mode: "timestamp_ms" }).notNull(),
+    finishedAt: integer("finished_at", { mode: "timestamp_ms" }),
+    outcome: text("outcome", { enum: syncRunOutcomes }),
+    retryAfter: integer("retry_after", { mode: "timestamp_ms" }),
+    sanitizedError: text("sanitized_error"),
+  },
+  (t) => [index("sync_runs_connection").on(t.connectionId, t.startedAt)],
+);
+
+export const snapshots = sqliteTable(
+  "snapshots",
+  {
+    id: text("id").primaryKey(),
+    connectionId: text("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    syncRunId: text("sync_run_id")
+      .notNull()
+      .references(() => syncRuns.id, { onDelete: "cascade" }),
+    /** When the provider says the data was true. */
+    observedAt: integer("observed_at", { mode: "timestamp_ms" }).notNull(),
+    /** When Headroom received it. Differs from observedAt for provider-cached values. */
+    receivedAt: integer("received_at", { mode: "timestamp_ms" }).notNull(),
+    connectorVersion: text("connector_version").notNull(),
+    schemaVersion: integer("schema_version").notNull(),
+  },
+  (t) => [index("snapshots_connection").on(t.connectionId, t.observedAt)],
+);
+
+export const metrics = sqliteTable(
+  "metrics",
+  {
+    id: text("id").primaryKey(),
+    snapshotId: text("snapshot_id")
+      .notNull()
+      .references(() => snapshots.id, { onDelete: "cascade" }),
+    providerMetricKey: text("provider_metric_key").notNull(),
+    kind: text("kind", { enum: metricKinds }).notNull(),
+    scope: text("scope").notNull(),
+    /** Exact provider value as a decimal string. Source of truth. */
+    valueText: text("value_text"),
+    /** Derived float for charts only. */
+    valueNum: real("value_num"),
+    unit: text("unit").notNull(),
+    unlimited: integer("unlimited", { mode: "boolean" }).notNull().default(false),
+    windowStart: integer("window_start", { mode: "timestamp_ms" }),
+    windowEnd: integer("window_end", { mode: "timestamp_ms" }),
+    resetsAt: integer("resets_at", { mode: "timestamp_ms" }),
+    availability: text("availability", { enum: availabilities }).notNull(),
+    interface: text("interface", { enum: interfaceLabels }).notNull(),
+  },
+  (t) => [index("metrics_snapshot").on(t.snapshotId)],
+);
+
+export const resetCredits = sqliteTable(
+  "reset_credits",
+  {
+    id: text("id").primaryKey(),
+    snapshotId: text("snapshot_id")
+      .notNull()
+      .references(() => snapshots.id, { onDelete: "cascade" }),
+    providerCreditId: text("provider_credit_id").notNull(),
+    eligible: integer("eligible", { mode: "boolean" }).notNull(),
+    usable: integer("usable", { mode: "boolean" }).notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
+    cooldownUntil: integer("cooldown_until", { mode: "timestamp_ms" }),
+    rawLabel: text("raw_label"),
+  },
+  (t) => [index("reset_credits_snapshot").on(t.snapshotId)],
+);
+
+export const accountActions = sqliteTable(
+  "account_actions",
+  {
+    id: text("id").primaryKey(),
+    connectionId: text("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    action: text("action").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    state: text("state", { enum: accountActionStates }).notNull(),
+    requestedAt: integer("requested_at", { mode: "timestamp_ms" }).notNull(),
+    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+    providerReference: text("provider_reference"),
+    resultingSnapshotId: text("resulting_snapshot_id").references(() => snapshots.id),
+    sanitizedError: text("sanitized_error"),
+  },
+  (t) => [uniqueIndex("account_actions_idempotency").on(t.connectionId, t.idempotencyKey)],
+);
+
+/** Per-connection lease guarding login, refresh, collection and actions. */
+export const leases = sqliteTable("leases", {
+  connectionId: text("connection_id")
+    .primaryKey()
+    .references(() => connections.id, { onDelete: "cascade" }),
+  holder: text("holder").notNull(),
+  acquiredAt: integer("acquired_at", { mode: "timestamp_ms" }).notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+});

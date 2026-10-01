@@ -21,10 +21,12 @@
     "knip": "knip",
     "docs:check": "python3 scripts/check_docs.py",
     "check": "bun run docs:check && bun run format:check && bun run lint && bun run typecheck && bun run knip && bun run test",
-    "audit:dependencies": "bun audit --audit-level=high"
+    "audit:dependencies": "bun audit --audit-level=high",
+    "db:generate": "drizzle-kit generate"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",
+    "drizzle-kit": "0.31.11",
     "knip": "6.39.0",
     "oxfmt": "0.71.0",
     "oxlint": "1.86.0",

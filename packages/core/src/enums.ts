@@ -114,6 +114,31 @@ export const accountActionStates = [
 export const accountActionStateSchema = z.enum(accountActionStates);
 export type AccountActionState = z.infer<typeof accountActionStateSchema>;
 
+export const metricKinds = [
+  "quota_percentage",
+  "absolute_quota",
+  "currency_balance",
+  "credits",
+  "spend",
+  "spending_cap",
+  "reset_inventory",
+  "reset_timestamp",
+] as const;
+export const metricKindSchema = z.enum(metricKinds);
+export type MetricKind = z.infer<typeof metricKindSchema>;
+
+export const providers = [
+  "codex",
+  "claude",
+  "grok",
+  "antigravity",
+  "copilot",
+  "cursor",
+  "vercel_ai_gateway",
+] as const;
+export const providerSchema = z.enum(providers);
+export type Provider = z.infer<typeof providerSchema>;
+
 /** Failure classes from the connection lifecycle. Only `definitive` may change connection state. */
 export const failureClasses = ["transient", "capability", "definitive"] as const;
 export const failureClassSchema = z.enum(failureClasses);
