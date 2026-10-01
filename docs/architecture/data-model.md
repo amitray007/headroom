@@ -1,0 +1,82 @@
+# Data model
+
+This is a logical schema for implementation planning. No database or migrations exist yet. Enumerations below are canonical; dossiers and code use these names.
+
+## Entities
+
+| Entity | Key fields | Purpose |
+| --- | --- | --- |
+| `owner` | id, password_hash or passkey, created_at | The single dashboard owner |
+| `connections` | id, provider, provider_account_id, workspace_id, scope, label, auth_method, state, reconnect_reason, last_success_at, interface, connector_version, created_at | One linked provider account or workspace |
+| `credentials` | connection_id, ciphertext, key_version, expires_at, refreshed_at, refresh_state | Encrypted tokens or key; one row per connection |
+| `auth_attempts` | id, provider, method, state, next_step, private_state_ciphertext, expires_at, created_at, sanitized_error | Bounded login workflow |
+| `connection_capabilities` | connection_id, metric_or_action, availability, interface, evidence_level, reason, checked_at | What this account exposes |
+| `sync_runs` | id, connection_id, started_at, finished_at, outcome, retry_after, sanitized_error | Collection attempts and backoff |
+| `snapshots` | id, connection_id, sync_run_id, observed_at, received_at, connector_version, schema_version | One provider observation |
+| `metrics` | snapshot_id, provider_metric_key, kind, scope, value_text, value_num, unit, window_start, window_end, resets_at, availability, interface | Individual measurements |
+| `reset_credits` | snapshot_id, provider_credit_id, eligible, usable, expires_at, cooldown_until, raw_label | Per-credit rows of a reset inventory |
+| `account_actions` | id, connection_id, action, idempotency_key, state, requested_at, completed_at, provider_reference, resulting_snapshot_id, sanitized_error | Later reset or purchase operations |
+
+`value_text` holds the exact provider value as a decimal string. `value_num` is a derived float for charts and never the source of truth. Money uses `value_text` plus an ISO currency unit.
+
+## Enumerations
+
+| Field | Values |
+| --- | --- |
+| `connections.state` | `ready`, `partial`, `reconnect_required`, `paused` |
+| `connections.scope` | `individual`, `member`, `team_admin`, `organization` |
+| `connections.auth_method` | `cli_login`, `device_code`, `paste_redirect`, `approval_poll`, `api_key`, `import` |
+| `auth_attempts.state` | `created`, `awaiting_user`, `awaiting_input`, `validating`, `succeeded`, `failed`, `expired`, `cancelled` |
+| `auth_attempts.next_step` | `open_url`, `device_code`, `paste_redirect`, `select_account`, `api_key`, `paste_file`, none |
+| `*.interface` | `official`, `private` |
+| `*.availability` | `available`, `unsupported`, `not_authorized`, `temporarily_unavailable`, `unknown` |
+| `connection_capabilities.evidence_level` | `documented`, `source_inspected`, `prior_observation`, `validated`, `unvalidated` |
+| `credentials.refresh_state` | `fresh`, `refresh_due`, `refresh_failed`, `not_refreshable` |
+| `connections.reconnect_reason` | `refresh_rejected`, `token_rejected`, `identity_changed`, `revoked_by_owner`, none |
+| `sync_runs.outcome` | `succeeded`, `partial`, `rate_limited`, `provider_unavailable`, `authentication_failed`, `invalid_response`, `interrupted` |
+| `account_actions.state` | `requested`, `submitted`, `succeeded`, `failed`, `uncertain` |
+
+## Identity
+
+Use immutable internal ids. Provider names, email addresses and display labels are not connection keys. An account can have several workspaces or teams; the owner can connect several accounts from one provider.
+
+Take identity from token claims where the provider issues an id token, otherwise from a documented identity endpoint. Record the weaker assurance when neither exists and block actions that need strong confirmation.
+
+## Metric kinds and units
+
+| Kind | Example | Storage rule |
+| --- | --- | --- |
+| Quota percentage | Weekly usage percent | Decimal percent with bucket identity; never average unrelated buckets |
+| Absolute quota | Used or remaining requests | Separate numeric values with an explicit request unit; `-1` style unlimited sentinels become `unlimited = true`, not a number |
+| Currency balance | Remaining prepaid USD | Decimal string plus ISO currency; no binary floating-point money |
+| Credits | Provider credit balance | Decimal string plus provider credit unit; never relabelled as dollars |
+| Spend | Cost during a billing period | Currency plus explicit start, end and scope |
+| Spending cap | Allowed on-demand spend | Separate from included entitlement and remaining balance |
+| Reset inventory | Available and redeemable resets | Count on the metric row; detail in `reset_credits` |
+| Reset timestamp | Weekly renewal instant | Timestamp attached to its bucket; not a count |
+
+Preserve provider bucket ids and labels. A model-specific bucket can overlap an overall bucket; do not add them. Normalize units only when the conversion is explicit and reversible.
+
+## Reconnect binding
+
+A reconnect attempt carries the existing `connection_id`. On success the `credentials` row is replaced in the same transaction that clears `reconnect_reason` and sets `state`; snapshots, metrics and actions keep their foreign key, so history is continuous. `last_success_at` is the observation time of the latest `succeeded` or `partial` run and drives the staleness notice.
+
+## Missing and stale data
+
+A known zero is an `available` value of zero. An unlimited entitlement requires an explicit provider signal. A missing field is `unknown`, a documented absence is `unsupported`, a 403 is `not_authorized`, a 429 or 5xx is `temporarily_unavailable`.
+
+Observation time differs from the time Headroom received a cached provider value. Keep both when supplied. Failed runs never create a fresh-looking copy of old values; the prior observation time stays.
+
+## History
+
+History begins when Headroom connects unless a provider supports a historical query. Store imported history with provenance and deduplicate by provider record or period. Never present a local estimate as the provider's invoice.
+
+Store normalized observations only. Raw responses can contain personal data or tokens; keep only allowlisted diagnostic fields. Fixtures are synthetic.
+
+## Actions
+
+Read capabilities and action capabilities are separate. Redemption consumes inventory and never runs inside a refresh. Use provider idempotency keys. If a response is lost, reconcile before any retry and record `uncertain` explicitly.
+
+## Open schema decisions
+
+Retention duration and aggregation intervals are not fixed. The first migration must preserve the identity, unit, enumeration and evidence rules above.

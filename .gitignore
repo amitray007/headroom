@@ -1,0 +1,22 @@
+# Credentials and local state
+.env
+.env.*
+!.env.example
+.state/
+.data/
+.workbench/
+credentials/
+*.pem
+*.key
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+# Local tools and generated output
+.DS_Store
+__pycache__/
+*.pyc
+node_modules/
+dist/
+coverage/
