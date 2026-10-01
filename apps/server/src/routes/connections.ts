@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { authMethodSchema } from "@headroom/core";
+import { accountActionKindSchema, authMethodSchema } from "@headroom/core";
 
 import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
@@ -9,6 +9,12 @@ import { handleServiceError } from "./errors.ts";
 
 const reconnectBody = z.object({ method: authMethodSchema });
 const pauseBody = z.object({ paused: z.boolean() });
+/** `confirm` must be literally true: the browser sets it after the owner confirmed the named credit. */
+const actionBody = z.object({
+  action: accountActionKindSchema,
+  creditId: z.string().min(1).optional(),
+  confirm: z.literal(true),
+});
 
 /** Every instant leaves the API as epoch milliseconds; the web client's schemas expect numbers, not ISO strings. */
 function ms(value: Date | null | undefined): number | null {
@@ -103,7 +109,45 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
             sanitizedError: run.sanitizedError,
           }
         : null,
+      actions: {
+        enabled: ctx.actions.enabled,
+        supported: ctx.actions.supported(connection.provider),
+      },
     });
+  });
+
+  /**
+   * Owner-triggered account mutation, for example consuming a Codex reset credit. Gated by
+   * HEADROOM_ENABLE_ACTIONS and by the literal confirm flag; never called by the scheduler.
+   */
+  app.post("/:id/actions", async (c) => {
+    const connection = ctx.connections.get(c.req.param("id"));
+    if (!connection) return c.json({ error: "not_found" }, 404);
+    const body = actionBody.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "invalid_body" }, 400);
+    try {
+      const outcome = await ctx.actions.perform({
+        connectionId: connection.id,
+        action: body.data.action,
+        confirm: body.data.confirm,
+        ...(body.data.creditId ? { creditId: body.data.creditId } : {}),
+      });
+      return c.json({
+        action: {
+          id: outcome.action.id,
+          action: outcome.action.action,
+          state: outcome.action.state,
+          requestedAt: outcome.action.requestedAt.getTime(),
+          completedAt: ms(outcome.action.completedAt),
+          providerReference: outcome.action.providerReference,
+          sanitizedError: outcome.action.sanitizedError,
+        },
+        collection: outcome.collection ?? null,
+        state: ctx.connections.get(connection.id)?.state,
+      });
+    } catch (error) {
+      return handleServiceError(c, error);
+    }
   });
 
   app.post("/:id/reconnect", async (c) => {

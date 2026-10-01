@@ -3,6 +3,8 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { dirname, join } from "node:path";
 
 import {
+  ActionService,
+  ActionStore,
   AttemptStore,
   CliLoginRunner,
   type Auth,
@@ -41,6 +43,7 @@ export interface AppContext {
   readonly runner: CliLoginRunner;
   readonly connect: ConnectService;
   readonly collection: CollectionService;
+  readonly actions: ActionService;
   /** Origins allowed for CORS, Better Auth and frame-ancestors. Always includes the base URL. */
   readonly trustedOrigins: readonly string[];
   readonly now: () => Date;
@@ -98,6 +101,14 @@ export function bootstrap(options: BootstrapOptions): AppContext {
       ? options.connectors(runner)
       : (options.connectors ?? []);
   const registry = createRegistry(available, config.enabledProviders);
+  const collection = new CollectionService({
+    registry,
+    connections,
+    credentials,
+    snapshots,
+    leases,
+    now,
+  });
   return {
     config,
     db,
@@ -119,13 +130,16 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     registry,
     runner,
     connect: new ConnectService({ registry, attempts, connections, credentials, snapshots, now }),
-    collection: new CollectionService({
+    collection,
+    actions: new ActionService({
+      enabled: config.actionsEnabled,
       registry,
       connections,
       credentials,
       snapshots,
+      actions: new ActionStore(db, now),
       leases,
-      now,
+      collection,
     }),
     trustedOrigins,
     now,

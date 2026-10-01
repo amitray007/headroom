@@ -58,6 +58,15 @@ export const configSchema = z.object({
     .pipe(z.array(providerSchema)),
   /** Seconds between scheduled collections per connection. */
   refreshIntervalSeconds: z.coerce.number().int().min(60).default(900),
+  /**
+   * Allow owner-triggered account mutations such as consuming a Codex reset credit. Off by
+   * default: the code ships, the owner turns it on knowingly, and every action still needs an
+   * explicit confirmation in the request.
+   */
+  actionsEnabled: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   /** Seconds after the last success before the card shows a stale notice. */
   staleAfterSeconds: z.coerce
     .number()
@@ -80,6 +89,7 @@ const envKeys = {
   webDir: "HEADROOM_WEB_DIR",
   enabledProviders: "HEADROOM_ENABLED_PROVIDERS",
   refreshIntervalSeconds: "HEADROOM_REFRESH_INTERVAL_SECONDS",
+  actionsEnabled: "HEADROOM_ENABLE_ACTIONS",
   staleAfterSeconds: "HEADROOM_STALE_AFTER_SECONDS",
 } as const satisfies Record<keyof Config, string>;
 

@@ -1,4 +1,6 @@
 import type {
+  ActionRequest,
+  ActionResult,
   BeginConnectOptions,
   Capability,
   ClassifiedError,
@@ -23,6 +25,8 @@ export class FakeConnector implements Connector {
   readonly version = "fake-1";
   readonly interface = "private" as const;
   readonly supportedMethods = ["device_code", "api_key", "import"];
+  readonly supportedActions = ["consume_reset_credit"] as const;
+  actionQueue: ActionResult[] = [];
 
   readonly calls: string[] = [];
   beginQueue: ConnectProgress[] = [];
@@ -120,6 +124,17 @@ export class FakeConnector implements Connector {
   disconnect(): Promise<DisconnectResult> {
     this.calls.push("disconnect");
     return Promise.resolve(this.disconnectResult);
+  }
+
+  performAction(_credential: StoredCredential, request: ActionRequest): Promise<ActionResult> {
+    this.calls.push(`action:${request.action}:${request.creditId ?? ""}:${request.idempotencyKey}`);
+    return Promise.resolve(
+      this.actionQueue.shift() ?? {
+        status: "succeeded",
+        providerReference: request.creditId,
+        detail: null,
+      },
+    );
   }
 
   classify(error: unknown): ClassifiedError {

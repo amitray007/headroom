@@ -16,6 +16,7 @@ test("defaults suit local development", () => {
     enabledProviders: ["codex"],
     refreshIntervalSeconds: 900,
     staleAfterSeconds: 43_200,
+    actionsEnabled: false,
   });
   expect(baseUrl(config)).toBe("http://localhost:8080");
 });

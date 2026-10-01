@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { StoredCredential } from "./credentials.ts";
 import {
+  type AccountActionKind,
   type Availability,
   type ErrorCategory,
   type EvidenceLevel,
@@ -147,6 +148,27 @@ export type RefreshResult =
 
 export type DisconnectResult = "revoked" | "local_only" | "failed";
 
+/** One explicit, owner-confirmed mutation. The idempotency key is the action row id. */
+export interface ActionRequest {
+  readonly action: AccountActionKind;
+  /** Provider credit id for `consume_reset_credit`. */
+  readonly creditId: string | null;
+  readonly idempotencyKey: string;
+}
+
+/**
+ * `uncertain` means the request may have reached the provider and nothing proves whether it
+ * applied; the owner reconciles from the next snapshot and nothing retries automatically.
+ */
+export type ActionResult =
+  | {
+      readonly status: "succeeded";
+      readonly providerReference: string | null;
+      readonly detail: string | null;
+    }
+  | { readonly status: "failed"; readonly error: ClassifiedError }
+  | { readonly status: "uncertain"; readonly error: ClassifiedError };
+
 export interface BeginConnectOptions {
   readonly attemptId: string;
   readonly method: string;
@@ -165,6 +187,10 @@ export interface Connector {
   submitInput(privateState: unknown, input: SubmitInput): Promise<ConnectProgress>;
   pollConnect(privateState: unknown): Promise<ConnectProgress>;
   cancelConnect(privateState: unknown): Promise<void>;
+
+  /** Actions `performAction` accepts; absent or empty means the connector has none. */
+  readonly supportedActions?: readonly AccountActionKind[];
+  performAction?(credential: StoredCredential, request: ActionRequest): Promise<ActionResult>;
 
   identity(credential: StoredCredential): Promise<Identity>;
   capabilities(credential: StoredCredential, identity: Identity): Promise<readonly Capability[]>;

@@ -114,6 +114,11 @@ export const accountActionStates = [
 export const accountActionStateSchema = z.enum(accountActionStates);
 export type AccountActionState = z.infer<typeof accountActionStateSchema>;
 
+/** Mutating account operations an owner can trigger explicitly. Never run by monitoring. */
+export const accountActionKinds = ["consume_reset_credit"] as const;
+export const accountActionKindSchema = z.enum(accountActionKinds);
+export type AccountActionKind = z.infer<typeof accountActionKindSchema>;
+
 export const metricKinds = [
   "quota_percentage",
   "absolute_quota",

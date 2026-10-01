@@ -1,4 +1,6 @@
 import {
+  accountActionKindSchema,
+  accountActionStateSchema,
   attemptStateSchema,
   authMethodSchema,
   availabilitySchema,
@@ -126,7 +128,23 @@ const connectionDetailSchema = z.object({
       sanitizedError: z.string().nullable(),
     })
     .nullable(),
+  actions: z.object({ enabled: z.boolean(), supported: z.array(accountActionKindSchema) }),
 });
+export type ConnectionDetail = z.infer<typeof connectionDetailSchema>;
+
+const actionOutcomeSchema = z.object({
+  action: z.object({
+    id: z.string(),
+    action: accountActionKindSchema,
+    state: accountActionStateSchema,
+    requestedAt: z.number(),
+    completedAt: z.number().nullable(),
+    providerReference: z.string().nullable(),
+    sanitizedError: z.string().nullable(),
+  }),
+  state: connectionStateSchema.optional(),
+});
+export type ActionOutcome = z.infer<typeof actionOutcomeSchema>;
 
 const refreshSchema = z.object({ outcome: z.unknown(), state: connectionStateSchema });
 const pauseSchema = z.object({ state: connectionStateSchema });
@@ -171,4 +189,10 @@ export const api = {
     request("POST", `/api/connections/${id}/pause`, pauseSchema, { paused }),
   refresh: (id: string) => request("POST", `/api/connections/${id}/refresh`, refreshSchema),
   disconnect: (id: string) => request("DELETE", `/api/connections/${id}`, revocationSchema),
+  consumeResetCredit: (id: string, creditId: string) =>
+    request("POST", `/api/connections/${id}/actions`, actionOutcomeSchema, {
+      action: "consume_reset_credit",
+      creditId,
+      confirm: true,
+    }),
 };

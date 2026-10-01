@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { api } from "./api.ts";
+import { type ActionOutcome, api, type ConnectionDetail } from "./api.ts";
 import { ConnectionActions, ErrorText, revocationText, StateBadge } from "./components.tsx";
 import { formatAge, formatDateTime, formatMetricValue } from "./format.ts";
 import { useLoad, useNow } from "./hooks.ts";
@@ -27,7 +27,7 @@ export function DetailPage(props: { readonly id: string }) {
       </main>
     );
   }
-  const { connection, capabilities, snapshot, latestRun } = detail.data;
+  const { connection, capabilities, snapshot, latestRun, actions } = detail.data;
   return (
     <main>
       <p>
@@ -101,31 +101,12 @@ export function DetailPage(props: { readonly id: string }) {
             </tbody>
           </table>
           {snapshot.resetCredits.length === 0 ? null : (
-            <>
-              <h2>Reset credits</h2>
-              <table>
-                <thead>
-                  <tr>
-                    <th scope="col">Credit</th>
-                    <th scope="col">Eligible</th>
-                    <th scope="col">Usable</th>
-                    <th scope="col">Expires</th>
-                    <th scope="col">Cooldown until</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {snapshot.resetCredits.map((credit) => (
-                    <tr key={credit.providerCreditId}>
-                      <th scope="row">{credit.rawLabel ?? credit.providerCreditId}</th>
-                      <td>{credit.eligible ? "yes" : "no"}</td>
-                      <td>{credit.usable ? "yes" : "no"}</td>
-                      <td>{formatDateTime(credit.expiresAt)}</td>
-                      <td>{formatDateTime(credit.cooldownUntil)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
+            <ResetCredits
+              connectionId={connection.id}
+              credits={snapshot.resetCredits}
+              actions={actions}
+              onChanged={detail.reload}
+            />
           )}
         </>
       )}
@@ -158,5 +139,98 @@ export function DetailPage(props: { readonly id: string }) {
         </table>
       )}
     </main>
+  );
+}
+
+/**
+ * Reset credits with their own expiry each, and the Consume action when the connector supports
+ * it. Consuming spends a real credit on the owner's account, so the button asks for confirmation
+ * naming the credit and its expiry, and the server refuses unless actions are switched on.
+ */
+function ResetCredits(props: {
+  readonly connectionId: string;
+  readonly credits: NonNullable<ConnectionDetail["snapshot"]>["resetCredits"];
+  readonly actions: ConnectionDetail["actions"];
+  readonly onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<ActionOutcome | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const canConsume = props.actions.supported.includes("consume_reset_credit");
+
+  async function consume(credit: (typeof props.credits)[number]): Promise<void> {
+    const name = credit.rawLabel ?? credit.providerCreditId;
+    const expiry =
+      credit.expiresAt === null ? "no expiry" : `expires ${formatDateTime(credit.expiresAt)}`;
+    const ok = window.confirm(
+      `Consume this reset credit now?\n\n${name} (${expiry})\n\nThis spends the credit on your account and cannot be undone.`,
+    );
+    if (!ok) return;
+    setBusy(credit.providerCreditId);
+    setError(null);
+    try {
+      setOutcome(await api.consumeResetCredit(props.connectionId, credit.providerCreditId));
+      props.onChanged();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <>
+      <h2>Reset credits</h2>
+      {canConsume && !props.actions.enabled ? (
+        <p className="muted">
+          Consuming a credit is switched off. Start Headroom with HEADROOM_ENABLE_ACTIONS=true to
+          allow it.
+        </p>
+      ) : null}
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Credit</th>
+            <th scope="col">Eligible</th>
+            <th scope="col">Usable</th>
+            <th scope="col">Expires</th>
+            <th scope="col">Cooldown until</th>
+            {canConsume ? <th scope="col">Action</th> : null}
+          </tr>
+        </thead>
+        <tbody>
+          {props.credits.map((credit) => (
+            <tr key={credit.providerCreditId}>
+              <th scope="row">{credit.rawLabel ?? credit.providerCreditId}</th>
+              <td>{credit.eligible ? "yes" : "no"}</td>
+              <td>{credit.usable ? "yes" : "no"}</td>
+              <td>{formatDateTime(credit.expiresAt)}</td>
+              <td>{formatDateTime(credit.cooldownUntil)}</td>
+              {canConsume ? (
+                <td>
+                  <button
+                    type="button"
+                    disabled={!props.actions.enabled || !credit.usable || busy !== null}
+                    onClick={() => void consume(credit)}
+                  >
+                    {busy === credit.providerCreditId ? "Consuming..." : "Consume"}
+                  </button>
+                </td>
+              ) : null}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {outcome === null ? null : (
+        <output>
+          Consume {outcome.action.state}
+          {outcome.action.sanitizedError === null ? "" : `: ${outcome.action.sanitizedError}`}
+          {outcome.action.state === "uncertain"
+            ? " The provider gave no clear answer; check the metrics above before trying again."
+            : ""}
+        </output>
+      )}
+      <ErrorText message={error} />
+    </>
   );
 }

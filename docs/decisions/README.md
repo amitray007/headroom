@@ -26,6 +26,7 @@ This register distinguishes user requirements from implementation proposals. Dat
 | D20 | No virtual shell as the CLI runner | Decided 2026-10-01 | just-bash cannot execute native binaries; use `Bun.spawn` or a pseudo-terminal |
 | D21 | Stack and tooling baseline: Bun, Hono, Zod, Drizzle on SQLite, Oxlint type-aware, Oxfmt, Knip, TypeScript 7, mise, GitHub Actions | Applied; see [ADR 0002](0002-stack-and-tooling.md) | `mise run check` is the single gate |
 | D22 | Better Auth with username, password and passkeys for the single owner; trusted origins from env | User decision 2026-10-01; applied | Replaces the hand-written owner store; see ADR 0002 |
+| D23 | Account mutations ship behind `HEADROOM_ENABLE_ACTIONS` (default off) plus a per-action confirmation; agents never execute one against a live account, the owner triggers the first run from the dashboard | User decision 2026-10-02; applied for Codex reset consume | A consume spends real inventory; validation of the route is the owner's call |
 
 ## Decisions still needed
 

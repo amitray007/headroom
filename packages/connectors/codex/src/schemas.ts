@@ -100,7 +100,7 @@ export const usageResponseSchema = z
   .loose();
 export type UsageResponse = z.infer<typeof usageResponseSchema>;
 
-/** `GET /wham/rate-limit-reset-credits`. Only a count and per-credit expiry are read. */
+/** `GET /wham/rate-limit-reset-credits`. Validated 2026-10-01: id, status, expiry, type and title per credit. */
 export const resetCreditsResponseSchema = z
   .object({
     available_count: z.number().int().optional(),
@@ -110,10 +110,18 @@ export const resetCreditsResponseSchema = z
           .object({
             id: z.string().optional(),
             status: z.string().optional(),
-            expires_at: z.union([z.number(), z.string()]).optional(),
+            expires_at: z.union([z.number(), z.string()]).nullable().optional(),
+            reset_type: z.string().nullable().optional(),
+            title: z.string().nullable().optional(),
+            redeemed_at: z.union([z.number(), z.string()]).nullable().optional(),
           })
           .loose(),
       )
       .optional(),
   })
+  .loose();
+
+/** `POST /wham/rate-limit-reset-credits/consume`. Loose; the binary names `windows_reset` on the response. */
+export const consumeResetCreditResponseSchema = z
+  .object({ windows_reset: z.unknown().optional() })
   .loose();

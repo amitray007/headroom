@@ -35,6 +35,7 @@ This is a logical schema for implementation planning. No database or migrations 
 | `connections.reconnect_reason` | `refresh_rejected`, `token_rejected`, `identity_changed`, `revoked_by_owner`, none |
 | `sync_runs.outcome` | `succeeded`, `partial`, `rate_limited`, `provider_unavailable`, `authentication_failed`, `invalid_response`, `interrupted` |
 | `account_actions.state` | `requested`, `submitted`, `succeeded`, `failed`, `uncertain` |
+| `account_actions.action` | `consume_reset_credit` |
 
 ## Identity
 
@@ -76,6 +77,8 @@ Store normalized observations only. Raw responses can contain personal data or t
 ## Actions
 
 Read capabilities and action capabilities are separate. Redemption consumes inventory and never runs inside a refresh. Use provider idempotency keys. If a response is lost, reconcile before any retry and record `uncertain` explicitly.
+
+Implemented on 2026-10-02 for `consume_reset_credit` (Codex). Two gates sit in front of every action: the `HEADROOM_ENABLE_ACTIONS` flag, off by default, and a literal `confirm: true` the browser sends only after the owner confirmed the named credit and its expiry. The action row is created before the provider call and its id is the idempotency key; the call runs under the connection lease; a thrown request or a 5xx is `uncertain`; a success is followed by one ordinary collection whose snapshot id lands on the row. Nothing retries an action, and the scheduler never calls the action service. The first real consume is the owner's to run; agents validate the route only against fakes.
 
 ## Open schema decisions
 

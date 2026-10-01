@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
-import { resetCreditsUrl, tokenUrl, usageUrl } from "./endpoints.ts";
+import { z } from "zod";
+
+import { consumeResetCreditUrl, resetCreditsUrl, tokenUrl, usageUrl } from "./endpoints.ts";
 import resetCreditsFixture from "./fixtures/reset-credits.json";
 import usagePartial from "./fixtures/usage-partial.json";
 import usageFixture from "./fixtures/usage.json";
@@ -320,6 +322,67 @@ describe("refresh", () => {
       await tokenConnector(() => Promise.reject(new Error("ECONNRESET"))).refresh(credential),
     ).toMatchObject({
       status: "transient",
+    });
+  });
+
+  test("consume sends the credit id and idempotency key with the desktop headers; 5xx and network loss are uncertain", async () => {
+    let captured: { url: string; init: RequestInit | undefined } | null = null;
+    const connector = createCodexConnector({
+      runner: new FakeRunner(),
+      fetch: (url, init) => {
+        captured = { url, init };
+        return Promise.resolve(json({ windows_reset: ["primary"] }));
+      },
+    });
+    const request = {
+      action: "consume_reset_credit" as const,
+      creditId: "credit-synthetic",
+      idempotencyKey: "action-row-id",
+    };
+    const ok = await connector.performAction!(credential, request);
+    expect(ok).toEqual({
+      status: "succeeded",
+      providerReference: "credit-synthetic",
+      detail: "windows reset",
+    });
+    const sent = z
+      .object({
+        url: z.literal(consumeResetCreditUrl),
+        init: z.object({
+          method: z.literal("POST"),
+          headers: z.record(z.string(), z.string()),
+          body: z.string(),
+        }),
+      })
+      .parse(captured);
+    expect(JSON.parse(sent.init.body)).toEqual({
+      credit_id: "credit-synthetic",
+      credit_type: "usage_limit",
+      idempotency_key: "action-row-id",
+    });
+    expect(sent.init.headers["originator"]).toBe("Codex Desktop");
+    expect(sent.init.headers["chatgpt-account-id"]).toBe(accountId);
+    expect(sent.init.headers["content-type"]).toBe("application/json");
+
+    const forbidden = createCodexConnector({
+      runner: new FakeRunner(),
+      fetch: fakeFetch({ [consumeResetCreditUrl]: () => json({}, 403) }).fetch,
+    });
+    expect(await forbidden.performAction!(credential, request)).toMatchObject({
+      status: "failed",
+      error: { category: "permission_denied" },
+    });
+    const flaky = createCodexConnector({
+      runner: new FakeRunner(),
+      fetch: fakeFetch({ [consumeResetCreditUrl]: () => json({}, 502) }).fetch,
+    });
+    expect(await flaky.performAction!(credential, request)).toMatchObject({ status: "uncertain" });
+    const offline = createCodexConnector({
+      runner: new FakeRunner(),
+      fetch: () => Promise.reject(new Error("socket hang up")),
+    });
+    expect(await offline.performAction!(credential, request)).toMatchObject({
+      status: "uncertain",
     });
   });
 

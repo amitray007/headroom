@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import {
+  type ActionRequest,
+  type ActionResult,
   type BeginConnectOptions,
   type Capability,
   type ClassifiedError,
@@ -22,6 +24,8 @@ import {
 import {
   cli,
   clientId,
+  consumeResetCreditBody,
+  consumeResetCreditUrl,
   resetCreditsHeaders,
   resetCreditsUrl,
   tokenUrl,
@@ -35,6 +39,7 @@ import {
   idTokenClaimsSchema,
   refreshErrorSchema,
   refreshResponseSchema,
+  consumeResetCreditResponseSchema,
   resetCreditsResponseSchema,
   usageResponseSchema,
   type CodexCredential,
@@ -256,9 +261,10 @@ export function createCodexConnector(options: CodexConnectorOptions): Connector 
         },
         {
           metricOrAction: "reset_credits.consume",
-          availability: "unsupported",
+          availability: "available",
           ...sourceInspected,
-          reason: "actions arrive in M6",
+          reason:
+            "owner-triggered only, behind HEADROOM_ENABLE_ACTIONS; the direct route is source-inspected and unvalidated until the owner runs one",
         },
       ]);
     },
@@ -288,8 +294,11 @@ export function createCodexConnector(options: CodexConnectorOptions): Connector 
           providerCreditId: credit.id ?? `credit-${index}`,
           eligible: credit.status === undefined || credit.status === "available",
           usable: credit.status === undefined || credit.status === "available",
-          expiresAt: toMs(credit.expires_at),
-          rawLabel: credit.status ?? null,
+          expiresAt: toMs(credit.expires_at ?? undefined),
+          rawLabel:
+            [credit.title ?? credit.reset_type ?? null, credit.status ?? null]
+              .filter((part): part is string => part !== null)
+              .join(", ") || null,
         }));
         const count =
           parsed.data.available_count ?? usage.data.rate_limit_reset_credits?.available_count;
@@ -383,6 +392,72 @@ export function createCodexConnector(options: CodexConnectorOptions): Connector 
       return {
         status: "transient",
         error: classified("provider_unavailable", `token endpoint returned ${response.status}`),
+      };
+    },
+
+    supportedActions: ["consume_reset_credit"],
+
+    /**
+     * Consume one earned reset credit. Only the action service calls this, after the owner
+     * confirmed the named credit and with the action row id as idempotency key. A network
+     * failure after the request may have left is `uncertain`, as is a 5xx; nothing retries.
+     */
+    async performAction(
+      credential: StoredCredential,
+      request: ActionRequest,
+    ): Promise<ActionResult> {
+      if (request.creditId === null)
+        return {
+          status: "failed",
+          error: classified("internal_error", "consume_reset_credit needs a credit id"),
+        };
+      const secret = codexCredentialSchema.parse(credential.secret);
+      let response: Response;
+      try {
+        response = await http(consumeResetCreditUrl, {
+          method: "POST",
+          headers: {
+            ...resetCreditsHeaders(secret.accessToken, secret.accountId),
+            "content-type": "application/json",
+          },
+          body: consumeResetCreditBody(request.creditId, request.idempotencyKey),
+        });
+      } catch {
+        return {
+          status: "uncertain",
+          error: classified("provider_unavailable", "no response to the consume request"),
+        };
+      }
+      if (response.ok) {
+        const body = consumeResetCreditResponseSchema.safeParse(
+          await response.json().catch(() => null),
+        );
+        return {
+          status: "succeeded",
+          providerReference: request.creditId,
+          detail: body.success && body.data.windows_reset !== undefined ? "windows reset" : null,
+        };
+      }
+      if (response.status === 401)
+        return {
+          status: "failed",
+          error: classified("authentication_required", "consume returned 401"),
+        };
+      if (response.status === 403)
+        return { status: "failed", error: classified("permission_denied", "consume returned 403") };
+      if (response.status === 429)
+        return {
+          status: "failed",
+          error: classified("rate_limited", "consume returned 429", retryAfterFrom(response)),
+        };
+      if (response.status >= 500)
+        return {
+          status: "uncertain",
+          error: classified("provider_unavailable", `consume returned ${response.status}`),
+        };
+      return {
+        status: "failed",
+        error: classified("invalid_response", `consume rejected with ${response.status}`),
       };
     },
 

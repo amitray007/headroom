@@ -43,6 +43,16 @@ export {
   type ConnectorRegistry,
 } from "./services/connect.ts";
 export { CollectionService, type CollectionOutcome } from "./services/collect.ts";
+export { ActionStore, type AccountActionRow } from "./actions.ts";
+export {
+  ActionService,
+  ActionsDisabledError,
+  ActionNotConfirmedError,
+  UnsupportedActionError,
+  ActionNotAllowedError,
+  type ActionOutcome,
+  type PerformActionInput,
+} from "./services/actions.ts";
 export {
   CliLoginRunner,
   stripAnsi,

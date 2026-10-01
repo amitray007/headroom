@@ -27,7 +27,7 @@ Use the same design for Go, Plus, Pro, Business, Enterprise and future ChatGPT p
 | `GET https://chatgpt.com/backend-api/wham/usage` returns quota, credits and plan | source-inspected | CLIProxyAPI `internal/runtime/executor/helps/codex_quota.go` [S4]; ai-usagebar [S5] |
 | Usage fields: `plan_type`, `rate_limits` (primary and secondary windows), `additional_rate_limits`, `code_review_rate_limits`, `credits`, `metered_limit_name` | source-inspected | CLIProxyAPI `codex_quota.go` [S4] |
 | A reset-credit inventory read route exists under `wham/rate-limit-reset-credits` | validated | Observed by this project on 2026-10-01 with a Headroom CLI-login credential: 200 with `credits[]` carrying a status and expiry per credit; the count matched `rate_limit_reset_credits.available_count` in the usage body |
-| A direct HTTP route to consume a reset credit | unvalidated | Only the app-server method is documented [S1] |
+| A direct HTTP route to consume a reset credit: `POST /wham/rate-limit-reset-credits/consume` | source-inspected | Found in the pinned CLI 0.159.3 next to the read route on 2026-10-02, with the serde names `credit_type` (`usage_limit`, `credits`) and a response naming `windows_reset`; the app-server call that fronts it takes creditId, creditType and idempotencyKey. Body field names are inferred and unvalidated until Amit runs one consume from the dashboard |
 | App-server exposes rate limits, reset-credit inventory, redemption and token history | documented | [S1] |
 | Using the ChatGPT OAuth client outside OpenAI's apps is permitted for hosted services | documented (contradicted) | [S1] says it is not permitted |
 | A server-hosted device flow works for every workspace | unvalidated | Device-code access can be restricted by account or workspace policy |
@@ -47,7 +47,7 @@ Every metric below comes from direct HTTP collection unless noted. A completed l
 | Credits | `available` when returned | `credits`: `has_credits`, `unlimited`, `balance` | `private`. Provider credit unit, not dollars. `unlimited` is an explicit flag, not a number. |
 | Next reset | `available` when returned | `resets_at`, Unix seconds | `private`. Retain the raw timestamp. |
 | Banked reset count | `unknown` | `…/wham/rate-limit-reset-credits` read route | `private`. Unvalidated. The app-server count is `official` but not the primary route. |
-| Reset redemption | `unsupported` until M6 | App-server `account/rateLimitResetCredit/consume` | `official`. Explicit user action, never a background job. |
+| Reset redemption | `available` behind `HEADROOM_ENABLE_ACTIONS` | `POST …/rate-limit-reset-credits/consume` with the action row id as idempotency key | `private`. Explicit owner action with a confirmation naming the credit and its expiry, never a background job. Unvalidated until the owner runs the first one. |
 | Usage history | `unknown` on the direct route | App-server `dailyUsageBuckets` | `official` by fallback only. `null` means unavailable, not zero. |
 | Admin versus non-admin | Provider-enforced | Account or workspace policy | Do not infer privileges from a plan name. |
 
@@ -94,7 +94,7 @@ A further fallback runs the official Codex app-server per connection with its ow
 | Device user code request | ChatGPT device authorization endpoint, per CLIProxyAPI `codex_device.go` | `private` | Begin sign-in. Exact URL pinned during validation. |
 | Device token poll | ChatGPT device token endpoint, per CLIProxyAPI `codex_device.go` | `private` | Poll at the returned interval. |
 
-The direct HTTP consume route is unvalidated and stays out of scope until M6.
+The direct HTTP consume route is implemented as the `consume_reset_credit` action and stays unvalidated until Amit triggers it from the dashboard; agents never run it with live credentials.
 
 ### App-server reference
 

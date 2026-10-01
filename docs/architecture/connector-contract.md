@@ -16,7 +16,7 @@ Each provider is one TypeScript module that implements one interface. The applic
 | `Refresh` | Credentials | `refreshed` with new credentials, `not_refreshable`, `transient` with retry guidance, or `rejected` (definitive) |
 | `Classify` | Provider response or error | `transient`, `capability`, `definitive`; the application applies the lifecycle rules from the class |
 | `Disconnect` | Credentials | Revocation result: `revoked`, `local_only` or `failed` |
-| `PerformAction` | Credentials, explicit action, idempotency key | Outcome or `uncertain`; deferred feature |
+| `PerformAction` | Credentials, explicit action, idempotency key | `succeeded` with a provider reference, `failed`, or `uncertain`; optional, declared through `supportedActions`. Implemented by Codex for `consume_reset_credit` |
 
 Connector-private attempt state (PKCE verifier, device auth id, poll interval, CLI process handle and directory path) is stored by the application in the attempt row, encrypted, and handed back on every call. Connectors keep no memory between calls. A CLI login attempt is the one case that cannot survive a process restart: on restart the runner marks it `failed` and the user starts again.
 
