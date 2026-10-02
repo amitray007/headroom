@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 import type { Settings } from "../api.ts";
 import { useSettings } from "../lib/settings.tsx";
@@ -9,14 +9,19 @@ import { Segmented } from "../ui/segmented.tsx";
 import { Sk } from "../ui/skeleton.tsx";
 import { Switch } from "../ui/switch.tsx";
 import type { ViewProps } from "../views/props.ts";
+import type { SettingsSection } from "./open-settings.ts";
 import { ProviderOrderList } from "./provider-order.tsx";
 
 /** True while the settings load: each row keeps its words and shows a placeholder where the control goes. */
 const WaitingContext = createContext(false);
 
-function Section(props: { readonly title: string; readonly children: ReactNode }) {
+function Section(props: {
+  readonly title: string;
+  readonly id?: string;
+  readonly children: ReactNode;
+}) {
   return (
-    <section className="dsec">
+    <section className="dsec" id={props.id}>
       <div className="dsec-head">
         <h3>{props.title}</h3>
       </div>
@@ -142,6 +147,8 @@ const intervals = [5, 10, 15, 30] as const;
 export function SettingsDialog(props: {
   readonly open: boolean;
   readonly onClose: () => void;
+  /** Scroll to this section when the dialog opens. */
+  readonly section?: SettingsSection | null;
   readonly overview: ViewProps["overview"];
 }) {
   const store = useSettings();
@@ -152,6 +159,12 @@ export function SettingsDialog(props: {
     setRetrying(true);
     void store.reload().finally(() => setRetrying(false));
   };
+  const { open, section } = props;
+  useEffect(() => {
+    if (open && section) {
+      document.getElementById(`settings-${section}`)?.scrollIntoView({ block: "start" });
+    }
+  }, [open, section]);
   const change = (patch: SettingsPatch): void => void store.update(patch);
   const notify = (key: keyof Settings["notifications"]) => (checked: boolean) =>
     change({ notifications: { [key]: checked } });
@@ -237,7 +250,7 @@ export function SettingsDialog(props: {
                 onChange={(density) => change({ density })}
               />
             </Section>
-            <Section title="Detailed View">
+            <Section title="Detailed View" id="settings-detailed">
               <ChoiceRow
                 title="Default Order"
                 note="How the Detailed view sorts its accounts."

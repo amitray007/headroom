@@ -24,7 +24,7 @@ export function isInactive(connection: Pick<OverviewConnection, "state">): boole
 }
 
 /** One meter, named the way the panel names it. */
-interface MeterRef {
+export interface MeterRef {
   readonly key: string;
   readonly label: string;
   readonly window: string | null;
@@ -36,7 +36,7 @@ interface MeterRef {
   readonly notStarted: boolean;
 }
 
-type WindowKind = "session" | "weekly" | "cycle" | "other";
+export type WindowKind = "session" | "weekly" | "cycle" | "other";
 
 /** A meter and the span of time it measures. Instants are in milliseconds, the length in seconds. */
 export interface MeterWindow extends MeterRef {
@@ -143,7 +143,7 @@ export interface Room {
   readonly windows: readonly MeterRef[];
 }
 
-function leftOf(ref: MeterRef): number | null {
+export function leftOf(ref: Pick<MeterRef, "notStarted" | "used">): number | null {
   if (ref.notStarted) return 100;
   return ref.used === null ? null : Math.min(100, Math.max(0, 100 - ref.used));
 }

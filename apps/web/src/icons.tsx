@@ -210,3 +210,9 @@ export function GripIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** A down chevron; rotate it for an open state. */
+export const ChevronDownIcon = stroke(<path d="m6 9 6 6 6-6" />);
+
+/** Up and down arrows: reorder. */
+export const ReorderIcon = stroke(<path d="m3 16 4 4 4-4M7 20V4M21 8l-4-4-4 4M17 4v16" />);
