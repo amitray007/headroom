@@ -21,7 +21,7 @@ export type Cell =
       readonly unlimited: boolean;
       readonly resetsAt: number | null;
       /** How the caption words the reset: "Resets in", "Cycle ends in", or "Resets with the cycle" with no time. */
-      readonly resetWords: "resets" | "cycle_end" | "with_cycle";
+      readonly resetWords: "resets" | "cycle_end" | "with_cycle" | "not_started";
       readonly decimals: number;
     }
   | {
@@ -171,6 +171,13 @@ interface MeterOptions {
   readonly resetWords?: MeterCell["resetWords"];
 }
 
+/** A 5-hour session window with no reset time has not started yet: the clock starts on first use. */
+function resetWordsOf(metric: Metric, words: MeterCell["resetWords"]): MeterCell["resetWords"] {
+  if (words === "resets" && metric.resetsAt === null && windowSeconds(metric.scope) === 18_000)
+    return "not_started";
+  return words;
+}
+
 function meterOf(context: Context, metric: Metric, options: MeterOptions): MeterCell {
   context.used.add(metric.providerMetricKey);
   const unlimited = metric.unlimited === true;
@@ -184,7 +191,7 @@ function meterOf(context: Context, metric: Metric, options: MeterOptions): Meter
     used,
     unlimited,
     resetsAt: metric.resetsAt,
-    resetWords: options.resetWords ?? "resets",
+    resetWords: resetWordsOf(metric, options.resetWords ?? "resets"),
     decimals: decimalsFor(used, context.connection.provider),
   };
 }

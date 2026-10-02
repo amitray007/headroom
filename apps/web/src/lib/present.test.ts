@@ -27,6 +27,18 @@ describe("claude", () => {
     ],
   });
   const panel = presentPanel(conn);
+  test("a session window with no reset time has not started", () => {
+    const idle = presentPanel(
+      connection("claude", {
+        metrics: [
+          percent("five_hour", 0, { scope: "window:18000s", resetsAt: null }),
+          percent("seven_day", 9, { resetsAt: null }),
+        ],
+      }),
+    );
+    const words = idle.cells.map((cell) => (cell.kind === "meter" ? cell.resetWords : null));
+    expect(words).toEqual(["not_started", "resets"]);
+  });
   test("cells follow the approved panel", () => {
     expect(meters(panel.cells)).toEqual([
       ["Session", "5 hours", 49],

@@ -87,8 +87,10 @@ function MeterCell(props: {
         )}
         {cell.resetWords === "with_cycle" ? (
           "Resets with the cycle"
+        ) : cell.resetWords === "not_started" ? (
+          "Not Started"
         ) : cell.resetsAt === null ? (
-          "Reset time not reported"
+          "No reset time"
         ) : (
           <When
             at={cell.resetsAt}
