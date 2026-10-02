@@ -128,7 +128,6 @@ const intervals = [5, 10, 15, 30] as const;
 const tabs = [
   { value: "general", label: "General" },
   { value: "notifications", label: "Notifications" },
-  { value: "actions", label: "Account Actions" },
 ] as const;
 
 /** The tabs of the dialog. */
@@ -199,6 +198,7 @@ function General(props: { readonly change: (patch: SettingsPatch) => void }) {
           onChange={(keepInactiveLast) => change({ keepInactiveLast })}
         />
       </Section>
+      <AccountActions change={change} />
     </>
   );
 }
@@ -234,7 +234,7 @@ function Notifications(props: { readonly change: (patch: SettingsPatch) => void 
 function AccountActions(props: { readonly change: (patch: SettingsPatch) => void }) {
   const { settings } = useSettings();
   return (
-    <Section>
+    <Section title="Account Actions">
       <SwitchRow
         title="Allow Account Actions"
         note="Lets the hold button use a Codex reset."
@@ -305,7 +305,6 @@ export function SettingsDialog(props: { readonly open: boolean; readonly onClose
             <SlideSwap swapKey={tab} direction={direction}>
               {tab === "general" ? <General change={change} /> : null}
               {tab === "notifications" ? <Notifications change={change} /> : null}
-              {tab === "actions" ? <AccountActions change={change} /> : null}
             </SlideSwap>
           </div>
         </WaitingContext>
