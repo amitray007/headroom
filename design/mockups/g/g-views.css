@@ -961,11 +961,19 @@ th[aria-sort="ascending"] .g-sort svg {
 
 /* ---------- Overview: order, dormant group, arrange ---------- */
 .g-arrange {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   height: 32px;
   padding: 0 10px;
   color: var(--text-secondary);
 }
+/* The icon box centres on the label instead of sitting on its baseline. */
+.g-arrange #arrange-ico {
+  display: inline-flex;
+}
 .g-arrange svg {
+  display: block;
   width: 15px;
   height: 15px;
 }

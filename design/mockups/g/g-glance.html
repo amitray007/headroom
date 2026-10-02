@@ -61,7 +61,7 @@
       renderShell({ active: "overview" });
 
       const state = { filter: "all", view: getLimitsView(), open: new Set() };
-      document.getElementById("arrange-ico").innerHTML = icons.sliders;
+      document.getElementById("arrange-ico").innerHTML = icons.reorder;
 
       /* Urgency: disconnected, almost out, out of date or failed, running low, then fine (least room first), paused last. */
       const info = (a) => {
