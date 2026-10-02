@@ -32,6 +32,8 @@ describe("public routes", () => {
     const csp = response.headers.get("content-security-policy") ?? "";
     expect(csp).toContain("frame-ancestors 'self' http://localhost:8080 https://app.example.com");
     expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("img-src 'self' data: https://api.dicebear.com;");
+    expect(csp).toContain("connect-src 'self';");
     expect(response.headers.get("x-frame-options")).toBeNull();
   });
 });

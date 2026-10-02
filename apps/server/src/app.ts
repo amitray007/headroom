@@ -49,7 +49,8 @@ export function createApp(ctx: AppContext): Hono {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:"],
+        // The avatar is a seeded DiceBear image; the browser fetches it, so this origin is the only external one.
+        imgSrc: ["'self'", "data:", "https://api.dicebear.com"],
         connectSrc: ["'self'"],
         frameAncestors: ["'self'", ...ctx.trustedOrigins],
         formAction: ["'self'"],

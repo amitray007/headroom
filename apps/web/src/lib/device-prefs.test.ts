@@ -8,6 +8,9 @@ import {
   densityKey,
   readDensity,
   readSessionHint,
+  readUsername,
+  saveUsername,
+  usernameKey,
   readView,
   saveView,
   viewKey,
@@ -120,6 +123,13 @@ describe("stored prefs before first paint", () => {
     expect(readSessionHint(data)).toBe(true);
     saveSessionHint(data, false);
     expect(readSessionHint(data)).toBe(false);
+  });
+  test("the remembered username is read back, and empty means none", () => {
+    const data = store();
+    expect(readUsername(data)).toBeNull();
+    saveUsername(data, "ada");
+    expect(readUsername(data)).toBe("ada");
+    expect(readUsername(store({ [usernameKey]: "" }))).toBeNull();
   });
   test("the remembered view is one of the known views", () => {
     const data = store();

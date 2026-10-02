@@ -27,6 +27,8 @@ interface LayerProps {
   readonly trigger: ReactNode;
   readonly triggerClassName?: string | undefined;
   readonly children: ReactNode;
+  /** Open on a resting mouse pointer (not touch); a click pins it open. */
+  readonly openOnHover?: boolean;
 }
 
 function Trigger({
@@ -51,6 +53,7 @@ function Trigger({
       aria-expanded={layer.open}
       aria-controls={layer.panelId}
       onClick={layer.toggle}
+      {...layer.triggerHover}
       onKeyDown={(event) => {
         if (popup === "menu" && event.key === "ArrowDown" && !layer.open) {
           event.preventDefault();
@@ -125,8 +128,8 @@ function useRowHighlight(
  * `variant="row"` is the compact menu used in table rows. `variant="account"` rises as a bottom sheet on phones.
  */
 export function Menu(props: LayerProps & { readonly variant?: "account" | "row" }) {
-  const { layer, triggerRef, panelRef } = useFloatingLayer(menuGap);
-  const { open } = layer;
+  const { layer, triggerRef, panelRef } = useFloatingLayer(menuGap, props.openOnHover === true);
+  const { open, openedByHover } = layer;
   const row = props.variant === "row";
   const highlight = useRef<HTMLSpanElement>(null);
   const rowEvents = useRowHighlight(panelRef, highlight);
@@ -137,8 +140,8 @@ export function Menu(props: LayerProps & { readonly variant?: "account" | "row" 
     items(panel).forEach((item, index) =>
       item.closest<HTMLElement>(".item, .theme")?.style.setProperty("--i", String(index)),
     );
-    items(panel)[0]?.focus();
-  }, [open, panelRef]);
+    if (!openedByHover()) items(panel)[0]?.focus();
+  }, [open, panelRef, openedByHover]);
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     const panel = panelRef.current;
     if (panel === null) return;
@@ -194,6 +197,11 @@ export function Menu(props: LayerProps & { readonly variant?: "account" | "row" 
           style={layer.style}
           onKeyDown={onKeyDown}
           {...rowEvents}
+          onPointerEnter={layer.panelHover.onPointerEnter}
+          onPointerLeave={(event) => {
+            rowEvents.onPointerLeave();
+            layer.panelHover.onPointerLeave?.(event);
+          }}
           onPointerDown={(event) => {
             // On a phone the sheet has a scrim. A press on it lands on the panel itself, outside its box.
             if (event.target !== event.currentTarget) return;
@@ -225,11 +233,11 @@ export function Popover(
     readonly panelClassName?: string;
   },
 ) {
-  const { layer, triggerRef, panelRef } = useFloatingLayer(popoverGap);
-  const { open } = layer;
+  const { layer, triggerRef, panelRef } = useFloatingLayer(popoverGap, props.openOnHover === true);
+  const { open, openedByHover } = layer;
   useEffect(() => {
-    if (open) panelRef.current?.focus();
-  }, [open, panelRef]);
+    if (open && !openedByHover()) panelRef.current?.focus();
+  }, [open, panelRef, openedByHover]);
   return (
     <span className="menu-anchor">
       <Trigger
@@ -251,6 +259,7 @@ export function Popover(
           popover="manual"
           tabIndex={-1}
           style={layer.style}
+          {...layer.panelHover}
         >
           {props.children}
         </div>

@@ -830,6 +830,22 @@ time.when {
   height: 34px;
   display: block;
 }
+/* The bundled face and the remote one share one cell; the remote one fades in over it once loaded. */
+.avatar-face {
+  display: grid;
+  width: 34px;
+  height: 34px;
+}
+.avatar-face > img {
+  grid-area: 1 / 1;
+}
+.avatar-face > img + img {
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.avatar-face > img[data-loaded="true"] {
+  opacity: 1;
+}
 .menu-anchor {
   position: relative;
   /* A block-level box, so the line height of the surrounding text cannot make the avatar taller than the bell. */

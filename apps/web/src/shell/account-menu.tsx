@@ -15,8 +15,13 @@ export function AccountMenu(props: {
 }) {
   const prefs = useDevicePrefs();
   return (
-    <Menu label="Account Menu" trigger={<Avatar />} triggerClassName="avatar">
-      <MenuWho lead="Signed in as" name={props.name} face={<Avatar />} />
+    <Menu
+      label="Account Menu"
+      trigger={<Avatar seed={props.name} />}
+      triggerClassName="avatar"
+      openOnHover
+    >
+      <MenuWho lead="Signed in as" name={props.name} face={<Avatar seed={props.name} />} />
       <MenuBlock>
         <Segmented
           full

@@ -59,6 +59,7 @@ export function NotificationCentre(props: { readonly notifications: Notification
       label={unread === 0 ? "Notifications" : `Notifications, ${unread} unread`}
       triggerClassName="bell"
       panelLabel="Notifications"
+      openOnHover
       trigger={
         <>
           <BellIcon />

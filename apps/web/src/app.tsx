@@ -5,7 +5,13 @@ import { authClient } from "./auth.ts";
 import { ConnectPage } from "./connect-page.tsx";
 import { DashboardPage } from "./dashboard/page.tsx";
 import { useOverview } from "./dashboard/use-overview.ts";
-import { browserStorage, readSessionHint, saveSessionHint, saveView } from "./lib/device-prefs.ts";
+import {
+  browserStorage,
+  readSessionHint,
+  saveSessionHint,
+  saveUsername,
+  saveView,
+} from "./lib/device-prefs.ts";
 import { ComparePage } from "./views/compare/page.tsx";
 import { DetailedPage } from "./views/detailed/page.tsx";
 import { TimelinePage } from "./views/timeline/page.tsx";
@@ -22,6 +28,11 @@ const Gallery = lazy(async () => {
 });
 
 function SignedIn(props: { readonly name: string }) {
+  // The boot frame draws this owner's avatar on the next visit before the session is known.
+  useEffect(() => {
+    const storage = browserStorage();
+    if (storage !== null) saveUsername(storage, props.name);
+  }, [props.name]);
   const route = useRoute();
   const overview = useOverview();
   const notifications = useNotifications(overview.connections, overview.failed);

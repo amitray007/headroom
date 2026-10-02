@@ -1,4 +1,5 @@
-import { PlusIcon } from "../icons.tsx";
+import { Avatar, PlusIcon } from "../icons.tsx";
+import { browserStorage, readUsername } from "../lib/device-prefs.ts";
 import { ConnectSkeleton } from "../connect/skeletons.tsx";
 import { DashboardSkeleton } from "../dashboard/skeletons.tsx";
 import { href, viewOf, type Route } from "../router.ts";
@@ -14,6 +15,8 @@ import { ViewSwitcher } from "../ui/view-switcher.tsx";
  */
 export function BootFrame(props: { readonly route: Route }) {
   const view = viewOf(props.route);
+  const storage = browserStorage();
+  const username = storage === null ? null : readUsername(storage);
   const onConnectPage = props.route.page === "connect" || props.route.page === "reconnect";
   return (
     <div className="page">
@@ -29,7 +32,9 @@ export function BootFrame(props: { readonly route: Route }) {
             </ButtonLink>
           )}
           <Sk width={36} height={36} className="sk-round" />
-          <Sk width={34} height={34} className="sk-round" />
+          <span className="avatar" aria-hidden="true">
+            <Avatar seed={username} />
+          </span>
         </nav>
       </header>
       {onConnectPage ? <ConnectSkeleton /> : <DashboardSkeleton />}

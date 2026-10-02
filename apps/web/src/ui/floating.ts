@@ -6,8 +6,11 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react";
+
+import { createHoverIntent } from "./hover-intent.ts";
 
 const edge = 10;
 
@@ -19,6 +22,20 @@ export function keepInView(start: number, size: number, limit: number, margin: n
 /** The layer that is open now. Opening another layer closes it, so only one is ever open. */
 let closeCurrent: (() => void) | null = null;
 
+/** Hover opens a layer only for a mouse-like pointer; touch keeps tap to open. */
+const finePointer = "(hover: hover) and (pointer: fine)";
+
+function mouseOnly(act: () => void): (event: ReactPointerEvent) => void {
+  return (event) => {
+    if (event.pointerType === "mouse" && window.matchMedia(finePointer).matches) act();
+  };
+}
+
+interface HoverHandlers {
+  readonly onPointerEnter?: (event: ReactPointerEvent) => void;
+  readonly onPointerLeave?: (event: ReactPointerEvent) => void;
+}
+
 export interface FloatingLayer {
   readonly open: boolean;
   readonly above: boolean;
@@ -28,14 +45,24 @@ export interface FloatingLayer {
   readonly show: () => void;
   /** Close the layer. Focus returns to the trigger unless `returnFocus` is false. */
   readonly hide: (returnFocus?: boolean) => void;
+  /** Pointer handlers for the trigger and the panel; empty unless the layer opens on hover. */
+  readonly triggerHover: HoverHandlers;
+  readonly panelHover: HoverHandlers;
+  /** True while the layer was opened by hover alone, so focus must stay where it is. */
+  readonly openedByHover: () => boolean;
 }
 
 /**
  * State for a panel in the browser's top layer (native Popover API), placed from its trigger: right-aligned,
  * below it, flipped above when there is no room. It closes on outside press, Escape (focus returns to the
- * trigger), page scroll and resize. `gap` is the space between trigger and panel in pixels.
+ * trigger), page scroll and resize. `gap` is the space between trigger and panel in pixels. With `hoverable`, a
+ * mouse resting on the trigger opens it and leaving trigger and panel closes it after a grace delay; a click or
+ * key pins it open until an outside press or Escape.
  */
-export function useFloatingLayer(gap: number): {
+export function useFloatingLayer(
+  gap: number,
+  hoverable = false,
+): {
   readonly layer: FloatingLayer;
   readonly triggerRef: RefObject<HTMLButtonElement | null>;
   readonly panelRef: RefObject<HTMLDivElement | null>;
@@ -47,17 +74,58 @@ export function useFloatingLayer(gap: number): {
   const open = state === "open";
   const [placement, setPlacement] = useState({ top: 0, left: 0, above: false });
 
+  const openRef = useRef(false);
+  const byHover = useRef(false);
+
   const hide = useCallback((returnFocus = true) => {
     setState(returnFocus ? "closed-focus" : "closed");
   }, []);
+  const [hover] = useState(() =>
+    createHoverIntent({
+      open: () => {
+        closeCurrent?.();
+        byHover.current = true;
+        setState("open");
+      },
+      close: () => setState("closed"),
+      isOpen: () => openRef.current,
+      timers: {
+        after: (run, ms) => window.setTimeout(run, ms),
+        cancel: (handle) => {
+          if (typeof handle === "number") window.clearTimeout(handle);
+        },
+      },
+    }),
+  );
   const show = useCallback(() => {
     closeCurrent?.();
+    byHover.current = false;
+    hover.pin();
     setState("open");
-  }, []);
+  }, [hover]);
   const toggle = useCallback(() => {
-    if (open) hide();
-    else show();
-  }, [open, hide, show]);
+    if (!open) show();
+    else if (hoverable && !hover.pinned()) {
+      // A click on a layer that hover opened pins it instead of closing it.
+      byHover.current = false;
+      hover.pin();
+    } else hide();
+  }, [open, hoverable, hover, show, hide]);
+
+  useEffect(() => {
+    openRef.current = open;
+    if (!open) {
+      byHover.current = false;
+      hover.reset();
+    }
+  }, [open, hover]);
+  useEffect(() => () => hover.reset(), [hover]);
+
+  const openedByHover = useCallback(() => byHover.current, []);
+
+  const hoverHandlers: HoverHandlers = hoverable
+    ? { onPointerEnter: mouseOnly(hover.enter), onPointerLeave: mouseOnly(hover.leave) }
+    : {};
 
   useLayoutEffect(() => {
     const panel = panelRef.current;
@@ -128,6 +196,9 @@ export function useFloatingLayer(gap: number): {
       toggle,
       show,
       hide,
+      triggerHover: hoverHandlers,
+      panelHover: hoverHandlers,
+      openedByHover,
     },
   };
 }

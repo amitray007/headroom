@@ -10,6 +10,7 @@ export const appearanceKey = "headroom.appearance";
 export const privacyKey = "headroom.privacy";
 export const densityKey = "headroom.density";
 export const sessionKey = "headroom.session";
+export const usernameKey = "headroom.username";
 export const viewKey = "headroom.view";
 
 export interface PrefsRoot {
@@ -64,6 +65,16 @@ export function readSessionHint(storage: ReadableStorage): boolean {
 
 export function saveSessionHint(storage: WritableStorage, signedIn: boolean): void {
   storage.setItem(sessionKey, signedIn ? "1" : "0");
+}
+
+/** The owner's username as last seen, so the boot frame can show the right avatar before the session loads. */
+export function readUsername(storage: ReadableStorage): string | null {
+  const value = storage.getItem(usernameKey);
+  return value === null || value === "" ? null : value;
+}
+
+export function saveUsername(storage: WritableStorage, username: string): void {
+  storage.setItem(usernameKey, username);
 }
 
 /** The dashboard view this device showed last, or null when none was saved. */

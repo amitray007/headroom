@@ -10,3 +10,10 @@ are recoloured to `currentColor`; Claude and Antigravity keep their brand colour
 with the owner's username.
 
 The favicons and app icons are in `apps/web/public` (served from the site root). They are generated from the mark geometry in `src/ui/logo-geometry.ts` with `mise exec -- bun scripts/brand.ts`, which needs headless Chrome.
+
+## Account avatar
+
+The signed-in avatar is loaded from DiceBear's "Voxel Bot" style, seeded with the owner's username:
+`https://api.dicebear.com/10.x/voxel-bot/svg?tags=animation&seed=<username>`. The username is sent to
+DiceBear with that request. The server's Content Security Policy allows `https://api.dicebear.com` for images
+only. `avatar.svg` stays as the offline fallback and as the face shown while the remote one loads.

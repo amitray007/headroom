@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import type { Provider } from "@headroom/core/contracts";
 
 import antigravityUrl from "./assets/antigravity.svg";
 import avatarUrl from "./assets/avatar.svg";
+import { avatarSrc } from "./lib/avatar.ts";
 import claudeUrl from "./assets/claude.svg";
 import codexRaw from "./assets/codex.svg?raw";
 import copilotRaw from "./assets/copilot.svg?raw";
@@ -188,9 +189,35 @@ export function BrandMark(props: { readonly provider: Provider; readonly size?: 
   return <span className={className} dangerouslySetInnerHTML={{ __html: mark.svg }} />;
 }
 
-/** The account identicon shown inside the avatar button. */
-export function Avatar() {
-  return <img src={avatarUrl} alt="" width={34} height={34} />;
+/** The seeded DiceBear face, laid over the local one once it has loaded. Offline, the local one stays. */
+function RemoteFace(props: { readonly src: string }) {
+  const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
+  if (state === "failed") return null;
+  return (
+    <img
+      src={props.src}
+      alt=""
+      width={34}
+      height={34}
+      data-loaded={state === "loaded" ? "true" : undefined}
+      onLoad={() => setState("loaded")}
+      onError={() => setState("failed")}
+    />
+  );
+}
+
+/**
+ * The account face. The bundled identicon is always there, so the box never changes size; the DiceBear face for
+ * `seed` (the owner's username) fades in over it when it loads. Without a seed only the bundled face shows.
+ */
+export function Avatar(props: { readonly seed?: string | null }) {
+  const remote = props.seed === undefined || props.seed === null ? null : avatarSrc(props.seed);
+  return (
+    <span className="avatar-face">
+      <img src={avatarUrl} alt="" width={34} height={34} />
+      {remote === null ? null : <RemoteFace key={remote} src={remote} />}
+    </span>
+  );
 }
 
 /** Six dots in two columns: the grip that starts a drag. */
