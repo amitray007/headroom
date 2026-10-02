@@ -5,7 +5,7 @@ import { appliedMigrations, openDatabase, schema } from "./index.ts";
 describe("openDatabase", () => {
   test("applies the embedded migrations once and records them", () => {
     const { sqlite } = openDatabase({ path: ":memory:" });
-    expect(appliedMigrations(sqlite)).toEqual(["0000_init"]);
+    expect(appliedMigrations(sqlite)).toEqual(["0000_init", "0001_names_and_settings"]);
     const tables = sqlite
       .query<{ name: string }, []>(
         "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
@@ -29,6 +29,7 @@ describe("openDatabase", () => {
         "reset_credits",
         "account_actions",
         "leases",
+        "settings",
         "headroom_migrations",
       ]),
     );

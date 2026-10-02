@@ -44,6 +44,25 @@ describe("Scheduler", () => {
     expect(connector.calls.filter((c) => c === "collect")).toHaveLength(2);
   });
 
+  test("the interval follows a getter, so a settings change applies at the next tick", async () => {
+    const { ctx, connector, connection, advance } = setup();
+    const scheduler = new Scheduler({
+      connections: ctx.connections,
+      attempts: ctx.attempts,
+      snapshots: ctx.snapshots,
+      collection: ctx.collection,
+      intervalMs: () => ctx.settings.get().refreshIntervalMinutes * 60_000,
+      now: ctx.now,
+    });
+    expect(await scheduler.tick()).toEqual([connection.id]);
+    ctx.settings.put({ ...ctx.settings.get(), refreshIntervalMinutes: 30 });
+    advance(20 * 60_000);
+    expect(await scheduler.tick()).toEqual([]);
+    ctx.settings.put({ ...ctx.settings.get(), refreshIntervalMinutes: 5 });
+    expect(await scheduler.tick()).toEqual([connection.id]);
+    expect(connector.calls.filter((c) => c === "collect")).toHaveLength(2);
+  });
+
   test("honours Retry-After and skips paused connections", async () => {
     const { ctx, connector, connection, scheduler, advance } = setup();
     connector.collectQueue.push(rateLimitError());

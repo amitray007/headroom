@@ -19,6 +19,8 @@ export {
   type SessionInfo,
 } from "./auth/index.ts";
 export * from "./connector.ts";
+export { splitLabel, type SplitLabel } from "./label.ts";
+export { SettingsStore, defaultSettings, settingsSchema, type Settings } from "./settings.ts";
 export {
   AttemptStore,
   ConnectionStore,

@@ -389,14 +389,16 @@ function metricsFrom(usage: UsageResponse): {
   for (const limit of usage.limits ?? []) {
     if (limit.kind !== "weekly_scoped") continue;
     const name = limit.scope?.model?.display_name ?? "scoped";
+    // JSON null and a missing field both mean the provider gave no number.
+    const percent = limit.percent ?? undefined;
     metrics.push({
       providerMetricKey: `limits.${name}`,
       kind: "quota_percentage",
       scope: "window:604800s",
-      valueText: limit.percent === undefined ? null : String(limit.percent),
+      valueText: percent === undefined ? null : String(percent),
       unit: "percent",
       resetsAt: parseDate(limit.resets_at),
-      availability: limit.percent === undefined ? "unknown" : "available",
+      availability: percent === undefined ? "unknown" : "available",
       interface: "private",
     });
   }

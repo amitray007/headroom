@@ -51,7 +51,7 @@ const scheduler = new Scheduler({
   attempts: ctx.attempts,
   snapshots: ctx.snapshots,
   collection: ctx.collection,
-  intervalMs: config.refreshIntervalSeconds * 1000,
+  intervalMs: () => ctx.settings.get().refreshIntervalMinutes * 60_000,
   log: ctx.log,
 });
 scheduler.start();

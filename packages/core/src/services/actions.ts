@@ -14,12 +14,13 @@ import type { ConnectorRegistry } from "./connect.ts";
  * runs under the connection lease; `uncertain` is recorded explicitly and never retried; a
  * successful action is followed by one ordinary collection so the dashboard shows the result.
  *
- * Two gates sit in front of every action: the `HEADROOM_ENABLE_ACTIONS` flag, off by default,
+ * Two gates sit in front of every action: the `HEADROOM_ENABLE_ACTIONS` flag plus the owner's `accountActions` setting, both off by default,
  * and an explicit `confirm` in the request. Monitoring never calls this service.
  */
 
 export interface ActionServiceOptions {
-  readonly enabled: boolean;
+  /** Read at call time, so a settings change applies without a restart. */
+  readonly enabled: () => boolean;
   readonly registry: ConnectorRegistry;
   readonly connections: ConnectionStore;
   readonly credentials: CredentialStore;
@@ -80,7 +81,7 @@ export class ActionService {
   }
 
   get enabled(): boolean {
-    return this.deps.enabled;
+    return this.deps.enabled();
   }
 
   /** Actions the connector for this provider can perform; empty when it has none. */
@@ -90,7 +91,7 @@ export class ActionService {
   }
 
   async perform(input: PerformActionInput): Promise<ActionOutcome> {
-    if (!this.deps.enabled) throw new ActionsDisabledError();
+    if (!this.deps.enabled()) throw new ActionsDisabledError();
     if (!input.confirm) throw new ActionNotConfirmedError();
     const connection = this.deps.connections.get(input.connectionId);
     if (!connection) throw new Error("connection not found");

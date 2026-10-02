@@ -46,6 +46,8 @@ export const connections = sqliteTable(
     workspaceId: text("workspace_id"),
     scope: text("scope", { enum: connectionScopes }).notNull(),
     label: text("label").notNull(),
+    /** Owner-set display name. Null until set; reconnect and collection never write it. */
+    displayName: text("display_name"),
     authMethod: text("auth_method", { enum: authMethods }).notNull(),
     state: text("state", { enum: connectionStates }).notNull(),
     reconnectReason: text("reconnect_reason", { enum: reconnectReasons }),
@@ -219,4 +221,11 @@ export const leases = sqliteTable("leases", {
   holder: text("holder").notNull(),
   acquiredAt: integer("acquired_at", { mode: "timestamp_ms" }).notNull(),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+/** Owner preferences as one JSON document. A single row with id "owner": Headroom has one owner. */
+export const settings = sqliteTable("settings", {
+  id: text("id").primaryKey(),
+  json: text("json").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
 });

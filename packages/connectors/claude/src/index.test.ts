@@ -252,6 +252,31 @@ describe("Claude connector", () => {
     expect(byKey["reset_grants.available"]).toMatchObject({ valueText: "0" });
   });
 
+  test("a scoped limit with percent null is unknown, never the string null", async () => {
+    const connector = createClaudeConnector({
+      runner: new FakeRunner(),
+      fetch: fakeFetch({
+        [usageUrl]: () =>
+          json({
+            limits: [
+              {
+                kind: "weekly_scoped",
+                percent: null,
+                resets_at: null,
+                scope: { model: { display_name: "Fable" } },
+              },
+            ],
+          }),
+      }).fetch,
+    });
+    const result = await connector.collect(
+      credentialFromCredentialsFile(credentialsFile),
+      identity,
+    );
+    const metric = result.metrics.find((m) => m.providerMetricKey === "limits.Fable");
+    expect(metric).toMatchObject({ valueText: null, availability: "unknown" });
+  });
+
   test("refresh posts JSON with the public client id; rejections are definitive", async () => {
     const http = fakeFetch({
       [tokenUrl]: () =>

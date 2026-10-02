@@ -15,7 +15,8 @@ export interface SchedulerOptions {
   readonly attempts: AttemptStore;
   readonly snapshots: SnapshotStore;
   readonly collection: CollectionService;
-  readonly intervalMs: number;
+  /** A getter lets a settings change apply at the next tick without a restart. */
+  readonly intervalMs: number | (() => number);
   readonly tickMs?: number;
   readonly now?: () => Date;
   readonly log?: (level: "debug" | "info" | "warn" | "error", message: string) => void;
@@ -71,10 +72,9 @@ export class Scheduler {
     if (!run.finishedAt) return false;
     const now = this.now().getTime();
     if (run.retryAfter) return now >= run.retryAfter.getTime();
-    return (
-      now - run.startedAt.getTime() >=
-      this.deps.intervalMs + jitter(connectionId, this.deps.intervalMs)
-    );
+    const { intervalMs } = this.deps;
+    const interval = typeof intervalMs === "function" ? intervalMs() : intervalMs;
+    return now - run.startedAt.getTime() >= interval + jitter(connectionId, interval);
   }
 }
 

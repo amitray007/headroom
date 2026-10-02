@@ -351,6 +351,16 @@ export class ConnectionStore {
       .run();
   }
 
+  /** Owner-set display name; null clears it. Only this method writes the column. */
+  setDisplayName(id: string, name: string | null): void {
+    this.require(id);
+    this.db
+      .update(schema.connections)
+      .set({ displayName: name, updatedAt: this.now() })
+      .where(eq(schema.connections.id, id))
+      .run();
+  }
+
   delete(id: string): void {
     this.db.delete(schema.connections).where(eq(schema.connections.id, id)).run();
   }
