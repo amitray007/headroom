@@ -34,6 +34,18 @@ I = {
  "terminal": ic('<path d="m4 17 6-6-6-6M12 19h8"/>'),
  "link": ic('<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7L12 19"/>'),
  "hash": ic('<path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/>'),
+ "gear": ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+ "info": ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
+ "bell": ic('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>'),
+ "x": ic('<path d="M18 6 6 18M6 6l12 12"/>'),
+ "pencil": ic('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
+ "eye": ic('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+ "fingerprint": ic('<path d="M12 10a2 2 0 0 0-2 2c0 1.5-.5 3.5-1.5 5"/><path d="M14 13.1c0 2.3-.5 4.2-1.2 5.9"/><path d="M17.3 12c0 2.4-.3 4.5-.9 6"/><path d="M6.1 16.8A10 10 0 0 1 5.6 12a6.4 6.4 0 0 1 12.8 0"/><path d="M8.6 9.4A3.4 3.4 0 0 1 12 8.6"/>'),
+ "trash": ic('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'),
+ "user": ic('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
+ "play": ic('<path d="M7 5v14l12-7z"/>'),
+ "unplug": ic('<path d="M19 5l-3 3M9.5 14.5 5 19M15 12l-3 3M12 9l3-3M9 12l3 3"/><path d="M7 11.5 12.5 17a3 3 0 0 0 4.2-4.2L11 7.3A3 3 0 0 0 7 11.5z"/>'),
+ "dots": ic('<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>'),
  "sparkle": ic('<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.2 2.2M16.2 16.2l2.2 2.2M5.6 18.4l2.2-2.2M16.2 7.8l2.2-2.2"/>'),
 }
 LOGO = '<svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="18" fill="currentColor"/><rect x="14" y="16" width="36" height="4" rx="2" fill="var(--background)" opacity=".55"/><rect x="14" y="30" width="26" height="8" rx="4" fill="var(--background)"/><rect x="14" y="42" width="16" height="8" rx="4" fill="var(--background)"/></svg>'
@@ -64,20 +76,81 @@ FOOT = f'''</div>
 </html>
 '''
 
+SETTINGS = f'''  <dialog class="dlg settings" id="settings" aria-labelledby="set-title">
+    <div class="dhead"><h2 id="set-title">Settings</h2><button class="btn quiet sm" type="button" data-close aria-label="Close">{I["x"]}</button></div>
+    <div class="dbody">
+    <section class="dsec"><div class="dsec-head"><h3>Limits</h3></div>
+      <div class="srow"><span class="sbody"><b>Show Limits As</b><span class="muted">Used shows how much of a limit is spent. Left shows what remains.</span></span><span class="seg" role="group" aria-label="Show limits as" data-setting="limits"><button type="button" data-value="used" aria-pressed="true">Used</button><button type="button" data-value="left" aria-pressed="false">Left</button></span></div>
+      <div class="srow"><span class="sbody"><b>Running Low Under</b><span class="muted">Bars turn amber below this much left. They turn red under 10%.</span></span><span class="seg" role="group" aria-label="Running low threshold" data-setting="warnAt"><button type="button" data-value="30" aria-pressed="true">30%</button><button type="button" data-value="20" aria-pressed="false">20%</button><button type="button" data-value="15" aria-pressed="false">15%</button></span></div>
+    </section>
+    <section class="dsec"><div class="dsec-head"><h3>Refresh</h3></div>
+      <div class="srow"><span class="sbody"><b>Refresh Every</b><span class="muted">How often Headroom checks each provider. Refresh on a panel still works any time.</span></span><span class="seg" role="group" aria-label="Refresh interval" data-setting="refreshEvery"><button type="button" data-value="5" aria-pressed="true">5 min</button><button type="button" data-value="10" aria-pressed="false">10 min</button><button type="button" data-value="15" aria-pressed="false">15 min</button><button type="button" data-value="30" aria-pressed="false">30 min</button></span></div>
+    </section>
+    <section class="dsec"><div class="dsec-head"><h3>Time</h3></div>
+      <div class="srow"><span class="sbody"><b>Times</b><span class="muted">Countdown says “in 52 min”. Exact says “at 15:06”. Hover shows the other.</span></span><span class="seg" role="group" aria-label="Time wording" data-setting="time"><button type="button" data-value="relative" aria-pressed="true">Countdown</button><button type="button" data-value="exact" aria-pressed="false">Exact</button></span></div>
+      <div class="srow"><span class="sbody"><b>Clock</b><span class="muted">How exact times are written.</span></span><span class="seg" role="group" aria-label="Clock format" data-setting="clock"><button type="button" data-value="24" aria-pressed="true">24-Hour</button><button type="button" data-value="12" aria-pressed="false">12-Hour</button></span></div>
+    </section>
+    <section class="dsec"><div class="dsec-head"><h3>Display</h3></div>
+      <div class="srow"><span class="sbody"><b>Density</b><span class="muted">Compact fits more accounts on one screen.</span></span><span class="seg" role="group" aria-label="Density" data-setting="density"><button type="button" data-value="comfortable" aria-pressed="true">Comfortable</button><button type="button" data-value="compact" aria-pressed="false">Compact</button></span></div>
+    </section>
+    <section class="dsec"><div class="dsec-head"><h3>Account Actions</h3></div>
+      <label class="srow"><span class="sbody"><b>Allow Account Actions</b><span class="muted">Lets you redeem Codex reset credits with the hold button. Nothing runs on its own.</span></span><span class="switch"><input type="checkbox" role="switch" data-setting="actions"><span class="track"><span class="thumb"></span></span></span></label>
+    </section>
+    <section class="dsec"><div class="dsec-head"><h3>Notifications</h3></div>
+      <label class="srow"><span class="sbody"><b>Running Low</b><span class="muted">When an account drops under the amber threshold.</span></span><span class="switch"><input type="checkbox" role="switch" data-setting="notifyLow" checked><span class="track"><span class="thumb"></span></span></span></label>
+      <label class="srow"><span class="sbody"><b>Expiring Resets</b><span class="muted">A few days before a banked Codex reset expires.</span></span><span class="switch"><input type="checkbox" role="switch" data-setting="notifyResets" checked><span class="track"><span class="thumb"></span></span></span></label>
+      <label class="srow"><span class="sbody"><b>Refresh Failures</b><span class="muted">When Headroom cannot refresh an account.</span></span><span class="switch"><input type="checkbox" role="switch" data-setting="notifyFail" checked><span class="track"><span class="thumb"></span></span></span></label>
+    </section>
+    </div>
+  </dialog>
+'''
+
 def top(page="panels"):
-    link = '<a class="btn" href="f-connect.html">Connect an Account</a>' if page != "connect" else '<a class="btn" href="f-panels.html">Back to Accounts</a>'
+    link = f'<a class="btn primary" href="f-connect.html">{I["plus"]}Connect an Account</a>' if page != "connect" else '<a class="btn" href="f-panels.html">Back to Accounts</a>'
     return f'''  <header class="top">
     <a class="lockup" href="f-panels.html">{LOGO}Headroom</a>
     <nav aria-label="Page">{link}
+      <span class="menu-anchor"><button class="bell" type="button" aria-label="Notifications, 2 unread" aria-haspopup="dialog" aria-expanded="false" aria-controls="notifications">{I["bell"]}<span class="badge num" aria-hidden="true">2</span></button>
+        <div class="notif" id="notifications" role="dialog" aria-label="Notifications">
+          <div class="nhead"><div><h2>Notifications</h2><p class="nsub">2 updates waiting for you</p></div><button class="btn quiet sm" type="button" data-markall>Mark All Read</button></div>
+          <ul class="nlist" role="list">
+            <li class="nrow unread" style="--index:0" data-tone="bad"><span class="nicon">{I["alert"]}</span><span class="nbody"><span class="ntitle">Claude Is Almost Out of Its Weekly Fable Limit<span class="ndot"></span></span><span class="ndesc">91% used. Resets in 52 min.</span></span><span class="ntime">12 min</span></li>
+            <li class="nrow unread" style="--index:1" data-tone="warn"><span class="nicon">{I["clock"]}</span><span class="nbody"><span class="ntitle">Claude Weekly Limit Is Running Low<span class="ndot"></span></span><span class="ndesc">78% used. Resets in 52 min.</span></span><span class="ntime">12 min</span></li>
+            <li class="nrow" style="--index:2" data-tone="info"><span class="nicon">{I["reset"]}</span><span class="nbody"><span class="ntitle">A Codex Reset Expires in 3 Days<span class="ndot"></span></span><span class="ndesc">1 of 3 banked full resets expires Oct 5.</span></span><span class="ntime">1 h</span></li>
+          </ul>
+          <div class="nfoot"><span class="muted">1 read</span><button class="btn quiet sm" type="button" data-clearread>Clear Read</button></div>
+        </div></span>
       <span class="menu-anchor"><button class="avatar" type="button" aria-label="Account Menu" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">{AVATAR}</button>
         <div class="menu" id="account-menu" role="menu">
           <div class="who">Signed in as<b>maverick</b></div>
-          <div class="theme"><span>Appearance</span><span class="seg" role="group" aria-label="Appearance"><button type="button" data-scheme="system" aria-pressed="true">System</button><button type="button" data-scheme="light" aria-pressed="false">Light</button><button type="button" data-scheme="dark" aria-pressed="false">Dark</button></span></div>
-          <a class="item" role="menuitem" href="#">{I["key"]}Passkeys and Password</a>
+          <div class="theme"><span class="seg" role="group" aria-label="Appearance"><button type="button" data-scheme="system" aria-pressed="true">System</button><button type="button" data-scheme="light" aria-pressed="false">Light</button><button type="button" data-scheme="dark" aria-pressed="false">Dark</button></span></div>
+          <label class="item switchrow"><span class="lbl">{I["eye"]}Hide Details</span><span class="switch"><input type="checkbox" id="privacy" role="switch" checked><span class="track"><span class="thumb"></span></span></span></label>
+          <button class="item" role="menuitem" type="button" data-open="settings">{I["gear"]}Settings</button>
+          <button class="item" role="menuitem" type="button" data-open="security">{I["user"]}Account</button>
           <button class="item danger" role="menuitem" type="button">{I["out"]}Sign Out</button>
         </div></span></nav>
   </header>
-'''
+  <dialog class="dlg" id="security" aria-labelledby="sec-title">
+    <div class="dhead"><h2 id="sec-title">Account</h2><button class="btn quiet sm" type="button" data-close aria-label="Close">{I["x"]}</button></div>
+    <section class="dsec">
+      <div class="dsec-head"><h3>Passkeys</h3><button class="btn sm" type="button" data-add-passkey>{I["plus"]}Add Passkey</button></div>
+      <ul class="plist" role="list">
+        <li><span class="pk">{I["fingerprint"]}</span><span class="pbody"><b>MacBook Touch ID</b><span class="muted">Added Sep 28 · Last used today</span></span><button class="btn quiet sm danger" type="button" data-remove aria-label="Remove MacBook Touch ID">Remove</button></li>
+      </ul>
+    </section>
+    <section class="dsec">
+      <div class="dsec-head"><h3>Password</h3></div>
+      <form class="pform" data-password>
+        <div class="field"><label for="pw-current">Current Password</label><input id="pw-current" type="password" autocomplete="current-password"></div>
+        <div class="field"><label for="pw-new">New Password</label><input id="pw-new" type="password" autocomplete="new-password" minlength="12"><span class="muted" style="font-size:12px">At least 12 characters.</span></div>
+        <div class="row"><button class="btn primary" type="submit"><span class="label">Change Password</span></button></div>
+      </form>
+    </section>
+  </dialog>
+{SETTINGS}'''
+
+def when(text, exact):
+    return f'<time class="when" title="{exact}">{text}</time>'
 
 def value(v, unit="", of=None, decimals=0, prefix="", unknown=False):
     if unknown: return '<div class="value unknown" aria-hidden="true">—</div>'
@@ -92,7 +165,8 @@ def tone_of(used):
 
 def tone_word(used):
     t = tone_of(used)
-    return {"good": "", "warn": '<span class="tone warn">Running Low</span> · ', "bad": '<span class="tone bad">Almost Out</span> · '}.get(t, "")
+    inner = {"good": "", "warn": '<span class="tone warn">Running Low</span> · ', "bad": '<span class="tone bad">Almost Out</span> · '}.get(t, "")
+    return f'<span class="tw">{inner}</span>'
 
 def bar(v=None, thin=False, segs=None, unknown=False, aria="", limit=None, neutral=False):
     tone = "neutral" if neutral else tone_of(v)
@@ -118,7 +192,8 @@ def cell(label, window, val, caption, b=None, fact=False, key=None, extra=""):
 
 def meter(label, window, used, caption, key=None, decimals=0):
     v = round(used, decimals) if decimals else int(round(used))
-    return cell(label, window, value(v, "%", decimals=decimals), tone_word(used) + caption, bar(used, aria=f"{label} {v}% used"), key=key)
+    html = cell(label, window, value(v, "%", decimals=decimals), tone_word(used) + caption, bar(used, aria=f"{label} {v}% used"), key=key)
+    return html.replace('<div class="cell"', f'<div class="cell" data-used="{used}"', 1)
 
 def status(kind, text):
     if kind == "ok": return f'<span class="status-slot"><span class="status"><span class="dot"></span><span class="age">{text}</span></span></span>'
@@ -132,8 +207,8 @@ def chip(text, title=None):
 
 def acts(paused=False):
     return f'''        <span class="acts">
-          <button class="btn quiet sm" type="button" data-act="refresh"><span class="label">Refresh</span></button>
-          <button class="btn quiet sm" type="button" data-act="pause"><span class="label">{"Resume" if paused else "Pause"}</span></button>
+          <button class="btn quiet sm" type="button" data-act="pause"><span class="label">{I["play"] if paused else I["pause"]}{"Resume" if paused else "Pause"}</span></button>
+          <button class="btn quiet sm" type="button" data-act="refresh"><span class="label">{I["retry"]}Refresh</span></button>
           <button class="btn quiet sm danger" type="button" data-act="disconnect"><span class="label">Disconnect</span></button>
         </span>
 '''
@@ -147,13 +222,15 @@ def hold(state="idle", sm=True, outcome=None):
     style = ' style="--p:42%"' if state == "holding" else ""
     return f'<button class="{cls}" type="button" aria-describedby="hold-hint"{attrs}{style}><span class="face">{icon}<span class="label">{label}</span></span><span class="fillface" aria-hidden="true">{I["reset"]}{label}</span></button>'
 
-def panel(id_, name, plan, st, right, cells, facts="", notice="", dim=False, paused=False, actions=True):
-    plan_html = f' <span class="plan">{plan}</span>' if plan else ""
-    row = f'      <div class="facts">\n{facts}{acts(paused) if actions else ""}      </div>\n' if (facts or actions) else ""
+def panel(id_, name, plan, st, right, cells, facts="", notice="", dim=False, paused=False, actions=True, who="", since="", lead=""):
+    plan_html = f'<span class="plan"><span class="sep" aria-hidden="true">·</span>{plan}</span>' if plan else ""
+    ident = f'<div class="ident"><span class="who">{who}</span></div>' if who else ""
+    lead_html = f'        <span class="lead">{lead}</span>\n' if lead else ""
+    row = f'      <div class="facts">\n{lead_html}{facts}{acts(paused) if actions else ""}      </div>\n' if (facts or actions or lead) else ""
     cls = "panel" + (" dim" if dim else "") + (" paused" if paused else "")
     return f'''    <div class="collapse"><section class="{cls}" aria-labelledby="{id_}">
       <header>
-        <h3 id="{id_}">{name}{plan_html}</h3>
+        <div class="titles"><h3 id="{id_}"><span class="name">{name}</span>{plan_html}<button class="rename" type="button" aria-label="Rename this account">{I["pencil"]}</button></h3>{ident}</div>
         <div class="right">{st}{right}</div>
       </header>
 {notice}      <div class="cells">
@@ -178,42 +255,42 @@ HOLD_HINT = '<span id="hold-hint" class="sr">Press and hold for 1.2 seconds to c
 kv = lambda k, v: f'        <span class="kv">{k} <b>{v}</b></span>\n'
 
 # ---------- accounts page: the seven real connections ----------
-claude = panel("a-claude", "Personal", "Max", status("ok", "12 min ago"), "",
-  meter("Session", "5 hours", 49, "Resets in <b>1 h 12 min</b>") +
-  meter("Weekly", "all models", 78, "Resets in <b>52 min</b>") +
-  meter("Weekly", "Fable", 91, "Resets in <b>52 min</b>"),
-  facts=f'        <span class="kv">Reset Grants <span class="pips" aria-label="0 available"><span class="pip spent"></span></span> <b>0</b></span>\n')
+claude = panel("a-claude", "Personal", "Max", status("ok", when("12 min ago", "Today · 14:02")), "", who="maverick@example.com", cells=
+  meter("Session", "5 hours", 49, "Resets in <b>" + when("1 h 12 min", "Today · 15:26") + "</b>") +
+  meter("Weekly", "all models", 78, "Resets in <b>" + when("52 min", "Today · 15:06") + "</b>") +
+  meter("Weekly", "Fable", 91, "Resets in <b>" + when("52 min", "Today · 15:06") + "</b>"),
+  facts=kv("Reset Grants", "0"))
 
-codex_personal = panel("a-codex", "Personal", "Pro", status("ok", "12 min ago"), "",
-  meter("Weekly", "7 days", 23, "Resets in <b>5 d 18 h</b>", key="weekly") +
+codex_personal = panel("a-codex", "Personal", "Pro", status("ok", when("12 min ago", "Today · 14:02")), "", who="maverick@example.com", cells=
+  meter("Weekly", "7 days", 23, "Resets in <b>" + when("5 days 18 h", "Wed, Oct 8 · 08:14") + "</b>", key="weekly") +
   cell("Credits", "balance", value(61068, "credits"), "Not time-bound", fact=True) +
-  cell("Reset Credits", "banked", value(3, "", of="full resets"), 'First expires in <b>2 d 16 h</b> <span class="pips" aria-hidden="true" style="margin-left:6px"><span class="pip"></span><span class="pip"></span><span class="pip"></span></span>', fact=True, key="resets",
-       extra=f'<div style="margin-top:4px">{hold("off")}{HOLD_HINT}</div>'))
+  cell("Reset Credits", "banked", value(3, "", of="full resets"), 'First expires in <b>' + when("2 days 16 h", "Sun, Oct 5 · 06:25") + '</b><span class="info"><button class="infobtn" type="button" aria-label="All reset expiry times" aria-describedby="resets-tip">' + I["info"] + '</button><span class="tip" id="resets-tip" role="tooltip"><b>Banked Resets</b><span>Reset 1 · expires Sunday, Oct 5 at 06:25</span><span>Reset 2 · expires Wed, Oct 22 at 14:39</span><span>Reset 3 · expires Wed, Oct 29 at 13:00</span></span></span>', fact=True, key="resets"),
+  lead=hold("off") + HOLD_HINT)
 
 # A second Codex account is synthetic: it shows how several accounts under one provider read.
-codex_work = panel("a-codex-2", "Work", "Business", status("paused", "Paused"), chip("Member"),
-  meter("Weekly", "7 days", 12, "Resets in <b>1 d 6 h</b> · as of yesterday"),
+codex_work = panel("a-codex-2", "Work", "Business", status("paused", "Paused"), "", who="maverick@acme.example", cells=
+  meter("Weekly", "7 days", 12, "Resets in <b>" + when("1 day 6 h", "Fri, Oct 3 · 20:15") + "</b> · as of " + when("1 day 5 h ago", "Wed, Oct 1 · 09:14")),
   notice=notice("neutral", "pause", "Paused. Headroom is not refreshing this account.", '<button class="btn sm" type="button">Resume</button>'), paused=True)
 
-cursor = panel("a-cursor", "Personal", "Pro", status("ok", "12 min ago"), "",
-  meter("Included", "$20 plan", 17.02, "<b>24 d</b> left in the cycle", decimals=0) +
+cursor = panel("a-cursor", "Personal", "Pro", status("ok", when("12 min ago", "Today · 14:02")), "", cells=
+  meter("Included", "$20 plan", 17.02, "Cycle ends in <b>" + when("23 days", "Sun, Oct 26 · 10:00") + "</b>", decimals=0) +
   meter("Auto Pool", "billing cycle", 19.02, "Resets with the cycle") +
   meter("API Pool", "billing cycle", 6.48, "Resets with the cycle"),
-  facts=kv("On-Demand Spend", "$0.00") + kv("Cycle", "Sep 26 to Oct 26"))
+  facts=kv("On-Demand Spend", "$0.00") + kv("Cycle", when("Sep 26 to Oct 26", "Fri, Sep 26 · 10:00 to Sun, Oct 26 · 10:00")))
 
-grok = panel("a-grok", "Personal", "X Premium", status("ok", "7 min ago"), "",
-  meter("Weekly Pool", "7 days", 0, "Resets in <b>6 d 17 h</b>"),
+grok = panel("a-grok", "Personal", "X Premium", status("ok", when("7 min ago", "Today · 14:07")), "", cells=
+  meter("Weekly Pool", "7 days", 0, "Resets in <b>" + when("6 days 17 h", "Thu, Oct 9 · 07:20") + "</b>"),
   facts=kv("On-Demand", "Off") + kv("Prepaid Balance", "0 credits"))
 
-anti = panel("a-ag", "Personal", "Starter", status("ok", "1 min ago"), "",
-  meter("Gemini", "weekly", 0, "Resets in <b>7 d</b>") +
-  meter("Claude and GPT", "weekly", 0, "Resets in <b>7 d</b>"))
+anti = panel("a-ag", "Personal", "Starter", status("ok", when("1 min ago", "Today · 14:13")), "", who="maverick@example.com", cells=
+  meter("Gemini", "weekly", 0, "Resets in <b>" + when("6 days 23 h", "Thu, Oct 9 · 14:13") + "</b>") +
+  meter("Claude and GPT", "weekly", 0, "Resets in <b>" + when("6 days 23 h", "Thu, Oct 9 · 14:13") + "</b>"))
 
-copilot = panel("a-copilot", "Personal", "Pro", status("ok", "7 min ago"), "",
-  meter("AI Credits", "monthly", 0.8, "Resets <b>Nov 1</b>", decimals=1),
+copilot = panel("a-copilot", "Personal", "Pro", status("ok", when("7 min ago", "Today · 14:07")), "", who="maverick", cells=
+  meter("AI Credits", "monthly", 0.8, "Resets in <b>" + when("29 days", "Sat, Nov 1 · 00:00") + "</b>", decimals=1),
   facts=kv("Credits Used", "1") + kv("Extra Usage", "0") + kv("Chat", "Unlimited") + kv("Completions", "Unlimited"))
 
-vercel = panel("a-vercel", "Team", "", status("partial", "Partial"), chip("Spend Not Available", "This key cannot read the spend report. It needs a Pro plan."),
+vercel = panel("a-vercel", "Team", "", status("ok", when("12 min ago", "Today · 14:02")), "", who="Key ending in 7f3a", cells=
   cell("Credit Balance", "", value("4.99", "credits", decimals=2), "<b>0.01</b> used of 5.00", bar(0.2, thin=True, aria="Credits used 0.01 of 5.00")) +
   cell("Credits Used", "lifetime", value("0.01", "credits", decimals=2), "On this gateway key", fact=True))
 
@@ -226,22 +303,16 @@ body = (
   provider("p-copilot", "copilot", "Copilot", copilot) +
   provider("p-vercel", "vercel_ai_gateway", "Vercel AI Gateway", vercel)
 )
-summary = f'''  <p class="summary"><span class="tone bad">{I["alert"].replace('aria-hidden="true"', 'aria-hidden="true" style="width:16px;height:16px;vertical-align:-3px"')} Claude is almost out of its weekly Fable limit</span> · resets in 52 min. Everything else has room. Updated <b>1 to 12 min ago</b>.</p>
-'''
-key = '''  <footer class="key">
-    <span><span class="sw"></span>Room left</span>
-    <span><span class="sw warn"></span>Running low, under 30% left</span>
-    <span><span class="sw bad"></span>Almost out, under 10% left</span>
-    <span><span class="sw unknown"></span>Not reported yet</span>
-  </footer>
-'''
+summary = ''
+# The colour key under the panels was dropped: bar captions already say Running Low / Almost Out.
+key = ''
 pathlib.Path("f-panels.html").write_text(head("Headroom · mockup F · accounts") + top() + summary + body + f'  <a class="add" href="f-connect.html">{I["plus"]} Connect Another Account</a>\n' + key + FOOT)
 
 # ---------- states ----------
 sk = '<div class="cell"><div class="sk line" style="width:40%"></div><div class="sk big"></div><div class="sk bar"></div><div class="sk line" style="width:60%"></div></div>'
 states = head("Headroom · mockup F · states") + top() + f'''  <div class="demo">
     <h2>Status in the Panel Header</h2>
-    <div class="row">{status("ok", "2 min ago")}{status("retry", "Refresh Failed · Retrying")}{status("stale", "Not Updated for 3 h")}{status("partial", "Partial")}{status("bad", "Reconnect Needed")}{status("paused", "Paused")}{status("wait", "Waiting for First Refresh")}</div>
+    <div class="row">{status("ok", "2 min ago")}{status("retry", "Refresh Failed · Retrying")}{status("stale", "Not Updated for 3 h")}{status("partial", "Partial")}{status("bad", "Disconnected")}{status("paused", "Paused")}{status("wait", "Waiting for First Refresh")}</div>
 
     <h2>Reset Credit Action States</h2>
     <div class="row">{hold("idle", sm=False)}{hold("holding", sm=False)}{hold("requesting", sm=False)}{hold("ok", sm=False)}{hold("failed", sm=False)}{hold("off", sm=False)}</div>
@@ -254,7 +325,7 @@ states = head("Headroom · mockup F · states") + top() + f'''  <div class="demo
     <h2>Trouble</h2>
 {panel("s-retry", "Personal", "Max", status("retry", "Refresh Failed · Retrying"), "", meter("Session", "5 hours", 49, "Resets in <b>1 h 12 min</b> · as of 14 min ago") + cell("Weekly", "all models", value(0, unknown=True), "Not reported in the last refresh", bar(unknown=True, aria="Weekly usage not reported")), notice=notice("neutral", "retry", "Headroom could not refresh this account. It will try again in a few minutes."))}
 {panel("s-stale", "Personal", "X Premium", status("stale", "Not Updated for 3 h"), "", meter("Weekly Pool", "7 days", 34, "Resets in <b>4 d 11 h</b> · as of 3 h ago"), notice=notice("warn", "clock", "Grok has not answered for 3 hours. The numbers below are from the last good refresh."))}
-{panel("s-bad", "Personal", "Pro", status("bad", "Reconnect Needed"), "", meter("AI Credits", "monthly", 100, "Resets <b>Nov 1</b> · as of 2 days ago"), notice=notice("bad", "alert", "The sign-in for this account has expired. Reconnect to keep tracking it.", '<button class="btn primary sm" type="button">Reconnect</button>'), dim=True)}
+{panel("s-bad", "Personal", "Pro", status("bad", "Disconnected"), "", meter("AI Credits", "monthly", 100, "Resets in <b>29 days</b> · as of 2 days ago"), notice=notice("bad", "alert", "The sign-in for this account has expired. Reconnect to keep tracking it.", '<button class="btn primary sm" type="button">Reconnect</button>'), dim=True)}
     <h2>Loading</h2>
     <section class="panel" aria-busy="true" aria-label="Loading account"><header><div class="sk title"></div><div class="sk line" style="width:96px"></div></header><div class="cells">{sk}{sk}{sk}</div></section>
 {panel("s-wait", "Personal", "Pro", status("wait", "Waiting for First Refresh"), "", sk + sk, notice=notice("neutral", "clock", "Connected just now. The first refresh is running."), actions=False)}
@@ -266,38 +337,10 @@ states = head("Headroom · mockup F · states") + top() + f'''  <div class="demo
     <section class="panel"><div class="cells">{cell("Weekly", "7 days", value(112, "%"), '<span class="tone bad">Over the Limit</span> · Resets in <b>1 d 6 h</b>', bar(100, aria="Weekly usage 112%, over the limit", limit=89))}</div></section>
   </div>
 ''' + FOOT
+# Hold demos on the states page keep their shown state whatever the Account Actions setting is.
+states = states.replace('<button class="btn hold', '<button data-demo="1" class="btn hold')
 pathlib.Path("f-states.html").write_text(states)
 
-# ---------- connect ----------
-def card(key, name, hint, icon, how):
-    return f'''    <button class="card" type="button"><span class="head"><span class="brand lg">{BRAND[key]}</span>{name}</span><span class="hint">{hint}</span><span class="meta">{I[icon]}{how}</span></button>
-'''
-cards = (
-  card("claude", "Claude", "Session, weekly and per-model limits, reset grants.", "terminal", "Signs in once through Claude Code") +
-  card("codex", "Codex", "Weekly limit, credits, banked resets.", "terminal", "Signs in once through the Codex CLI") +
-  card("cursor", "Cursor", "Included allowance, Auto and API pools, on-demand spend.", "link", "Approve in the browser") +
-  card("copilot", "Copilot", "Monthly AI credits, extra usage.", "hash", "Enter a code on GitHub") +
-  card("grok", "Grok", "Weekly pool, on-demand cap, prepaid balance.", "terminal", "Signs in once through the Grok CLI") +
-  card("antigravity", "Antigravity", "Gemini and third-party weekly quotas.", "link", "Paste the redirect after Google sign-in") +
-  card("vercel_ai_gateway", "Vercel AI Gateway", "Credit balance and usage. Spend needs a Pro plan.", "key", "Paste a Gateway API key")
-)
-steps = f'''
-  <div class="demo">
-    <h2>Step States</h2>
-    <section class="panel step"><div class="title"><h2><span class="brand">{BRAND["copilot"]}</span>Copilot</h2>{status("wait", "Waiting for You · 9:42 left")}</div><p class="secondary" style="margin:0">Open GitHub and enter this code. Headroom finishes on its own once GitHub approves.</p><div class="row"><span class="code">WDJB-MJHT<button class="btn sm" type="button" aria-label="Copy Code">{I["copy"]}</button></span><a class="btn primary" href="#">{I["ext"]}Open GitHub</a><button class="btn quiet" type="button">Cancel</button></div></section>
-    <section class="panel step"><div class="title"><h2><span class="brand">{BRAND["antigravity"]}</span>Antigravity</h2>{status("wait", "Waiting for Your Input")}</div><p class="secondary" style="margin:0">Sign in with Google, then paste the full address you were sent to.</p><div class="field"><label for="redirect">Redirect Address</label><input id="redirect" type="url" placeholder="http://localhost:…/callback?code=…"></div><div class="row"><button class="btn primary" type="button">Continue</button><button class="btn quiet" type="button">Cancel</button></div></section>
-    <section class="panel step"><div class="title"><h2><span class="brand">{BRAND["vercel_ai_gateway"]}</span>Vercel AI Gateway</h2>{status("wait", "Waiting for Your Input")}</div><div class="field"><label for="apikey">Gateway API Key</label><input id="apikey" type="password" placeholder="vck_…"></div><p class="muted" style="margin:0; font-size:13px">The key is encrypted at rest and never shown again.</p><div class="row"><button class="btn primary" type="button">Connect Vercel AI Gateway</button><button class="btn quiet" type="button">Cancel</button></div></section>
-    <section class="panel step"><div class="title"><h2><span class="brand">{BRAND["codex"]}</span>Codex</h2><span class="pill neutral"><span class="spin" aria-hidden="true"></span>Checking</span></div><p class="secondary" style="margin:0">Sign-in accepted. Headroom is checking which limits this account reports.</p></section>
-    <section class="panel step"><div class="title"><h2><span class="brand">{BRAND["claude"]}</span>Claude</h2><span class="pill" style="--tone: var(--success)">{I["check"]}Connected</span></div><p class="secondary" style="margin:0">Personal · Max is connected. Its first refresh is running.</p><div class="row"><a class="btn primary" href="f-panels.html">Open Your Accounts</a><a class="btn quiet" href="#">Connect Another</a></div></section>
-    <section class="panel step"><div class="title"><h2><span class="brand">{BRAND["cursor"]}</span>Cursor</h2><span class="pill bad">{I["alert"]}Did Not Finish</span></div><p class="secondary" style="margin:0">The approval expired before it was confirmed. Start again when you are ready.</p><div class="row"><button class="btn primary" type="button">Try Again</button><button class="btn quiet" type="button">Cancel</button></div></section>
-  </div>
-'''
-connect = head("Headroom · mockup F · connect") + top("connect") + f'''  <div class="intro">
-    <h1>Connect an Account</h1>
-    <p>Choose a provider. Headroom signs in once, keeps the sign-in encrypted, and refreshes on its own.</p>
-  </div>
-  <div class="cards">
-{cards}  </div>
-{steps}''' + FOOT
+exec(pathlib.Path("connect_part.py").read_text())
 pathlib.Path("f-connect.html").write_text(connect)
 print("pages ok")
