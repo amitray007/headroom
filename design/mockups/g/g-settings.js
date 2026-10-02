@@ -12,7 +12,7 @@ export const ORDERS = [
   { id: "custom", label: "Custom" },
 ];
 
-/** Order, provider order, and whether Paused and Disconnected accounts sit last. */
+/** Order, provider order, and whether inactive (paused and disconnected) accounts sit last. */
 export function getOverviewPrefs() {
   let saved = {};
   try {
@@ -67,8 +67,6 @@ const esc = (s) =>
 
 /* ---------- Provider order list: pointer drag and keyboard, spring motion ---------- */
 
-const accountCount = (id) => accounts.filter((a) => a.provider === id).length;
-const plural = (n) => `${n} ${n === 1 ? "Account" : "Accounts"}`;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const press = (seg, value) =>
   seg
@@ -83,7 +81,7 @@ function providerList(ul, brandMark, live) {
         const p = providers.find((x) => x.id === id);
         return `<li class="g-pitem" data-id="${id}">
           <button class="g-grip" type="button" aria-describedby="g-porder-hint"></button>
-          ${brandMark(id)}<span class="g-pname">${esc(p.name)}</span><span class="g-pcount">${plural(accountCount(id))}</span>
+          ${brandMark(id)}<span class="g-pname">${esc(p.name)}</span>
         </li>`;
       })
       .join("");
@@ -248,7 +246,7 @@ function buildDialog({ brandMark, getLimitsView, setLimitsView }) {
           <ul class="g-plist" aria-label="Provider order"></ul>
         </div>
         <label class="srow switchrow">
-          <span class="sbody"><b>Keep Paused and Disconnected Last</b><span class="muted">They stay at the bottom in every order.</span></span>
+          <span class="sbody"><b>Keep Inactive Last</b><span class="muted">Paused and disconnected stay at the bottom.</span></span>
           <span class="switch"><input type="checkbox" role="switch" data-setting="dormantLast" ${p.dormantLast ? "checked" : ""} /><span class="track"><span class="thumb"></span></span></span>
         </label>
       </section>

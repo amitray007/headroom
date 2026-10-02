@@ -15,13 +15,13 @@
           <div class="g-chips" id="chips" role="group" aria-label="Filter by provider"></div>
           <div class="g-segs">
             <div class="seg" role="group" aria-label="Order" id="mode"></div>
-            <button class="btn quiet sm g-arrange" type="button" data-open-settings="overview">
-              <span id="arrange-ico"></span>Arrange
-            </button>
             <div class="seg" role="group" aria-label="Show limits as" id="limits">
               <button type="button" data-v="left" aria-pressed="true">Left</button>
               <button type="button" data-v="used" aria-pressed="false">Used</button>
             </div>
+            <button class="btn quiet sm g-arrange" type="button" data-open-settings="overview">
+              <span id="arrange-ico"></span>Arrange
+            </button>
           </div>
         </div>
         <div class="g-list" id="list"></div>
@@ -156,7 +156,7 @@
         if (tail.length) {
           html += group(
             "*",
-            `<header class="g-group-head small"><h2>Paused and Disconnected</h2><span class="chip count">${tail.length} ${tail.length === 1 ? "Account" : "Accounts"}</span></header>`,
+            `<header class="g-group-head small"><h2>Inactive</h2><span class="chip count">${tail.length} ${tail.length === 1 ? "Account" : "Accounts"}</span></header>`,
             tail.map((r) => row(r, false)).join(""),
             " g-dormant",
           );
@@ -189,6 +189,14 @@
             (i) => !i.classList.contains("closed"),
           );
           el.classList.toggle("closed", !any);
+          // The group's count follows the filter, so "Inactive · 1 Account" matches what is shown.
+          const count = el.querySelector(".chip.count");
+          if (count && el.classList.contains("g-dormant")) {
+            const n = [...el.querySelectorAll(".g-item")].filter(
+              (i) => !i.classList.contains("closed"),
+            ).length;
+            count.textContent = `${n} ${n === 1 ? "Account" : "Accounts"}`;
+          }
         }
         for (const el of list.querySelectorAll(".g-fold"))
           el.inert = el.classList.contains("closed");

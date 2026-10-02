@@ -11,88 +11,89 @@
   <body>
     <div class="page tl-page">
       <header class="top"></header>
-      <div class="tl-head">
-        <h1>Timeline</h1>
-        <p>When does each limit open, and when does it come back?</p>
+      <div class="tl-tools">
+        <h2 id="tl-range" class="tl-range" aria-live="polite"></h2>
+        <div class="tl-ctl">
+          <div class="tl-step" role="group" aria-label="Range">
+            <button type="button" id="prev" aria-label="Earlier">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="m15 6-6 6 6 6" />
+              </svg>
+            </button>
+            <button type="button" id="today">Today</button>
+            <button type="button" id="next" aria-label="Later">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="m9 6 6 6-6 6" />
+              </svg>
+            </button>
+          </div>
+          <div class="seg" role="group" aria-label="Window Type" id="kinds"></div>
+          <div class="seg" role="group" aria-label="Show Limits As" id="views">
+            <button type="button" data-view="used" aria-pressed="true">Used</button>
+            <button type="button" data-view="left" aria-pressed="false">Left</button>
+          </div>
+        </div>
       </div>
 
-      <section class="tl" aria-labelledby="tl-range">
-        <div class="tl-tools">
-          <div class="tl-rangebox">
-            <h2 id="tl-range" aria-live="polite"></h2>
-            <p id="tl-sub"></p>
-          </div>
-          <div class="tl-ctl">
-            <div class="tl-step" role="group" aria-label="Range">
-              <button type="button" id="prev" aria-label="Earlier">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path d="m15 6-6 6 6 6" />
-                </svg>
-              </button>
-              <button type="button" id="today">Today</button>
-              <button type="button" id="next" aria-label="Later">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path d="m9 6 6 6-6 6" />
-                </svg>
-              </button>
-            </div>
-            <div class="seg" role="group" aria-label="Window Type" id="kinds"></div>
-            <div class="seg" role="group" aria-label="Show Limits As" id="views">
-              <button type="button" data-view="used" aria-pressed="true">Used</button>
-              <button type="button" data-view="left" aria-pressed="false">Left</button>
-            </div>
-          </div>
-        </div>
+      <div id="chart" class="tl-chart" aria-label="Quota window timeline">
+        <div class="tl-body"></div>
+      </div>
+      <div id="list" class="tl-list" aria-label="Quota windows by account">
+        <div class="tl-body"></div>
+      </div>
+      <p id="missing" class="tl-missing"></p>
 
-        <div id="chart" class="tl-chart" aria-label="Quota window timeline"></div>
-        <div id="list" class="tl-list" aria-label="Quota windows by account"></div>
-        <p id="missing" class="tl-missing"></p>
+      <div class="tl-legend" aria-label="Legend">
+        <span><i class="tl-lg tl-cur"></i>Current Window</span>
+        <span><i class="tl-lg tl-passed"></i>Time Passed</span>
+        <span><i class="tl-lg tl-next"></i>Next Window</span>
+        <span><i class="tl-lg tl-prev"></i>Earlier</span>
+        <span><i class="tl-lg tl-keybank"></i>Banked Reset Expires</span>
+        <span class="tl-tones"
+          ><i class="tl-dot t-good"></i>Plenty Left <i class="tl-dot t-warn"></i>Running Low
+          <i class="tl-dot t-bad"></i>Almost Out</span
+        >
+      </div>
+      <p class="tl-note">
+        Each bar runs from when a window opened to when it resets. The strip inside it shows how
+        much is <span id="strip-word">used</span>.
+      </p>
 
-        <div class="tl-legend" aria-label="Legend">
-          <span><i class="tl-lg tl-cur"></i>Current Window</span>
-          <span><i class="tl-lg tl-passed"></i>Time Passed</span>
-          <span><i class="tl-lg tl-next"></i>Next Window</span>
-          <span><i class="tl-lg tl-prev"></i>Earlier</span>
-          <span><i class="tl-lg tl-keybank"></i>Banked Reset Expires</span>
-          <span class="tl-tones"
-            ><i class="tl-dot t-good"></i>Plenty Left <i class="tl-dot t-warn"></i>Running Low
-            <i class="tl-dot t-bad"></i>Almost Out</span
-          >
-        </div>
-        <p class="tl-note">
-          Each bar runs from when a window opened to when it resets. The strip inside it shows how
-          much is <span id="strip-word">used</span>.
-        </p>
-      </section>
-
-      <section class="tl-upnext" aria-labelledby="next-title">
-        <h2 id="next-title">Up Next</h2>
-        <ul id="upnext"></ul>
-      </section>
+      <div class="tl-pair">
+        <section class="tl-card" aria-labelledby="next-title">
+          <h2 id="next-title">Up Next</h2>
+          <div id="upnext" class="tl-card-body"></div>
+        </section>
+        <section class="tl-card" aria-labelledby="saved-title">
+          <h2 id="saved-title">Watch List</h2>
+          <div id="saved" class="tl-card-body"></div>
+        </section>
+      </div>
     </div>
 
     <script type="module">
       import * as shell from "./g-shell.js";
       import {
         now,
+        accounts as accountsAll,
         D,
         H,
         KINDS,
@@ -423,34 +424,93 @@
         return out;
       }
 
-      /* ---------- Up Next ---------- */
+      /* ---------- Up Next and Watch List ---------- */
+      const WIN_WORD = { weekly: "Weekly", "5h": "5-Hour", cycle: "Cycle" };
+      const upnextState = { all: false };
+      const CAP = 6;
+
+      const useMini = (used) => {
+        if (used === null) return '<span class="tl-use tl-unk">Not Reported</span>';
+        const d = shown(used);
+        return `<span class="tl-use t-${tone(used)}"><span class="tl-mbar" aria-hidden="true"><i style="width:${clamp(d.fill, 0, 100)}%"></i></span><b>${d.text}%</b><span class="tl-sr"> ${viewWord()}</span></span>`;
+      };
+
       function nextHTML() {
         const items = [];
-        for (const kind of Object.keys(KINDS)) {
-          for (const lane of lanesFor(kind)) {
+        for (const kind of Object.keys(KINDS))
+          for (const lane of lanesFor(kind))
             if (!lane.notStarted)
-              items.push({
-                t: lane.end,
-                a: lane.account,
-                text:
-                  kind === "cycle"
-                    ? "Cycle Ends"
-                    : kind === "5h"
-                      ? "5-Hour Window Resets"
-                      : "Weekly Window Resets",
-              });
-            for (const b of lane.banks)
-              items.push({ t: b.t, a: lane.account, text: `${b.label} Expires`, bank: true });
-          }
+              items.push({ t: lane.end, a: lane.account, kind, used: lane.used });
+        items.sort((x, y) => x.t - y.t);
+        const shownItems = upnextState.all ? items : items.slice(0, CAP);
+        const groups = [
+          ["Next 24 Hours", (e) => e.t - now < D],
+          ["This Week", (e) => e.t - now < 7 * D],
+          ["Later", () => true],
+        ];
+        let out = "";
+        let from = 0;
+        for (const [label, test] of groups) {
+          const rows = shownItems.slice(from).filter(test);
+          if (rows.length === 0) continue;
+          from += rows.length;
+          out += `<h3 class="tl-sub">${label}</h3><ul>${rows
+            .map(
+              (e) =>
+                `<li class="${isLive(e.a) ? "" : "tl-dim"}" title="${esc(when(e.t))}">${brandMark(e.a.provider)}<span class="tl-what"><b>${esc(providerName(e.a.provider))} · ${esc(e.a.name)}</b><span>${WIN_WORD[e.kind]}${e.kind === "cycle" ? " Ends" : " Resets"}</span></span>${useMini(e.used)}<span class="tl-when"><b>${countdown((e.t - now) / MIN)}</b><span>${wd(e.t)} ${hhmm(e.t)}</span></span></li>`,
+            )
+            .join("")}</ul>`;
         }
-        return items
-          .sort((x, y) => x.t - y.t)
-          .slice(0, 6)
-          .map(
-            (e) =>
-              `<li class="${isLive(e.a) ? "" : "tl-dim"}">${brandMark(e.a.provider)}<span class="tl-what"><b>${esc(providerName(e.a.provider))} · ${esc(e.a.name)}</b><span>${esc(e.text)}</span></span><span class="tl-when">${e.bank ? '<i class="tl-lg tl-keybank" aria-hidden="true"></i>' : ""}<b>In ${countdown((e.t - now) / MIN)}</b><span>${when(e.t)}</span></span></li>`,
-          )
-          .join("");
+        if (items.length > CAP)
+          out += `<button type="button" class="tl-more" id="more" aria-expanded="${upnextState.all}">${upnextState.all ? "Show Fewer" : `Show All ${items.length}`}</button>`;
+        return out;
+      }
+
+      const SOON = 3 * D;
+      function savedHTML() {
+        /* Limits at 70% used or more, with when room comes back. */
+        const low = [];
+        for (const a of accountsAll)
+          for (const m of a.meters)
+            if (m.used !== null && m.used >= 70 && m.resets !== null)
+              low.push({ a, m, back: now + m.resets * MIN });
+        low.sort((x, y) => y.m.used - x.m.used);
+        const banks = accountsAll
+          .filter((a) => a.banked && a.banked.count > 0)
+          .map((a) => ({
+            a,
+            exp: a.banked.expiries.map((m) => now + m * MIN).sort((x, y) => x - y),
+          }))
+          .sort((x, y) => (x.exp[0] ?? Infinity) - (y.exp[0] ?? Infinity));
+
+        let out = `<h3 class="tl-sub">Running Low Until</h3>`;
+        out += low.length
+          ? `<ul>${low
+              .map(
+                ({ a, m, back }) =>
+                  `<li class="${isLive(a) ? "" : "tl-dim"}" title="${esc(when(back))}">${brandMark(a.provider)}<span class="tl-what"><b>${esc(providerName(a.provider))} · ${esc(a.name)}</b><span>${esc(limitName(m))} ${m.used >= 90 ? "Almost Out" : "Running Low"}</span></span>${useMini(m.used)}<span class="tl-when"><b>${countdown(m.resets)}</b><span>${wd(back)} ${hhmm(back)}</span></span></li>`,
+              )
+              .join("")}</ul>`
+          : `<p class="tl-empty">Nothing Is Running Low.</p>`;
+
+        out += `<h3 class="tl-sub">Saved Resets</h3>`;
+        out += banks.length
+          ? `<ul>${banks
+              .map(({ a, exp }) => {
+                const soon = exp.length > 0 && exp[0] - now < SOON;
+                const unit = a.banked.label + (a.banked.count === 1 ? "" : "s");
+                return `<li class="tl-bankrow${isLive(a) ? "" : " tl-dim"}">${brandMark(a.provider)}<span class="tl-what"><b>${esc(providerName(a.provider))} · ${esc(a.name)}</b><span>${a.banked.count} ${esc(unit)}${
+                  exp.length ? ` · next expires in ${countdown((exp[0] - now) / MIN)}` : ""
+                }</span></span>${soon ? '<span class="tl-soon">Expires Soon</span>' : ""}<span class="tl-exps">${exp
+                  .map(
+                    (t) =>
+                      `<span class="tl-exp${t - now < SOON ? " tl-exp-soon" : ""}" title="${esc(when(t))}"><i aria-hidden="true"></i>${shortDay(t)}</span>`,
+                  )
+                  .join("")}</span></li>`;
+              })
+              .join("")}</ul>`
+          : `<p class="tl-empty">No Saved Resets.</p>`;
+        return out;
       }
 
       /* ---------- Render ---------- */
@@ -460,34 +520,76 @@
       const reduce = matchMedia("(prefers-reduced-motion: reduce)");
       let firstRender = true;
 
-      function setAnim(cls) {
-        if (reduce.matches) return;
-        for (const el of [chart, list]) {
-          el.classList.remove("slide-next", "slide-prev", "swap");
-          void el.offsetWidth;
-          el.classList.add(cls);
+      /**
+       * Swap one grid's content without a collapsed frame. The old content stays on top as a
+       * fading ghost, the new content fades in beneath, and the card's height animates from the old
+       * value to the new one. A step slides both sideways; a mode change crossfades.
+       */
+      function swapBody(root, build, dir) {
+        const body = root.firstElementChild;
+        for (const a of [...root.getAnimations(), ...body.getAnimations()]) a.cancel();
+        root.querySelectorAll(":scope > .tl-ghost").forEach((g) => g.remove());
+        root.style.height = "";
+        if (reduce.matches || firstRender || root.offsetParent === null) {
+          build(body);
+          return;
         }
-        clearTimeout(setAnim.t);
-        setAnim.t = setTimeout(() => {
-          for (const el of [chart, list]) el.classList.remove("slide-next", "slide-prev", "swap");
-        }, 700);
+        const oldH = root.getBoundingClientRect().height;
+        const ghost = body.cloneNode(true);
+        ghost.classList.add("tl-ghost");
+        ghost.inert = true;
+        ghost.setAttribute("aria-hidden", "true");
+        ghost
+          .querySelectorAll("[aria-describedby]")
+          .forEach((n) => n.removeAttribute("aria-describedby"));
+        root.append(ghost);
+        build(body);
+        const newH = root.getBoundingClientRect().height;
+        const ease = "cubic-bezier(0.16, 1, 0.3, 1)";
+        const shift = dir === "next" ? 40 : dir === "prev" ? -40 : 0;
+        const rise = dir === "swap" ? 6 : 0;
+        const anims = [
+          body.animate(
+            [
+              { opacity: 0, transform: `translate(${shift}px, ${rise}px)` },
+              { opacity: 1, transform: "none" },
+            ],
+            { duration: 380, easing: ease },
+          ),
+          ghost.animate(
+            [
+              { opacity: 1, transform: "none" },
+              { opacity: 0, transform: `translate(${-shift / 2}px, 0)` },
+            ],
+            { duration: 220, easing: "ease-out", fill: "forwards" },
+          ),
+        ];
+        if (Math.abs(oldH - newH) > 1)
+          anims.push(
+            root.animate([{ height: `${oldH}px` }, { height: `${newH}px` }], {
+              duration: 380,
+              easing: "cubic-bezier(0.65, 0, 0.35, 1)",
+            }),
+          );
+        Promise.allSettled(anims.map((a) => a.finished)).then(() => {
+          if (anims.some((a) => a.playState === "idle")) return;
+          ghost.remove();
+        });
       }
 
-      function render(anim) {
+      function render(dir) {
         hideTip();
         tips.clear();
         tipN = 0;
         const ax = { ...AXES[state.kind] };
         ax.base = ax.base() + state.step * ax.step;
         const lanes = lanesFor(state.kind);
-        chart.innerHTML = chartHTML(lanes, ax);
-        list.innerHTML = listHTML(lanes);
         chart.style.setProperty("--cols", ax.cols);
+        swapBody(chart, (body) => (body.innerHTML = chartHTML(lanes, ax)), dir);
+        swapBody(list, (body) => (body.innerHTML = listHTML(lanes)), dir);
 
-        $("tl-range").textContent = `${shortDay(ax.base)} – ${shortDay(ax.base + ax.span - 1)}`;
-        $("tl-sub").textContent = `${ax.size} · ${
-          state.step === 0 ? "Current" : state.step < 0 ? "Earlier" : "Later"
-        }`;
+        $("tl-range").textContent =
+          `${shortDay(ax.base)} – ${shortDay(ax.base + ax.span - 1)} · ${ax.size}`;
         $("prev").setAttribute("aria-label", `Earlier, ${ax.stepWord}`);
         $("next").setAttribute("aria-label", `Later, ${ax.stepWord}`);
         $("today").setAttribute("aria-disabled", String(state.step === 0));
@@ -508,8 +610,8 @@
                 : plural(miss.length, "account")
             } ${miss.length === 1 ? "has" : "have"} no ${KINDS[state.kind].label} window.`
           : "";
+        renderCards();
 
-        if (anim) setAnim(anim);
         if (firstRender) {
           firstRender = false;
           if (!reduce.matches) {
@@ -523,18 +625,23 @@
         }
       }
 
+      function renderCards() {
+        $("upnext").innerHTML = nextHTML();
+        $("saved").innerHTML = savedHTML();
+      }
+
       /* ---------- Controls ---------- */
       $("prev").addEventListener("click", () => {
         state.step -= 1;
-        render("slide-prev");
+        render("prev");
       });
       $("next").addEventListener("click", () => {
         state.step += 1;
-        render("slide-next");
+        render("next");
       });
       $("today").addEventListener("click", () => {
         if (state.step === 0) return;
-        const dir = state.step < 0 ? "slide-next" : "slide-prev";
+        const dir = state.step < 0 ? "next" : "prev";
         state.step = 0;
         render(dir);
       });
@@ -628,8 +735,14 @@
       addEventListener("scroll", hideTip, { passive: true });
       addEventListener("resize", hideTip);
 
+      $("upnext").addEventListener("click", (e) => {
+        if (!e.target.closest("#more")) return;
+        upnextState.all = !upnextState.all;
+        renderCards();
+        $("more")?.focus({ preventScroll: true });
+      });
+
       render();
-      $("upnext").innerHTML = nextHTML();
     </script>
   </body>
 </html>

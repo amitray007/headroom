@@ -183,8 +183,8 @@
 .g-list {
   display: block;
 }
-.g-item > .g-clip {
-  padding-bottom: var(--space-2);
+.g-item > .g-clip > .g-card {
+  margin-bottom: var(--space-2);
 }
 .g-card {
   background: var(--surface);
@@ -374,8 +374,10 @@
   font-weight: 500;
   letter-spacing: -0.01em;
 }
-.g-group > .g-clip {
-  padding-bottom: var(--space-5);
+.g-group > .g-clip::after {
+  content: "";
+  display: block;
+  height: var(--space-5);
 }
 
 @media (max-width: 720px) {
@@ -974,18 +976,19 @@ th[aria-sort="ascending"] .g-sort svg {
 }
 .g-group-head.small {
   margin-left: var(--space-1);
+  /* Clear air above the Inactive heading so it does not read as part of the card above. */
+  padding-top: var(--space-4);
 }
 .g-group-head.small h2 {
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-secondary);
 }
-.g-dormant > .g-clip {
-  padding-top: var(--space-2);
+.g-list > .g-item:last-child > .g-clip > .g-card {
+  margin-bottom: 0;
 }
-.g-list > .g-item:last-child > .g-clip,
-.g-list > .g-group:last-child > .g-clip {
-  padding-bottom: 0;
+.g-list > .g-group:last-child > .g-clip::after {
+  display: none;
 }
 ::view-transition-group(*) {
   animation-duration: var(--dur-spring);
@@ -1057,11 +1060,6 @@ th[aria-sort="ascending"] .g-sort svg {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.g-pcount {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  white-space: nowrap;
 }
 .g-grip {
   flex: none;
@@ -1150,5 +1148,44 @@ th[aria-sort="ascending"] .g-sort svg {
   }
   .dlg.settings .dhead {
     padding-left: var(--space-4);
+  }
+}
+
+/* ---------- Compare: the windows behind the recommendation ---------- */
+.g-best .g-rooms {
+  flex: none;
+  margin-left: auto;
+  display: flex;
+  gap: var(--space-2);
+}
+.g-room {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.g-room b {
+  font-weight: 500;
+  color: var(--foreground);
+}
+.g-room.limit {
+  border-color: color-mix(in oklab, var(--success) 45%, var(--border));
+}
+.g-room .tag {
+  font-size: var(--text-xs);
+  color: var(--success);
+}
+@media (max-width: 720px) {
+  .g-best .g-rooms {
+    order: 6;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+    padding: 6px 0 2px 32px;
   }
 }

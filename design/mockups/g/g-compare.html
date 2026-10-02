@@ -60,10 +60,52 @@
       const byProvider = (id) => accounts.filter((a) => a.provider === id);
       const multi = providers.filter((p) => byProvider(p.id).length >= 2);
       const singles = providers.filter((p) => byProvider(p.id).length === 1);
-      const room = (a) => {
-        const t = tightest(a);
-        return t ? 100 - t.used : null;
+      /* Which windows decide "room" for each provider. Others still show in the matrix. */
+      const DRIVERS = {
+        claude: null, // session, weekly and model-scoped windows
+        codex: null,
+        antigravity: null, // the tighter of Gemini and Claude and GPT
+        copilot: null,
+        cursor: ["included"], // billing cycle allowance
+        grok: ["weekly"], // Weekly Pool
+        vercel_ai_gateway: [], // credit balance only
       };
+      const scoped = (m) => m.key === "fable"; // model-scoped: counts in the min, chip shows only when binding
+
+      /* A balance with a total reads like a meter: used share of its total. */
+      const balanceMeter = (b) => ({
+        key: `bal:${b.label}`,
+        label: b.label,
+        window: null,
+        used: b.of ? ((b.of - b.value) / b.of) * 100 : null,
+        resets: null,
+        balance: b,
+      });
+      /* The windows that drive an account's room. A session that has not started counts as fully available. */
+      function drivers(a) {
+        const keys = DRIVERS[a.provider];
+        const ms = a.meters.filter((m) => !keys || keys.includes(m.key));
+        const out = ms.map((m) => ({
+          m,
+          left: m.notStarted ? 100 : m.used === null ? null : 100 - m.used,
+        }));
+        if (a.provider === "vercel_ai_gateway")
+          for (const b of a.balances ?? []) {
+            const bm = balanceMeter(b);
+            out.push({ m: bm, left: bm.used === null ? null : 100 - bm.used });
+          }
+        return out.filter((x) => x.left !== null);
+      }
+      /* The binding window: the one with the least left. A tie goes to the primary window. */
+      function binding(a) {
+        const ds = drivers(a);
+        if (!ds.length) return null;
+        return ds.reduce((best, x) =>
+          x.left < best.left || (x.left === best.left && x.m.primary) ? x : best,
+        );
+      }
+      const room = (a) => binding(a)?.left ?? null;
+
       const planOf = (a) =>
         a.plan
           ? `<span class="plan"><span class="sep" aria-hidden="true">·</span>${esc(a.plan)}</span>`
@@ -77,6 +119,12 @@
             if (!cols.some((c) => c.key === m.key))
               cols.push({ key: m.key, label: m.label, window: m.window });
         }
+        for (const a of byProvider(id))
+          for (const b of a.balances ?? []) {
+            const key = `bal:${b.label}`;
+            if (b.of && !a.meters.length && !cols.some((c) => c.key === key))
+              cols.push({ key, label: b.label, window: "balance" });
+          }
         return cols.sort((x, y) => (y.key === "session") - (x.key === "session"));
       }
 
@@ -91,40 +139,57 @@
         return `${m.label.toLowerCase()}${w}`;
       }
 
-      /* ----- The pick: the live account with the most room in its tightest window ----- */
+      /* ----- The pick: the active account with the most room in its binding window ----- */
+      const meterFor = (a, key) => {
+        if (!key.startsWith("bal:")) return a.meters.find((x) => x.key === key);
+        const b = a.balances?.find((x) => `bal:${x.label}` === key);
+        return b?.of ? balanceMeter(b) : undefined;
+      };
+      const chipLabel = (m) => (m.window && scoped(m) ? `${m.label} (${m.window})` : m.label);
+      function roomChip(x, isBinding, showTag) {
+        const { m, left: l } = x;
+        let body;
+        if (m.notStarted) body = "not started";
+        else if (m.balance) body = `${m.balance.value} of ${m.balance.of}`;
+        else {
+          const d = display(m.used, state.view);
+          body = `${d.text}${d.unit}`;
+        }
+        return `<span class="g-room${isBinding ? " limit" : ""}">${esc(chipLabel(m))} <b>${esc(body)}</b>${isBinding && showTag ? `<span class="tag">Limiting</span>` : ""}</span>`;
+      }
       function pick(id) {
-        const live = byProvider(id).filter((a) => isLive(a) && tightest(a));
+        const live = byProvider(id).filter((a) => isLive(a) && binding(a));
         const ranked = [...live].sort((x, y) => room(y) - room(x));
         const best = ranked[0];
-        const lead = `<span class="g-seal off">${icons.alert}</span><span class="lead">Best Right Now</span>`;
+        const lead = `<span class="g-seal off">${icons.alert}</span><span class="lead">Recommended</span>`;
         if (!best)
           return {
-            html: `<section class="g-best slim" aria-label="Best right now">${lead}<span class="why">No account is ready. Every ${esc(providerName(id))} account is paused or disconnected.</span></section>`,
+            html: `<section class="g-best slim" aria-label="Recommended">${lead}<span class="why">No account is ready. Every ${esc(providerName(id))} account is paused or disconnected.</span></section>`,
             best: null,
           };
-        const t = tightest(best);
-        const d = display(t.used, state.view);
+        const bind = binding(best);
+        const shown = drivers(best).filter((x) => !scoped(x.m) || x.m.key === bind.m.key);
         const next = ranked[1];
         const tip = [
           next ? `Next best: ${esc(next.name)}, ${pct(room(next))}% left.` : "",
-          "Percentages are per account. Plans differ in size.",
+          "Room is the smallest share left across the windows that matter. Plans differ in size.",
         ]
           .filter(Boolean)
           .join(" ");
         const dormant = byProvider(id).filter((a) => !isLive(a)).length;
         const why =
           ranked.length > 1
-            ? `Most room of ${ranked.length} live accounts`
-            : `Only live account${dormant ? `, ${dormant} not counted` : ""}`;
+            ? `Most headroom of ${ranked.length} active accounts`
+            : `Only active account${dormant ? `, ${dormant} not counted` : ""}`;
         return {
           best,
-          html: `<section class="g-best slim" aria-label="Best right now">
-            <span class="g-seal" title="Best to use right now">${icons.seal}</span>
-            <span class="lead">Best Right Now</span>
+          html: `<section class="g-best slim" aria-label="Recommended">
+            <span class="g-seal" title="Recommended right now">${icons.seal}</span>
+            <span class="lead">Recommended</span>
             <span class="acct"><b>${esc(best.name)}</b>${planOf(best)}</span>
             <span class="why">${why}</span>
             <span class="g-tipwrap"><button class="infobtn" type="button" aria-label="More about this pick" aria-describedby="best-tip">${icons.info}</button><span class="g-tip" role="tooltip" id="best-tip">${tip}</span></span>
-            <span class="g-score"><b>${d.text}<span class="unit">${d.unit}</span></b>${bar(t.used, { thin: true, view: state.view, label: `${windowName(t)} ${pct(t.used)}% used` })}<span class="window">${esc(windowName(t))}</span></span>
+            <span class="g-rooms">${shown.map((x) => roomChip(x, x.m.key === bind.m.key, shown.length > 1)).join("")}</span>
           </section>`,
         };
       }
@@ -136,8 +201,8 @@
         const value = (a) => {
           if (col === "name") return a.name.toLowerCase();
           if (col === "room") return room(a);
-          const m = a.meters.find((x) => x.key === col);
-          return m && m.used !== null ? 100 - m.used : null;
+          const m = meterFor(a, col);
+          return m?.notStarted ? 100 : m && m.used !== null ? 100 - m.used : null;
         };
         return [...rows].sort((x, y) => {
           if (isLive(x) !== isLive(y)) return isLive(x) ? -1 : 1; // paused and disconnected stay at the bottom
@@ -149,7 +214,7 @@
       }
 
       function cell(a, c, tightKey) {
-        const m = a.meters.find((x) => x.key === c.key);
+        const m = meterFor(a, c.key);
         if (!m)
           return `<td><div class="g-mc none"><div class="top-line"><b class="muted">—</b></div><div class="cap">Not reported</div></div></td>`;
         if (m.used === null || m.used === undefined) {
@@ -158,7 +223,7 @@
         const d = display(m.used, state.view);
         const t = tone(m.used);
         const isTight = m.key === tightKey && isLive(a);
-        return `<td><div class="g-mc ${t}${isTight ? " tight" : ""}"><div class="top-line"><b>${d.text}${d.unit}</b>${isTight ? `<span class="tag">Tightest</span>` : toneWords[t] ? `<span class="tag">${toneWords[t]}</span>` : ""}</div>${bar(m.used, { thin: true, view: state.view, label: `${windowName(m)} ${pct(m.used)}% used` })}<div class="cap">${resetText(m)}</div></div></td>`;
+        return `<td><div class="g-mc ${t}${isTight ? " tight" : ""}"><div class="top-line"><b>${d.text}${d.unit}</b>${isTight ? `<span class="tag">Limiting</span>` : toneWords[t] ? `<span class="tag">${toneWords[t]}</span>` : ""}</div>${bar(m.used, { thin: true, view: state.view, label: `${windowName(m)} ${pct(m.used)}% used` })}<div class="cap">${m.balance ? `${m.balance.value} of ${m.balance.of} left` : resetText(m)}</div></div></td>`;
       }
 
       function matrix(id, bestId) {
@@ -185,22 +250,23 @@
             .join("");
         const body = rows
           .map((a) => {
-            const t = tightest(a);
+            const bd = binding(a);
             const live = isLive(a);
             const why = live
               ? ""
               : `<span class="why">${a.status === "paused" ? icons.pause : icons.alert}${a.status === "paused" ? "Paused. Not counted." : "Disconnected. Not counted."}</span>`;
-            const acct = `<td scope="row"><div class="g-acct"><div class="line"><span class="name">${esc(a.name)}${planOf(a)}</span>${a.id === bestId ? `<span class="g-seal sm" title="Best to use right now" role="img" aria-label="Best to use right now">${icons.seal}</span>` : ""}</div>${why || (a.identity ? `<span class="sub"><span class="who">${esc(a.identity)}</span></span>` : "")}${!live ? `<span class="sub">Updated ${ago(a.refreshed)}</span>` : ""}</div></td>`;
+            const acct = `<td scope="row"><div class="g-acct"><div class="line"><span class="name">${esc(a.name)}${planOf(a)}</span>${a.id === bestId ? `<span class="g-seal sm" title="Recommended right now" role="img" aria-label="Recommended right now">${icons.seal}</span>` : ""}</div>${why || (a.identity ? `<span class="sub"><span class="who">${esc(a.identity)}</span></span>` : "")}${!live ? `<span class="sub">Updated ${ago(a.refreshed)}</span>` : ""}</div></td>`;
             let overall;
             if (!live)
               overall = `<td class="overall"><div class="g-mc none"><div class="top-line"><b>—</b></div><div class="cap">Not counted</div></div></td>`;
-            else if (!t)
+            else if (!bd)
               overall = `<td class="overall"><div class="g-mc none"><div class="top-line"><b>—</b></div><div class="cap">Not reported</div></div></td>`;
             else {
-              const d = display(t.used, state.view);
-              overall = `<td class="overall"><div class="g-mc ${tone(t.used)}"><div class="top-line"><b>${d.text}${d.unit}</b></div>${bar(t.used, { thin: true, view: state.view, label: `${windowName(t)} ${pct(t.used)}% used` })}<div class="cap">${esc(windowName(t))}</div></div></td>`;
+              const used = 100 - bd.left;
+              const d = display(used, state.view);
+              overall = `<td class="overall"><div class="g-mc ${tone(used)}"><div class="top-line"><b>${d.text}${d.unit}</b></div>${bar(used, { thin: true, view: state.view, label: `${windowName(bd.m)} ${pct(used)}% used` })}<div class="cap">${bd.m.notStarted ? "Nothing running yet" : `Limited by ${esc(windowName(bd.m))}`}</div></div></td>`;
             }
-            return `<tr class="${live ? "" : "inactive"}">${acct}${overall}${cols.map((c) => cell(a, c, t?.key)).join("")}</tr>`;
+            return `<tr class="${live ? "" : "inactive"}">${acct}${overall}${cols.map((c) => cell(a, c, bd?.m.key)).join("")}</tr>`;
           })
           .join("");
         return `<div class="g-matrix-card"><div class="g-scroll"><table class="g-matrix"><caption class="sr">${esc(providerName(id))} accounts and their limits</caption><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></div>`;

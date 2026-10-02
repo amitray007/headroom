@@ -1,20 +1,9 @@
 /* Timeline view. app.css tokens only; the one extra colour is the banked-reset highlight. */
 .tl-page {
   max-width: 1240px;
+  --label: 272px;
   --bank: light-dark(oklch(52% 0.19 285), oklch(76% 0.15 285));
 }
-.tl-head h1 {
-  margin: 0 0 2px;
-  font-size: var(--text-display);
-  line-height: 1.1;
-  font-weight: 500;
-  letter-spacing: -0.03em;
-}
-.tl-head p {
-  margin: 0 0 var(--space-5);
-  color: var(--text-secondary);
-}
-
 .t-good {
   --t: var(--success);
 }
@@ -33,15 +22,6 @@
   flex: none;
 }
 
-.tl {
-  --label: 272px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
-  padding: var(--space-5);
-  margin-bottom: var(--space-6);
-}
-
 /* ---------- Tools ---------- */
 .tl-tools {
   display: flex;
@@ -49,19 +29,14 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--space-4);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
-.tl-rangebox h2 {
+.tl-range {
   margin: 0;
   font-size: var(--text-md);
   font-weight: 500;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
-}
-.tl-rangebox p {
-  margin: 2px 0 0;
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
 }
 .tl-ctl {
   display: flex;
@@ -130,12 +105,28 @@
 }
 
 /* ---------- Grid ---------- */
-.tl-chart {
+.tl-chart,
+.tl-list {
   position: relative;
   border: 1px solid var(--border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
   overflow: hidden;
+}
+.tl-chart {
   --cols: 14;
+}
+.tl-body {
+  position: relative;
+}
+.tl-ghost {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  pointer-events: none;
+  z-index: 3;
+  background: var(--surface);
 }
 .tl-hrow,
 .tl-row {
@@ -554,59 +545,197 @@
   margin-top: var(--space-3);
 }
 
-/* ---------- Up Next ---------- */
-.tl-upnext h2 {
-  margin: 0 0 var(--space-3) var(--space-1);
+/* ---------- Up Next and Watch List ---------- */
+.tl-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  margin-top: var(--space-5);
+  align-items: stretch;
+}
+.tl-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+.tl-card > h2 {
+  margin: 0 0 var(--space-1);
   font-size: var(--text-md);
   font-weight: 500;
   letter-spacing: -0.01em;
 }
-.tl-upnext ul {
+.tl-card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.tl-sub {
+  margin: var(--space-3) 0 2px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+.tl-card ul {
   list-style: none;
   margin: 0;
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
-  background: var(--surface);
-  overflow: hidden;
 }
-.tl-upnext li {
+.tl-card li {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 12px var(--space-5);
+  padding: 9px 0;
   border-top: 1px solid var(--border-subtle);
 }
-.tl-upnext li:first-child {
+.tl-card li:first-child {
   border-top: 0;
 }
-.tl-upnext li.tl-dim {
+.tl-card li.tl-dim {
   opacity: 0.55;
 }
-.tl-upnext .tl-what {
+.tl-what {
   display: grid;
   min-width: 0;
   flex: 1;
 }
-.tl-upnext .tl-what b {
+.tl-what b {
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.tl-upnext .tl-what span,
-.tl-upnext .tl-when span {
+.tl-what span,
+.tl-when span {
   color: var(--text-secondary);
   font-size: var(--text-xs);
 }
-.tl-upnext .tl-when {
+.tl-when {
   display: grid;
   justify-items: end;
+  min-width: 64px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.tl-upnext .tl-when b {
+.tl-when b {
   font-weight: 500;
 }
-.tl-upnext .tl-when .tl-lg.tl-keybank {
-  display: none;
+.tl-use {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 84px;
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.tl-use b {
+  font-weight: 500;
+  min-width: 32px;
+  text-align: right;
+  color: var(--foreground);
+}
+.tl-mbar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in oklab, var(--t, var(--text-muted)) 16%, transparent);
+  overflow: hidden;
+}
+.tl-mbar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--t, var(--text-muted));
+}
+.tl-unk {
+  justify-content: flex-end;
+  color: var(--text-muted);
+}
+.tl-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.tl-more {
+  align-self: flex-start;
+  margin-top: auto;
+  padding: 10px 0 4px;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: 500 var(--text-sm) / 1 var(--font);
+  cursor: pointer;
+}
+.tl-more:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .tl-more:hover {
+    color: var(--foreground);
+  }
+}
+.tl-empty {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.tl-bankrow {
+  flex-wrap: wrap;
+}
+.tl-bankrow .tl-what {
+  flex: 1 1 140px;
+}
+.tl-soon {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--warning) 16%, transparent);
+  color: var(--foreground);
+  border: 1px solid color-mix(in oklab, var(--warning) 45%, var(--border));
+  font-size: var(--text-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.tl-exps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1 0 100%;
+  padding-left: 32px;
+}
+.tl-exp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.tl-exp i {
+  width: 3px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--bank);
+}
+.tl-exp-soon {
+  color: var(--foreground);
+  border-color: color-mix(in oklab, var(--warning) 45%, var(--border));
+}
+.tl-card h2 + .tl-card-body > .tl-sub:first-child {
+  margin-top: var(--space-2);
 }
 
 /* ---------- Popover ---------- */
@@ -724,15 +853,15 @@
 }
 
 @media (max-width: 720px) {
-  .tl {
-    padding: var(--space-3);
-    border-radius: var(--radius-control);
-  }
   .tl-chart {
     display: none;
   }
   .tl-list {
     display: block;
+    padding: 0 var(--space-3) var(--space-2);
+  }
+  .tl-tools {
+    margin-bottom: var(--space-3);
   }
   .tl-step {
     display: none;
@@ -749,8 +878,15 @@
   .tl-ctl #views {
     grid-auto-columns: 1fr;
   }
-  .tl-upnext li {
-    padding: 12px var(--space-4);
+  .tl-pair {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+  .tl-card {
+    padding: var(--space-4) var(--space-4) var(--space-3);
+  }
+  .tl-use {
+    width: 64px;
   }
 }
 
@@ -769,18 +905,6 @@
     translate: 0 4px;
   }
 }
-@keyframes tl-slide-next {
-  from {
-    opacity: 0;
-    translate: 48px 0;
-  }
-}
-@keyframes tl-slide-prev {
-  from {
-    opacity: 0;
-    translate: -48px 0;
-  }
-}
 .intro .tl-win {
   animation: tl-grow var(--dur-considered) var(--ease-enter) both;
   animation-delay: calc(var(--i, 0) * 45ms + 120ms);
@@ -790,33 +914,10 @@
   animation: tl-fade var(--dur-standard) var(--ease-enter) both;
   animation-delay: calc(var(--i, 0) * 45ms);
 }
-.swap .tl-row,
-.swap .tl-mrow {
-  animation: tl-fade var(--dur-standard) var(--ease-enter) both;
-  animation-delay: calc(var(--i, 0) * 25ms);
-}
-.slide-next .tl-cols,
-.slide-next .tl-track,
-.slide-next .tl-mini {
-  animation: tl-slide-next var(--dur-considered) var(--ease-enter) both;
-}
-.slide-prev .tl-cols,
-.slide-prev .tl-track,
-.slide-prev .tl-mini {
-  animation: tl-slide-prev var(--dur-considered) var(--ease-enter) both;
-}
 @media (prefers-reduced-motion: reduce) {
   .intro .tl-win,
   .intro .tl-row,
-  .intro .tl-mrow,
-  .swap .tl-row,
-  .swap .tl-mrow,
-  .slide-next .tl-cols,
-  .slide-next .tl-track,
-  .slide-next .tl-mini,
-  .slide-prev .tl-cols,
-  .slide-prev .tl-track,
-  .slide-prev .tl-mini {
+  .intro .tl-mrow {
     animation: none;
   }
   .tl-pop,
