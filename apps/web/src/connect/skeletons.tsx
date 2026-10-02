@@ -88,7 +88,7 @@ export function ConnectSkeleton() {
     <div className="connect-page">
       <div className="intro">
         <h1>Connect an Account</h1>
-        <p>Choose a provider. You sign in once; Headroom refreshes on its own.</p>
+        <p>Choose a provider. You only sign in once.</p>
       </div>
       <CardsSkeleton />
       <section className="panel tablecard">

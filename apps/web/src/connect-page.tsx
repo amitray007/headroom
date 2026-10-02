@@ -102,7 +102,7 @@ export function ConnectPage(props: { readonly reconnectId?: string }) {
         <p>
           {reconnecting
             ? "Sign in again to restore this account."
-            : "Choose a provider. You sign in once; Headroom refreshes on its own."}
+            : "Choose a provider. You only sign in once."}
         </p>
       </div>
       {existing.error === null ? null : (

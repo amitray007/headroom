@@ -58,7 +58,7 @@ function MeterCell(props: {
         <Label label={cell.label} window={cell.window} />
         <Unknown />
         <Bar unknown label={`${name} not reported`} />
-        <div className="caption">Not reported in the last refresh</div>
+        <div className="caption">Not reported</div>
       </div>
     );
   }
@@ -122,7 +122,7 @@ function AmountCell(props: { readonly cell: Extract<Cell, { kind: "amount" }> })
       <div className="cell fact">
         <Label label={cell.label} window={cell.window} />
         <Unknown />
-        <div className="caption">Not reported in the last refresh</div>
+        <div className="caption">Not reported</div>
       </div>
     );
   }
@@ -165,7 +165,7 @@ function ResetsCell(props: { readonly cell: Extract<Cell, { kind: "resets" }> })
       <div className="cell fact">
         <Label label={cell.label} window={cell.window} />
         <Unknown />
-        <div className="caption">Not reported in the last refresh</div>
+        <div className="caption">Not reported</div>
       </div>
     );
   }

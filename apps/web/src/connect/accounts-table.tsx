@@ -204,8 +204,8 @@ function ProviderGroup(props: {
 
 const revocationNotice = {
   revoked: null,
-  local_only: "Removed from Headroom. The provider has no way to revoke its sign-in.",
-  failed: "Removed from Headroom. The provider could not be told to revoke its sign-in.",
+  local_only: "Removed from Headroom. The provider cannot cancel its sign-in.",
+  failed: "Removed from Headroom. The provider could not cancel its sign-in.",
 } as const;
 
 /** The Connected Accounts table with its row actions. `reload` loads the overview again. */
@@ -327,7 +327,7 @@ export function AccountsTable(props: {
           <p className="secondary" style={{ margin: 0 }}>
             {removing
               ? "Headroom forgets this account and its saved data."
-              : "Its saved sign-in is deleted and Headroom stops tracking it."}
+              : "Its saved sign-in is deleted and tracking stops."}
           </p>
           <div className="row">
             <Button variant="quiet" onClick={() => setConfirming(null)}>

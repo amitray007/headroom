@@ -84,7 +84,7 @@ describe("clockLeft", () => {
 describe("stoppedReason", () => {
   test("expired and cancelled have their own words", () => {
     expect(stoppedReason({ state: "expired", error: null })).toBe(
-      "The approval expired before it was confirmed. Nothing was saved.",
+      "The approval expired. Nothing was saved.",
     );
     expect(stoppedReason({ state: "cancelled", error: null })).toBe(
       "The sign-in was cancelled. Nothing was saved.",
@@ -92,13 +92,13 @@ describe("stoppedReason", () => {
   });
   test("a failure maps its category to plain words", () => {
     expect(stoppedReason({ state: "failed", error: "rate_limited: HTTP 429 secret" })).toBe(
-      "The provider asked Headroom to slow down. Nothing was saved. Try again in a minute.",
+      "The provider asked to slow down. Nothing was saved. Try again in a minute.",
     );
   });
   test("an unknown category falls back and never leaks the raw text", () => {
     const text = stoppedReason({ state: "failed", error: "weird_thing: token abc" });
     expect(text).toBe(
-      "The provider rejected the sign-in. Nothing was saved. Check that you used the right account and try again.",
+      "The provider rejected the sign-in. Nothing was saved. Check the account and try again.",
     );
     expect(text).not.toContain("abc");
   });

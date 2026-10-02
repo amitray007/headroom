@@ -82,10 +82,10 @@ function PasteStage(
       <Lead>
         Open the {props.provider} sign-in page and sign in.{" "}
         {accepts === "code"
-          ? "Copy the code it shows and paste it here."
+          ? "Paste the code it shows here."
           : accepts === "url"
-            ? "When it lands on a page that will not load, copy its address and paste it here."
-            : "Copy the code it shows, or the address of a page that will not load, and paste it here."}
+            ? "When it lands on a page that will not load, paste that address here."
+            : "Paste the code it shows, or the address of the page that will not load."}
       </Lead>
       <div className="field">
         <label htmlFor={id}>{acceptsLabel(accepts)}</label>
@@ -207,7 +207,7 @@ function SelectStage(
   };
   return (
     <form className="stage" onSubmit={submit}>
-      <Lead>This sign-in reaches more than one account. Choose the one to connect.</Lead>
+      <Lead>Choose which account to connect.</Lead>
       <fieldset className="choices">
         <legend className="sr">Account</legend>
         {step.options.map((option) => (
@@ -311,7 +311,7 @@ export function SignInStage(props: StageProps) {
 export function CheckStage(props: { readonly onCancel: () => void }) {
   return (
     <div className="stage">
-      <Lead>Sign-in accepted. Headroom is checking which limits this account reports.</Lead>
+      <Lead>Signed in. Checking this account's limits.</Lead>
       <div className="sk bar" style={{ width: "40%" }} />
       <div className="row">
         <CancelButton onCancel={props.onCancel} />

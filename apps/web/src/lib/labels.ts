@@ -68,7 +68,7 @@ export function planLabel(plan: string | null): string | null {
 const methodWords: Record<AuthMethod, string> = {
   cli_login: "Sign In",
   device_code: "Enter Code",
-  paste_redirect: "Paste Redirect",
+  paste_redirect: "Paste Address",
   approval_poll: "Approve in Browser",
   api_key: "API Key",
   import: "Import a File",

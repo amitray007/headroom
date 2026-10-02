@@ -61,30 +61,26 @@ export function clockLeft(expiresAt: number, now: number): string {
 }
 
 const stoppedReasons = {
-  expired: "The approval expired before it was confirmed. Nothing was saved.",
+  expired: "The approval expired. Nothing was saved.",
   cancelled: "The sign-in was cancelled. Nothing was saved.",
-  failed:
-    "The provider rejected the sign-in. Nothing was saved. Check that you used the right account and try again.",
+  failed: "The provider rejected the sign-in. Nothing was saved. Check the account and try again.",
 } as const;
 
 /** Plain words for each category of failure the server reports as "category: detail". */
 const categoryReasons: Record<string, string> = {
   approval_expired: stoppedReasons.expired,
-  approval_denied: "The sign-in was declined at the provider. Nothing was saved.",
+  approval_denied: "The sign-in was declined. Nothing was saved.",
   authentication_required: stoppedReasons.failed,
-  permission_denied:
-    "This account is not allowed to share its limits. Nothing was saved. Try an account with access.",
-  rate_limited:
-    "The provider asked Headroom to slow down. Nothing was saved. Try again in a minute.",
+  permission_denied: "This account cannot share its limits. Nothing was saved.",
+  rate_limited: "The provider asked to slow down. Nothing was saved. Try again in a minute.",
   provider_unavailable: "The provider did not answer. Nothing was saved. Try again in a minute.",
   identity_mismatch:
-    "This sign-in is for a different account than the one being reconnected. Nothing was saved.",
+    "This is a different account than the one being reconnected. Nothing was saved.",
   invalid_response:
-    "The provider sent something Headroom could not read. Nothing was saved. Check what you pasted and try again.",
-  unsupported_metric:
-    "The provider does not report any limits for this account. Nothing was saved.",
-  selection_required: "An account has to be chosen first. Nothing was saved.",
-  internal_error: "Headroom hit a problem while checking the sign-in. Nothing was saved.",
+    "The provider's reply was unreadable. Nothing was saved. Check what you pasted.",
+  unsupported_metric: "The provider reports no limits for this account. Nothing was saved.",
+  selection_required: "Choose an account first. Nothing was saved.",
+  internal_error: "Something went wrong checking the sign-in. Nothing was saved.",
 };
 
 /** Plain words for why an attempt did not finish. Never shows the raw category or provider text. */

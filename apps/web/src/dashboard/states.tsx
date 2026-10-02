@@ -30,7 +30,7 @@ export function LoadFailed(props: {
   return (
     <ErrorNotice busy={props.busy} onRetry={props.onRetry}>
       {props.stale
-        ? "Headroom could not refresh. The numbers below are from the last good load."
+        ? "Could not refresh. Showing the last good numbers."
         : "Headroom could not load your accounts. Check that it is running and try again."}
     </ErrorNotice>
   );
