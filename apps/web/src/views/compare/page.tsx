@@ -98,7 +98,10 @@ export function ComparePage(props: ViewProps) {
       {stale ? <LoadFailed stale busy={retrying} onRetry={retry} /> : null}
       <div className="cmp-tools">
         {active === undefined ? (
-          <span />
+          // Nothing to compare: the list's heading shares the row with the Left/Used toggle.
+          <h2 id={`${panelId}-singles`} className="cmp-title">
+            Accounts
+          </h2>
         ) : (
           <ProviderTabs
             label="Provider"
@@ -141,9 +144,11 @@ export function ComparePage(props: ViewProps) {
       )}
       {singles.length === 0 ? null : (
         <section aria-labelledby={`${panelId}-singles`}>
-          <div className="cmp-singles-head">
-            <h2 id={`${panelId}-singles`}>More Accounts</h2>
-          </div>
+          {active === undefined ? null : (
+            <div className="cmp-singles-head">
+              <h2 id={`${panelId}-singles`}>More Accounts</h2>
+            </div>
+          )}
           <div className="cmp-singles">
             {singles.map((group) => (
               <SingleCard key={group.provider} row={group.row} look={look} />

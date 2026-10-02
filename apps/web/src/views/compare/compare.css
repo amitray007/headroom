@@ -347,12 +347,9 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-3);
-  margin: var(--space-2) 0 var(--space-3) var(--space-1);
+  margin: var(--space-7) 0 var(--space-3) var(--space-1);
 }
-/* A full gap only when a comparison sits above the list. */
-.cmp-stage + section .cmp-singles-head {
-  margin-top: var(--space-7);
-}
+.cmp-title,
 .cmp-singles-head h2 {
   white-space: nowrap;
   margin: 0;
@@ -530,4 +527,9 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+}
+
+/* The page title in the toolbar row when there is nothing to compare. */
+.cmp-title {
+  margin: 0 0 0 var(--space-1);
 }
