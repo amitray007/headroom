@@ -5,7 +5,7 @@ service inside a personal dashboard. Each mark belongs to its owner; check the o
 guidelines before any public distribution. Monochrome marks (Codex, Cursor, Copilot, Grok, Vercel)
 are recoloured to `currentColor`; Claude and Antigravity keep their brand colours.
 
-`telegram.svg` is the Telegram mark from SVGL (fetched 2026-10-03) and keeps its brand colours. It marks the Telegram destination on the Delivery tab.
+`telegram.svg` is the Telegram mark from SVGL (fetched 2026-10-03) and keeps its brand colours. It marks the Telegram destination on the Channels tab.
 
 `avatar.svg` is a DiceBear "Voxel Art" identicon (CC0 1.0), generated from the seed `headroom` on
 2026-10-02 at `https://api.dicebear.com/10.x/voxel-art/svg?seed=headroom`. The app would seed it

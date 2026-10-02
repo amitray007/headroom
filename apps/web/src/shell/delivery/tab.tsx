@@ -25,7 +25,7 @@ function Waiting() {
 }
 
 /** Where notices go. Press Telegram or Webhook to set it up or change it. What is sent follows the Notifications tab. */
-export function DeliveryTab() {
+export function ChannelsTab() {
   const { status, channels, reload } = useChannels();
   const [retrying, setRetrying] = useState(false);
   const [selected, setSelected] = useState<NotificationChannelType | null>(null);
@@ -38,14 +38,14 @@ export function DeliveryTab() {
     return (
       <Section>
         <ErrorNotice inline busy={retrying} onRetry={retry}>
-          Headroom could not load your delivery settings.
+          Headroom could not load your channels.
         </ErrorNotice>
       </Section>
     );
   }
   if (status === "loading") {
     return (
-      <div aria-busy="true" aria-label="Loading delivery settings">
+      <div aria-busy="true" aria-label="Loading channels">
         <Waiting />
       </div>
     );

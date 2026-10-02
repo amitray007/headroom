@@ -1,4 +1,4 @@
-/* Delivery tab: destination cards, setup flows, the signing secret and the chat list. */
+/* Channels tab: destination cards, setup flows, the signing secret and the chat list. */
 .dl-cards {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 0;
@@ -50,6 +50,17 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) 0 0;
+}
+/* Quiet buttons keep their padding; pull the row back so the first label lines up with the text above. */
+.dl-actions > .btn.quiet:first-child {
+  margin-inline-start: -14px;
+}
+/* The manage view's heading: the destination mark beside its name. */
+.dl-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
 }
 .dl-problem {
   margin: 0;

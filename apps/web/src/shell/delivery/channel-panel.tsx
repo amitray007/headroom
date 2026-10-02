@@ -87,7 +87,7 @@ export function ChannelPanel(props: {
     <section className="dl-panel dl-manage" aria-label={`${title} Settings`}>
       <div className="srow">
         <span className="sbody">
-          <b>
+          <b className="dl-title">
             <DestinationMark type={channel.type} size={24} />
             {title}
           </b>

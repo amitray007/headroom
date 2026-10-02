@@ -11,7 +11,7 @@ import { Segmented } from "../ui/segmented.tsx";
 import { Sk } from "../ui/skeleton.tsx";
 import { SlideSwap, type SwapDirection } from "../ui/slide-swap.tsx";
 import { Tabs } from "../ui/tabs.tsx";
-import { DeliveryTab } from "./delivery/tab.tsx";
+import { ChannelsTab } from "./delivery/tab.tsx";
 import { ProviderCards } from "./provider-cards.tsx";
 import { Body, Section, SwitchRow, WaitingContext } from "./settings-rows.tsx";
 
@@ -78,7 +78,7 @@ const intervals = [5, 10, 15, 30] as const;
 const tabs = [
   { value: "general", label: "General" },
   { value: "notifications", label: "Notifications" },
-  { value: "delivery", label: "Delivery" },
+  { value: "channels", label: "Channels" },
 ] as const;
 
 /** The tabs of the dialog. */
@@ -316,7 +316,7 @@ export function SettingsDialog(props: {
               {tab === "notifications" ? (
                 <Notifications change={change} providers={props.providers} />
               ) : null}
-              {tab === "delivery" ? <DeliveryTab /> : null}
+              {tab === "channels" ? <ChannelsTab /> : null}
             </SlideSwap>
           </div>
         </WaitingContext>
