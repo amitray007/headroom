@@ -22,7 +22,7 @@ export function BootFrame(props: { readonly route: Route }) {
             <ButtonLink href={href({ page: "connections" })}>Back to Accounts</ButtonLink>
           ) : (
             <ButtonLink variant="primary" icon={<PlusIcon />} href={href({ page: "connect" })}>
-              Connect an Account
+              Connect
             </ButtonLink>
           )}
           <Sk width={36} height={36} className="sk-round" />

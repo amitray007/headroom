@@ -22,7 +22,7 @@ export function TopBar(props: {
           <ButtonLink href={href({ page: "connections" })}>Back to Accounts</ButtonLink>
         ) : (
           <ButtonLink variant="primary" icon={<PlusIcon />} href={href({ page: "connect" })}>
-            Connect an Account
+            Connect
           </ButtonLink>
         )}
         <NotificationCentre notifications={props.notifications} />
