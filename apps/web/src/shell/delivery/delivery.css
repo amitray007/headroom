@@ -1,11 +1,4 @@
 /* Delivery tab: setup forms, the signing secret, and the chat list. */
-.dl-intro {
-  border-top: 0;
-}
-.dl-lead {
-  margin: 0;
-  font-size: var(--text-xs);
-}
 .dl-status.good {
   color: var(--success);
 }

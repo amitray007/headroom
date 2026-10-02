@@ -1408,12 +1408,6 @@ time.when {
   align-items: center;
   gap: 10px;
 }
-.dlg.settings .snote {
-  margin: 0;
-  padding: 10px 0 0;
-  border-top: 1px solid var(--border-subtle);
-  font-size: var(--text-xs);
-}
 label.srow {
   cursor: pointer;
 }

@@ -55,7 +55,7 @@ The `notifications` object of [the settings document](api.md#settings):
 | `resetLeadDays` | 1, 3, 7 | 3 |
 | `mutedProviders` | list of provider names | empty |
 
-Settings, Notifications tab: "Types" holds the five switches and the reset lead, "Limits" holds Include 5-Hour Sessions, and "Providers" holds one switch per connected provider in the saved order. The note "Sign-in problems are always shown." sits under the provider switches.
+Settings, Notifications tab: "Types" holds the five switches and the reset lead, "Limits" holds Include 5-Hour Sessions, and "Providers" holds one switch per connected provider in the saved order.
 
 ## Event schema
 

@@ -235,7 +235,6 @@ function Notifications(props: {
             onChange={mute(provider)}
           />
         ))}
-        <p className="muted snote">Sign-in problems are always shown.</p>
       </Section>
     </>
   );

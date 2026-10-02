@@ -37,27 +37,20 @@ export function DeliveryTab() {
   };
   const find = (type: "telegram" | "webhook") =>
     channels.find((entry) => entry.type === type) ?? null;
-  return (
+  return status === "failed" ? (
+    <section className="dsec">
+      <ErrorNotice inline busy={retrying} onRetry={retry}>
+        Headroom could not load your delivery settings.
+      </ErrorNotice>
+    </section>
+  ) : status === "loading" ? (
+    <div aria-busy="true" aria-label="Loading delivery settings">
+      <Waiting />
+    </div>
+  ) : (
     <>
-      <section className="dsec dl-intro">
-        <p className="muted dl-lead">Sends what your Notifications settings allow.</p>
-      </section>
-      {status === "failed" ? (
-        <section className="dsec">
-          <ErrorNotice inline busy={retrying} onRetry={retry}>
-            Headroom could not load your delivery settings.
-          </ErrorNotice>
-        </section>
-      ) : status === "loading" ? (
-        <div aria-busy="true" aria-label="Loading delivery settings">
-          <Waiting />
-        </div>
-      ) : (
-        <>
-          <TelegramCard channel={find("telegram")} reload={reload} />
-          <WebhookCard channel={find("webhook")} reload={reload} />
-        </>
-      )}
+      <TelegramCard channel={find("telegram")} reload={reload} />
+      <WebhookCard channel={find("webhook")} reload={reload} />
     </>
   );
 }
