@@ -44,4 +44,4 @@ Back up the database file with the SQLite backup API or a WAL-safe copy. Restore
 
 Logs contain connection ids, endpoint names, status codes and sanitized error classes. They never contain response bodies, tokens, URLs with codes or emails. Metrics track refresh outcomes and durations without identities.
 
-No hosting platform, domain, public tunnel, TLS configuration or production environment has been provisioned.
+The supported self-hosting setup is a private tailnet: [Self-hosting on a tailnet](../operations/tailscale.md). No public hosting, domain or tunnel is provided.

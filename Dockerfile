@@ -7,6 +7,7 @@ COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/core/package.json packages/core/package.json
+COPY packages/view-model/package.json packages/view-model/package.json
 COPY packages/connectors/antigravity/package.json packages/connectors/antigravity/package.json
 COPY packages/connectors/claude/package.json packages/connectors/claude/package.json
 COPY packages/connectors/codex/package.json packages/connectors/codex/package.json
@@ -20,6 +21,8 @@ RUN bun run build
 
 FROM oven/bun:1.4.2-slim AS runtime
 # Pinned official CLIs, used once per Connect for sign-in only. Versions match ADR 0002.
+# They install outside root's home so the unprivileged app user can run them.
+ENV BUN_INSTALL_GLOBAL_DIR=/opt/bun-global
 RUN bun add -g @openai/codex@0.159.3 @anthropic-ai/claude-code@2.1.286 && codex --version && claude --version
 # Grok ships a prebuilt binary through its official installer; GROK_BIN_DIR places it, HOME holds the download.
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/* \
@@ -31,6 +34,8 @@ RUN useradd --system --uid 10001 --create-home --home-dir /var/lib/headroom head
 COPY --from=build /src/dist/headroom /usr/local/bin/headroom
 COPY --from=build /src/apps/web/dist /usr/local/share/headroom/web
 USER headroom
+# The login CLIs must run as the app user, not only as root.
+RUN codex --version && claude --version && grok --version
 ENV HEADROOM_DATA_DIR=/var/lib/headroom/data \
     HEADROOM_MASTER_KEY_FILE=/etc/headroom/master.key \
     HEADROOM_AUTH_SECRET_FILE=/etc/headroom/auth.secret \

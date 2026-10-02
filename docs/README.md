@@ -33,6 +33,7 @@ Each dossier describes metrics, connection steps, tools, limitations and sources
 - [Notifications](architecture/notifications.md): what raises a notification, the event schema, and server-side delivery to Telegram and webhooks.
 - [Connector contract](architecture/connector-contract.md): the Go interface every provider package implements.
 - [Deployment and credential storage](architecture/deployment.md): single binary, SQLite, master key and backups.
+- [Self-hosting on a tailnet](operations/tailscale.md): Docker Compose or Dokploy with a private Tailscale address, the environment, moving data, backups.
 - [Evidence register](research/evidence.md): proof levels and earlier observations.
 - [Tools and packages](research/tools.md): what can be reused and what it does not solve.
 - [ACP assessment](research/acp.md): protocol scope and provider-specific gaps.

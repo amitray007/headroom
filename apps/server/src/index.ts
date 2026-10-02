@@ -66,5 +66,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 
 export default {
   port: config.port,
+  // Production behaviour everywhere: no Bun error pages with stack traces.
+  development: false,
   fetch: createApp(ctx).fetch,
 };

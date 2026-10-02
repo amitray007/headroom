@@ -1,0 +1,61 @@
+# Headroom on a private tailnet: the app has no published port, and a Tailscale container serves it
+# over HTTPS at https://<TS_HOSTNAME>.<tailnet>.ts.net. Set the variables in the deployment
+# environment (Dokploy, or deploy/.env from .env.example). See docs/operations/tailscale.md.
+name: headroom
+
+services:
+  headroom:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: headroom:${HEADROOM_IMAGE_TAG:-local}
+    restart: unless-stopped
+    environment:
+      HEADROOM_PUBLIC_URL: ${HEADROOM_PUBLIC_URL:?set HEADROOM_PUBLIC_URL to https://<TS_HOSTNAME>.<tailnet>.ts.net}
+      HEADROOM_ENABLED_PROVIDERS: ${HEADROOM_ENABLED_PROVIDERS:-codex,claude,grok,antigravity,copilot,cursor,vercel_ai_gateway}
+      HEADROOM_LOG_LEVEL: ${HEADROOM_LOG_LEVEL:-info}
+      HEADROOM_REFRESH_INTERVAL_SECONDS: ${HEADROOM_REFRESH_INTERVAL_SECONDS:-900}
+      HEADROOM_STALE_AFTER_SECONDS: ${HEADROOM_STALE_AFTER_SECONDS:-43200}
+      TZ: ${TZ:-UTC}
+    volumes:
+      # The database. Back it up together with the key volume below.
+      - headroom-data:/var/lib/headroom/data
+      # master.key and auth.secret, created on first start. Losing master.key loses every connection.
+      - headroom-secrets:/etc/headroom
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
+    # No ports: only the tailscale service reaches the app, on the private network below.
+    networks: [internal]
+
+  tailscale:
+    image: tailscale/tailscale:v1.102.5
+    hostname: ${TS_HOSTNAME:-headroom}
+    restart: unless-stopped
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:?set TS_AUTHKEY in the deployment environment}
+      TS_EXTRA_ARGS: ${TS_EXTRA_ARGS:-}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+    volumes:
+      # Keeps the node identity (and its name) across restarts.
+      - ts-state:/var/lib/tailscale
+      # A directory, not a single file, so Tailscale sees edits.
+      - ./ts:/config:ro
+    depends_on:
+      headroom:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
+    networks: [internal]
+
+networks:
+  internal:
+
+volumes:
+  headroom-data:
+  headroom-secrets:
+  ts-state:
