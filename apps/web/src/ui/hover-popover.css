@@ -1,0 +1,72 @@
+/* The shared hover popover: one element in the body, placed beside whichever target is active. */
+.hover-pop {
+  position: fixed;
+  z-index: 60;
+  left: 0;
+  top: 0;
+  display: grid;
+  gap: 3px;
+  min-width: 220px;
+  max-width: min(340px, calc(100vw - 16px));
+  padding: var(--space-3);
+  color: var(--foreground);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-floating);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  translate: 0 4px;
+  scale: 0.98;
+  transition:
+    opacity var(--dur-fast) var(--ease-standard),
+    translate var(--dur-fast) var(--ease-enter),
+    scale var(--dur-fast) var(--ease-enter),
+    visibility 0s linear var(--dur-fast);
+}
+.hover-pop[data-below="true"] {
+  translate: 0 -4px;
+}
+.hover-pop[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  translate: 0 0;
+  scale: 1;
+  transition-delay: 0s;
+}
+.hover-pop strong {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.hover-pop-when {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  margin-bottom: 4px;
+}
+.hover-pop-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+.hover-pop-line i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--success);
+}
+.hover-pop-line[data-tone="warn"] i {
+  background: var(--warning);
+}
+.hover-pop-line[data-tone="bad"] i {
+  background: var(--danger);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hover-pop {
+    transition: none;
+  }
+}

@@ -179,3 +179,56 @@ export const errorCategoryClass: Readonly<Record<ErrorCategory, FailureClass>> =
   provider_unavailable: "transient",
   internal_error: "transient",
 };
+
+/** What a notification is about. See docs/architecture/notifications.md. */
+export const notificationKinds = [
+  "almost_out",
+  "running_low",
+  "reset_expiring",
+  "balance_low",
+  "spend_near_cap",
+  "spend_cap_reached",
+  "extra_usage_started",
+  "refresh_failed",
+  "disconnected",
+] as const;
+export const notificationKindSchema = z.enum(notificationKinds);
+export type NotificationKind = z.infer<typeof notificationKindSchema>;
+
+export const notificationTones = ["bad", "warn", "info"] as const;
+export const notificationToneSchema = z.enum(notificationTones);
+export type NotificationTone = z.infer<typeof notificationToneSchema>;
+
+/** The unit of a notification amount: US dollars, or a provider's own credit unit. Never converted between. */
+export const notificationAmountUnits = [
+  "USD",
+  "codex_credits",
+  "grok_credits",
+  "gateway_credits",
+  "credits",
+] as const;
+export const notificationAmountUnitSchema = z.enum(notificationAmountUnits);
+export type NotificationAmountUnit = z.infer<typeof notificationAmountUnitSchema>;
+
+/** Where a server-side notification goes. See docs/architecture/notifications.md, Delivery. */
+export const notificationChannelTypes = ["telegram", "webhook"] as const;
+export const notificationChannelTypeSchema = z.enum(notificationChannelTypes);
+export type NotificationChannelType = z.infer<typeof notificationChannelTypeSchema>;
+
+/** `failed` means Headroom gave up after the last retry. */
+export const notificationDeliveryStatuses = ["delivered", "retrying", "failed"] as const;
+export const notificationDeliveryStatusSchema = z.enum(notificationDeliveryStatuses);
+export type NotificationDeliveryStatus = z.infer<typeof notificationDeliveryStatusSchema>;
+
+/** Why one send attempt failed. A class only: no response body or credential is ever kept. */
+export const notificationDeliveryFailures = [
+  "timeout",
+  "network",
+  "unauthorized",
+  "not_found",
+  "rate_limited",
+  "rejected",
+  "server_error",
+] as const;
+export const notificationDeliveryFailureSchema = z.enum(notificationDeliveryFailures);
+export type NotificationDeliveryFailure = z.infer<typeof notificationDeliveryFailureSchema>;

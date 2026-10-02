@@ -8,21 +8,31 @@ import {
   connectionStateSchema,
   evidenceLevelSchema,
   interfaceLabelSchema,
-  metricKindSchema,
   nextStepPayloadSchema,
+  notificationChannelTypeSchema,
+  notificationDeliveryFailureSchema,
+  notificationDeliveryStatusSchema,
   providerSchema,
   reconnectReasonSchema,
-  syncRunOutcomeSchema,
   type SubmitInput,
 } from "@headroom/core/contracts";
+import {
+  metricSchema,
+  overviewConnectionSchema,
+  resetCreditSchema,
+  type OverviewConnection,
+} from "@headroom/view-model/overview";
 import { z } from "zod";
 
 export class ApiError extends Error {
   readonly status: number;
-  constructor(status: number, message: string) {
+  /** The `error` word the server sent in its body, when it sent one. */
+  readonly code: string | null;
+  constructor(status: number, message: string, code: string | null = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -78,30 +88,7 @@ const connectionSummarySchema = z.object({
 });
 const connectionListSchema = z.object({ connections: z.array(connectionSummarySchema) });
 
-const metricSchema = z.object({
-  providerMetricKey: z.string(),
-  kind: metricKindSchema,
-  scope: z.string(),
-  valueText: z.string().nullable(),
-  valueNum: z.number().nullable(),
-  unit: z.string(),
-  unlimited: z.boolean().nullable().optional(),
-  windowStart: z.number().nullable(),
-  windowEnd: z.number().nullable(),
-  resetsAt: z.number().nullable(),
-  availability: availabilitySchema,
-  interface: interfaceLabelSchema,
-});
-const resetCreditSchema = z.object({
-  providerCreditId: z.string(),
-  eligible: z.boolean(),
-  usable: z.boolean(),
-  expiresAt: z.number().nullable(),
-  cooldownUntil: z.number().nullable(),
-  rawLabel: z.string().nullable(),
-});
-export type Metric = z.infer<typeof metricSchema>;
-export type ResetCredit = z.infer<typeof resetCreditSchema>;
+export type { OverviewConnection };
 const capabilitySchema = z.object({
   metricOrAction: z.string(),
   availability: availabilitySchema,
@@ -133,47 +120,24 @@ const connectionDetailSchema = z.object({
   actions: z.object({ enabled: z.boolean(), supported: z.array(accountActionKindSchema) }),
 });
 
-const overviewConnectionSchema = z.object({
-  id: z.string(),
-  provider: providerSchema,
-  scope: connectionScopeSchema,
-  state: connectionStateSchema,
-  reconnectReason: reconnectReasonSchema.nullable(),
-  interface: interfaceLabelSchema,
-  authMethod: authMethodSchema,
-  name: z.string().nullable(),
-  identity: z.string().nullable(),
-  plan: z.string().nullable(),
-  createdAt: z.number(),
-  lastSuccessAt: z.number().nullable(),
-  stale: z.boolean(),
-  latestRun: z
-    .object({
-      startedAt: z.number(),
-      finishedAt: z.number().nullable(),
-      outcome: syncRunOutcomeSchema.nullable(),
-      error: z.string().nullable(),
-    })
-    .nullable(),
-  snapshot: z
-    .object({
-      observedAt: z.number(),
-      metrics: z.array(metricSchema),
-      resetCredits: z.array(resetCreditSchema),
-    })
-    .nullable(),
-  actions: z.object({ enabled: z.boolean(), supported: z.array(accountActionKindSchema) }),
-});
-export type OverviewConnection = z.infer<typeof overviewConnectionSchema>;
 const overviewSchema = z.object({
   connections: z.array(overviewConnectionSchema),
+  /** The effective order of every provider, including those with no accounts. */
+  providerOrder: z.array(providerSchema),
   refreshIntervalMs: z.number(),
   staleAfterMs: z.number(),
 });
 
+const orderSchema = z.object({
+  providers: z.array(providerSchema),
+  accounts: z.record(z.string(), z.array(z.string())),
+});
+export type OrderBody = z.infer<typeof orderSchema>;
+
 const renameSchema = z.object({ name: z.string().nullable() });
 
 const refreshIntervalSchema = z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(30)]);
+const resetLeadSchema = z.union([z.literal(1), z.literal(3), z.literal(7)]);
 const lowThresholdSchema = z.union([z.literal(30), z.literal(20), z.literal(15)]);
 /** Owner preferences kept on the server. Mirrors the backend settings document. */
 const settingsSchema = z.object({
@@ -183,11 +147,18 @@ const settingsSchema = z.object({
   timeStyle: z.enum(["countdown", "exact"]),
   clock: z.enum(["24h", "12h"]),
   density: z.enum(["comfortable", "compact"]),
+  detailedOrder: z.enum(["urgency", "provider", "custom"]),
+  keepInactiveLast: z.boolean(),
   accountActions: z.boolean(),
   notifications: z.object({
     runningLow: z.boolean(),
     expiringResets: z.boolean(),
     refreshFailures: z.boolean(),
+    balances: z.boolean(),
+    spend: z.boolean(),
+    includeSessions: z.boolean(),
+    resetLeadDays: resetLeadSchema,
+    mutedProviders: z.array(providerSchema),
   }),
 });
 export type Settings = z.infer<typeof settingsSchema>;
@@ -213,6 +184,67 @@ const refreshSchema = z.object({ outcome: z.unknown(), state: connectionStateSch
 const pauseSchema = z.object({ state: connectionStateSchema });
 const revocationSchema = z.object({ revocation: z.enum(["revoked", "local_only", "failed"]) });
 
+const channelSchema = z.object({
+  id: z.string(),
+  type: notificationChannelTypeSchema,
+  enabled: z.boolean(),
+  includeIdentity: z.boolean(),
+  label: z.string(),
+  createdAt: z.number(),
+  lastDelivery: z
+    .object({
+      status: notificationDeliveryStatusSchema,
+      at: z.number(),
+      failure: notificationDeliveryFailureSchema.nullable(),
+    })
+    .nullable(),
+});
+export type ChannelView = z.infer<typeof channelSchema>;
+const channelListSchema = z.object({ channels: z.array(channelSchema) });
+const channelCreatedSchema = z.object({ channel: channelSchema, secret: z.string().optional() });
+const channelEnvelopeSchema = z.object({ channel: channelSchema });
+const testResultSchema = z.object({ ok: z.literal(true) });
+const secretSchema = z.object({ secret: z.string() });
+const chatsSchema = z.object({
+  bot: z.object({ username: z.string() }),
+  chats: z.array(z.object({ id: z.string(), title: z.string(), type: z.string() })),
+});
+const botSchema = z.object({ bot: z.object({ username: z.string() }) });
+export type FoundChat = z.infer<typeof chatsSchema>["chats"][number];
+
+/** What a new channel needs. A Telegram channel needs a token and a chat; a webhook needs a URL. */
+export type NewChannel =
+  | {
+      readonly type: "telegram";
+      readonly botToken: string;
+      readonly chatId: string;
+      readonly chatTitle?: string;
+      readonly includeIdentity: boolean;
+    }
+  | {
+      readonly type: "webhook";
+      readonly url: string;
+      readonly includeIdentity: boolean;
+      readonly secret?: string;
+    };
+
+/** A test send that saves nothing. Telegram uses a typed token or a saved channel's token. */
+export type VerifyRequest =
+  | { readonly type: "telegram"; readonly botToken: string; readonly chatId: string }
+  | { readonly type: "telegram"; readonly channelId: string; readonly chatId: string }
+  | { readonly type: "webhook"; readonly url: string; readonly secret: string };
+
+/** The fields of a channel that can change. */
+export interface ChannelPatch {
+  readonly enabled?: boolean;
+  readonly includeIdentity?: boolean;
+  readonly botToken?: string;
+  readonly chatId?: string;
+  readonly chatTitle?: string;
+  readonly url?: string;
+  readonly secret?: string;
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -227,13 +259,38 @@ async function request<T>(
     init.headers = { "content-type": "application/json" };
   }
   const response = await fetch(path, init);
-  if (!response.ok) throw new ApiError(response.status, `Request failed (${response.status})`);
-  const parsed = schema.safeParse(await response.json());
+  if (!response.ok) {
+    const failed = z
+      .object({ error: z.string() })
+      .safeParse(await response.json().catch(() => null));
+    throw new ApiError(
+      response.status,
+      `Request failed (${response.status})`,
+      failed.success ? failed.data.error : null,
+    );
+  }
+  const parsed = schema.safeParse(response.status === 204 ? undefined : await response.json());
   if (!parsed.success) throw new ApiError(502, "The server sent an unexpected response");
   return parsed.data;
 }
 
 export const api = {
+  channels: () => request("GET", "/api/delivery/channels", channelListSchema),
+  createChannel: (channel: NewChannel) =>
+    request("POST", "/api/delivery/channels", channelCreatedSchema, channel),
+  updateChannel: (id: string, patch: ChannelPatch) =>
+    request("PATCH", `/api/delivery/channels/${id}`, channelEnvelopeSchema, patch),
+  deleteChannel: (id: string) => request("DELETE", `/api/delivery/channels/${id}`, z.undefined()),
+  testChannel: (id: string) =>
+    request("POST", `/api/delivery/channels/${id}/test`, testResultSchema),
+  newChannelSecret: (id: string) =>
+    request("POST", `/api/delivery/channels/${id}/secret`, secretSchema),
+  findChats: (source: { readonly botToken: string } | { readonly channelId: string }) =>
+    request("POST", "/api/delivery/telegram/chats", chatsSchema, source),
+  checkBot: (botToken: string) =>
+    request("POST", "/api/delivery/telegram/bot", botSchema, { botToken }),
+  verifyDelivery: (body: VerifyRequest) =>
+    request("POST", "/api/delivery/verify", testResultSchema, body),
   setup: () => request("GET", "/api/setup", setupSchema),
   me: () => request("GET", "/api/me", meSchema),
   providers: () => request("GET", "/api/providers", providersSchema),
@@ -245,6 +302,7 @@ export const api = {
   cancelAttempt: (id: string) => request("POST", `/api/attempts/${id}/cancel`, attemptEnvelope),
   connections: () => request("GET", "/api/connections", connectionListSchema),
   overview: () => request("GET", "/api/overview", overviewSchema),
+  saveOrder: (order: OrderBody) => request("PUT", "/api/order", orderSchema, order),
   rename: (id: string, name: string | null) =>
     request("PATCH", `/api/connections/${id}`, renameSchema, { name }),
   settings: () => request("GET", "/api/settings", settingsEnvelopeSchema),

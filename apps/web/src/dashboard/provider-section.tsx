@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import type { OverviewConnection } from "../api.ts";
 import { BrandMark } from "../icons.tsx";
-import { providerName } from "../lib/labels.ts";
+import { providerName } from "@headroom/view-model/labels";
 import { cx } from "../ui/cx.ts";
 import { AccountPanel } from "./account-panel.tsx";
 

@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Headroom · Wallet</title>
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="g-views.css" />
+    <style>
+      .vhead {
+        margin-bottom: var(--space-5);
+      }
+      .vhead h1 {
+        margin: 0 0 2px;
+        font-size: var(--text-display);
+        line-height: 1.1;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+      }
+      .vhead p {
+        margin: 0;
+        color: var(--text-secondary);
+      }
+      .summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px var(--space-4);
+        align-items: center;
+        padding: var(--space-3) var(--space-4);
+        margin-bottom: var(--space-6);
+        background: var(--surface-muted);
+        border-radius: var(--radius-control);
+        color: var(--text-secondary);
+      }
+      .summary b {
+        color: var(--foreground);
+        font-weight: 500;
+      }
+      .summary .sep {
+        color: var(--border-strong);
+      }
+      .sec {
+        margin-bottom: var(--space-6);
+      }
+      .sec > h2 {
+        margin: 0 0 var(--space-3) var(--space-1);
+        font-size: var(--text-md);
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        display: flex;
+        align-items: baseline;
+        gap: var(--space-3);
+      }
+      .sec > h2 small {
+        font-size: var(--text-sm);
+        font-weight: 400;
+        color: var(--text-muted);
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: var(--space-3);
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-panel);
+        padding: var(--space-5);
+        display: grid;
+        gap: var(--space-4);
+        align-content: space-between;
+        min-width: 0;
+        transition:
+          border-color var(--dur-fast) var(--ease-standard),
+          transform var(--dur-standard) var(--ease-enter);
+        animation: rise var(--dur-considered) var(--ease-enter) both;
+        animation-delay: calc(var(--i, 0) * 50ms);
+      }
+      .card:hover {
+        border-color: var(--border-strong);
+        transform: translateY(-2px);
+      }
+      .card .lw {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        min-width: 0;
+      }
+      .card .lw b {
+        font-weight: 500;
+      }
+      .card .lw span {
+        color: var(--text-secondary);
+      }
+      .card .lw .pill {
+        margin-left: auto;
+      }
+      .fig {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .fig .v {
+        font-size: var(--text-display);
+        font-weight: 500;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+      }
+      .fig .u {
+        color: var(--text-secondary);
+        font-size: var(--text-md);
+      }
+      .fig .of {
+        color: var(--text-muted);
+        font-size: var(--text-sm);
+      }
+      .lbl2 {
+        color: var(--text-secondary);
+        font-size: var(--text-sm);
+      }
+      .foot {
+        color: var(--text-secondary);
+        font-size: var(--text-xs);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        align-items: center;
+      }
+      .foot svg {
+        width: 14px;
+        height: 14px;
+        vertical-align: -3px;
+        margin-right: 4px;
+        color: var(--tone, var(--text-muted));
+      }
+      .meter {
+        height: 8px;
+        border-radius: var(--radius-pill);
+        background: var(--track);
+        overflow: hidden;
+      }
+      .meter i {
+        display: block;
+        height: 100%;
+        width: var(--w);
+        background: var(--accent);
+        border-radius: inherit;
+        transform-origin: left;
+        animation: grow var(--dur-spring) var(--ease-enter) both;
+      }
+      .meter.good i {
+        background: var(--success);
+      }
+
+      .bank-list {
+        display: grid;
+        gap: var(--space-3);
+      }
+      .bank {
+        display: grid;
+        grid-template-columns: minmax(0, 260px) 56px minmax(0, 1fr);
+        align-items: center;
+        gap: var(--space-4);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-panel);
+        padding: var(--space-4) var(--space-5);
+        animation: rise var(--dur-considered) var(--ease-enter) both;
+        animation-delay: calc(var(--i, 0) * 50ms);
+      }
+      .bank .lw {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        min-width: 0;
+      }
+      .bank .lw div {
+        display: grid;
+        gap: 1px;
+        min-width: 0;
+      }
+      .bank .lw b {
+        font-weight: 500;
+      }
+      .bank .lw small {
+        color: var(--text-secondary);
+        font-size: var(--text-xs);
+      }
+      .bank .n {
+        font-size: var(--text-display);
+        font-weight: 500;
+        letter-spacing: -0.03em;
+        line-height: 1;
+        text-align: center;
+      }
+      .bank.none .n,
+      .bank.none .lw {
+        opacity: 0.55;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+      }
+      .xchip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 28px;
+        padding: 0 12px;
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--border);
+        background: var(--surface-muted);
+        font-size: var(--text-xs);
+        font-weight: 500;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        cursor: default;
+        transition: border-color var(--dur-fast) var(--ease-standard);
+      }
+      .xchip:hover {
+        border-color: var(--border-strong);
+      }
+      .xchip svg {
+        width: 14px;
+        height: 14px;
+      }
+      .xchip.soon {
+        --tone: var(--warning);
+        color: var(--foreground);
+        background: color-mix(in oklab, var(--warning) 10%, var(--surface));
+        border-color: color-mix(in oklab, var(--warning) 28%, var(--border));
+      }
+      .xchip.soon svg {
+        color: var(--warning);
+      }
+      .quiet-line {
+        color: var(--text-muted);
+        font-size: var(--text-sm);
+      }
+      .foot-note {
+        margin: var(--space-4) var(--space-1) 0;
+        color: var(--text-muted);
+        font-size: var(--text-sm);
+      }
+      .unknown {
+        margin-top: var(--space-6);
+        padding: var(--space-4) var(--space-5);
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-panel);
+        color: var(--text-secondary);
+      }
+      .unknown b {
+        color: var(--foreground);
+        font-weight: 500;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+      @keyframes grow {
+        from {
+          transform: scaleX(0);
+        }
+      }
+      @media (max-width: 720px) {
+        .summary .sep {
+          display: none;
+        }
+        .bank {
+          grid-template-columns: minmax(0, 1fr) auto;
+          row-gap: var(--space-3);
+          padding: var(--space-4);
+        }
+        .bank .chips {
+          grid-column: 1 / -1;
+        }
+        .card {
+          padding: var(--space-4);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="top"></header>
+      <div class="vhead">
+        <h1>Wallet</h1>
+        <p>What do you have left that costs money?</p>
+      </div>
+      <p class="summary" id="summary"></p>
+      <section class="sec" id="credits" aria-labelledby="h-credits"></section>
+      <section class="sec" id="spend" aria-labelledby="h-spend"></section>
+      <section class="sec" id="banked" aria-labelledby="h-banked"></section>
+      <p class="unknown" id="unknown"></p>
+    </div>
+
+    <script type="module">
+      import { providers, accounts, now, at } from "./data.js";
+      import * as shell from "./g-shell.js";
+
+      shell.renderShell({ active: "wallet" });
+
+      const { brandMark, statusPill } = shell;
+      const esc = (s) =>
+        String(s).replace(
+          /[&<>"]/g,
+          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
+        );
+      const pName = Object.fromEntries(providers.map((p) => [p.id, p.name]));
+      const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+      const duration = (m) => {
+        m = Math.max(0, Math.round(m));
+        if (m < 60) return `${m} min`;
+        if (m < 1440) return `${Math.floor(m / 60)} h`;
+        const d = Math.floor(m / 1440),
+          h = Math.round((m % 1440) / 60);
+        return h ? `${plural(d, "day")} ${h} h` : plural(d, "day");
+      };
+      const exact = (m) =>
+        new Date(at(m)).toLocaleString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      /* Unit-correct figures. Credits never get a currency sign. */
+      const num = new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      });
+      const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+      const figure = (v, unit) =>
+        v == null
+          ? { v: "Unknown", u: "" }
+          : unit === "usd"
+            ? { v: usd.format(v), u: "" }
+            : { v: num.format(v), u: v === 1 ? "credit" : "credits" };
+      const ICON = {
+        clock:
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+        ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg>',
+        empty:
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 12h7"/></svg>',
+        pause:
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5v5M14.5 9.5v5"/></svg>',
+      };
+      const STATUS_WORD = {
+        paused: "Paused",
+        disconnected: "Disconnected",
+        failed: "Failed",
+        stale: "Stale",
+      };
+      const statePill = (a) => (a.status === "active" ? "" : statusPill(a.status));
+
+      const bal = accounts.flatMap((a) => (a.balances ?? []).map((b) => ({ a, b })));
+      const credits = bal.filter((x) => x.b.unit === "credits");
+      const spend = bal.filter((x) => x.b.unit === "usd");
+      const cycleOf = (a) =>
+        a.meters.find((m) => m.words === "cycle_end" || m.words === "with_cycle")?.resets;
+
+      function card({ a, b }, i) {
+        const f = figure(b.value, b.unit);
+        const who = `<div class="lw">${brandMark(a.provider)}<b>${esc(pName[a.provider])}</b><span>${esc(a.name)}</span>${statePill(a)}</div>`;
+        let extra = "";
+        let foot = "";
+        if (b.of != null) {
+          const pct = Math.min(100, (b.value / b.of) * 100);
+          extra = `<div class="meter good" role="img" aria-label="${f.v} of ${num.format(b.of)} credits left"><i style="--w:${pct}%"></i></div>`;
+          foot = `<span style="--tone:var(--success)">${ICON.ok}Nearly Full</span><span>Out of ${num.format(b.of)} credits</span>`;
+        } else if (b.value === 0) {
+          foot = `<span>${ICON.empty}Nothing Prepaid</span>`;
+        } else {
+          foot = `<span style="--tone:var(--success)">${ICON.ok}Available</span>`;
+        }
+        if (b.unit === "usd") {
+          const inc = a.meters.find((m) => m.key === "included");
+          const c = cycleOf(a);
+          foot =
+            `<span>${ICON.empty}No Extra Spend</span>` +
+            (c != null
+              ? `<span title="${exact(c)}">${ICON.clock}Cycle ends in ${duration(c)}</span>`
+              : "") +
+            (inc ? `<span>Plan ${inc.window.replace(" plan", "")} · ${inc.used}% used</span>` : "");
+        }
+        return `<article class="card" style="--i:${i}">${who}<div><div class="lbl2">${esc(b.label)}</div>
+          <div class="fig"><span class="v">${esc(f.v)}</span><span class="u">${f.u}</span>${b.of != null ? `<span class="of">of ${num.format(b.of)}</span>` : ""}</div></div>${extra}<div class="foot">${foot}</div></article>`;
+      }
+
+      /* Summary: units are never added together. */
+      const bankedTotal = accounts.reduce((n, a) => n + (a.banked?.count ?? 0), 0);
+      const parts = [
+        ...credits.map(
+          (x) =>
+            `<span><b>${figure(x.b.value, x.b.unit).v}</b> ${esc(pName[x.a.provider])} ${esc(x.b.label.toLowerCase())}</span>`,
+        ),
+        ...spend.map(
+          (x) =>
+            `<span><b>${figure(x.b.value, x.b.unit).v}</b> ${esc(pName[x.a.provider])} ${esc(x.b.label.toLowerCase())}</span>`,
+        ),
+        `<span><b>${bankedTotal}</b> banked ${bankedTotal === 1 ? "reset" : "resets"}</span>`,
+      ];
+      document.getElementById("summary").innerHTML = parts.join(
+        '<span class="sep" aria-hidden="true">·</span>',
+      );
+
+      const grid = (list, off = 0) =>
+        `<div class="cards">${list.map((x, i) => card(x, i + off)).join("")}</div>`;
+      document.getElementById("credits").innerHTML =
+        `<h2 id="h-credits">Credits <small>Counted in credits, not dollars</small></h2>` +
+        grid(credits);
+      document.getElementById("spend").innerHTML =
+        `<h2 id="h-spend">Spend <small>Money charged beyond the plan</small></h2>` +
+        grid(spend, credits.length);
+
+      /* Banked resets, soonest expiry first; accounts with none last. */
+      const holders = accounts.filter((a) => a.banked);
+      holders.sort(
+        (x, y) => (x.banked.expiries[0] ?? Infinity) - (y.banked.expiries[0] ?? Infinity),
+      );
+      const bankRow = (a, i) => {
+        const e = a.banked.expiries;
+        const chips = e.length
+          ? e
+              .map(
+                (t) =>
+                  `<span class="xchip ${t < 3 * 1440 ? "soon" : ""}" tabindex="0" title="${exact(t)}">${ICON.clock}${t < 3 * 1440 ? "Expires " : ""}in ${duration(t)}</span>`,
+              )
+              .join("")
+          : `<span class="quiet-line">None banked</span>`;
+        return `<article class="bank ${e.length ? "" : "none"}" style="--i:${i}">
+          <div class="lw">${brandMark(a.provider)}<div><b>${esc(pName[a.provider])} ${esc(a.name)}</b><small>${esc(a.banked.label)}${e.length === 1 ? "" : "s"}${a.status !== "active" ? ` · ${STATUS_WORD[a.status]}` : ""}</small></div></div>
+          <div class="n" aria-label="${plural(a.banked.count, "banked reset")}">${a.banked.count}</div>
+          <div class="chips">${chips}</div></article>`;
+      };
+      document.getElementById("banked").innerHTML =
+        `<h2 id="h-banked">Banked Resets <small>Soonest expiry first</small></h2><div class="bank-list">${holders.map(bankRow).join("")}</div>
+         <p class="foot-note">Headroom only shows these. It never uses a reset for you.</p>`;
+
+      /* Unknowns stay unknown. */
+      const silent = accounts.filter(
+        (a) => !accounts.some((o) => o.provider === a.provider && o.balances),
+      );
+      const unknownBank = accounts.filter((a) => a.banked === null);
+      const names = [...new Set(silent.map((a) => pName[a.provider]))];
+      document.getElementById("unknown").innerHTML =
+        `<b>Not Reported</b> · ${names.join(", ")} report no balance, so none is shown. ` +
+        (unknownBank.length
+          ? `${unknownBank.map((a) => `${pName[a.provider]} ${a.name}`).join(", ")} does not report banked resets.`
+          : "");
+    </script>
+  </body>
+</html>

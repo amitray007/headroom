@@ -1,0 +1,27 @@
+/* Result: a round tick or alert beside a title and a line. */
+.ok {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--success) 14%, var(--surface));
+  color: var(--success);
+}
+.ok svg {
+  width: 16px;
+  height: 16px;
+}
+.ok.bad {
+  background: color-mix(in oklab, var(--danger) 14%, var(--surface));
+  color: var(--danger);
+}
+.result {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.result b {
+  font-size: var(--text-md);
+  font-weight: 500;
+}

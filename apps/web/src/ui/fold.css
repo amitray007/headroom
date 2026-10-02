@@ -1,0 +1,29 @@
+/* Fold: content leaves by animating its grid row to zero height, so nothing is left behind. */
+.fold {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows var(--dur-spring) var(--ease-standard),
+    opacity var(--dur-standard) var(--ease-standard),
+    visibility 0s;
+}
+.fold > .fold-clip {
+  min-height: 0;
+  overflow: hidden;
+}
+.fold.closed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    grid-template-rows var(--dur-spring) var(--ease-standard),
+    opacity var(--dur-fast) var(--ease-standard),
+    visibility 0s var(--dur-spring);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fold,
+  .fold.closed {
+    transition: none;
+  }
+}

@@ -85,7 +85,7 @@ export function Unreachable(props: {
         }
       >
         {limited
-          ? "Headroom is slowing requests down. Wait a minute, then try again."
+          ? "Too many attempts. Wait a minute, then try again."
           : `Headroom could not ${props.task}. Check that it is running and try again.`}
       </EmptyState>
     </main>

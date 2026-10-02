@@ -8,8 +8,19 @@ export const defaultSettings: Settings = {
   timeStyle: "countdown",
   clock: "24h",
   density: "comfortable",
+  detailedOrder: "urgency",
+  keepInactiveLast: true,
   accountActions: false,
-  notifications: { runningLow: true, expiringResets: true, refreshFailures: true },
+  notifications: {
+    runningLow: true,
+    expiringResets: true,
+    refreshFailures: true,
+    balances: true,
+    spend: true,
+    includeSessions: true,
+    resetLeadDays: 3,
+    mutedProviders: [],
+  },
 };
 
 export type SettingsPatch = Partial<Omit<Settings, "notifications">> & {

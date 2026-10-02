@@ -1,14 +1,16 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
-import type { Provider } from "@headroom/core/contracts";
+import type { NotificationChannelType, Provider } from "@headroom/core/contracts";
 
 import antigravityUrl from "./assets/antigravity.svg";
 import avatarUrl from "./assets/avatar.svg";
+import { avatarSrc } from "./lib/avatar.ts";
 import claudeUrl from "./assets/claude.svg";
 import codexRaw from "./assets/codex.svg?raw";
 import copilotRaw from "./assets/copilot.svg?raw";
 import cursorRaw from "./assets/cursor.svg?raw";
 import grokRaw from "./assets/grok.svg?raw";
+import telegramUrl from "./assets/telegram.svg";
 import vercelRaw from "./assets/vercel_ai_gateway.svg?raw";
 import { inlineSvg } from "./ui/inline-svg.ts";
 
@@ -179,16 +181,90 @@ export function BrandMark(props: { readonly provider: Provider; readonly size?: 
   const className = props.size === 24 ? "brand lg" : "brand";
   if (mark.kind === "image") {
     return (
-      <span className={className}>
+      <span className={className} aria-hidden="true">
         <img src={mark.url} alt="" />
       </span>
     );
   }
   // The markup is a bundled static asset, never user input.
-  return <span className={className} dangerouslySetInnerHTML={{ __html: mark.svg }} />;
+  // Decorative: the provider's name is always written beside the mark.
+  return (
+    <span className={className} aria-hidden="true" dangerouslySetInnerHTML={{ __html: mark.svg }} />
+  );
 }
 
-/** The account identicon shown inside the avatar button. */
-export function Avatar() {
-  return <img src={avatarUrl} alt="" width={34} height={34} />;
+/** Lucide's webhook glyph (ISC licence). */
+const WebhookIcon = stroke(
+  <>
+    <path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2" />
+    <path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06" />
+    <path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8" />
+  </>,
+);
+
+/** Delivery destination mark: 20 px by default, 24 px with size={24}. Decorative; write the name beside it. */
+export function DestinationMark(props: {
+  readonly type: NotificationChannelType;
+  readonly size?: 20 | 24;
+}) {
+  return (
+    <span className={props.size === 24 ? "brand lg" : "brand"} aria-hidden="true">
+      {props.type === "telegram" ? <img src={telegramUrl} alt="" /> : <WebhookIcon />}
+    </span>
+  );
 }
+
+/** The seeded DiceBear face, laid over the local one once it has loaded. Offline, the local one stays. */
+function RemoteFace(props: { readonly src: string }) {
+  const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
+  if (state === "failed") return null;
+  return (
+    <img
+      src={props.src}
+      alt=""
+      width={34}
+      height={34}
+      data-loaded={state === "loaded" ? "true" : undefined}
+      onLoad={() => setState("loaded")}
+      onError={() => setState("failed")}
+    />
+  );
+}
+
+/**
+ * The account face. The bundled identicon is always there, so the box never changes size; the DiceBear face for
+ * `seed` (the owner's username) fades in over it when it loads. Without a seed only the bundled face shows.
+ */
+export function Avatar(props: { readonly seed?: string | null }) {
+  const remote = props.seed === undefined || props.seed === null ? null : avatarSrc(props.seed);
+  return (
+    <span className="avatar-face">
+      <img src={avatarUrl} alt="" width={34} height={34} />
+      {remote === null ? null : <RemoteFace key={remote} src={remote} />}
+    </span>
+  );
+}
+
+/** Six dots in two columns: the grip that starts a drag. */
+export function GripIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+      className={props.className}
+    >
+      {[8, 12, 16].flatMap((cy) => [
+        <circle key={`l${cy}`} cx="9" cy={cy} r="1.5" />,
+        <circle key={`r${cy}`} cx="15" cy={cy} r="1.5" />,
+      ])}
+    </svg>
+  );
+}
+
+/** A down chevron; rotate it for an open state. */
+export const ChevronDownIcon = stroke(<path d="m6 9 6 6 6-6" />);
+
+/** Up and down arrows: reorder. */
+export const ReorderIcon = stroke(<path d="m3 16 4 4 4-4M7 20V4M21 8l-4-4-4 4M17 4v16" />);

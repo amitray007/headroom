@@ -4,12 +4,21 @@
 .top {
   position: relative;
   z-index: 40;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-4);
   margin-bottom: var(--space-7);
   min-height: 36px;
+}
+.top > .lockup {
+  justify-self: start;
+}
+/* The right group is always the last child and the last column, whether or not the switcher is there. */
+.top > nav:last-child {
+  grid-column: 3;
+  justify-self: end;
+  flex-wrap: nowrap;
 }
 .lockup {
   display: inline-flex;
@@ -24,7 +33,7 @@
   height: 24px;
   display: block;
 }
-.top nav {
+.top nav:not(.view-switch) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -32,11 +41,11 @@
   font-size: var(--text-base);
   color: var(--text-secondary);
 }
-.top nav a {
+.top nav:not(.view-switch) a {
   padding: 6px 10px;
   border-radius: 10px;
 }
-.top nav .menu-anchor + .menu-anchor {
+.top nav:not(.view-switch) .menu-anchor + .menu-anchor {
   margin-left: 2px;
 }
 
@@ -529,11 +538,24 @@ time.when {
     justify-content: flex-end;
     margin: 0 -10px 0 0;
   }
+  /* Lockup and the right group share the first row; the switcher takes the second. */
   .top {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-2);
+    grid-template-columns: 1fr auto;
+    row-gap: var(--space-3);
     margin-bottom: var(--space-6);
+  }
+  .top > .view-switch + nav {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  /* With no switcher (the connect pages) the right group has the second row to itself. */
+  .top > .lockup + nav:last-child {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  .top > .view-switch {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
   .panel {
     padding: var(--space-4);
@@ -555,16 +577,16 @@ time.when {
 
 /* Buttons live in buttons.css. Top-bar links keep their hover here. */
 @media (hover: hover) and (pointer: fine) {
-  .top nav a:hover {
+  .top nav:not(.view-switch) a:hover {
     color: var(--foreground);
     background: var(--surface-muted);
   }
   /* The top-bar primary link keeps inverted text on hover. */
-  .top nav a.btn.primary:hover {
+  .top nav:not(.view-switch) a.btn.primary:hover {
     color: var(--background);
     background: var(--foreground);
   }
-  .top nav a.btn.primary:hover svg {
+  .top nav:not(.view-switch) a.btn.primary:hover svg {
     color: var(--background);
   }
 }
@@ -808,6 +830,22 @@ time.when {
   height: 34px;
   display: block;
 }
+/* The bundled face and the remote one share one cell; the remote one fades in over it once loaded. */
+.avatar-face {
+  display: grid;
+  width: 34px;
+  height: 34px;
+}
+.avatar-face > img {
+  grid-area: 1 / 1;
+}
+.avatar-face > img + img {
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.avatar-face > img[data-loaded="true"] {
+  opacity: 1;
+}
 .menu-anchor {
   position: relative;
   /* A block-level box, so the line height of the surrounding text cannot make the avatar taller than the bell. */
@@ -915,6 +953,73 @@ time.when {
   height: 32px;
   padding: 0;
   font-size: var(--text-sm);
+}
+
+/* View switcher: a segmented row of links with a pill that slides to the active one. */
+.view-switch {
+  position: relative;
+  grid-column: 2;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.view-switch::-webkit-scrollbar {
+  display: none;
+}
+.view-switch a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font: 500 var(--text-sm) / 1 var(--font);
+  white-space: nowrap;
+  transition:
+    color var(--dur-fast) var(--ease-standard),
+    scale var(--dur-spring) var(--ease-spring);
+}
+.view-switch a[aria-current="page"] {
+  color: var(--foreground);
+}
+.view-switch a:active {
+  scale: 0.96;
+  transition-duration: var(--dur-instant);
+}
+.view-pill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  box-shadow: 0 1px 2px oklch(0% 0 0 / 0.06);
+}
+.view-pill[data-slide="true"] {
+  transition:
+    translate var(--dur-standard) var(--ease-enter),
+    width var(--dur-standard) var(--ease-enter);
+}
+@media (hover: hover) and (pointer: fine) {
+  .view-switch a:not([aria-current]):hover {
+    color: var(--foreground);
+  }
+}
+@media (max-width: 720px) {
+  .view-switch {
+    justify-self: stretch;
+  }
+  .view-switch a {
+    flex: 1 0 auto;
+    justify-content: center;
+    padding: 0 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .view-pill[data-slide="true"] {
+    transition: none;
+  }
 }
 
 /* Switch (Arc switch: 42 by 24, 18 px thumb) and its row in a menu. */
@@ -1314,6 +1419,142 @@ label.srow {
 .srow .switch {
   flex: none;
 }
+/* Tabs at the top of the dialog body: text with a line that glides under the chosen one. They stay put while the
+   rows scroll, and scroll sideways on a narrow phone. */
+.dlg.settings .stabs {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  gap: 2px;
+  padding: 0 18px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.dlg.settings .stabs::-webkit-scrollbar {
+  display: none;
+}
+.dlg.settings .stab {
+  flex: none;
+  height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-muted);
+  font: 500 var(--text-base) / 1 var(--font);
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease-standard),
+    scale var(--dur-spring) var(--ease-spring);
+}
+.dlg.settings .stab[aria-selected="true"] {
+  color: var(--foreground);
+}
+.dlg.settings .stab:active {
+  scale: 0.97;
+  transition-duration: var(--dur-instant);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dlg.settings .stab:hover {
+    color: var(--foreground);
+  }
+}
+.dlg.settings .dsec:first-child {
+  border-top: 0;
+}
+/* The fading copy of the old tab sits on the dialog's own surface. */
+.dlg.settings .slide-swap-ghost {
+  background: var(--surface-raised);
+}
+
+/* Sortable list: a grip, a mark and a name per row. Rows slide with a spring while one is dragged. */
+.sortlist {
+  flex: none;
+  display: grid;
+  gap: 2px;
+  width: 200px;
+  margin: 0;
+  padding: 3px;
+  list-style: none;
+  border-radius: 14px;
+  background: var(--surface-muted);
+}
+.sortlist li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px 0 2px;
+  border-radius: 11px;
+  font-size: var(--text-sm);
+}
+.sort-grip {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.sort-grip svg {
+  width: 20px;
+  height: 20px;
+}
+.sort-grip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.sort-grip:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.sort-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sortlist.sorting li {
+  transition: translate var(--dur-spring) var(--ease-spring);
+}
+.sortlist.sorting li.dragging {
+  z-index: 1;
+  transition: none;
+  background: var(--surface-raised);
+  box-shadow:
+    0 8px 20px light-dark(oklch(0% 0 0 / 0.12), oklch(0% 0 0 / 0.45)),
+    0 0 0 1px var(--border);
+}
+.sortlist.sorting li.dragging.settling {
+  transition: translate calc(var(--dur-spring) * 0.5) var(--ease-spring);
+}
+.sortlist.sorting .sort-grip {
+  cursor: grabbing;
+}
+@media (hover: hover) and (pointer: fine) {
+  .sort-grip:not(:disabled):hover {
+    color: var(--foreground);
+    background: color-mix(in oklab, var(--foreground) 7%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sortlist.sorting li,
+  .sortlist.sorting li.dragging.settling {
+    transition: none;
+  }
+}
 
 /* Info popover: opens after a short delay on hover, at once on focus or click. */
 .info {
@@ -1419,6 +1660,37 @@ label.srow {
   font-size: var(--text-base);
   font-weight: 500;
 }
+.card .card-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Settings, Notifications: provider switches as cards, two to a row. Off cards read quieter. */
+.ntf-cards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 6px 0 4px;
+}
+.ntf-cards .card {
+  min-height: 48px;
+  padding: 10px 14px;
+}
+.ntf-cards .card[aria-pressed="false"] {
+  color: var(--text-secondary);
+}
+.ntf-cards .card[aria-pressed="false"] .brand {
+  opacity: 0.55;
+}
+.ntf-cards .sk-card-slot {
+  width: 100%;
+  border-radius: var(--radius-panel);
+}
+/* A status mark, such as a seal, at the far right of the name row. */
+.card .card-status {
+  display: inline-flex;
+  margin-left: auto;
+}
 .cards .card[aria-pressed="true"] {
   border-color: var(--border-strong);
   background: var(--surface-raised);
@@ -1465,61 +1737,6 @@ label.srow {
 .flow {
   margin-top: var(--space-4);
 }
-.stepper {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-.stepper li {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  padding: 4px 10px 4px 4px;
-  border-radius: 999px;
-  background: var(--surface-muted);
-  transition:
-    color var(--dur-fast) var(--ease-standard),
-    background-color var(--dur-fast) var(--ease-standard);
-}
-.stepper li .n {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: inline-grid;
-  place-items: center;
-  font-size: var(--text-xs);
-  font-weight: 500;
-  background: var(--surface-raised);
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
-}
-.stepper li.current {
-  color: var(--foreground);
-  background: color-mix(in oklab, var(--foreground) 8%, var(--surface));
-}
-.stepper li.current .n {
-  background: var(--foreground);
-  color: var(--background);
-  border-color: var(--foreground);
-}
-.stepper li.done {
-  color: var(--text-secondary);
-}
-.stepper li.done .n {
-  background: color-mix(in oklab, var(--success) 14%, var(--surface));
-  color: var(--success);
-  border-color: color-mix(in oklab, var(--success) 30%, var(--border));
-}
-.stepper li.failed .n {
-  background: color-mix(in oklab, var(--danger) 14%, var(--surface));
-  color: var(--danger);
-  border-color: color-mix(in oklab, var(--danger) 30%, var(--border));
-}
 .stage {
   display: grid;
   gap: var(--space-4);
@@ -1560,32 +1777,6 @@ label.srow {
 .field input:focus {
   outline: 2px solid var(--border-strong);
   outline-offset: 2px;
-}
-.ok {
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: color-mix(in oklab, var(--success) 14%, var(--surface));
-  color: var(--success);
-}
-.ok svg {
-  width: 16px;
-  height: 16px;
-}
-.ok.bad {
-  background: color-mix(in oklab, var(--danger) 14%, var(--surface));
-  color: var(--danger);
-}
-.result {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-.result b {
-  font-size: var(--text-md);
-  font-weight: 500;
 }
 
 /*
@@ -1741,7 +1932,9 @@ label.srow {
 }
 .accounts {
   width: 100%;
-  border-collapse: collapse;
+  /* Separate borders belong to their cells, so a row's lines move with it while it is dragged. */
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
   font-size: var(--text-base);
 }

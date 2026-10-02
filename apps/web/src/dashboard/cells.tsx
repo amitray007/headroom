@@ -1,9 +1,10 @@
-import type { Cell } from "../lib/present.ts";
-import { formatNumber } from "../lib/present.ts";
+import type { Cell } from "@headroom/view-model/present";
+import { formatNumber } from "@headroom/view-model/present";
 import { useSettings } from "../lib/settings.tsx";
-import { exactFull } from "../lib/time.ts";
-import { displayMeter, toneOf } from "../lib/tone.ts";
+import { exactFull } from "@headroom/view-model/time";
+import { displayMeter, toneOf } from "@headroom/view-model/tone";
 import { useNow } from "../lib/now.ts";
+import { ResetCaption } from "../lib/reset-caption.tsx";
 import { When } from "../lib/when.tsx";
 import { Bar } from "../ui/bar.tsx";
 import { CountUp } from "../ui/count-up.tsx";
@@ -58,7 +59,7 @@ function MeterCell(props: {
         <Label label={cell.label} window={cell.window} />
         <Unknown />
         <Bar unknown label={`${name} not reported`} />
-        <div className="caption">Not reported in the last refresh</div>
+        <div className="caption">Not reported</div>
       </div>
     );
   }
@@ -85,17 +86,7 @@ function MeterCell(props: {
             {" · "}
           </>
         )}
-        {cell.resetWords === "with_cycle" ? (
-          "Resets with the cycle"
-        ) : cell.resetsAt === null ? (
-          "Reset time not reported"
-        ) : (
-          <When
-            at={cell.resetsAt}
-            kind="until"
-            prefix={cell.resetWords === "cycle_end" ? "Cycle ends" : "Resets"}
-          />
-        )}
+        <ResetCaption resetWords={cell.resetWords} resetsAt={cell.resetsAt} />
       </div>
     </div>
   );
@@ -120,7 +111,7 @@ function AmountCell(props: { readonly cell: Extract<Cell, { kind: "amount" }> })
       <div className="cell fact">
         <Label label={cell.label} window={cell.window} />
         <Unknown />
-        <div className="caption">Not reported in the last refresh</div>
+        <div className="caption">Not reported</div>
       </div>
     );
   }
@@ -163,7 +154,7 @@ function ResetsCell(props: { readonly cell: Extract<Cell, { kind: "resets" }> })
       <div className="cell fact">
         <Label label={cell.label} window={cell.window} />
         <Unknown />
-        <div className="caption">Not reported in the last refresh</div>
+        <div className="caption">Not reported</div>
       </div>
     );
   }

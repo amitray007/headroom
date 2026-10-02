@@ -1,5 +1,5 @@
 import { useSettings } from "./settings.tsx";
-import { resolveWhen, type WhenKind } from "./time.ts";
+import { resolveWhen, type WhenKind } from "@headroom/view-model/time";
 import { useNow } from "./now.ts";
 
 interface WhenProps {

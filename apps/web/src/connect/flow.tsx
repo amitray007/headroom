@@ -3,19 +3,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AuthMethod, Provider } from "@headroom/core/contracts";
 
 import { api, type Attempt, type OverviewConnection } from "../api.ts";
-import { AlertIcon, BrandMark, CheckIcon } from "../icons.tsx";
-import { accountName, authMethodWords, planLabel, providerName } from "../lib/labels.ts";
+import { BrandMark } from "../icons.tsx";
+import { accountName, authMethodWords, planLabel, providerName } from "@headroom/view-model/labels";
 import { Button, ButtonLink } from "../ui/button.tsx";
-import { cx } from "../ui/cx.ts";
 import { messageOf } from "../lib/load.ts";
+import { Result } from "../ui/result.tsx";
 import { Segmented } from "../ui/segmented.tsx";
 import { Spinner } from "../ui/spinner.tsx";
 import { StatusSlot } from "../ui/pill.tsx";
+import { Stepper, type StepState } from "../ui/stepper.tsx";
 import { CheckStage, SignInStage } from "./stages.tsx";
 import { clockLeft, defaultMethod, isTerminal, shouldPoll, stoppedReason } from "./steps.ts";
 
 type Step = 2 | 3 | 4;
-type StepState = "current" | "failed" | "done";
 
 const stepWords = ["Choose", "Sign In", "Check", "Done"] as const;
 
@@ -29,27 +29,6 @@ function stepOf(attempt: Attempt | null, startFailed: boolean): { step: Step; st
   return { step: 2, state: "current" };
 }
 
-function Stepper(props: { readonly step: Step; readonly state: StepState }) {
-  return (
-    <ol className="stepper" aria-label="Progress">
-      {stepWords.map((word, index) => {
-        const number = index + 1;
-        const look = number < props.step ? "done" : number === props.step ? props.state : undefined;
-        return (
-          <li
-            key={word}
-            className={cx(look)}
-            aria-current={number === props.step && props.state === "current" ? "step" : undefined}
-          >
-            <span className="n">{number}</span>
-            {word}
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
 /** Re-render every second, so the time left counts down. */
 function useSecondClock(): number {
   const [now, setNow] = useState(() => Date.now());
@@ -58,26 +37,6 @@ function useSecondClock(): number {
     return () => clearInterval(timer);
   }, []);
   return now;
-}
-
-function Result(props: {
-  readonly ok: boolean;
-  readonly title: string;
-  readonly children: string;
-}) {
-  return (
-    <div className="result">
-      <span className={cx("ok", !props.ok && "bad")}>
-        {props.ok ? <CheckIcon /> : <AlertIcon />}
-      </span>
-      <div>
-        <b>{props.title}</b>
-        <p className="secondary" style={{ margin: "2px 0 0" }}>
-          {props.children}
-        </p>
-      </div>
-    </div>
-  );
 }
 
 interface FlowProps {
@@ -263,7 +222,7 @@ export function ConnectFlow(props: FlowProps) {
         </h2>
         <StatusSlot statusKey={statusKey}>{statusNode}</StatusSlot>
       </div>
-      <Stepper step={step} state={state} />
+      <Stepper words={stepWords} step={step} state={state} />
       {showMethods && method !== null ? (
         <Segmented
           label="Sign-in method"

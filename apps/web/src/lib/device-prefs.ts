@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { views, type ViewId } from "../router.ts";
+
 /** Preferences that belong to this browser, not to the owner's server settings. */
 
 export type Appearance = "system" | "light" | "dark";
@@ -8,6 +10,8 @@ export const appearanceKey = "headroom.appearance";
 export const privacyKey = "headroom.privacy";
 export const densityKey = "headroom.density";
 export const sessionKey = "headroom.session";
+export const usernameKey = "headroom.username";
+export const viewKey = "headroom.view";
 
 export interface PrefsRoot {
   readonly style: { colorScheme: string };
@@ -61,6 +65,26 @@ export function readSessionHint(storage: ReadableStorage): boolean {
 
 export function saveSessionHint(storage: WritableStorage, signedIn: boolean): void {
   storage.setItem(sessionKey, signedIn ? "1" : "0");
+}
+
+/** The owner's username as last seen, so the boot frame can show the right avatar before the session loads. */
+export function readUsername(storage: ReadableStorage): string | null {
+  const value = storage.getItem(usernameKey);
+  return value === null || value === "" ? null : value;
+}
+
+export function saveUsername(storage: WritableStorage, username: string): void {
+  storage.setItem(usernameKey, username);
+}
+
+/** The dashboard view this device showed last, or null when none was saved. */
+export function readView(storage: ReadableStorage): ViewId | null {
+  const value = storage.getItem(viewKey);
+  return views.find((view) => view.id === value)?.id ?? null;
+}
+
+export function saveView(storage: WritableStorage, view: ViewId): void {
+  storage.setItem(viewKey, view);
 }
 
 export function saveAppearance(storage: WritableStorage, appearance: Appearance): void {

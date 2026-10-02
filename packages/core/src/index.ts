@@ -20,6 +20,13 @@ export {
 } from "./auth/index.ts";
 export * from "./connector.ts";
 export { splitLabel, type SplitLabel } from "./label.ts";
+export {
+  OrderStore,
+  InvalidOrderError,
+  orderBodySchema,
+  type EffectiveOrder,
+  type OrderBody,
+} from "./order.ts";
 export { SettingsStore, defaultSettings, settingsSchema, type Settings } from "./settings.ts";
 export {
   AttemptStore,
@@ -62,3 +69,22 @@ export {
   type CliLoginSpec,
   type CliLoginStatus,
 } from "./cli-runner.ts";
+export {
+  ChannelStore,
+  generateWebhookSecret,
+  webhookSecretSchema,
+  telegramConfigSchema,
+  webhookConfigSchema,
+  type ChannelConfig,
+  type ChannelOptions,
+  type ChannelRow,
+  type ChannelUpdate,
+  type TelegramConfig,
+  type WebhookConfig,
+} from "./notifications/channels.ts";
+export {
+  DeliveryStore,
+  type AttemptRecord,
+  type DeliveryRow,
+  type LastDelivery,
+} from "./notifications/deliveries.ts";

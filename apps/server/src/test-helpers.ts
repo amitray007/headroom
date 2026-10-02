@@ -1,11 +1,19 @@
 import { baseUrl, type Connector, crypto, loadConfig } from "@headroom/core";
 
 import { type AppContext, bootstrap } from "./bootstrap.ts";
+import type { DeriveNotifications } from "./notify/dispatcher.ts";
+import type { Fetch } from "./notify/http.ts";
 
 /** In-memory context with throwaway secrets; never touches the filesystem. */
 export function testContext(
   env: Record<string, string> = {},
-  options: { rateLimit?: boolean; connectors?: readonly Connector[]; now?: () => Date } = {},
+  options: {
+    rateLimit?: boolean;
+    connectors?: readonly Connector[];
+    now?: () => Date;
+    fetch?: Fetch;
+    derive?: DeriveNotifications;
+  } = {},
 ): AppContext {
   return bootstrap({
     config: loadConfig(env),
@@ -15,6 +23,8 @@ export function testContext(
     rateLimit: options.rateLimit ?? false,
     connectors: options.connectors ?? [],
     ...(options.now ? { now: options.now } : {}),
+    ...(options.fetch ? { fetch: options.fetch } : {}),
+    ...(options.derive ? { derive: options.derive } : {}),
   });
 }
 

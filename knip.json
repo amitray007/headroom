@@ -9,6 +9,10 @@
       "entry": ["src/index.ts", "src/**/*.test.ts"],
       "project": ["src/**/*.ts"]
     },
+    "packages/view-model": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
     "packages/core": {
       "entry": ["src/**/*.test.ts", "auth-schema.config.ts"],
       "project": ["src/**/*.ts", "*.ts"]

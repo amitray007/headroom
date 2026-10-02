@@ -11,6 +11,7 @@ import {
   baseUrl,
   CollectionService,
   type Config,
+  ChannelStore,
   ConnectionStore,
   type Connector,
   type ConnectorRegistry,
@@ -19,11 +20,18 @@ import {
   CredentialStore,
   crypto,
   type Db,
+  DeliveryStore,
   LeaseStore,
   openDatabase,
+  OrderStore,
   SettingsStore,
   SnapshotStore,
 } from "@headroom/core";
+
+import { type DeriveNotifications, NotificationDispatcher } from "./notify/dispatcher.ts";
+import type { Fetch } from "./notify/http.ts";
+import { overviewConnections } from "./overview-model.ts";
+import { deriveNotifications } from "@headroom/view-model/notifications";
 
 import { createRegistry } from "./registry.ts";
 
@@ -41,11 +49,17 @@ export interface AppContext {
   readonly connections: ConnectionStore;
   readonly snapshots: SnapshotStore;
   readonly settings: SettingsStore;
+  readonly order: OrderStore;
   readonly registry: ConnectorRegistry;
   readonly runner: CliLoginRunner;
   readonly connect: ConnectService;
   readonly collection: CollectionService;
   readonly actions: ActionService;
+  readonly channels: ChannelStore;
+  readonly deliveries: DeliveryStore;
+  readonly dispatcher: NotificationDispatcher;
+  /** Outgoing HTTP for notification senders. */
+  readonly fetch: Fetch;
   /** Origins allowed for CORS, Better Auth and frame-ancestors. Always includes the base URL. */
   readonly trustedOrigins: readonly string[];
   readonly now: () => Date;
@@ -64,6 +78,10 @@ export interface BootstrapOptions {
   readonly rateLimit?: boolean;
   /** Every connector the build knows about; the config decides which are enabled. Receives the runner. */
   readonly connectors?: readonly Connector[] | ((runner: CliLoginRunner) => readonly Connector[]);
+  /** Outgoing HTTP for notification senders; tests pass a fake so no network is used. */
+  readonly fetch?: Fetch;
+  /** Builds notification events from the overview. */
+  readonly derive?: DeriveNotifications;
   readonly now?: () => Date;
   readonly log?: AppContext["log"];
 }
@@ -96,6 +114,7 @@ export function bootstrap(options: BootstrapOptions): AppContext {
   const attempts = new AttemptStore(db, keyring, now);
   const connections = new ConnectionStore(db, now);
   const snapshots = new SnapshotStore(db, now);
+  const order = new OrderStore(db, now);
   const settings = new SettingsStore(db, config.refreshIntervalSeconds, now);
   const runner = new CliLoginRunner({ attemptsDir: join(config.dataDir, "attempts") });
   if (databasePath !== ":memory:") runner.sweep();
@@ -112,7 +131,21 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     leases,
     now,
   });
-  return {
+  const channels = new ChannelStore(db, keyring, now);
+  const deliveries = new DeliveryStore(db);
+  const fetchFn: Fetch = options.fetch ?? ((input, init) => fetch(input, init));
+  const actions = new ActionService({
+    // The owner's setting is the only gate; it is read at call time.
+    enabled: () => settings.get().accountActions,
+    registry,
+    connections,
+    credentials,
+    snapshots,
+    actions: new ActionStore(db, now),
+    leases,
+    collection,
+  });
+  const context: Omit<AppContext, "dispatcher"> = {
     config,
     db,
     sqlite,
@@ -131,25 +164,30 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     connections,
     snapshots,
     settings,
+    order,
     registry,
     runner,
     connect: new ConnectService({ registry, attempts, connections, credentials, snapshots, now }),
     collection,
-    actions: new ActionService({
-      // The owner's setting is the only gate; it is read at call time.
-      enabled: () => settings.get().accountActions,
-      registry,
-      connections,
-      credentials,
-      snapshots,
-      actions: new ActionStore(db, now),
-      leases,
-      collection,
-    }),
+    actions,
+    channels,
+    deliveries,
+    fetch: fetchFn,
     trustedOrigins,
     now,
     log,
   };
+  const dispatcher = new NotificationDispatcher({
+    channels,
+    deliveries,
+    overview: (at) => overviewConnections(context, at),
+    settings: () => settings.get(),
+    derive: options.derive ?? deriveNotifications,
+    dashboardUrl: config.publicUrl ? origin : null,
+    fetch: fetchFn,
+    log,
+  });
+  return { ...context, dispatcher };
 }
 
 /** Read a one-line secret file, or create it with mode 0600 and a warning to back it up. */

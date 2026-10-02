@@ -1,7 +1,8 @@
 import type { OverviewConnection } from "../api.ts";
-import { formatNumber, formatUsd, presentPanel } from "../lib/present.ts";
+import { formatNumber, formatUsd, presentPanel } from "@headroom/view-model/present";
 import { useSettings } from "../lib/settings.tsx";
-import { displayMeter } from "../lib/tone.ts";
+import { displayMeter } from "@headroom/view-model/tone";
+import { ResetCaption } from "../lib/reset-caption.tsx";
 import { When } from "../lib/when.tsx";
 import { Bar } from "../ui/bar.tsx";
 import { cx } from "../ui/cx.ts";
@@ -40,7 +41,7 @@ export function LimitsCell(props: { readonly connection: OverviewConnection }) {
     );
 
   if (panel.tightest !== null) {
-    const { used, resetsAt, label } = panel.tightest;
+    const { used, resetsAt, resetWords, label } = panel.tightest;
     const meter = displayMeter(
       used,
       settings.limitsView,
@@ -66,13 +67,7 @@ export function LimitsCell(props: { readonly connection: OverviewConnection }) {
           label={`${label} ${used}% used`}
         />
         <span className="rsub">
-          {dim ? (
-            lastKnown
-          ) : resetsAt === null ? (
-            "No reset"
-          ) : (
-            <When at={resetsAt} kind="until" prefix="Resets" />
-          )}
+          {dim ? lastKnown : <ResetCaption resetWords={resetWords} resetsAt={resetsAt} />}
         </span>
       </td>
     );

@@ -15,9 +15,12 @@ import {
 } from "@headroom/core";
 
 import type { AppContext } from "./bootstrap.ts";
+import { version } from "./version.ts";
 import { type Env, rejectCrossSite, requireSession } from "./middleware/session.ts";
 import { attemptRoutes } from "./routes/attempts.ts";
 import { connectionRoutes } from "./routes/connections.ts";
+import { deliveryRoutes } from "./routes/delivery.ts";
+import { orderRoutes } from "./routes/order.ts";
 import { overviewRoutes } from "./routes/overview.ts";
 import { providerRoutes } from "./routes/providers.ts";
 import { settingsRoutes } from "./routes/settings.ts";
@@ -32,7 +35,7 @@ const brandFiles = [
   "manifest.webmanifest",
 ];
 
-export const version = "0.0.0";
+export { version };
 
 export function createApp(ctx: AppContext): Hono {
   const app = new Hono();
@@ -48,7 +51,8 @@ export function createApp(ctx: AppContext): Hono {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:"],
+        // The avatar is a seeded DiceBear image; the browser fetches it, so this origin is the only external one.
+        imgSrc: ["'self'", "data:", "https://api.dicebear.com"],
         connectSrc: ["'self'"],
         frameAncestors: ["'self'", ...ctx.trustedOrigins],
         formAction: ["'self'"],
@@ -103,7 +107,9 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/connections", connectionRoutes(ctx));
   api.route("/attempts", attemptRoutes(ctx));
   api.route("/overview", overviewRoutes(ctx));
+  api.route("/order", orderRoutes(ctx));
   api.route("/settings", settingsRoutes(ctx));
+  api.route("/delivery", deliveryRoutes(ctx));
 
   app.route("/api", api);
 

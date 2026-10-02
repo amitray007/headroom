@@ -1,7 +1,7 @@
 import { ResetIcon } from "../icons.tsx";
 import { useNow } from "../lib/now.ts";
 import { useSettings } from "../lib/settings.tsx";
-import { exactFull } from "../lib/time.ts";
+import { exactFull } from "@headroom/view-model/time";
 import { When } from "../lib/when.tsx";
 import { InfoTip } from "./info-tip.tsx";
 

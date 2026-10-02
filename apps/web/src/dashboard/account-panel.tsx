@@ -2,9 +2,15 @@ import { useId, type ReactNode } from "react";
 
 import { api, type OverviewConnection } from "../api.ts";
 import { AlertIcon, ClockIcon, PauseIcon, PlayIcon, RetryIcon } from "../icons.tsx";
-import { accountName, planLabel, providerName, refreshFailed, statusOf } from "../lib/labels.ts";
+import {
+  accountName,
+  planLabel,
+  providerName,
+  refreshFailed,
+  statusOf,
+} from "@headroom/view-model/labels";
 import { useNow } from "../lib/now.ts";
-import { presentPanel } from "../lib/present.ts";
+import { presentPanel } from "@headroom/view-model/present";
 import { useSettings } from "../lib/settings.tsx";
 import { When } from "../lib/when.tsx";
 import { ActionButton } from "../ui/action-button.tsx";
@@ -12,7 +18,7 @@ import { BankedResets } from "../ui/banked-resets.tsx";
 import { ButtonLink } from "../ui/button.tsx";
 import { cx } from "../ui/cx.ts";
 import { HoldButton } from "../ui/hold-button.tsx";
-import { HealthyStatus, StatusPill, StatusSlot, type StatusKind } from "../ui/pill.tsx";
+import { HealthyStatus, StatusPill, StatusSlot, statusKindOf } from "../ui/pill.tsx";
 import { href } from "../router.ts";
 import { PanelActions } from "./actions.tsx";
 import { AccountTitle } from "./account-title.tsx";
@@ -20,14 +26,6 @@ import { CellView } from "./cells.tsx";
 import { SkeletonCells } from "./skeletons.tsx";
 
 const resetReloadMs = 2400;
-
-const statusKinds: Record<ReturnType<typeof statusOf>["word"], StatusKind> = {
-  Active: "active",
-  Paused: "paused",
-  Disconnected: "disconnected",
-  "Refresh Failed": "refresh_failed",
-  "Out of Date": "out_of_date",
-};
 
 const reconnectWords: Record<NonNullable<OverviewConnection["reconnectReason"]>, string> = {
   refresh_rejected: "The sign-in for this account has expired. Reconnect to keep tracking it.",
@@ -148,7 +146,7 @@ export function AccountPanel(props: {
   } else if (status.word === "Active" && connection.lastSuccessAt !== null) {
     right = <HealthyStatus age={<When at={connection.lastSuccessAt} kind="ago" />} />;
   } else {
-    right = <StatusPill kind={statusKinds[status.word]} />;
+    right = <StatusPill kind={statusKindOf(status.word)} />;
   }
 
   const showFacts = model.facts.length > 0 || hold !== null || banked !== null || !waiting;

@@ -26,6 +26,7 @@
         "@headroom/connector-grok": "workspace:*",
         "@headroom/connector-vercel-ai-gateway": "workspace:*",
         "@headroom/core": "workspace:*",
+        "@headroom/view-model": "workspace:*",
         "hono": "4.13.12",
         "zod": "4.6.5",
       },
@@ -38,6 +39,7 @@
         "@fontsource-variable/geist": "5.3.0",
         "@fontsource-variable/geist-mono": "5.3.0",
         "@headroom/core": "workspace:*",
+        "@headroom/view-model": "workspace:*",
         "better-auth": "1.7.7",
         "react": "19.3.0",
         "react-dom": "19.3.0",
@@ -115,6 +117,14 @@
         "@better-auth/passkey": "1.7.7",
         "better-auth": "1.7.7",
         "drizzle-orm": "0.45.3",
+        "zod": "4.6.5",
+      },
+    },
+    "packages/view-model": {
+      "name": "@headroom/view-model",
+      "version": "0.0.0",
+      "dependencies": {
+        "@headroom/core": "workspace:*",
         "zod": "4.6.5",
       },
     },
@@ -231,6 +241,8 @@
     "@headroom/core": ["@headroom/core@workspace:packages/core"],
 
     "@headroom/server": ["@headroom/server@workspace:apps/server"],
+
+    "@headroom/view-model": ["@headroom/view-model@workspace:packages/view-model"],
 
     "@headroom/web": ["@headroom/web@workspace:apps/web"],
 
