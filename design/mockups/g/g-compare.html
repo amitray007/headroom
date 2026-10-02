@@ -96,41 +96,35 @@
         const live = byProvider(id).filter((a) => isLive(a) && tightest(a));
         const ranked = [...live].sort((x, y) => room(y) - room(x));
         const best = ranked[0];
+        const lead = `<span class="g-seal off">${icons.alert}</span><span class="lead">Best Right Now</span>`;
         if (!best)
           return {
-            html: `<section class="g-best"><span class="g-ico" style="--x:0">${icons.alert}</span><div><div class="eyebrow">Best Right Now</div><h2>No account is ready</h2><p>Every ${esc(providerName(id))} account is paused or disconnected.</p></div></section>`,
+            html: `<section class="g-best slim" aria-label="Best right now">${lead}<span class="why">No account is ready. Every ${esc(providerName(id))} account is paused or disconnected.</span></section>`,
             best: null,
           };
         const t = tightest(best);
         const d = display(t.used, state.view);
-        const sentences = [
-          `${esc(best.name)} has ${pct(100 - t.used)}% of its ${esc(phrase(t))} limit left.`,
-        ];
-        const worst = ranked.length > 1 ? ranked[ranked.length - 1] : null;
-        if (worst && tone(tightest(worst).used)) {
-          const wt = tightest(worst);
-          sentences.push(
-            `${esc(worst.name)} is ${tone(wt.used) === "bad" ? "almost out" : "running low"} and ${wt.resets ? `resets in ${countdown(wt.resets)}` : "has no reset time"}.`,
-          );
-        }
-        const dormant = byProvider(id).filter((a) => !isLive(a));
-        for (const a of dormant)
-          sentences.push(`${esc(a.name)} is ${a.status === "paused" ? "paused" : "disconnected"}.`);
         const next = ranked[1];
-        const nextLine = next
-          ? `Next best: ${esc(next.name)}, ${pct(room(next))}% left. Percentages are per account; plans differ in size.`
-          : "";
+        const tip = [
+          next ? `Next best: ${esc(next.name)}, ${pct(room(next))}% left.` : "",
+          "Percentages are per account. Plans differ in size.",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        const dormant = byProvider(id).filter((a) => !isLive(a)).length;
+        const why =
+          ranked.length > 1
+            ? `Most room of ${ranked.length} live accounts`
+            : `Only live account${dormant ? `, ${dormant} not counted` : ""}`;
         return {
           best,
-          html: `<section class="g-best" aria-label="Best right now">
-            <span class="g-ico">${icons.star}</span>
-            <div>
-              <div class="eyebrow">Best Right Now</div>
-              <h2>${esc(best.name)}${planOf(best)}</h2>
-              <p>${sentences.join(" ")}</p>
-              ${nextLine ? `<div class="next">${nextLine}</div>` : ""}
-            </div>
-            <div class="g-score"><div class="value">${d.text}<span class="unit">${d.unit}</span></div>${bar(t.used, { thin: true, view: state.view, label: `${windowName(t)} ${pct(t.used)}% used` })}<div class="window">${esc(windowName(t))}</div></div>
+          html: `<section class="g-best slim" aria-label="Best right now">
+            <span class="g-seal" title="Best to use right now">${icons.seal}</span>
+            <span class="lead">Best Right Now</span>
+            <span class="acct"><b>${esc(best.name)}</b>${planOf(best)}</span>
+            <span class="why">${why}</span>
+            <span class="g-tipwrap"><button class="infobtn" type="button" aria-label="More about this pick" aria-describedby="best-tip">${icons.info}</button><span class="g-tip" role="tooltip" id="best-tip">${tip}</span></span>
+            <span class="g-score"><b>${d.text}<span class="unit">${d.unit}</span></b>${bar(t.used, { thin: true, view: state.view, label: `${windowName(t)} ${pct(t.used)}% used` })}<span class="window">${esc(windowName(t))}</span></span>
           </section>`,
         };
       }
@@ -196,7 +190,7 @@
             const why = live
               ? ""
               : `<span class="why">${a.status === "paused" ? icons.pause : icons.alert}${a.status === "paused" ? "Paused. Not counted." : "Disconnected. Not counted."}</span>`;
-            const acct = `<td scope="row"><div class="g-acct"><div class="line"><span class="name">${esc(a.name)}${planOf(a)}</span>${a.id === bestId ? `<span class="pick">${icons.check}Best Now</span>` : ""}</div>${why || (a.identity ? `<span class="sub"><span class="who">${esc(a.identity)}</span></span>` : "")}${!live ? `<span class="sub">Updated ${ago(a.refreshed)}</span>` : ""}</div></td>`;
+            const acct = `<td scope="row"><div class="g-acct"><div class="line"><span class="name">${esc(a.name)}${planOf(a)}</span>${a.id === bestId ? `<span class="g-seal sm" title="Best to use right now" role="img" aria-label="Best to use right now">${icons.seal}</span>` : ""}</div>${why || (a.identity ? `<span class="sub"><span class="who">${esc(a.identity)}</span></span>` : "")}${!live ? `<span class="sub">Updated ${ago(a.refreshed)}</span>` : ""}</div></td>`;
             let overall;
             if (!live)
               overall = `<td class="overall"><div class="g-mc none"><div class="top-line"><b>—</b></div><div class="cap">Not counted</div></div></td>`;

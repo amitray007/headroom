@@ -23,12 +23,11 @@
       }
       .views {
         display: grid;
-        grid-template-columns: repeat(6, 1fr);
+        grid-template-columns: repeat(2, 1fr);
         gap: var(--space-4);
         margin-bottom: var(--space-7);
       }
       .vcard {
-        grid-column: span 2;
         display: grid;
         grid-template-rows: auto 1fr;
         gap: var(--space-4);
@@ -42,9 +41,6 @@
           box-shadow var(--dur-standard) var(--ease-standard);
         animation: rise var(--dur-considered) var(--ease-enter) both;
         animation-delay: calc(var(--i) * 60ms);
-      }
-      .vcard:nth-child(n + 4) {
-        grid-column: span 3;
       }
       .vcard:hover {
         border-color: var(--border-strong);
@@ -223,28 +219,40 @@
         position: absolute;
         top: 1px;
         left: var(--x);
-        width: 10px;
+        width: var(--w);
         height: 10px;
-        border-radius: 50%;
-        border: 2px solid var(--success);
-        background: var(--surface);
+        border-radius: 4px;
+        background: color-mix(in oklab, var(--success) 35%, var(--surface));
+        border: 1px solid var(--success);
       }
       .tlp .lane i.w {
+        background: color-mix(in oklab, var(--warning) 35%, var(--surface));
         border-color: var(--warning);
       }
       .tlp .lane i.d {
+        background: color-mix(in oklab, var(--danger) 35%, var(--surface));
         border-color: var(--danger);
       }
-      .tlp .lane i.k {
-        border: 0;
-        border-radius: 2px;
-        background: var(--foreground);
-        rotate: 45deg;
-        scale: 0.8;
+      .tlp .lane i.prev {
+        background: var(--track);
+        border-color: transparent;
+      }
+      .tlp .lane i.nxt {
+        background: none;
+        border: 1px dashed var(--border-strong);
+      }
+      .tlp .lane b {
+        position: absolute;
+        top: -1px;
+        left: var(--x);
+        width: 2px;
+        height: 14px;
+        border-radius: 1px;
+        background: oklch(60% 0.19 285);
       }
       .tlp .now {
         position: absolute;
-        left: 14px;
+        left: 48%;
         top: 4px;
         bottom: 4px;
         width: 2px;
@@ -273,6 +281,15 @@
         background: var(--border);
       }
 
+      .later {
+        margin: calc(-1 * var(--space-5)) var(--space-1) var(--space-7);
+        color: var(--text-secondary);
+        font-size: var(--text-sm);
+      }
+      .later b {
+        font-weight: 500;
+        color: var(--foreground);
+      }
       h2.sec {
         margin: 0 0 var(--space-4) var(--space-1);
         font-size: var(--text-md);
@@ -334,13 +351,6 @@
         }
       }
       @media (max-width: 960px) {
-        .views {
-          grid-template-columns: repeat(2, 1fr);
-        }
-        .vcard,
-        .vcard:nth-child(n + 4) {
-          grid-column: auto;
-        }
         .fit {
           grid-template-columns: 1fr;
         }
@@ -397,13 +407,52 @@
       <div class="hero">
         <h1>Dashboard Views</h1>
         <p>
-          One set of accounts, five ways to look at it. Pick the view that fits how you feel about
+          One set of accounts, four ways to look at it. Pick the view that fits how you feel about
           your limits today.
         </p>
       </div>
 
       <div class="views">
-        <a class="vcard" style="--i: 0" href="g-glance.html">
+        <a class="vcard" style="--i: 0" href="../f-panels.html">
+          <div class="pv" aria-hidden="true">
+            <div class="tile">
+              <div class="row">
+                <span class="sq"></span><span class="ln" style="--w: 30%"></span>
+              </div>
+              <div class="bar"><i class="w" style="--w: 81%"></i></div>
+              <div class="bar"><i class="d" style="--w: 91%"></i></div>
+              <div class="bar"><i class="g" style="--w: 64%"></i></div>
+            </div>
+            <div class="tile">
+              <div class="row">
+                <span class="sq"></span><span class="ln" style="--w: 24%"></span>
+              </div>
+              <div class="bar"><i class="g" style="--w: 24%"></i></div>
+            </div>
+          </div>
+          <div>
+            <h2>
+              <span>Detailed <span class="pill quiet">Default</span></span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </h2>
+            <p class="q">What is going on in this account?</p>
+            <p class="for">
+              <b>For the full picture.</b> One panel per account with every limit, and the account
+              settings.
+            </p>
+          </div>
+        </a>
+        <a class="vcard" style="--i: 1" href="g-glance.html">
           <div class="pv" aria-hidden="true">
             <div class="tiles">
               <div class="tile">
@@ -459,7 +508,7 @@
           </div>
         </a>
 
-        <a class="vcard" style="--i: 1" href="g-compare.html">
+        <a class="vcard" style="--i: 2" href="g-compare.html">
           <div class="pv" aria-hidden="true">
             <div class="cmp">
               <span></span><span class="ln" style="--w: 70%"></span
@@ -503,17 +552,25 @@
           </div>
         </a>
 
-        <a class="vcard" style="--i: 2" href="g-timeline.html">
+        <a class="vcard" style="--i: 3" href="g-timeline.html">
           <div class="pv" aria-hidden="true">
             <div class="tlp">
               <span class="now"></span>
               <div class="lane">
-                <i class="d" style="--x: 8%"></i><i style="--x: 44%"></i
-                ><i class="k" style="--x: 72%"></i>
+                <i class="prev" style="--x: 0%; --w: 38%"></i
+                ><i class="cur d" style="--x: 38%; --w: 40%"></i
+                ><i class="nxt" style="--x: 78%; --w: 22%"></i>
               </div>
-              <div class="lane"><i style="--x: 22%"></i><i class="w" style="--x: 58%"></i></div>
-              <div class="lane"><i class="k" style="--x: 34%"></i><i style="--x: 88%"></i></div>
-              <div class="lane"><i class="w" style="--x: 15%"></i><i style="--x: 64%"></i></div>
+              <div class="lane">
+                <i class="prev" style="--x: 0%; --w: 20%"></i
+                ><i class="cur" style="--x: 20%; --w: 50%"></i
+                ><i class="nxt" style="--x: 70%; --w: 30%"></i><b style="--x: 52%"></b>
+              </div>
+              <div class="lane">
+                <i class="prev" style="--x: 0%; --w: 8%"></i
+                ><i class="cur w" style="--x: 8%; --w: 46%"></i
+                ><i class="nxt" style="--x: 54%; --w: 46%"></i>
+              </div>
             </div>
           </div>
           <div>
@@ -533,99 +590,16 @@
             </h2>
             <p class="q">When does capacity come back?</p>
             <p class="for">
-              <b>For planners.</b> Every reset and expiry on one time line, with an Up Next list.
-            </p>
-          </div>
-        </a>
-
-        <a class="vcard" style="--i: 3" href="g-wallet.html">
-          <div class="pv" aria-hidden="true">
-            <div class="wal">
-              <div class="tile">
-                <div class="row">
-                  <span class="sq"></span><span class="ln" style="--w: 40%"></span>
-                </div>
-                <div class="num">61,068</div>
-                <div class="ln" style="--w: 30%"></div>
-              </div>
-              <div class="tile">
-                <div class="row">
-                  <span class="sq"></span><span class="ln" style="--w: 50%"></span>
-                </div>
-                <div class="num">4.99</div>
-                <div class="bar"><i class="g" style="--w: 99%"></i></div>
-              </div>
-            </div>
-            <div class="tile">
-              <div class="row">
-                <span class="sq"></span><span class="ln" style="--w: 30%"></span
-                ><span style="margin-left: auto" class="chipr"><i></i><i></i><i></i></span>
-              </div>
-            </div>
-          </div>
-          <div>
-            <h2>
-              Wallet
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
-            </h2>
-            <p class="q">What do I have left that costs money?</p>
-            <p class="for">
-              <b>For spenders.</b> Credits, balances, spend and banked resets, kept apart from
-              limits.
-            </p>
-          </div>
-        </a>
-
-        <a class="vcard" style="--i: 4" href="../f-panels.html">
-          <div class="pv" aria-hidden="true">
-            <div class="tile">
-              <div class="row">
-                <span class="sq"></span><span class="ln" style="--w: 30%"></span>
-              </div>
-              <div class="bar"><i class="w" style="--w: 81%"></i></div>
-              <div class="bar"><i class="d" style="--w: 91%"></i></div>
-              <div class="bar"><i class="g" style="--w: 64%"></i></div>
-            </div>
-            <div class="tile">
-              <div class="row">
-                <span class="sq"></span><span class="ln" style="--w: 24%"></span>
-              </div>
-              <div class="bar"><i class="g" style="--w: 24%"></i></div>
-            </div>
-          </div>
-          <div>
-            <h2>
-              Detailed
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
-            </h2>
-            <p class="q">What is going on in this account?</p>
-            <p class="for">
-              <b>For the full picture.</b> One panel per account with every limit, and the account
-              settings.
+              <b>For planners.</b> Each limit as a bar from open to reset, with the next resets
+              listed.
             </p>
           </div>
         </a>
       </div>
+      <p class="later">
+        <b>Later: Wallet.</b> It will track what each subscription costs in money (plans, totals,
+        budget) once planned.
+      </p>
 
       <h2 class="sec">How It Fits Together</h2>
       <div class="fit">
@@ -647,6 +621,10 @@
           How each view handles several accounts
         </caption>
         <tr>
+          <th scope="row">Detailed</th>
+          <td>One full panel per account, as today.</td>
+        </tr>
+        <tr>
           <th scope="row">Overview</th>
           <td>
             Accounts roll up into one tile per provider. The tile shows the tightest limit across
@@ -660,16 +638,9 @@
         <tr>
           <th scope="row">Timeline</th>
           <td>
-            One lane per account under its provider. Resets from all accounts merge into Up Next.
+            One lane per account under its provider, each window drawn from open to reset. Resets
+            from all accounts merge into Up Next.
           </td>
-        </tr>
-        <tr>
-          <th scope="row">Wallet</th>
-          <td>One card per balance, tagged with its account. Units are never added together.</td>
-        </tr>
-        <tr>
-          <th scope="row">Detailed</th>
-          <td>One full panel per account, as today.</td>
         </tr>
       </table>
     </div>

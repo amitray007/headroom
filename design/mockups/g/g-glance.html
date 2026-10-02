@@ -11,14 +11,13 @@
     <div class="page g-page">
       <header class="top"></header>
       <main>
-        <section class="g-summary" id="summary" aria-live="polite"></section>
         <div class="g-tools">
           <div class="g-chips" id="chips" role="group" aria-label="Filter by provider"></div>
           <div class="g-segs">
-            <div class="seg" role="group" aria-label="Order" id="mode">
-              <button type="button" data-v="urgency" aria-pressed="true">By Urgency</button>
-              <button type="button" data-v="provider" aria-pressed="false">By Provider</button>
-            </div>
+            <div class="seg" role="group" aria-label="Order" id="mode"></div>
+            <button class="btn quiet sm g-arrange" type="button" data-open-settings="overview">
+              <span id="arrange-ico"></span>Arrange
+            </button>
             <div class="seg" role="group" aria-label="Show limits as" id="limits">
               <button type="button" data-v="left" aria-pressed="true">Left</button>
               <button type="button" data-v="used" aria-pressed="false">Used</button>
@@ -52,15 +51,19 @@
         isLive,
         getLimitsView,
         setLimitsView,
-        attention,
+        getOverviewPrefs,
+        setOverviewPrefs,
+        customOrder,
+        ORDERS,
         growBars,
       } from "./g-shell.js";
 
       renderShell({ active: "overview" });
 
-      const state = { filter: "all", mode: "urgency", view: getLimitsView(), open: new Set() };
+      const state = { filter: "all", view: getLimitsView(), open: new Set() };
+      document.getElementById("arrange-ico").innerHTML = icons.sliders;
 
-      /* Worst first: disconnected, almost out, out of date or failed, running low, fine (least room first), paused last. */
+      /* Urgency: disconnected, almost out, out of date or failed, running low, then fine (least room first), paused last. */
       const info = (a) => {
         const t = tightest(a);
         const tn = t ? tone(t.used) : null;
@@ -72,40 +75,8 @@
         else if (tn === "warn") rank = 3;
         return { a, t, tone: tn, rank, room: t ? 100 - t.used : 101 };
       };
-      const ranked = accounts.map(info).sort((x, y) => x.rank - y.rank || x.room - y.room);
-
-      /* ----- Summary: one line that answers "can I keep working?" ----- */
-      function summary() {
-        const needs = ranked.filter((r) => r.rank <= 2);
-        const label = (r) => `${providerName(r.a.provider)} ${r.a.name}`;
-        const jump = (r, text) =>
-          `<button type="button" data-jump="${r.a.id}">${esc(text)}</button>`;
-        const parts = [];
-        for (const r of needs) {
-          if (r.a.status === "disconnected") parts.push(`${jump(r, label(r))} is disconnected`);
-          else if (r.a.status === "failed") parts.push(`${jump(r, label(r))} could not refresh`);
-          else if (r.a.status === "stale") parts.push(`${jump(r, label(r))} is out of date`);
-          else parts.push(`${jump(r, label(r))} is almost out`);
-        }
-        const upcoming = ranked
-          .filter((r) => isLive(r.a))
-          .flatMap((r) => r.a.meters.filter((m) => m.resets > 0 && !m.words).map((m) => ({ r, m })))
-          .sort((x, y) => x.m.resets - y.m.resets)[0];
-        const tail = upcoming ? `Next reset in ${countdown(upcoming.m.resets)}` : "";
-        const head =
-          needs.length === 0
-            ? "Everything has room"
-            : `${needs.length} ${needs.length === 1 ? "account needs" : "accounts need"} attention`;
-        const toneName = needs.some((r) => r.rank <= 1) ? "bad" : needs.length ? "warn" : "good";
-        const line = [...parts, tail]
-          .filter(Boolean)
-          .join('<span class="sep" aria-hidden="true">·</span>');
-        const paused = ranked.filter((r) => r.a.status === "paused").length;
-        const ok = needs.length === 0 && paused === 0 ? "All accounts are fine." : "";
-        return `<span class="g-ico ${toneName === "good" ? "" : toneName}">${needs.length ? icons.alert : icons.check}</span>
-          <div><h1>${head}</h1><p>${line || ok}</p></div>`;
-      }
-      document.getElementById("summary").innerHTML = summary();
+      const all = accounts.map(info);
+      const byUrgency = (list) => [...list].sort((x, y) => x.rank - y.rank || x.room - y.room);
 
       /* ----- Rows ----- */
       function row(r, grouped) {
@@ -137,7 +108,7 @@
         ]
           .filter(Boolean)
           .join(" · ");
-        return `<div class="g-fold g-item" data-id="${a.id}" data-provider="${a.provider}"><div class="g-clip">
+        return `<div class="g-fold g-item" data-id="${a.id}" data-provider="${a.provider}" style="view-transition-name: acct-${a.id}"><div class="g-clip">
           <article class="g-card${open ? " open" : ""}${live ? "" : " dim"}">
             <button class="g-head" type="button" aria-expanded="${open}" aria-controls="d-${a.id}">
               <span class="g-who">${brandMark(a.provider)}<span class="g-titles"><span class="g-name">${esc(a.name)}${plan}</span>${sub ? `<span class="g-sub">${sub}</span>` : ""}</span></span>
@@ -150,27 +121,60 @@
       }
 
       const list = document.getElementById("list");
+      const groupHead = (p, rows) =>
+        `<header class="g-group-head">${brandMark(p.id, 24)}<h2>${esc(p.name)}</h2>${rows.length > 1 ? `<span class="chip count">${rows.length} Accounts</span>` : ""}</header>`;
+      const group = (provider, head, inner, extra = "") =>
+        `<section class="g-fold g-group${extra}" data-provider="${provider}"><div class="g-clip">${head}${inner}</div></section>`;
+
       function build() {
-        if (state.mode === "urgency") {
-          list.innerHTML = ranked.map((r) => row(r, false)).join("");
-        } else {
-          const order = providers
-            .map((p) => ({ p, rows: ranked.filter((r) => r.a.provider === p.id) }))
+        const prefs = getOverviewPrefs();
+        const dormant = (r) => !isLive(r.a);
+        const split = prefs.dormantLast;
+        const tail = split ? byUrgency(all.filter(dormant)) : [];
+        const pool = split ? all.filter((r) => !dormant(r)) : all;
+        let html;
+        if (prefs.order === "provider") {
+          html = prefs.providerOrder
+            .map((id) => ({
+              p: providers.find((x) => x.id === id),
+              rows: byUrgency(pool.filter((r) => r.a.provider === id)),
+            }))
             .filter((g) => g.rows.length)
-            .sort((x, y) => x.rows[0].rank - y.rows[0].rank || x.rows[0].room - y.rows[0].room);
-          list.innerHTML = order
-            .map(
-              ({
-                p,
-                rows,
-              }) => `<section class="g-fold g-group" data-provider="${p.id}"><div class="g-clip">
-              <header class="g-group-head">${brandMark(p.id, 24)}<h2>${esc(p.name)}</h2>${rows.length > 1 ? `<span class="chip count">${rows.length} Accounts</span>` : ""}</header>
-              ${rows.map((r) => row(r, true)).join("")}</div></section>`,
+            .map((g) =>
+              group(g.p.id, groupHead(g.p, g.rows), g.rows.map((r) => row(r, true)).join("")),
             )
             .join("");
+        } else {
+          const rows =
+            prefs.order === "custom"
+              ? customOrder()
+                  .map((id) => pool.find((r) => r.a.id === id))
+                  .filter(Boolean)
+              : byUrgency(pool);
+          html = rows.map((r) => row(r, false)).join("");
         }
-        applyFilter(false);
+        if (tail.length) {
+          html += group(
+            "*",
+            `<header class="g-group-head small"><h2>Paused and Disconnected</h2><span class="chip count">${tail.length} ${tail.length === 1 ? "Account" : "Accounts"}</span></header>`,
+            tail.map((r) => row(r, false)).join(""),
+            " g-dormant",
+          );
+        }
+        list.innerHTML = html;
+        syncMode(prefs.order);
+        applyFilter();
         growBars(list);
+      }
+
+      const modeEl = document.getElementById("mode");
+      modeEl.innerHTML = ORDERS.map(
+        (o) => `<button type="button" data-v="${o.id}" aria-pressed="false">${o.label}</button>`,
+      ).join("");
+      function syncMode(order) {
+        modeEl
+          .querySelectorAll("[data-v]")
+          .forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.v === order)));
       }
 
       function applyFilter() {
@@ -181,15 +185,13 @@
           );
         }
         for (const el of list.querySelectorAll(".g-group")) {
-          el.classList.toggle(
-            "closed",
-            state.filter !== "all" && el.dataset.provider !== state.filter,
+          const any = [...el.querySelectorAll(".g-item")].some(
+            (i) => !i.classList.contains("closed"),
           );
+          el.classList.toggle("closed", !any);
         }
-        for (const el of list.querySelectorAll(".g-fold.closed")) {
-          el.inert = true;
-        }
-        for (const el of list.querySelectorAll(".g-fold:not(.closed)")) el.inert = false;
+        for (const el of list.querySelectorAll(".g-fold"))
+          el.inert = el.classList.contains("closed");
       }
 
       /* ----- Chips ----- */
@@ -217,32 +219,37 @@
       });
 
       /* ----- Segmented toggles ----- */
-      const seg = (id, key, after) => {
-        const el = document.getElementById(id);
-        el.addEventListener("click", (e) => {
-          const b = e.target.closest("[data-v]");
-          if (!b || state[key] === b.dataset.v) return;
-          state[key] = b.dataset.v;
-          el.querySelectorAll("[data-v]").forEach((x) =>
-            x.setAttribute("aria-pressed", String(x === b)),
-          );
-          after();
-        });
-      };
       const swap = (fn) =>
         document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches
           ? document.startViewTransition(fn)
           : fn();
-      seg("mode", "mode", () => swap(build));
-      seg("limits", "view", () => {
+      modeEl.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-v]");
+        if (b && getOverviewPrefs().order !== b.dataset.v) setOverviewPrefs({ order: b.dataset.v });
+      });
+      document.getElementById("limits").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-v]");
+        if (!b || state.view === b.dataset.v) return;
+        state.view = b.dataset.v;
         setLimitsView(state.view);
+        syncLimits();
         build();
       });
-      if (state.view === "used") {
+      function syncLimits() {
         document
           .querySelectorAll("#limits [data-v]")
-          .forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.v === "used")));
+          .forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.v === state.view)));
       }
+      syncLimits();
+
+      /* A change from Settings (or from the order control) rebuilds the list. Behind the open dialog, skip the cross-fade. */
+      window.addEventListener("headroom:settings", (e) => {
+        if (e.detail.keys.includes("limits")) {
+          state.view = getLimitsView();
+          syncLimits();
+        }
+        document.getElementById("g-settings")?.open ? build() : swap(build);
+      });
 
       /* ----- Expand a row inline ----- */
       function toggle(id, force) {
@@ -261,23 +268,6 @@
         const head = e.target.closest(".g-head");
         if (head) toggle(head.closest(".g-item").dataset.id);
       });
-      document.getElementById("summary").addEventListener("click", (e) => {
-        const b = e.target.closest("[data-jump]");
-        if (!b) return;
-        state.filter = "all";
-        chips
-          .querySelectorAll("[data-f]")
-          .forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.f === "all")));
-        applyFilter();
-        toggle(b.dataset.jump, true);
-        list
-          .querySelector(`.g-item[data-id="${b.dataset.jump}"]`)
-          ?.scrollIntoView({
-            behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-            block: "center",
-          });
-      });
-
       build();
     </script>
   </body>

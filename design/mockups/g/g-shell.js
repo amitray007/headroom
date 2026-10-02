@@ -1,8 +1,16 @@
 // Shared shell for the Headroom view mockups: top bar with the view switcher, plus the
 // formatting helpers every view uses. Wording follows the app (apps/web/src/lib/time.ts, tone.ts).
 import { accounts, providers, now } from "./data.js";
+import { mountSettings } from "./g-settings.js";
 
 export { accounts, providers, now };
+export {
+  getOverviewPrefs,
+  setOverviewPrefs,
+  customOrder,
+  openSettings,
+  ORDERS,
+} from "./g-settings.js";
 
 /* ---------- Small helpers ---------- */
 
@@ -128,6 +136,13 @@ export const icons = {
     '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
   ),
   arrow: stroke('<path d="M12 5v14M6 13l6 6 6-6"/>'),
+  seal: stroke(
+    '<path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.78 4.78 4 4 0 0 1-6.74 0 4 4 0 0 1-4.78-4.78 4 4 0 0 1 0-6.74Z"/><path d="m9 12 2 2 4-4"/>',
+  ),
+  sliders: stroke(
+    '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  ),
+  info: stroke('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
   star: stroke(
     '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
   ),
@@ -246,11 +261,10 @@ export function growBars(root = document) {
 /* ---------- Top bar ---------- */
 
 const views = [
+  { id: "detailed", label: "Detailed", href: "../f-panels.html" },
   { id: "overview", label: "Overview", href: "g-glance.html" },
   { id: "compare", label: "Compare", href: "g-compare.html" },
   { id: "timeline", label: "Timeline", href: "g-timeline.html" },
-  { id: "wallet", label: "Wallet", href: "g-wallet.html" },
-  { id: "detailed", label: "Detailed", href: "../f-panels.html" },
 ];
 
 const lockupMark = `<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path d="M22.93 0H41.07C47.673 0 50.974 0 54.528 1.124C58.408 2.536 61.464 5.592 62.876 9.472C64 13.026 64 16.327 64 22.93V41.07C64 47.673 64 50.974 62.876 54.528C61.464 58.408 58.408 61.464 54.528 62.876C50.974 64 47.673 64 41.07 64H22.93C16.327 64 13.026 64 9.472 62.876C5.592 61.464 2.536 58.408 1.124 54.528C0 50.974 0 47.673 0 41.07V22.93C0 16.327 0 13.026 1.124 9.472C2.536 5.592 5.592 2.536 9.472 1.124C13.026 0 16.327 0 22.93 0Z" style="fill:var(--logo-tile)"/><rect x="12" y="16" width="40" height="4" rx="2" style="fill:var(--logo-ceiling)"/><rect x="12" y="28" width="28" height="8" rx="4" style="fill:var(--logo-ink)"/><rect x="12" y="40" width="16" height="8" rx="4" style="fill:var(--logo-ink)"/></svg>`;
@@ -266,7 +280,7 @@ export function attention() {
   });
 }
 
-/** Render the top bar into <header class="top">. `active` is one of overview, compare, timeline, wallet, detailed. */
+/** Render the top bar into <header class="top">. `active` is one of detailed, overview, compare, timeline. */
 export function renderShell({ active }) {
   // Identity lines are blurred like the app's Hide Details; hovering reveals them.
   document.documentElement.dataset.privacy = "";
@@ -274,7 +288,7 @@ export function renderShell({ active }) {
   const n = attention().length;
   host.classList.add("g-top");
   host.innerHTML = `
-    <a class="lockup" href="g-glance.html">${lockupMark}Headroom</a>
+    <a class="lockup" href="../f-panels.html">${lockupMark}Headroom</a>
     <div class="seg g-switch" role="navigation" aria-label="View">
       ${views.map((v) => `<a href="${v.href}"${v.id === active ? ' aria-current="page"' : ""}>${v.label}</a>`).join("")}
     </div>
@@ -282,4 +296,5 @@ export function renderShell({ active }) {
       <span class="menu-anchor"><button class="bell" type="button" aria-label="Notifications, ${n} unread">${icons.bell}<span class="badge num${n === 0 ? " zero" : ""}" aria-hidden="true">${n === 0 ? "" : n}</span></button></span>
       <span class="menu-anchor"><button class="avatar" type="button" aria-label="Account Menu"><img src="avatar.svg" alt="" width="34" height="34" /></button></span>
     </nav>`;
+  mountSettings({ brandMark, getLimitsView, setLimitsView });
 }

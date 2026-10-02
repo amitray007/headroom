@@ -9,301 +9,627 @@
     <link rel="stylesheet" href="g-timeline.css" />
   </head>
   <body>
-    <div class="page wide">
+    <div class="page tl-page">
       <header class="top"></header>
-      <div class="vhead">
-        <div>
-          <h1>Timeline</h1>
-          <p id="lede">When does capacity come back?</p>
-        </div>
+      <div class="tl-head">
+        <h1>Timeline</h1>
+        <p>When does each limit open, and when does it come back?</p>
       </div>
 
-      <section class="tl" aria-labelledby="tl-title">
-        <div class="tl-bar">
-          <h2 id="tl-title" class="sr">Reset Timeline</h2>
-          <div class="seg" role="group" aria-label="Time Range" id="range">
-            <button type="button" data-range="day" aria-pressed="true">Next 24 Hours</button>
-            <button type="button" data-range="week" aria-pressed="false">Next 7 Days</button>
+      <section class="tl" aria-labelledby="tl-range">
+        <div class="tl-tools">
+          <div class="tl-rangebox">
+            <h2 id="tl-range" aria-live="polite"></h2>
+            <p id="tl-sub"></p>
           </div>
-          <div class="legend" aria-label="Legend">
-            <span><i class="key-dot"></i>Plenty Left</span>
-            <span><i class="key-dot warn"></i>Running Low</span>
-            <span><i class="key-dot bad"></i>Almost Out</span>
-            <span><i class="key-diamond"></i>Banked Reset Expires</span>
+          <div class="tl-ctl">
+            <div class="tl-step" role="group" aria-label="Range">
+              <button type="button" id="prev" aria-label="Earlier">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="m15 6-6 6 6 6" />
+                </svg>
+              </button>
+              <button type="button" id="today">Today</button>
+              <button type="button" id="next" aria-label="Later">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </button>
+            </div>
+            <div class="seg" role="group" aria-label="Window Type" id="kinds"></div>
+            <div class="seg" role="group" aria-label="Show Limits As" id="views">
+              <button type="button" data-view="used" aria-pressed="true">Used</button>
+              <button type="button" data-view="left" aria-pressed="false">Left</button>
+            </div>
           </div>
         </div>
-        <div class="tl-body" id="chart"></div>
-        <div class="strips" id="strips"></div>
+
+        <div id="chart" class="tl-chart" aria-label="Quota window timeline"></div>
+        <div id="list" class="tl-list" aria-label="Quota windows by account"></div>
+        <p id="missing" class="tl-missing"></p>
+
+        <div class="tl-legend" aria-label="Legend">
+          <span><i class="tl-lg tl-cur"></i>Current Window</span>
+          <span><i class="tl-lg tl-passed"></i>Time Passed</span>
+          <span><i class="tl-lg tl-next"></i>Next Window</span>
+          <span><i class="tl-lg tl-prev"></i>Earlier</span>
+          <span><i class="tl-lg tl-keybank"></i>Banked Reset Expires</span>
+          <span class="tl-tones"
+            ><i class="tl-dot t-good"></i>Plenty Left <i class="tl-dot t-warn"></i>Running Low
+            <i class="tl-dot t-bad"></i>Almost Out</span
+          >
+        </div>
+        <p class="tl-note">
+          Each bar runs from when a window opened to when it resets. The strip inside it shows how
+          much is <span id="strip-word">used</span>.
+        </p>
       </section>
 
-      <section class="next" aria-labelledby="next-title">
+      <section class="tl-upnext" aria-labelledby="next-title">
         <h2 id="next-title">Up Next</h2>
-        <ul class="next-list" id="next"></ul>
+        <ul id="upnext"></ul>
       </section>
     </div>
 
     <script type="module">
-      import { providers, accounts, now, at } from "./data.js";
       import * as shell from "./g-shell.js";
+      import {
+        now,
+        D,
+        H,
+        KINDS,
+        kindOf,
+        limitName,
+        wd,
+        hhmm,
+        shortDay,
+        when,
+        startOfDay,
+        lanesFor,
+        missingFor,
+      } from "./g-timeline-data.js";
 
       shell.renderShell({ active: "timeline" });
-
-      /* Local helpers (fallbacks when the shell lacks one). */
-      const { brandMark, statusPill } = shell;
+      const { providers, brandMark, statusPill, countdown, ago, tone, display, esc, isLive } =
+        shell;
+      const MIN = 60_000;
+      const providerName = (id) => providers.find((p) => p.id === id)?.name ?? id;
       const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
-      const duration = (m) => {
-        m = Math.max(0, Math.round(m));
-        if (m < 60) return `${m} min`;
-        if (m < 1440) {
-          const h = Math.floor(m / 60),
-            r = m % 60;
-          return r ? `${h} h ${r} min` : `${h} h`;
+      const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+      /* Used or Left: the app setting when set, Used by default in this mockup. */
+      const VIEW_KEY = "headroom.limitsView";
+      const savedView = () => {
+        try {
+          return localStorage.getItem(VIEW_KEY) === "left" ? "left" : "used";
+        } catch {
+          return "used";
         }
-        const d = Math.floor(m / 1440),
-          h = Math.round((m % 1440) / 60);
-        return h ? `${plural(d, "day")} ${h} h` : plural(d, "day");
       };
-      const exact = (m) =>
-        new Date(at(m)).toLocaleString("en-US", {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        });
-      const toneOf = (used) => shell.tone(used) ?? "good";
-      const TONE_WORD = { good: "Plenty Left", warn: "Running Low", bad: "Almost Out" };
-      const ICON = {
-        good: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg>',
-        warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.01"/></svg>',
-        bad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.2v.01"/></svg>',
-        off: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5v5M14.5 9.5v5"/></svg>',
-      };
-      const STATUS_WORD = {
-        paused: "Paused",
-        disconnected: "Disconnected",
-        failed: "Failed",
-        stale: "Stale",
-      };
-      const esc = (s) =>
-        String(s).replace(
-          /[&<>"]/g,
-          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
-        );
-      const providerName = Object.fromEntries(providers.map((p) => [p.id, p.name]));
 
-      const isCycle = (m) => m.words || /monthly|billing/.test(m.window);
-      const meterName = (m) => (isCycle(m) ? "Cycle Ends" : m.label);
-      const meterFull = (m) => `${m.label} · ${m.window}`;
+      const AXES = {
+        weekly: {
+          span: 14 * D,
+          cols: 14,
+          step: 7 * D,
+          base: () => startOfDay(now) - 7 * D,
+          size: "14 Days",
+          stepWord: "Week",
+        },
+        "5h": {
+          span: 24 * H,
+          cols: 12,
+          step: D,
+          base: () => startOfDay(now) + 6 * H,
+          size: "24 Hours",
+          stepWord: "Day",
+        },
+        cycle: {
+          span: 70 * D,
+          cols: 10,
+          step: 28 * D,
+          base: () => startOfDay(now) - 28 * D,
+          size: "10 Weeks",
+          stepWord: "4 Weeks",
+        },
+      };
 
-      /* Events per account. Meters that reset together share one marker. */
-      function eventsFor(a) {
+      const state = { kind: "weekly", step: 0, view: savedView() };
+
+      /* ---------- Popover content, kept out of the markup ---------- */
+      const tips = new Map();
+      let tipN = 0;
+      const tip = (t) => {
+        const id = `t${tipN++}`;
+        tips.set(id, t);
+        return id;
+      };
+      const tipLabel = (id) => {
+        const t = tips.get(id);
+        return [t.title, t.when, ...t.lines.map((l) => l.text)].filter(Boolean).join(". ");
+      };
+      const tipHTML = (t) =>
+        `<strong>${esc(t.title)}</strong>${t.when ? `<span class="tl-when">${esc(t.when)}</span>` : ""}${t.lines
+          .map(
+            (l) =>
+              `<span class="tl-line"${l.tone ? ` data-tone="${l.tone}"` : ""}>${l.tone ? "<i></i>" : ""}${esc(l.text)}</span>`,
+          )
+          .join("")}`;
+
+      /* ---------- Labels ---------- */
+      const resetShort = (kind, t) =>
+        kind === "weekly" ? `${wd(t)} ${hhmm(t)}` : kind === "5h" ? hhmm(t) : shortDay(t);
+      const inFuture = (t) => `${countdown((t - now) / MIN)}`;
+      const shown = (used) => display(used, state.view);
+      const viewWord = () => (state.view === "used" ? "Used" : "Left");
+
+      /* ---------- One window bar ---------- */
+      function winHTML({ cls, box, t, text, tipId, elapsed = 0, strip = null }) {
+        const cut = `${box.cutL ? " tl-cut-l" : ""}${box.cutR ? " tl-cut-r" : ""}`;
+        return `<button type="button" class="tl-win ${cls}${t ? ` t-${t}` : ""}${cut}" style="left:${box.left}%;width:${box.width}%" data-tip="${tipId}" aria-label="${esc(tipLabel(tipId))}">${
+          elapsed > 0 ? `<span class="tl-el" style="width:${elapsed}%"></span>` : ""
+        }<span class="tl-txt">${esc(text)}</span>${
+          strip !== null ? `<span class="tl-strip"><i style="width:${strip}%"></i></span>` : ""
+        }</button>`;
+      }
+
+      /** Bars and ticks for one lane. `place(s, e)` maps a span to the visible box, or null. */
+      function laneParts(lane, place, pos) {
+        const { account, kind } = lane;
+        const K = KINDS[kind];
+        const name = `${providerName(account.provider)} · ${account.name}`;
         const out = [];
-        const byTime = new Map();
-        for (const m of a.meters) {
-          if (m.resets == null) continue;
-          if (!byTime.has(m.resets)) byTime.set(m.resets, []);
-          byTime.get(m.resets).push(m);
+        const stale = isLive(account) ? [] : [{ text: `Numbers from ${ago(account.refreshed)}` }];
+
+        if (lane.prev && kind !== "5h") {
+          const box = place(lane.prev.start, lane.prev.end);
+          if (box)
+            out.push(
+              winHTML({
+                cls: "tl-prev",
+                box,
+                text: `Ended ${shortDay(lane.prev.end)}`,
+                tipId: tip({
+                  title: `${name} · ${K.label}`,
+                  when: `Earlier window · ended ${when(lane.prev.end)}`,
+                  lines: [
+                    { text: `Opened ${when(lane.prev.start)}` },
+                    { text: "Worked out from the window length" },
+                  ],
+                }),
+              }),
+            );
         }
-        for (const [t, ms] of byTime) {
-          const worst = Math.max(...ms.map((m) => m.used ?? 0));
-          const names = [...new Set(ms.map(meterName))];
-          out.push({
-            id: `${a.id}-r${t}`,
-            acct: a,
-            t,
-            kind: "reset",
-            tone: toneOf(worst),
-            label: names.length > 1 ? names[0] : names[0],
-            text: `${names[0]} ${names[0] === "Cycle Ends" ? "" : "Resets"}`.trim(),
-            lines: ms.map((m) => ({
-              text: `${meterFull(m)} · ${m.used}% used`,
-              tone: toneOf(m.used),
-            })),
-          });
-        }
-        if (a.banked) {
-          a.banked.expiries.forEach((t, i) =>
-            out.push({
-              id: `${a.id}-b${i}`,
-              acct: a,
+
+        const cur = place(lane.start, lane.end);
+        if (cur && lane.notStarted) {
+          out.push(
+            winHTML({
+              cls: "tl-idle",
+              box: cur,
+              text: "Not Started",
+              tipId: tip({
+                title: `${name} · ${K.label}`,
+                when: "Not Started",
+                lines: [{ text: "Opens when you next use it" }, ...stale],
+              }),
+            }),
+          );
+        } else if (cur) {
+          const t = lane.used === null ? null : tone(lane.used);
+          const d = lane.used === null ? null : shown(lane.used);
+          const el = clamp((now - cur.vs) / (cur.ve - cur.vs), 0, 1) * 100;
+          const passed = clamp((now - lane.start) / (lane.end - lane.start), 0, 1);
+          out.push(
+            winHTML({
+              cls: "tl-cur",
+              box: cur,
               t,
-              kind: "bank",
-              tone: "good",
-              label: a.banked.label.replace("Reset ", "") + " Expires",
-              text: `${a.banked.label} Expires`,
-              lines: [{ text: `1 of ${a.banked.count} banked`, tone: null }],
+              elapsed: el,
+              strip: d ? clamp(d.fill, 0, 100) : null,
+              text: `${d ? `${d.text}% ${viewWord()}` : "Not Reported"} · ${resetShort(kind, lane.end)}`,
+              tipId: tip({
+                title: `${name} · ${K.label}`,
+                when: `Resets in ${inFuture(lane.end)} · ${when(lane.end)}`,
+                lines: [
+                  ...lane.meters.map((m) => {
+                    const md = m.used === null ? null : shown(m.used);
+                    return {
+                      text: `${md ? `${md.text}% ${viewWord()}` : "Not reported"} · ${m.window === K.label ? m.label : `${m.label} ${m.window}`}`,
+                      tone: m.used === null ? null : tone(m.used),
+                    };
+                  }),
+                  { text: `Opened ${when(lane.start)}` },
+                  { text: `${Math.round(passed * 100)}% of the window has passed` },
+                  ...stale,
+                ],
+              }),
             }),
           );
         }
-        return out.sort((x, y) => x.t - y.t);
+
+        if (lane.next) {
+          const box = place(lane.next.start, lane.next.end);
+          if (box)
+            out.push(
+              winHTML({
+                cls: "tl-next",
+                box,
+                text: kind === "5h" ? "Starts On Next Use" : `Next · ${shortDay(lane.next.end)}`,
+                tipId: tip({
+                  title: `${name} · ${K.label}`,
+                  when: `Next window · ${kind === "5h" ? "starts on next use" : `opens ${when(lane.next.start)}`}`,
+                  lines: [
+                    ...(kind === "5h" ? [] : [{ text: `Resets ${when(lane.next.end)}` }]),
+                    { text: "Opens when this one resets" },
+                  ],
+                }),
+              }),
+            );
+        }
+
+        for (const b of lane.banks) {
+          const x = pos(b.t);
+          if (x === null) continue;
+          const id = tip({
+            title: `${name} · ${b.label} Expires`,
+            when: `Expires in ${inFuture(b.t)} · ${when(b.t)}`,
+            lines: [{ text: `${b.i + 1} of ${b.count} banked` }],
+          });
+          out.push(
+            `<button type="button" class="tl-tick" style="left:${x}%" data-tip="${id}" aria-label="${esc(tipLabel(id))}"><i></i></button>`,
+          );
+        }
+        return out.join("");
       }
-      const events = accounts.map((a) => ({ a, ev: eventsFor(a) }));
 
-      const limitName = (m) =>
-        m.label === "Weekly"
-          ? m.window === "all models" || m.window === "7 days"
-            ? "Weekly"
-            : `${m.window} Weekly`
-          : m.label;
-      function tightest(a) {
-        const ms = a.meters.filter((m) => m.used != null);
-        if (!ms.length) return null;
-        return ms.reduce((w, m) => (m.used > w.used ? m : w));
-      }
-
-      const RANGES = {
-        day: {
-          min: 1440,
-          ticks: [0, 4, 8, 12, 16, 20, 24].map((h) => h * 60),
-          lede: "When does capacity come back? The next 24 hours.",
-        },
-        week: {
-          min: 10080,
-          ticks: [0, 1, 2, 3, 4, 5, 6, 7].map((d) => d * 1440),
-          lede: "When does capacity come back? The next 7 days.",
-        },
-      };
-      const tickLabel = (m, range) => {
-        if (m === 0) return "Now";
-        const d = new Date(at(m));
-        return range === "day"
-          ? d.toLocaleTimeString("en-US", { hour: "numeric" })
-          : d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
-      };
-
-      function laneHtml(a, evs, range) {
-        const R = RANGES[range];
-        const off = a.status !== "active";
-        const tg = tightest(a);
-        const tone = tg ? toneOf(tg.used) : null;
-        let tightHtml;
-        if (off) tightHtml = "";
-        else if (tg) {
-          tightHtml = `<span class="tight ${tone}">${ICON[tone]}<span><strong>${100 - tg.used}% Left</strong> · ${esc(limitName(tg))}</span></span>`;
-        } else if (a.meters.some((m) => m.notStarted)) {
-          tightHtml = `<span class="tight off">${ICON.off}<span>Session Not Started</span></span>`;
-        } else tightHtml = `<span class="tight off">${ICON.off}<span>Balance Only</span></span>`;
-        const stateHtml = off ? `<span class="state">${statusPill(a.status)}</span>` : "";
-        const inRange = evs.filter((e) => e.t <= R.min);
-        const later = evs.filter((e) => e.t > R.min);
-        const mks = inRange
-          .map((e, i) => {
-            const pct = (e.t / R.min) * 100;
-            const flip = pct > 72;
-            const lines = e.lines
-              .map(
-                (l) =>
-                  `<span class="line ${l.tone ?? ""}">${l.tone ? "<i></i>" : ""}${esc(l.text)}</span>`,
-              )
-              .join("");
-            return `<button type="button" class="mk ${e.kind} ${e.tone} ${flip ? "flip" : ""}" style="--x:${pct}%;--i:${i}" data-ev="${e.id}" aria-label="${esc(`${providerName[a.provider]} ${a.name}: ${e.text}, in ${duration(e.t)}, ${exact(e.t)}`)}">
-              <span class="pt"></span><span class="tx">${esc(e.label)}</span>
-              <span class="pop" role="tooltip"><strong>${esc(e.text)}</strong><span class="when">In ${duration(e.t)} · ${exact(e.t)}</span>${lines}</span></button>`;
+      /* ---------- Left column: name, plan, identity, limit chips ---------- */
+      function whoHTML(lane) {
+        const a = lane.account;
+        const chips = a.meters
+          .map((m) => {
+            const on = kindOf(m) === lane.kind;
+            const d = m.used === null ? null : shown(m.used);
+            const t = m.used === null ? "" : tone(m.used);
+            return `<span class="tl-chip${on ? " tl-on" : ""}">${t ? `<i class="tl-dot t-${t}"></i>` : ""}${esc(limitName(m))} <b>${d ? `${d.text}%` : m.notStarted ? "Not Started" : "—"}</b></span>`;
           })
           .join("");
-        const note = !inRange.length
-          ? `<span class="no-events">${evs.length ? `Nothing in this range. Next in ${duration(evs[0].t)}.` : "Nothing scheduled."}</span>`
-          : later.length
-            ? `<span class="later" title="${esc(later.map((e) => `${e.text}: ${exact(e.t)}`).join("\n"))}">${later.length} Later</span>`
-            : "";
-        return `<div class="lane ${off ? "off" : ""}">
-          <div class="lw"><b>${esc(a.name)}<span class="plan">${a.plan ? esc(a.plan) : ""}</span></b>${tightHtml}${stateHtml}</div>
-          <div class="track">${mks}${note}</div></div>`;
+        return `<div class="tl-who-cell">
+          <div class="tl-id"><span class="tl-nm">${esc(a.name)}${a.plan ? `<span class="tl-plan"> · ${esc(a.plan)}</span>` : ""}</span>${a.status === "active" ? "" : statusPill(a.status)}</div>
+          ${a.identity ? `<div class="who tl-ident">${esc(a.identity)}</div>` : ""}
+          <div class="tl-chips">${chips}</div>
+        </div>`;
       }
 
-      function render(range) {
-        const R = RANGES[range];
-        document.getElementById("lede").textContent = R.lede;
-        const ticks = R.ticks
-          .map((m) => `<span style="left:${(m / R.min) * 100}%">${tickLabel(m, range)}</span>`)
-          .join("");
-        const grid =
-          R.ticks.map((m) => `<i style="left:${(m / R.min) * 100}%"></i>`).join("") +
-          `<i class="now" style="left:0"></i>`;
-        let html = `<div class="tl-axis"><div></div><div class="ticks">${ticks}</div></div><div class="grid-overlay" aria-hidden="true">${grid}</div>`;
+      const groupHTML = (p, n) =>
+        `<div class="tl-grp">${brandMark(p.id)}<b>${esc(p.name)}</b><span>${plural(n, "Account")}</span></div>`;
+
+      /* ---------- Desktop grid ---------- */
+      function chartHTML(lanes, ax) {
+        const base = ax.base;
+        const end = base + ax.span;
+        const pos = (t) => (t < base || t > end ? null : ((t - base) / ax.span) * 100);
+        const place = (s, e) => {
+          const vs = Math.max(s, base);
+          const ve = Math.min(e, end);
+          if (ve <= vs) return null;
+          return {
+            left: ((vs - base) / ax.span) * 100,
+            width: ((ve - vs) / ax.span) * 100,
+            cutL: s < base,
+            cutR: e > end,
+            vs,
+            ve,
+          };
+        };
+        const colLen = ax.span / ax.cols;
+        const cols = Array.from({ length: ax.cols }, (_, i) => {
+          const t = base + i * colLen;
+          const isNow = now >= t && now < t + colLen;
+          let top;
+          let bottom;
+          if (state.kind === "weekly") {
+            top = wd(t);
+            bottom = shortDay(t);
+          } else if (state.kind === "5h") {
+            const midnight = new Date(t).getHours() === 0;
+            top = i === 0 || midnight ? `${wd(t)} ${new Date(t).getDate()}` : "";
+            bottom = hhmm(t);
+          } else {
+            top = "Week of";
+            bottom = shortDay(t);
+          }
+          return `<div class="tl-col${isNow ? " tl-today" : ""}"><span>${top}</span><b>${bottom}</b></div>`;
+        }).join("");
+
+        const nowX = pos(now);
+        const colNow = Math.floor((now - base) / colLen);
+        let rows = "";
+        let i = 0;
         for (const p of providers) {
-          const rows = events.filter((x) => x.a.provider === p.id);
-          if (!rows.length) continue;
-          html += `<div class="group-head">${brandMark(p.id)}<span>${esc(p.name)}</span><span class="count">${plural(rows.length, "account")}</span></div>`;
-          html += rows.map((x) => laneHtml(x.a, x.ev, range)).join("");
+          const ls = lanes.filter((l) => l.account.provider === p.id);
+          if (ls.length === 0) continue;
+          rows += groupHTML(p, ls.length);
+          for (const lane of ls) {
+            const dim = !isLive(lane.account);
+            rows += `<div class="tl-row${dim ? " tl-dim" : ""}" style="--i:${i++}">${whoHTML(lane)}<div class="tl-track"><div class="tl-bars">${laneParts(lane, place, pos)}</div></div></div>`;
+          }
         }
-        document.getElementById("chart").innerHTML = html;
-        document
-          .querySelectorAll("#range button")
-          .forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.range === range)));
-        wireHighlight();
+        return `<div class="tl-hrow"><div class="tl-corner">Account<span>Limits · ${viewWord()}</span></div><div class="tl-cols">${cols}</div></div>
+          ${rows}
+          <div class="tl-plot" aria-hidden="true">${
+            colNow >= 0 && colNow < ax.cols
+              ? `<span class="tl-todaycol" style="left:${(colNow / ax.cols) * 100}%;width:${100 / ax.cols}%"></span>`
+              : ""
+          }${nowX === null ? "" : `<span class="tl-nowline" style="left:${nowX}%"><b>Now</b></span>`}</div>`;
       }
 
-      /* Up Next */
-      const all = events.flatMap((x) => x.ev).sort((a, b) => a.t - b.t);
-      function nextHtml() {
-        const groups = [
-          ["Next 24 Hours", (e) => e.t <= 1440],
-          ["Later This Week", (e) => e.t > 1440 && e.t <= 10080],
-          ["Beyond 7 Days", (e) => e.t > 10080],
-        ];
-        let html = "";
-        for (const [title, f] of groups) {
-          const rows = all.filter(f);
-          if (!rows.length) continue;
-          html += `<li class="sec" role="presentation">${title}</li>`;
-          html += rows
-            .map((e) => {
-              const a = e.acct;
-              const off = a.status !== "active";
-              return `<li class="ev ${off ? "off" : ""}" data-ev="${e.id}">
-                <span class="in"><small>In</small>${duration(e.t)}</span>
-                <span class="kind ${e.kind === "bank" ? "diamond" : `dot ${e.tone}`}" aria-hidden="true"></span>
-                <span class="what">${brandMark(a.provider)}<span><strong style="font-weight:500">${esc(providerName[a.provider])} ${esc(a.name)}</strong> <span class="acct">${esc(e.text)}</span></span>${off ? statusPill(a.status) : ""}</span>
-                <span class="exact">${exact(e.t)}</span></li>`;
-            })
-            .join("");
+      /* ---------- Phone list: one mini timeline per account ---------- */
+      function listHTML(lanes) {
+        let out = "";
+        let i = 0;
+        for (const p of providers) {
+          const ls = lanes.filter((l) => l.account.provider === p.id);
+          if (ls.length === 0) continue;
+          out += groupHTML(p, ls.length);
+          for (const lane of ls) {
+            const base = lane.start;
+            const span = lane.notStarted ? lane.len : lane.len * 2;
+            const end = base + span;
+            const pos = (t) => (t < base || t > end ? null : ((t - base) / span) * 100);
+            const place = (s, e) => {
+              const vs = Math.max(s, base);
+              const ve = Math.min(e, end);
+              if (ve <= vs) return null;
+              return {
+                left: ((vs - base) / span) * 100,
+                width: ((ve - vs) / span) * 100,
+                cutL: false,
+                cutR: false,
+                vs,
+                ve,
+              };
+            };
+            const nx = lane.notStarted ? null : pos(now);
+            const dim = !isLive(lane.account);
+            const reset = lane.notStarted
+              ? "Not Started · Opens when you next use it"
+              : `Resets in ${inFuture(lane.end)} · ${when(lane.end)}`;
+            out += `<div class="tl-mrow${dim ? " tl-dim" : ""}" style="--i:${i++}">
+              ${whoHTML(lane)}
+              <div class="tl-mini"><div class="tl-bars">${laneParts(lane, place, pos)}</div></div>
+              <p class="tl-mcap">${esc(reset)}</p>
+            </div>`;
+          }
         }
-        return html;
-      }
-      document.getElementById("next").innerHTML = nextHtml();
-
-      /* Phone strips: a thin 7-day line per account. */
-      document.getElementById("strips").innerHTML = accounts
-        .map((a) => {
-          const evs = eventsFor(a);
-          const off = a.status !== "active";
-          const tg = tightest(a);
-          const tone = tg ? toneOf(tg.used) : null;
-          const dots = evs
-            .filter((e) => e.t <= 10080)
-            .map(
-              (e) =>
-                `<i class="${e.kind === "bank" ? "bank" : e.tone}" style="--x:${(e.t / 10080) * 100}%"></i>`,
-            )
-            .join("");
-          const first = evs[0];
-          const status = off
-            ? statusPill(a.status)
-            : tg
-              ? `<span class="tight ${tone}">${ICON[tone]}<strong>${100 - tg.used}% Left</strong></span>`
-              : `<span class="tight off">${ICON.off}${a.meters.some((m) => m.notStarted) ? "Not Started" : "Balance Only"}</span>`;
-          return `<div class="strip ${off ? "off" : ""}"><div class="row"><b>${brandMark(a.provider)}${esc(providerName[a.provider])} ${esc(a.name)}</b>${status}</div>
-            <div class="mini" aria-hidden="true">${dots}</div>
-            <div class="nextline">${first ? `Next: ${esc(first.text)} in ${duration(first.t)}` : "Nothing scheduled"}</div></div>`;
-        })
-        .join("");
-
-      /* Hover a list row to light up its marker. */
-      function wireHighlight() {
-        document.querySelectorAll(".ev").forEach((row) => {
-          const set = (on) =>
-            document.querySelector(`.mk[data-ev="${row.dataset.ev}"]`)?.classList.toggle("hl", on);
-          row.onmouseenter = () => set(true);
-          row.onmouseleave = () => set(false);
-        });
+        return out;
       }
 
-      document
-        .querySelectorAll("#range button")
-        .forEach((b) => b.addEventListener("click", () => render(b.dataset.range)));
-      render("day");
+      /* ---------- Up Next ---------- */
+      function nextHTML() {
+        const items = [];
+        for (const kind of Object.keys(KINDS)) {
+          for (const lane of lanesFor(kind)) {
+            if (!lane.notStarted)
+              items.push({
+                t: lane.end,
+                a: lane.account,
+                text:
+                  kind === "cycle"
+                    ? "Cycle Ends"
+                    : kind === "5h"
+                      ? "5-Hour Window Resets"
+                      : "Weekly Window Resets",
+              });
+            for (const b of lane.banks)
+              items.push({ t: b.t, a: lane.account, text: `${b.label} Expires`, bank: true });
+          }
+        }
+        return items
+          .sort((x, y) => x.t - y.t)
+          .slice(0, 6)
+          .map(
+            (e) =>
+              `<li class="${isLive(e.a) ? "" : "tl-dim"}">${brandMark(e.a.provider)}<span class="tl-what"><b>${esc(providerName(e.a.provider))} · ${esc(e.a.name)}</b><span>${esc(e.text)}</span></span><span class="tl-when">${e.bank ? '<i class="tl-lg tl-keybank" aria-hidden="true"></i>' : ""}<b>In ${countdown((e.t - now) / MIN)}</b><span>${when(e.t)}</span></span></li>`,
+          )
+          .join("");
+      }
+
+      /* ---------- Render ---------- */
+      const $ = (id) => document.getElementById(id);
+      const chart = $("chart");
+      const list = $("list");
+      const reduce = matchMedia("(prefers-reduced-motion: reduce)");
+      let firstRender = true;
+
+      function setAnim(cls) {
+        if (reduce.matches) return;
+        for (const el of [chart, list]) {
+          el.classList.remove("slide-next", "slide-prev", "swap");
+          void el.offsetWidth;
+          el.classList.add(cls);
+        }
+        clearTimeout(setAnim.t);
+        setAnim.t = setTimeout(() => {
+          for (const el of [chart, list]) el.classList.remove("slide-next", "slide-prev", "swap");
+        }, 700);
+      }
+
+      function render(anim) {
+        hideTip();
+        tips.clear();
+        tipN = 0;
+        const ax = { ...AXES[state.kind] };
+        ax.base = ax.base() + state.step * ax.step;
+        const lanes = lanesFor(state.kind);
+        chart.innerHTML = chartHTML(lanes, ax);
+        list.innerHTML = listHTML(lanes);
+        chart.style.setProperty("--cols", ax.cols);
+
+        $("tl-range").textContent = `${shortDay(ax.base)} – ${shortDay(ax.base + ax.span - 1)}`;
+        $("tl-sub").textContent = `${ax.size} · ${
+          state.step === 0 ? "Current" : state.step < 0 ? "Earlier" : "Later"
+        }`;
+        $("prev").setAttribute("aria-label", `Earlier, ${ax.stepWord}`);
+        $("next").setAttribute("aria-label", `Later, ${ax.stepWord}`);
+        $("today").setAttribute("aria-disabled", String(state.step === 0));
+        $("kinds").innerHTML = Object.entries(KINDS)
+          .map(
+            ([k, v]) =>
+              `<button type="button" data-kind="${k}" aria-pressed="${k === state.kind}">${v.label}</button>`,
+          )
+          .join("");
+        for (const b of $("views").children)
+          b.setAttribute("aria-pressed", String(b.dataset.view === state.view));
+        $("strip-word").textContent = state.view === "used" ? "used" : "left";
+        const miss = missingFor(state.kind);
+        $("missing").textContent = miss.length
+          ? `Not Shown: ${
+              miss.length <= 3
+                ? miss.map((a) => `${providerName(a.provider)} · ${a.name}`).join(", ")
+                : plural(miss.length, "account")
+            } ${miss.length === 1 ? "has" : "have"} no ${KINDS[state.kind].label} window.`
+          : "";
+
+        if (anim) setAnim(anim);
+        if (firstRender) {
+          firstRender = false;
+          if (!reduce.matches) {
+            chart.classList.add("intro");
+            list.classList.add("intro");
+            setTimeout(() => {
+              chart.classList.remove("intro");
+              list.classList.remove("intro");
+            }, 1400);
+          }
+        }
+      }
+
+      /* ---------- Controls ---------- */
+      $("prev").addEventListener("click", () => {
+        state.step -= 1;
+        render("slide-prev");
+      });
+      $("next").addEventListener("click", () => {
+        state.step += 1;
+        render("slide-next");
+      });
+      $("today").addEventListener("click", () => {
+        if (state.step === 0) return;
+        const dir = state.step < 0 ? "slide-next" : "slide-prev";
+        state.step = 0;
+        render(dir);
+      });
+      $("kinds").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-kind]");
+        if (!b || b.dataset.kind === state.kind) return;
+        state.kind = b.dataset.kind;
+        state.step = 0;
+        render("swap");
+        $("kinds").querySelector(`[data-kind="${state.kind}"]`)?.focus({ preventScroll: true });
+      });
+      $("views").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-view]");
+        if (!b || b.dataset.view === state.view) return;
+        state.view = b.dataset.view;
+        shell.setLimitsView(state.view);
+        render();
+      });
+
+      /* ---------- Popover (one shared element, placed in the viewport) ---------- */
+      const pop = document.createElement("div");
+      pop.className = "tl-pop";
+      pop.id = "tl-pop";
+      pop.setAttribute("role", "tooltip");
+      document.body.append(pop);
+      let tipEl = null;
+
+      function placeTip(x) {
+        if (!tipEl) return;
+        const r = tipEl.getBoundingClientRect();
+        const w = pop.offsetWidth;
+        const h = pop.offsetHeight;
+        const cx = clamp(x ?? r.left + r.width / 2, r.left, r.right);
+        const left = clamp(cx - w / 2, 8, innerWidth - w - 8);
+        let top = r.top - h - 8;
+        let below = false;
+        if (top < 8) {
+          top = r.bottom + 8;
+          below = true;
+        }
+        pop.style.left = `${left}px`;
+        pop.style.top = `${top}px`;
+        pop.classList.toggle("tl-below", below);
+      }
+      function showTip(el, x) {
+        const t = tips.get(el.dataset.tip);
+        if (!t) return;
+        if (tipEl && tipEl !== el) tipEl.removeAttribute("aria-describedby");
+        tipEl = el;
+        pop.innerHTML = tipHTML(t);
+        el.setAttribute("aria-describedby", "tl-pop");
+        pop.classList.add("tl-on");
+        placeTip(x);
+      }
+      function hideTip() {
+        tipEl?.removeAttribute("aria-describedby");
+        tipEl = null;
+        pop.classList.remove("tl-on");
+      }
+      const tipTarget = (e) =>
+        e.target instanceof Element ? e.target.closest("[data-tip]") : null;
+      document.addEventListener("pointerover", (e) => {
+        if (e.pointerType === "touch") return;
+        const el = tipTarget(e);
+        if (el) showTip(el, e.clientX);
+      });
+      document.addEventListener("pointermove", (e) => {
+        if (e.pointerType !== "touch" && tipEl && tipEl === tipTarget(e)) placeTip(e.clientX);
+      });
+      document.addEventListener("pointerout", (e) => {
+        if (e.pointerType === "touch") return;
+        const el = tipTarget(e);
+        if (el && el === tipEl && !el.contains(e.relatedTarget) && document.activeElement !== el)
+          hideTip();
+      });
+      document.addEventListener("focusin", (e) => {
+        const el = tipTarget(e);
+        if (el && el.matches(":focus-visible")) showTip(el);
+      });
+      document.addEventListener("focusout", (e) => {
+        if (tipTarget(e) === tipEl) hideTip();
+      });
+      document.addEventListener("click", (e) => {
+        const el = tipTarget(e);
+        if (el) showTip(el);
+        else hideTip();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") hideTip();
+      });
+      addEventListener("scroll", hideTip, { passive: true });
+      addEventListener("resize", hideTip);
+
+      render();
+      $("upnext").innerHTML = nextHTML();
     </script>
   </body>
 </html>
