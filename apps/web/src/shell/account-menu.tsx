@@ -1,10 +1,13 @@
 import { authClient } from "../auth.ts";
 import { Avatar, EyeIcon, GearIcon, SignOutIcon, UserIcon } from "../icons.tsx";
 import { useDevicePrefs } from "../lib/device-prefs.ts";
-import { Menu, MenuBlock, MenuItem, MenuSwitch, MenuWho } from "../ui/menu.tsx";
+import { Menu, MenuBlock, MenuItem, MenuSeparator, MenuSwitch, MenuWho } from "../ui/menu.tsx";
 import { Segmented } from "../ui/segmented.tsx";
 
-/** The avatar menu: who is signed in, appearance, Hide Details, Settings, Account and Sign Out. */
+/**
+ * The avatar menu, laid out as Arc's user menu: a header with the face and who is signed in, then groups of rows
+ * (appearance and Hide Details; Settings and Account; Sign Out) with hairlines between them.
+ */
 export function AccountMenu(props: {
   readonly name: string;
   readonly onSettings: () => void;
@@ -13,7 +16,7 @@ export function AccountMenu(props: {
   const prefs = useDevicePrefs();
   return (
     <Menu label="Account Menu" trigger={<Avatar />} triggerClassName="avatar">
-      <MenuWho lead="Signed in as" name={props.name} />
+      <MenuWho lead="Signed in as" name={props.name} face={<Avatar />} />
       <MenuBlock>
         <Segmented
           full
@@ -34,12 +37,14 @@ export function AccountMenu(props: {
       >
         Hide Details
       </MenuSwitch>
+      <MenuSeparator />
       <MenuItem icon={<GearIcon />} onSelect={props.onSettings}>
         Settings
       </MenuItem>
       <MenuItem icon={<UserIcon />} onSelect={props.onAccount}>
         Account
       </MenuItem>
+      <MenuSeparator />
       <MenuItem icon={<SignOutIcon />} danger onSelect={() => void authClient.signOut()}>
         Sign Out
       </MenuItem>

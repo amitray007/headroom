@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { api } from "../api.ts";
 import { CheckIcon, PauseIcon, PlayIcon, RetryIcon } from "../icons.tsx";
+import { ActionButton } from "../ui/action-button.tsx";
 import { Button } from "../ui/button.tsx";
 import { Spinner } from "../ui/spinner.tsx";
 
@@ -9,7 +10,6 @@ const resultMs = 1600;
 const askMs = 6000;
 const doneMs = 700;
 
-type RefreshPhase = "idle" | "busy" | "done" | "failed";
 type DisconnectPhase = "closed" | "asking" | "working" | "done" | "failed";
 
 function wait(ms: number): Promise<void> {
@@ -28,8 +28,6 @@ export function PanelActions(props: {
   readonly onDisconnected: () => void;
 }) {
   const { id, paused, signedIn, onChanged, onDisconnected } = props;
-  const [refresh, setRefresh] = useState<RefreshPhase>("idle");
-  const [pausing, setPausing] = useState(false);
   const [disconnect, setDisconnect] = useState<DisconnectPhase>("closed");
   const root = useRef<HTMLSpanElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
@@ -49,32 +47,21 @@ export function PanelActions(props: {
     return () => clearTimeout(timer);
   }, [disconnect]);
 
+  /** A refresh is a read-only collection. The overview reloads either way, so the panel shows what happened. */
   const runRefresh = async (): Promise<void> => {
-    if (refresh !== "idle") return;
-    setRefresh("busy");
-    let next: RefreshPhase = "done";
+    let failure: unknown = null;
     try {
       await api.refresh(id);
-    } catch {
-      next = "failed";
+    } catch (cause) {
+      failure = cause;
     }
     await onChanged();
-    if (!alive()) return;
-    setRefresh(next);
-    await wait(resultMs);
-    if (alive()) setRefresh("idle");
+    if (failure !== null) throw failure;
   };
 
   const runPause = async (): Promise<void> => {
-    if (pausing) return;
-    setPausing(true);
-    try {
-      await api.pause(id, !paused);
-      await onChanged();
-    } catch {
-      // The panel keeps its state; the next poll shows the truth.
-    }
-    if (alive()) setPausing(false);
+    await api.pause(id, !paused);
+    await onChanged();
   };
 
   const runDisconnect = async (): Promise<void> => {
@@ -107,34 +94,30 @@ export function PanelActions(props: {
     }
   };
 
-  const refreshLabel =
-    refresh === "done" ? "Refreshed" : refresh === "failed" ? "Could Not Refresh" : "Refresh";
-  const refreshIcon = refresh === "idle" ? <RetryIcon /> : undefined;
-
   return (
     <span className="acts" ref={root}>
       {signedIn ? (
         <>
-          <Button
+          <ActionButton
             variant="quiet"
             size="sm"
             icon={paused ? <PlayIcon /> : <PauseIcon />}
-            disabled={pausing}
-            onClick={() => void runPause()}
-          >
-            {paused ? "Resume" : "Pause"}
-          </Button>
-          <Button
+            label={paused ? "Resume" : "Pause"}
+            pendingLabel={paused ? "Resuming" : "Pausing"}
+            successLabel={paused ? "Paused" : "Resumed"}
+            failedLabel="Failed"
+            onAction={runPause}
+          />
+          <ActionButton
             variant="quiet"
             size="sm"
-            icon={refreshIcon}
-            busy={refresh === "busy"}
-            busyLabel="Refreshing"
-            disabled={refresh !== "idle"}
-            onClick={() => void runRefresh()}
-          >
-            {refreshLabel}
-          </Button>
+            icon={<RetryIcon />}
+            label="Refresh"
+            pendingLabel="Refreshing"
+            successLabel="Refreshed"
+            failedLabel="Failed"
+            onAction={runRefresh}
+          />
         </>
       ) : null}
       {disconnect === "closed" ? (

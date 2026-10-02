@@ -12,6 +12,8 @@ import "./styles/base.css";
 import "./styles/components.css";
 import "./dashboard/dashboard.css";
 import "./styles/states.css";
+import "./styles/buttons.css";
+import "./styles/controls.css";
 
 // Appearance, Hide Details and density are on the page before the first render, so nothing flashes.
 applyStoredPrefs(document.documentElement, browserStorage());

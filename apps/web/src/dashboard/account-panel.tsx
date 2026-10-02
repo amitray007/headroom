@@ -1,12 +1,13 @@
 import { useId, type ReactNode } from "react";
 
 import { api, type OverviewConnection } from "../api.ts";
-import { AlertIcon, ClockIcon, PauseIcon, RetryIcon } from "../icons.tsx";
+import { AlertIcon, ClockIcon, PauseIcon, PlayIcon, RetryIcon } from "../icons.tsx";
 import { accountName, planLabel, providerName, refreshFailed, statusOf } from "../lib/labels.ts";
 import { presentPanel } from "../lib/present.ts";
 import { useSettings } from "../lib/settings.tsx";
 import { When } from "../lib/when.tsx";
-import { Button, ButtonLink } from "../ui/button.tsx";
+import { ActionButton } from "../ui/action-button.tsx";
+import { ButtonLink } from "../ui/button.tsx";
 import { cx } from "../ui/cx.ts";
 import { HoldButton } from "../ui/hold-button.tsx";
 import { HealthyStatus, StatusPill, StatusSlot, type StatusKind } from "../ui/pill.tsx";
@@ -101,9 +102,15 @@ export function AccountPanel(props: {
         tone="neutral"
         icon={<PauseIcon />}
         action={
-          <Button size="sm" onClick={() => void resume().catch(() => undefined)}>
-            Resume
-          </Button>
+          <ActionButton
+            size="sm"
+            icon={<PlayIcon />}
+            label="Resume"
+            pendingLabel="Resuming"
+            successLabel="Resumed"
+            failedLabel="Failed"
+            onAction={resume}
+          />
         }
       >
         Paused. Headroom is not refreshing this account.

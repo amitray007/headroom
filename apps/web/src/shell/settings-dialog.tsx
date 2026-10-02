@@ -41,7 +41,7 @@ function ChoiceRow<T extends string>(props: {
 }) {
   const waiting = useContext(WaitingContext);
   return (
-    <div className="srow choice">
+    <div className="srow srow-choice">
       <Body title={props.title} note={props.note} />
       {waiting ? (
         <span className="sk-segs" aria-hidden="true">

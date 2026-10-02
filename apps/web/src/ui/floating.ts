@@ -9,8 +9,7 @@ import {
   type RefObject,
 } from "react";
 
-const gap = 8;
-const edge = 8;
+const edge = 10;
 
 /** The layer that is open now. Opening another layer closes it, so only one is ever open. */
 let closeCurrent: (() => void) | null = null;
@@ -29,9 +28,9 @@ export interface FloatingLayer {
 /**
  * State for a panel in the browser's top layer (native Popover API), placed from its trigger: right-aligned,
  * below it, flipped above when there is no room. It closes on outside press, Escape (focus returns to the
- * trigger), page scroll and resize.
+ * trigger), page scroll and resize. `gap` is the space between trigger and panel in pixels.
  */
-export function useFloatingLayer(): {
+export function useFloatingLayer(gap: number): {
   readonly layer: FloatingLayer;
   readonly triggerRef: RefObject<HTMLButtonElement | null>;
   readonly panelRef: RefObject<HTMLDivElement | null>;
@@ -73,7 +72,7 @@ export function useFloatingLayer(): {
       top: below ? rect.bottom + gap : Math.max(edge, rect.top - gap - height),
       left: Math.max(edge, Math.min(rect.right - width, window.innerWidth - width - edge)),
     });
-  }, [open]);
+  }, [open, gap]);
 
   useEffect(() => {
     if (state === "closed-focus") triggerRef.current?.focus();

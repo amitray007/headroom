@@ -2,41 +2,11 @@ import { useId, useState, type FormEvent, type ReactNode } from "react";
 
 import type { AuthMethod, NextStepPayload, SubmitInput } from "@headroom/core/contracts";
 
-import { CheckIcon, CopyIcon, ExternalIcon } from "../icons.tsx";
+import { ExternalIcon } from "../icons.tsx";
 import { Button, ButtonLink } from "../ui/button.tsx";
+import { CopyButton } from "../ui/copy-button.tsx";
 import { Spinner } from "../ui/spinner.tsx";
 import { acceptsLabel, acceptsPlaceholder, pasteInputKind, type Accepts } from "./steps.ts";
-
-/** A button that copies `text`, then shows a check for a moment. */
-function CopyButton(props: {
-  readonly text: string;
-  readonly label: string;
-  readonly sm?: boolean;
-}) {
-  const [copied, setCopied] = useState(false);
-  const copy = async (): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(props.text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    } catch {
-      setCopied(false);
-    }
-  };
-  const icon = copied ? <CheckIcon /> : <CopyIcon />;
-  if (props.sm === true) {
-    return (
-      <Button size="sm" aria-label={props.label} onClick={() => void copy()}>
-        {icon}
-      </Button>
-    );
-  }
-  return (
-    <Button icon={icon} onClick={() => void copy()}>
-      {copied ? "Copied" : props.label}
-    </Button>
-  );
-}
 
 function OpenLink(props: {
   readonly url: string;
@@ -303,7 +273,7 @@ export function SignInStage(props: StageProps) {
             <OpenLink url={step.url}>
               {method === "approval_poll" ? "Open the Approval Page" : `Open ${provider} Sign-In`}
             </OpenLink>
-            <CopyButton text={step.url} label="Copy Link" />
+            <CopyButton value={step.url} label="Copy Link" />
             <CancelButton onCancel={props.onCancel} />
           </div>
         </div>
@@ -318,7 +288,7 @@ export function SignInStage(props: StageProps) {
           <div className="row">
             <span className="code">
               {step.userCode}
-              <CopyButton text={step.userCode} label="Copy Code" sm />
+              <CopyButton value={step.userCode} label="Copy Code" size="sm" iconOnly />
             </span>
             <OpenLink url={step.verificationUrl}>{`Open ${provider} Sign-In`}</OpenLink>
             <CancelButton onCancel={props.onCancel} />

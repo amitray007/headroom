@@ -551,97 +551,8 @@ time.when {
   }
 }
 
-/* Buttons: 36px, 14/500, press scales .97 in 120ms and releases on the spring. */
-.btn {
-  font: 500 var(--text-base) / 20px var(--font);
-  letter-spacing: -0.005em;
-  color: var(--foreground);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  height: 36px;
-  padding: 0 16px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  white-space: nowrap;
-  transition:
-    scale var(--dur-spring) var(--ease-spring),
-    background-color var(--dur-fast) var(--ease-standard),
-    border-color var(--dur-fast) var(--ease-standard),
-    opacity var(--dur-fast) var(--ease-standard);
-}
-.btn svg {
-  width: 16px;
-  height: 16px;
-}
-.btn:active:not(:disabled) {
-  scale: 0.97;
-  transition-duration: var(--dur-instant);
-}
-.btn:disabled {
-  opacity: 0.52;
-  cursor: not-allowed;
-}
-.btn.primary {
-  background: var(--foreground);
-  color: var(--background);
-  border-color: var(--foreground);
-}
-.btn.primary svg {
-  color: var(--background);
-}
-.btn.quiet {
-  background: transparent;
-  border-color: transparent;
-  color: var(--text-secondary);
-  padding: 0 12px;
-}
-.btn.danger {
-  color: var(--danger);
-}
-.btn.sm {
-  height: 30px;
-  padding: 0 12px;
-  font-size: var(--text-sm);
-  border-radius: 15px;
-}
-.btn .label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: opacity var(--dur-instant) var(--ease-standard);
-}
-.btn .label.fading {
-  opacity: 0;
-}
-.btn .label .spin {
-  width: 12px;
-  height: 12px;
-}
-.btn[aria-busy="true"] {
-  opacity: 1;
-  color: var(--text-secondary);
-}
+/* Buttons live in buttons.css. Top-bar links keep their hover here. */
 @media (hover: hover) and (pointer: fine) {
-  .btn:hover:not(:disabled) {
-    background: var(--surface-muted);
-    border-color: var(--border-strong);
-  }
-  .btn.primary:hover:not(:disabled) {
-    background: var(--foreground);
-    border-color: var(--foreground);
-    opacity: 0.9;
-  }
-  .btn.quiet:hover:not(:disabled) {
-    color: var(--foreground);
-    border-color: transparent;
-  }
-  .btn.danger:hover:not(:disabled) {
-    border-color: color-mix(in oklab, var(--danger) 32%, var(--border));
-    background: color-mix(in oklab, var(--danger) 6%, var(--surface));
-  }
   .top nav a:hover {
     color: var(--foreground);
     background: var(--surface-muted);
@@ -860,13 +771,6 @@ time.when {
     translate: 0 -4px;
   }
 }
-@keyframes menu-in-up {
-  from {
-    opacity: 0;
-    scale: 0.97;
-    translate: 0 4px;
-  }
-}
 @keyframes item-in {
   from {
     opacity: 0;
@@ -901,10 +805,6 @@ time.when {
   height: 34px;
   display: block;
 }
-.avatar:active {
-  scale: 0.96;
-  transition-duration: var(--dur-instant);
-}
 .menu-anchor {
   position: relative;
   /* A block-level box, so the line height of the surrounding text cannot make the avatar taller than the bell. */
@@ -929,32 +829,8 @@ time.when {
   border-radius: 16px;
   padding: 6px;
 }
-.menu:popover-open {
-  display: block;
-  animation: menu-in var(--dur-fast) var(--ease-enter) backwards;
-}
 .menu.above {
   transform-origin: bottom right;
-}
-.menu.above:popover-open {
-  animation-name: menu-in-up;
-}
-.menu .who {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding: 10px;
-  font-size: var(--text-base);
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--border-subtle);
-  margin-bottom: 6px;
-}
-.menu .who b {
-  display: inline;
-  color: var(--foreground);
-  font-weight: 500;
-  font-size: var(--text-base);
 }
 .menu .item {
   display: flex;
@@ -991,15 +867,6 @@ time.when {
 .rowmenu .menu .item svg {
   width: 15px;
   height: 15px;
-}
-.menu .item:focus-visible {
-  outline: none;
-  background: var(--surface-muted);
-}
-@media (hover: hover) and (pointer: fine) {
-  .menu .item:hover {
-    background: var(--surface-muted);
-  }
 }
 
 /* Segmented control. .full spreads the options across the width of its container. */
@@ -1074,7 +941,6 @@ time.when {
   position: absolute;
   inset: 0;
   border-radius: 999px;
-  background: color-mix(in oklab, var(--foreground) 14%, var(--surface));
   transition: background-color var(--dur-fast) var(--ease-standard);
 }
 .switch .thumb {
@@ -1088,20 +954,10 @@ time.when {
   box-shadow:
     0 0 0 0.5px oklch(0% 0 0 / 0.07),
     0 1px 2px oklch(0% 0 0 / 0.14);
-  transition:
-    translate var(--dur-spring) var(--ease-spring),
-    background-color var(--dur-fast) var(--ease-standard);
-}
-.switch input:checked + .track {
-  background: var(--foreground);
 }
 .switch input:checked + .track .thumb {
   translate: 18px 0;
   background: var(--background);
-}
-.switch input:focus-visible + .track {
-  outline: 2px solid var(--border-strong);
-  outline-offset: 2px;
 }
 
 /* Notification center: bell with a count, floating panel, staggered rows. */
@@ -1172,15 +1028,8 @@ time.when {
   overflow: auto;
   border-radius: 20px;
 }
-.notif:popover-open {
-  display: block;
-  animation: menu-in var(--dur-standard) var(--ease-enter) backwards;
-}
 .notif.above {
   transform-origin: bottom right;
-}
-.notif:focus-visible {
-  outline: none;
 }
 .nhead {
   display: flex;
@@ -1491,11 +1340,7 @@ label.srow {
 .tip {
   position: absolute;
   left: 50%;
-  bottom: calc(100% + 8px);
-  translate: -50% 4px;
   min-width: 220px;
-  padding: 10px 12px;
-  border-radius: 12px;
   background: var(--surface-raised);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-floating);
@@ -1506,10 +1351,6 @@ label.srow {
   white-space: nowrap;
   opacity: 0;
   visibility: hidden;
-  transition:
-    opacity var(--dur-fast) var(--ease-standard),
-    translate var(--dur-fast) var(--ease-standard),
-    visibility 0s linear var(--dur-fast);
   z-index: 5;
 }
 .tip b {
@@ -1521,7 +1362,6 @@ label.srow {
   opacity: 1;
   visibility: visible;
   translate: -50% 0;
-  transition-delay: 0s;
 }
 
 /* Connect page */
@@ -2166,32 +2006,26 @@ html[data-density="compact"] .accounts .tname {
   height: 56px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .btn:active:not(:disabled) {
-    scale: 1;
-  }
-}
-
 /* Phones: a choice row puts its segmented control under the text at full width, so the note keeps a
    readable measure. Switch rows stay on one line. */
 @media (max-width: 560px) {
-  .srow.choice {
+  .srow-choice {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
   }
-  .srow.choice .seg,
-  .srow.choice .sk-segs {
+  .srow-choice .seg,
+  .srow-choice .sk-segs {
     display: grid;
     grid-auto-flow: column;
     grid-auto-columns: minmax(0, 1fr);
     width: 100%;
   }
-  .srow.choice .seg button {
+  .srow-choice .seg button {
     padding: 0 6px;
   }
   /* Placeholder segments size from inline widths on desktop; here they share the row equally. */
-  .srow.choice .sk-segs > .sk {
+  .srow-choice .sk-segs > .sk {
     width: auto !important;
   }
 }

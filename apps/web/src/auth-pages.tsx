@@ -8,6 +8,8 @@ import { AlertIcon, FingerprintIcon } from "./icons.tsx";
 import { Button } from "./ui/button.tsx";
 import { EmptyState } from "./ui/empty-state.tsx";
 import { Lockup } from "./ui/lockup.tsx";
+import { PasswordField } from "./ui/password-field.tsx";
+import { PasswordStrength } from "./ui/password-strength.tsx";
 import { LoadingNote, Sk } from "./ui/skeleton.tsx";
 
 /** Signing in changes the session; the app then shows the dashboard at the root. */
@@ -96,7 +98,6 @@ function Field(props: {
   readonly type?: string;
   readonly autoComplete: string;
   readonly minLength?: number;
-  readonly hint?: string;
 }) {
   const id = useId();
   return (
@@ -108,14 +109,8 @@ function Field(props: {
         type={props.type ?? "text"}
         autoComplete={props.autoComplete}
         minLength={props.minLength}
-        aria-describedby={props.hint === undefined ? undefined : `${id}-hint`}
         required
       />
-      {props.hint === undefined ? null : (
-        <span id={`${id}-hint`} className="muted hint">
-          {props.hint}
-        </span>
-      )}
     </div>
   );
 }
@@ -131,6 +126,7 @@ function ErrorLine(props: { readonly message: string | null }) {
 function SetupForm(props: { readonly minPassword: number; readonly minUsername: number }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [password, setPassword] = useState("");
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -168,13 +164,15 @@ function SetupForm(props: { readonly minPassword: number; readonly minUsername: 
           autoComplete="username"
           minLength={props.minUsername}
         />
-        <Field
+        <PasswordStrength
           name="password"
           label="Password"
-          type="password"
           autoComplete="new-password"
+          minimum={props.minPassword}
           minLength={props.minPassword}
-          hint={`At least ${props.minPassword} characters.`}
+          value={password}
+          onChange={(event) => setPassword(event.currentTarget.value)}
+          required
         />
         <ErrorLine message={error} />
         <Button type="submit" variant="primary" busy={busy} busyLabel="Creating Account">
@@ -226,7 +224,7 @@ function SignInForm() {
     <AuthFrame title="Sign In">
       <form className="auth-form" onSubmit={(event) => void submit(event)}>
         <Field name="username" label="Username" autoComplete="username webauthn" />
-        <Field name="password" label="Password" type="password" autoComplete="current-password" />
+        <PasswordField name="password" label="Password" autoComplete="current-password" required />
         <ErrorLine message={error} />
         <Button
           type="submit"

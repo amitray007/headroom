@@ -9,6 +9,8 @@ import { Button } from "../ui/button.tsx";
 import { Dialog } from "../ui/dialog.tsx";
 import { EmptyState } from "../ui/empty-state.tsx";
 import { ErrorNotice } from "../ui/error-notice.tsx";
+import { PasswordField } from "../ui/password-field.tsx";
+import { PasswordStrength } from "../ui/password-strength.tsx";
 import { LoadingNote, Sk } from "../ui/skeleton.tsx";
 
 const resultMs = 1600;
@@ -19,11 +21,21 @@ interface Failure {
   readonly status?: number | undefined;
 }
 
-function passwordError(error: Failure, minimum: number): string {
-  if (error.code === "INVALID_PASSWORD") return "Your current password is wrong.";
-  if (error.code === "PASSWORD_TOO_SHORT") return `Use at least ${minimum} characters.`;
-  if (error.status === 429) return "Too many attempts. Wait a minute and try again.";
-  return "Could not change the password. Try again.";
+/** Which field a failed password change belongs to, with plain words. Anything else shows under the form. */
+function passwordError(
+  error: Failure,
+  minimum: number,
+): { readonly field: "current" | "next" | "form"; readonly message: string } {
+  if (error.code === "INVALID_PASSWORD") {
+    return { field: "current", message: "Your current password is wrong." };
+  }
+  if (error.code === "PASSWORD_TOO_SHORT") {
+    return { field: "next", message: `Use at least ${minimum} characters.` };
+  }
+  if (error.status === 429) {
+    return { field: "form", message: "Too many attempts. Wait a minute and try again." };
+  }
+  return { field: "form", message: "Could not change the password. Try again." };
 }
 
 function wait(ms: number): Promise<void> {
@@ -147,27 +159,30 @@ function Passkeys() {
 function Password() {
   const setup = useLoad(() => api.setup(), "setup");
   const minimum = setup.data?.minimumPasswordLength ?? fallbackMinimum;
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
   const [busy, setBusy] = useState(false);
   const [changed, setChanged] = useState(false);
+  const [currentError, setCurrentError] = useState<string | undefined>(undefined);
+  const [nextError, setNextError] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    const text = (name: string): string => {
-      const value = data.get(name);
-      return typeof value === "string" ? value : "";
-    };
     setBusy(true);
     setError(null);
+    setCurrentError(undefined);
+    setNextError(undefined);
     try {
       const result = await authClient.changePassword({
-        currentPassword: text("current"),
-        newPassword: text("next"),
+        currentPassword: current,
+        newPassword: next,
       });
       if (result.error) {
-        setError(passwordError(result.error, minimum));
+        const failure = passwordError(result.error, minimum);
+        if (failure.field === "current") setCurrentError(failure.message);
+        else if (failure.field === "next") setNextError(failure.message);
+        else setError(failure.message);
         setBusy(false);
         return;
       }
@@ -176,7 +191,8 @@ function Password() {
       setBusy(false);
       return;
     }
-    form.reset();
+    setCurrent("");
+    setNext("");
     setBusy(false);
     setChanged(true);
     await wait(resultMs);
@@ -189,30 +205,32 @@ function Password() {
         <h3>Password</h3>
       </div>
       <form className="pform" onSubmit={(event) => void submit(event)}>
-        <div className="field">
-          <label htmlFor="pw-current">Current Password</label>
-          <input
-            id="pw-current"
-            name="current"
-            type="password"
-            autoComplete="current-password"
-            required
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="pw-new">New Password</label>
-          <input
-            id="pw-new"
-            name="next"
-            type="password"
-            autoComplete="new-password"
-            minLength={minimum}
-            required
-          />
-          <span className="muted" style={{ fontSize: 12 }}>
-            {`At least ${minimum} characters.`}
-          </span>
-        </div>
+        <PasswordField
+          label="Current Password"
+          name="current"
+          autoComplete="current-password"
+          value={current}
+          error={currentError}
+          onChange={(event) => {
+            setCurrent(event.currentTarget.value);
+            setCurrentError(undefined);
+          }}
+          required
+        />
+        <PasswordStrength
+          label="New Password"
+          name="next"
+          autoComplete="new-password"
+          minimum={minimum}
+          minLength={minimum}
+          value={next}
+          error={nextError}
+          onChange={(event) => {
+            setNext(event.currentTarget.value);
+            setNextError(undefined);
+          }}
+          required
+        />
         {error === null ? null : (
           <p className="form-error" role="alert">
             {error}
