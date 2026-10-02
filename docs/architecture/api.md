@@ -50,7 +50,9 @@ The response carries no provider account id or workspace id. The detail route is
 | `detailedOrder` | `urgency`, `provider`, `custom` (how the Detailed view sorts by default; provider and custom orders come from the saved display order, `PUT /api/order`, not from settings) | `urgency` |
 | `keepInactiveLast` | boolean (the Detailed view keeps paused and disconnected accounts at the bottom) | true |
 | `accountActions` | boolean | false |
-| `notifications` | `runningLow`, `expiringResets`, `refreshFailures`, all boolean | all true |
+| `notifications` | An object, see below | see below |
+
+`notifications` keys: `runningLow`, `expiringResets`, `refreshFailures`, `balances`, `spend` and `includeSessions` are boolean and default true. `resetLeadDays` is 1, 3 or 7 and defaults to 3 (how many days before a banked reset expires the notice appears). `mutedProviders` is a list of provider names and defaults to empty; it silences every notice for those providers except a broken sign-in. An invalid or missing key takes its default. See [Notifications](notifications.md).
 
 `PUT /api/order` takes `{ providers, accounts }`: `providers` is a list of provider names and `accounts` maps a provider to a list of connection ids. It needs a session and returns `400 invalid_body` for a duplicate or unknown provider, or a connection id that is duplicated, unknown or on another provider. Partial input is allowed: providers not listed follow the listed ones in default order, and connections not listed follow the listed ones within their provider. All writes happen in one transaction, so a rejected request changes nothing. The response is the full effective order, `{ providers, accounts }`, with `accounts` holding every provider that has connections. A new connection has no position and lands last in its provider; reconnect and disconnect leave the other positions alone.
 

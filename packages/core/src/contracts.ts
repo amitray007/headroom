@@ -12,3 +12,4 @@ export {
   type ClassifiedError,
 } from "./connector.ts";
 export type { AttemptView } from "./services/connect.ts";
+export { notificationEventSchema, type NotificationEvent } from "./notification-event.ts";

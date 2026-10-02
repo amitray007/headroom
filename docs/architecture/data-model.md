@@ -38,6 +38,9 @@ This is a logical schema for implementation planning. No database or migrations 
 | `sync_runs.outcome` | `succeeded`, `partial`, `rate_limited`, `provider_unavailable`, `authentication_failed`, `invalid_response`, `interrupted` |
 | `account_actions.state` | `requested`, `submitted`, `succeeded`, `failed`, `uncertain` |
 | `account_actions.action` | `consume_reset_credit` |
+| `notification.kind` | `almost_out`, `running_low`, `reset_expiring`, `balance_low`, `spend_near_cap`, `spend_cap_reached`, `extra_usage_started`, `refresh_failed`, `disconnected` |
+| `notification.tone` | `bad`, `warn`, `info` |
+| `notification.amount.unit` | `USD`, `codex_credits`, `grok_credits`, `gateway_credits`, `credits` |
 
 ## Identity
 

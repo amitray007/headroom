@@ -1,6 +1,10 @@
 import { createContext, useContext, useId, useState, type ReactNode } from "react";
 
+import type { Provider } from "@headroom/core/contracts";
+
 import type { Settings } from "../api.ts";
+import { BrandMark } from "../icons.tsx";
+import { providerName } from "../lib/labels.ts";
 import { useSettings } from "../lib/settings.tsx";
 import type { SettingsPatch } from "../lib/settings-store.ts";
 import { Dialog } from "../ui/dialog.tsx";
@@ -27,11 +31,19 @@ function Section(props: { readonly title?: string; readonly children: ReactNode 
   );
 }
 
-function Body(props: { readonly title: string; readonly note: string }) {
+function Body(props: {
+  readonly title: string;
+  readonly note: string;
+  /** A provider whose brand mark leads the title. */
+  readonly mark?: Provider | undefined;
+}) {
   return (
     <span className="sbody">
-      <b>{props.title}</b>
-      <span className="muted">{props.note}</span>
+      <b>
+        {props.mark === undefined ? null : <BrandMark provider={props.mark} />}
+        {props.title}
+      </b>
+      {props.note === "" ? null : <span className="muted">{props.note}</span>}
     </span>
   );
 }
@@ -96,6 +108,7 @@ function NumberRow<T extends number>(props: {
 function SwitchRow(props: {
   readonly title: string;
   readonly note: string;
+  readonly mark?: Provider | undefined;
   readonly checked: boolean;
   readonly disabled?: boolean;
   readonly onChange: (checked: boolean) => void;
@@ -104,7 +117,7 @@ function SwitchRow(props: {
   if (waiting) {
     return (
       <div className="srow">
-        <Body title={props.title} note={props.note} />
+        <Body title={props.title} note={props.note} mark={props.mark} />
         <Sk width={42} height={24} className="sk-pill sk-control" />
       </div>
     );
@@ -112,7 +125,7 @@ function SwitchRow(props: {
   return (
     // oxlint-disable-next-line jsx-a11y/label-has-associated-control -- the Switch component renders the input
     <label className="srow">
-      <Body title={props.title} note={props.note} />
+      <Body title={props.title} note={props.note} mark={props.mark} />
       <Switch
         checked={props.checked}
         disabled={props.disabled === true}
@@ -203,31 +216,90 @@ function General(props: { readonly change: (patch: SettingsPatch) => void }) {
   );
 }
 
-function Notifications(props: { readonly change: (patch: SettingsPatch) => void }) {
+const leadDays = [1, 3, 7] as const;
+
+function Notifications(props: {
+  readonly change: (patch: SettingsPatch) => void;
+  readonly providers: readonly Provider[];
+}) {
   const { settings } = useSettings();
-  const notify = (key: keyof Settings["notifications"]) => (checked: boolean) =>
-    props.change({ notifications: { [key]: checked } });
+  const on = settings.notifications;
+  const notify =
+    (key: Exclude<keyof Settings["notifications"], "resetLeadDays" | "mutedProviders">) =>
+    (checked: boolean) =>
+      props.change({ notifications: { [key]: checked } });
+  const mute = (provider: Provider) => (shown: boolean) =>
+    props.change({
+      notifications: {
+        mutedProviders: shown
+          ? on.mutedProviders.filter((name) => name !== provider)
+          : [...on.mutedProviders, provider],
+      },
+    });
   return (
-    <Section>
-      <SwitchRow
-        title="Running Low"
-        note="When an account is running low."
-        checked={settings.notifications.runningLow}
-        onChange={notify("runningLow")}
-      />
-      <SwitchRow
-        title="Expiring Resets"
-        note="Before a saved Codex reset expires."
-        checked={settings.notifications.expiringResets}
-        onChange={notify("expiringResets")}
-      />
-      <SwitchRow
-        title="Refresh Failures"
-        note="When an account stops updating."
-        checked={settings.notifications.refreshFailures}
-        onChange={notify("refreshFailures")}
-      />
-    </Section>
+    <>
+      <Section title="Types">
+        <SwitchRow
+          title="Running Low"
+          note="When a limit is running low."
+          checked={on.runningLow}
+          onChange={notify("runningLow")}
+        />
+        <SwitchRow
+          title="Expiring Resets"
+          note="Before a saved reset expires."
+          checked={on.expiringResets}
+          onChange={notify("expiringResets")}
+        />
+        <NumberRow
+          title="Reset Warning"
+          note="How early to warn before a saved reset expires."
+          value={on.resetLeadDays}
+          values={leadDays}
+          format={(value) => `${value} ${value === 1 ? "Day" : "Days"}`}
+          onChange={(resetLeadDays) => props.change({ notifications: { resetLeadDays } })}
+        />
+        <SwitchRow
+          title="Balances"
+          note="When prepaid credits are running low."
+          checked={on.balances}
+          onChange={notify("balances")}
+        />
+        <SwitchRow
+          title="Spend"
+          note="When extra spend nears or hits its cap."
+          checked={on.spend}
+          onChange={notify("spend")}
+        />
+        <SwitchRow
+          title="Refresh Failures"
+          note="When an account stops updating."
+          checked={on.refreshFailures}
+          onChange={notify("refreshFailures")}
+        />
+      </Section>
+      <Section title="Limits">
+        <SwitchRow
+          title="Include 5-Hour Sessions"
+          note="Off keeps weekly and monthly limits only."
+          checked={on.includeSessions}
+          onChange={notify("includeSessions")}
+        />
+      </Section>
+      <Section title="Providers">
+        {props.providers.map((provider) => (
+          <SwitchRow
+            key={provider}
+            title={providerName(provider)}
+            mark={provider}
+            note=""
+            checked={!on.mutedProviders.includes(provider)}
+            onChange={mute(provider)}
+          />
+        ))}
+        <p className="muted snote">Sign-in problems are always shown.</p>
+      </Section>
+    </>
   );
 }
 
@@ -246,7 +318,12 @@ function AccountActions(props: { readonly change: (patch: SettingsPatch) => void
 }
 
 /** The owner's preferences, in tabs. Every change applies at once and is saved by the settings store. */
-export function SettingsDialog(props: { readonly open: boolean; readonly onClose: () => void }) {
+export function SettingsDialog(props: {
+  readonly open: boolean;
+  /** Providers with a connected account, in the saved order. */
+  readonly providers: readonly Provider[];
+  readonly onClose: () => void;
+}) {
   const store = useSettings();
   const { loaded, loadFailed } = store;
   const [retrying, setRetrying] = useState(false);
@@ -304,7 +381,9 @@ export function SettingsDialog(props: { readonly open: boolean; readonly onClose
             )}
             <SlideSwap swapKey={tab} direction={direction}>
               {tab === "general" ? <General change={change} /> : null}
-              {tab === "notifications" ? <Notifications change={change} /> : null}
+              {tab === "notifications" ? (
+                <Notifications change={change} providers={props.providers} />
+              ) : null}
             </SlideSwap>
           </div>
         </WaitingContext>

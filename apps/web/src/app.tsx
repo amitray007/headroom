@@ -16,6 +16,7 @@ import { ComparePage } from "./views/compare/page.tsx";
 import { DetailedPage } from "./views/detailed/page.tsx";
 import { TimelinePage } from "./views/timeline/page.tsx";
 import { SettingsProvider } from "./lib/settings.tsx";
+import { groupByProvider } from "./lib/labels.ts";
 import { useNotifications } from "./lib/use-notifications.ts";
 import { useRoute, viewOf } from "./router.ts";
 import { BootFrame } from "./shell/boot.tsx";
@@ -37,13 +38,16 @@ function SignedIn(props: { readonly name: string }) {
   const overview = useOverview();
   const notifications = useNotifications(overview.connections, overview.failed);
   const view = viewOf(route);
+  const providers = groupByProvider(overview.connections ?? [], overview.providerOrder).map(
+    (group) => group.provider,
+  );
   // This device reopens on the view it used last.
   useEffect(() => {
     const storage = browserStorage();
     if (storage !== null && view !== null) saveView(storage, view);
   }, [view]);
   return (
-    <Shell view={view} name={props.name} notifications={notifications}>
+    <Shell view={view} name={props.name} notifications={notifications} providers={providers}>
       {route.page === "connect" ? <ConnectPage onOrdered={overview.applyOrder} /> : null}
       {route.page === "reconnect" ? (
         <ConnectPage key={route.id} reconnectId={route.id} onOrdered={overview.applyOrder} />

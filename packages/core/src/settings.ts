@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { type Db, schema } from "./db/index.ts";
+import { providerSchema } from "./enums.ts";
 
 /**
  * Owner preferences kept on the server so every browser agrees. One row, because Headroom has
@@ -13,6 +14,7 @@ const refreshIntervalOptions = [5, 10, 15, 30] as const;
 
 const refreshIntervalMinutes = z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(30)]);
 const lowThresholdPercent = z.union([z.literal(30), z.literal(20), z.literal(15)]);
+const resetLeadDays = z.union([z.literal(1), z.literal(3), z.literal(7)]);
 
 export const settingsSchema = z.object({
   limitsView: z.enum(["used", "left"]),
@@ -32,6 +34,16 @@ export const settingsSchema = z.object({
     runningLow: z.boolean(),
     expiringResets: z.boolean(),
     refreshFailures: z.boolean(),
+    /** Vercel AI Gateway credits running low. */
+    balances: z.boolean(),
+    /** Spend near or at its cap. */
+    spend: z.boolean(),
+    /** Limits on 5-hour session windows raise notices. Weekly and other windows always can. */
+    includeSessions: z.boolean(),
+    /** How many days before a banked reset expires the notice appears. */
+    resetLeadDays,
+    /** Providers whose notices are silenced. A broken sign-in is still shown. */
+    mutedProviders: z.array(providerSchema),
   }),
 });
 export type Settings = z.infer<typeof settingsSchema>;
@@ -59,7 +71,16 @@ export function defaultSettings(refreshIntervalSeconds: number): Settings {
     detailedOrder: "urgency",
     keepInactiveLast: true,
     accountActions: false,
-    notifications: { runningLow: true, expiringResets: true, refreshFailures: true },
+    notifications: {
+      runningLow: true,
+      expiringResets: true,
+      refreshFailures: true,
+      balances: true,
+      spend: true,
+      includeSessions: true,
+      resetLeadDays: 3,
+      mutedProviders: [],
+    },
   };
 }
 
@@ -74,6 +95,7 @@ export function mergeSettings(stored: unknown, defaults: Settings): Settings {
   const saved = isRecord(source["notifications"]) ? source["notifications"] : {};
   const shape = settingsSchema.shape;
   const flag = shape.accountActions;
+  const notify = shape.notifications.shape;
   return {
     limitsView: valid(shape.limitsView, source["limitsView"], defaults.limitsView),
     lowThresholdPercent: valid(
@@ -99,6 +121,23 @@ export function mergeSettings(stored: unknown, defaults: Settings): Settings {
         flag,
         saved["refreshFailures"],
         defaults.notifications.refreshFailures,
+      ),
+      balances: valid(flag, saved["balances"], defaults.notifications.balances),
+      spend: valid(flag, saved["spend"], defaults.notifications.spend),
+      includeSessions: valid(
+        flag,
+        saved["includeSessions"],
+        defaults.notifications.includeSessions,
+      ),
+      resetLeadDays: valid(
+        notify.resetLeadDays,
+        saved["resetLeadDays"],
+        defaults.notifications.resetLeadDays,
+      ),
+      mutedProviders: valid(
+        notify.mutedProviders,
+        saved["mutedProviders"],
+        defaults.notifications.mutedProviders,
       ),
     },
   };

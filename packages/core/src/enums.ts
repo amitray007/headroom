@@ -179,3 +179,33 @@ export const errorCategoryClass: Readonly<Record<ErrorCategory, FailureClass>> =
   provider_unavailable: "transient",
   internal_error: "transient",
 };
+
+/** What a notification is about. See docs/architecture/notifications.md. */
+export const notificationKinds = [
+  "almost_out",
+  "running_low",
+  "reset_expiring",
+  "balance_low",
+  "spend_near_cap",
+  "spend_cap_reached",
+  "extra_usage_started",
+  "refresh_failed",
+  "disconnected",
+] as const;
+export const notificationKindSchema = z.enum(notificationKinds);
+export type NotificationKind = z.infer<typeof notificationKindSchema>;
+
+export const notificationTones = ["bad", "warn", "info"] as const;
+export const notificationToneSchema = z.enum(notificationTones);
+export type NotificationTone = z.infer<typeof notificationToneSchema>;
+
+/** The unit of a notification amount: US dollars, or a provider's own credit unit. Never converted between. */
+export const notificationAmountUnits = [
+  "USD",
+  "codex_credits",
+  "grok_credits",
+  "gateway_credits",
+  "credits",
+] as const;
+export const notificationAmountUnitSchema = z.enum(notificationAmountUnits);
+export type NotificationAmountUnit = z.infer<typeof notificationAmountUnitSchema>;

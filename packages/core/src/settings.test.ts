@@ -21,7 +21,16 @@ describe("settings", () => {
       detailedOrder: "urgency",
       keepInactiveLast: true,
       accountActions: false,
-      notifications: { runningLow: true, expiringResets: true, refreshFailures: true },
+      notifications: {
+        runningLow: true,
+        expiringResets: true,
+        refreshFailures: true,
+        balances: true,
+        spend: true,
+        includeSessions: true,
+        resetLeadDays: 3,
+        mutedProviders: [],
+      },
     });
     expect(nearestRefreshMinutes(60)).toBe(5);
     expect(nearestRefreshMinutes(600)).toBe(10);
@@ -39,12 +48,43 @@ describe("settings", () => {
     expect(merged.detailedOrder).toBe("urgency");
     expect(merged.keepInactiveLast).toBe(true);
     expect(merged.notifications).toEqual({
+      ...defaultSettings(900).notifications,
       runningLow: false,
-      expiringResets: true,
-      refreshFailures: true,
     });
     expect("legacy" in merged).toBe(false);
     expect(mergeSettings("junk", defaultSettings(900))).toEqual(defaultSettings(900));
+  });
+
+  test("the notification keys keep valid stored values and drop invalid ones", () => {
+    const merged = mergeSettings(
+      {
+        notifications: {
+          includeSessions: false,
+          resetLeadDays: 7,
+          mutedProviders: ["codex", "grok"],
+          balances: false,
+          spend: "yes",
+          extra: 1,
+        },
+      },
+      defaultSettings(900),
+    );
+    expect(merged.notifications).toEqual({
+      ...defaultSettings(900).notifications,
+      includeSessions: false,
+      resetLeadDays: 7,
+      mutedProviders: ["codex", "grok"],
+      balances: false,
+    });
+    const bad = mergeSettings(
+      { notifications: { resetLeadDays: 2, mutedProviders: ["codex", "nope"] } },
+      defaultSettings(900),
+    );
+    expect(bad.notifications.resetLeadDays).toBe(3);
+    expect(bad.notifications.mutedProviders).toEqual([]);
+    expect(settingsSchema.safeParse({ ...defaultSettings(900), notifications: {} }).success).toBe(
+      false,
+    );
   });
 
   test("the store returns defaults, then the saved document", () => {

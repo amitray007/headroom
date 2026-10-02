@@ -32,11 +32,10 @@ describe("applyPatch", () => {
       notifications: { runningLow: false },
     });
     expect(next.timeStyle).toBe("exact");
-    expect(next.notifications).toEqual({
-      runningLow: false,
-      expiringResets: true,
-      refreshFailures: true,
-    });
+    expect(next.notifications).toEqual({ ...defaultSettings.notifications, runningLow: false });
+    const lead = applyPatch(defaultSettings, { notifications: { resetLeadDays: 7 } });
+    expect(lead.notifications.resetLeadDays).toBe(7);
+    expect(lead.notifications.runningLow).toBe(true);
     expect(defaultSettings.notifications.runningLow).toBe(true);
   });
 });
@@ -53,7 +52,16 @@ describe("defaults", () => {
       detailedOrder: "urgency",
       keepInactiveLast: true,
       accountActions: false,
-      notifications: { runningLow: true, expiringResets: true, refreshFailures: true },
+      notifications: {
+        runningLow: true,
+        expiringResets: true,
+        refreshFailures: true,
+        balances: true,
+        spend: true,
+        includeSessions: true,
+        resetLeadDays: 3,
+        mutedProviders: [],
+      },
     });
   });
 });

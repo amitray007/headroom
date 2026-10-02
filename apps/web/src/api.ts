@@ -182,6 +182,7 @@ export type OrderBody = z.infer<typeof orderSchema>;
 const renameSchema = z.object({ name: z.string().nullable() });
 
 const refreshIntervalSchema = z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(30)]);
+const resetLeadSchema = z.union([z.literal(1), z.literal(3), z.literal(7)]);
 const lowThresholdSchema = z.union([z.literal(30), z.literal(20), z.literal(15)]);
 /** Owner preferences kept on the server. Mirrors the backend settings document. */
 const settingsSchema = z.object({
@@ -198,6 +199,11 @@ const settingsSchema = z.object({
     runningLow: z.boolean(),
     expiringResets: z.boolean(),
     refreshFailures: z.boolean(),
+    balances: z.boolean(),
+    spend: z.boolean(),
+    includeSessions: z.boolean(),
+    resetLeadDays: resetLeadSchema,
+    mutedProviders: z.array(providerSchema),
   }),
 });
 export type Settings = z.infer<typeof settingsSchema>;

@@ -1403,6 +1403,17 @@ time.when {
   font-size: var(--text-xs);
   line-height: 1.35;
 }
+.srow .sbody b:has(.brand) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dlg.settings .snote {
+  margin: 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-xs);
+}
 label.srow {
   cursor: pointer;
 }

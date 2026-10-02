@@ -1,3 +1,4 @@
+import type { Provider } from "@headroom/core/contracts";
 import { useState, type ReactNode } from "react";
 
 import type { ViewId } from "../router.ts";
@@ -31,6 +32,8 @@ export function Shell(props: {
   readonly view: ViewId | null;
   readonly name: string;
   readonly notifications: NotificationsView;
+  /** Providers with a connected account, in the saved order, for the notification settings. */
+  readonly providers: readonly Provider[];
   readonly children: ReactNode;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -47,7 +50,11 @@ export function Shell(props: {
       />
       {loadFailed ? <SettingsFailed /> : null}
       {props.children}
-      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsDialog
+        open={settingsOpen}
+        providers={props.providers}
+        onClose={() => setSettingsOpen(false)}
+      />
       <AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} />
     </div>
   );
