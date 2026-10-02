@@ -40,12 +40,20 @@ function ChoiceRow<T extends string>(props: {
   readonly onChange: (value: T) => void;
 }) {
   const waiting = useContext(WaitingContext);
-  const width = props.options.reduce((sum, option) => sum + option.label.length * 7 + 24, 8);
   return (
-    <div className="srow">
+    <div className="srow choice">
       <Body title={props.title} note={props.note} />
       {waiting ? (
-        <Sk width={width} height={34} className="sk-pill sk-control" />
+        <span className="sk-segs" aria-hidden="true">
+          {props.options.map((option) => (
+            <Sk
+              key={option.value}
+              width={option.label.length * 7 + 20}
+              height={26}
+              className="sk-pill"
+            />
+          ))}
+        </span>
       ) : (
         <Segmented
           label={props.title}

@@ -12,6 +12,9 @@
 .sk-pill {
   border-radius: var(--radius-pill);
 }
+.sk-tile {
+  border-radius: 10px;
+}
 .cell .caption.sk-slot {
   min-height: calc(var(--text-sm) * 1.45);
 }
@@ -156,11 +159,17 @@ html[data-density="compact"] .facts.sk-facts {
 .srow .sk-control {
   flex: none;
 }
-.plist li.sk-item {
-  animation: none;
-}
-.nlist .nrow.sk-item {
-  animation: none;
+/* A segmented control as separate segment blocks inside the control's own height. */
+.srow .sk-segs {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  height: 34px;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 4px;
 }
 .cards-note {
   margin-top: var(--space-5);

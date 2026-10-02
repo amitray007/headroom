@@ -931,7 +931,7 @@ time.when {
 }
 .menu:popover-open {
   display: block;
-  animation: menu-in var(--dur-fast) var(--ease-enter) both;
+  animation: menu-in var(--dur-fast) var(--ease-enter) backwards;
 }
 .menu.above {
   transform-origin: bottom right;
@@ -1174,7 +1174,7 @@ time.when {
 }
 .notif:popover-open {
   display: block;
-  animation: menu-in var(--dur-standard) var(--ease-enter) both;
+  animation: menu-in var(--dur-standard) var(--ease-enter) backwards;
 }
 .notif.above {
   transform-origin: bottom right;
@@ -1216,7 +1216,7 @@ time.when {
   align-items: start;
   padding: 10px 10px 9px;
   border-radius: 12px;
-  animation: item-in var(--dur-standard) var(--ease-enter) calc(var(--index, 0) * 35ms) both;
+  animation: item-in var(--dur-standard) var(--ease-enter) calc(var(--index, 0) * 35ms) backwards;
 }
 .nrow .nicon {
   width: 32px;
@@ -1308,7 +1308,7 @@ time.when {
 .dlg[open] {
   display: flex;
   flex-direction: column;
-  animation: menu-in var(--dur-standard) var(--ease-enter) both;
+  animation: menu-in var(--dur-standard) var(--ease-enter) backwards;
   transform-origin: center;
 }
 .dhead {
@@ -1358,7 +1358,7 @@ time.when {
   gap: 12px;
   align-items: center;
   padding: 8px 4px 8px 0;
-  animation: item-in var(--dur-standard) var(--ease-enter) both;
+  animation: item-in var(--dur-standard) var(--ease-enter) backwards;
 }
 .plist .pk {
   width: 32px;
@@ -1743,11 +1743,28 @@ label.srow {
   font-weight: 500;
 }
 
-/* Skeleton: final layout dimensions, finite pulse. */
+/*
+ * Skeleton: final layout dimensions and one shimmer. Every block paints the same viewport-sized gradient
+ * with a fixed attachment, and the animation moves the band across it, so all blocks show one sweep across
+ * the page. The sweep loops for as long as the blocks exist. Under reduced motion the band is gone.
+ */
 .sk {
-  background: color-mix(in oklab, var(--border-strong) 38%, var(--surface));
+  --sk-base: light-dark(
+    color-mix(in oklab, var(--border-strong) 46%, var(--surface)),
+    color-mix(in oklab, var(--border-strong) 38%, var(--surface))
+  );
+  --sk-glint: light-dark(
+    color-mix(in oklab, var(--sk-base) 15%, white),
+    color-mix(in oklab, var(--sk-base) 68%, var(--text-secondary))
+  );
+  background-color: var(--sk-base);
+  background-image: linear-gradient(100deg, transparent 38%, var(--sk-glint) 50%, transparent 62%);
+  background-size: 200vw 100vh;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-position: -130vw 0;
   border-radius: 8px;
-  animation: pulse 1.8s var(--ease-in-out) 11;
+  animation: sk-sweep 1.6s var(--ease-in-out) infinite;
 }
 .sk.line {
   height: 12px;
@@ -1764,18 +1781,15 @@ label.srow {
   height: 30px;
   width: 56%;
 }
-.sk:nth-child(2) {
-  animation-delay: 90ms;
+@keyframes sk-sweep {
+  to {
+    background-position: 30vw 0;
+  }
 }
-.sk:nth-child(3) {
-  animation-delay: 180ms;
-}
-.sk:nth-child(4) {
-  animation-delay: 270ms;
-}
-@keyframes pulse {
-  50% {
-    opacity: 0.52;
+@media (prefers-reduced-motion: reduce) {
+  .sk {
+    animation: none;
+    background-image: none;
   }
 }
 
@@ -2155,5 +2169,29 @@ html[data-density="compact"] .accounts .tname {
 @media (prefers-reduced-motion: reduce) {
   .btn:active:not(:disabled) {
     scale: 1;
+  }
+}
+
+/* Phones: a choice row puts its segmented control under the text at full width, so the note keeps a
+   readable measure. Switch rows stay on one line. */
+@media (max-width: 560px) {
+  .srow.choice {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .srow.choice .seg,
+  .srow.choice .sk-segs {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+  .srow.choice .seg button {
+    padding: 0 6px;
+  }
+  /* Placeholder segments size from inline widths on desktop; here they share the row equally. */
+  .srow.choice .sk-segs > .sk {
+    width: auto !important;
   }
 }

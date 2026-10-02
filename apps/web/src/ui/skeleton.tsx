@@ -6,7 +6,7 @@ type SkeletonKind = "line" | "title" | "bar" | "big" | "block";
 
 /**
  * One placeholder block. It has the size of the content it stands in for, so nothing moves when the content
- * arrives. The pulse is finite and stops under reduced motion. Hidden from assistive tech: the region that
+ * arrives. A shared shimmer sweeps all blocks in sync and stops under reduced motion. Hidden from assistive tech: the region that
  * holds blocks carries `aria-busy` and a label instead.
  */
 export function Sk(props: {
