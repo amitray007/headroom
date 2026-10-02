@@ -67,10 +67,15 @@ const esc = (s) =>
 
 /* ---------- Provider order list: pointer drag and keyboard, spring motion ---------- */
 
-function providerList(ul, brandMark, live) {
-  const accountCount = (id) => accounts.filter((a) => a.provider === id).length;
-  const plural = (n) => `${n} ${n === 1 ? "Account" : "Accounts"}`;
+const accountCount = (id) => accounts.filter((a) => a.provider === id).length;
+const plural = (n) => `${n} ${n === 1 ? "Account" : "Accounts"}`;
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const press = (seg, value) =>
+  seg
+    .querySelectorAll("[data-value]")
+    .forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.value === value)));
 
+function providerList(ul, brandMark, live) {
   function render() {
     const order = getOverviewPrefs().providerOrder;
     ul.innerHTML = order
@@ -97,7 +102,6 @@ function providerList(ul, brandMark, live) {
   }
   const save = () =>
     setOverviewPrefs({ providerOrder: [...ul.children].map((li) => li.dataset.id) });
-  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
   /* Pointer: the lifted row follows the pointer, the others slide aside, the row settles into its slot. */
   ul.addEventListener("pointerdown", (e) => {
@@ -260,10 +264,6 @@ function buildDialog({ brandMark, getLimitsView, setLimitsView }) {
   const live = (text) => (el.querySelector("#g-live").textContent = text);
   const renderList = providerList(el.querySelector(".g-plist"), brandMark, live);
 
-  const press = (seg, value) =>
-    seg
-      .querySelectorAll("[data-value]")
-      .forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.value === value)));
   el.querySelector('[data-setting="order"]').addEventListener("click", (e) => {
     const b = e.target.closest("[data-value]");
     if (b) setOverviewPrefs({ order: b.dataset.value });

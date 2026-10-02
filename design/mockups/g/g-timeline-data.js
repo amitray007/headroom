@@ -45,11 +45,11 @@ export function lanesFor(kind) {
   for (const account of accounts) {
     const meters = account.meters.filter((m) => kindOf(m) === kind);
     if (meters.length === 0) continue;
-    const started = meters.filter((m) => m.resets !== null && m.resets !== undefined);
+    const started = meters.filter((m) => m.resets !== null);
     const notStarted = started.length === 0;
     const end = notStarted ? now + len : at(started[0].resets);
     const start = notStarted ? now : end - len;
-    const known = meters.filter((m) => m.used !== null && m.used !== undefined);
+    const known = meters.filter((m) => m.used !== null);
     out.push({
       account,
       kind,
