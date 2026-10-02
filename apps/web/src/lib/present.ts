@@ -333,7 +333,8 @@ function codex(context: Context): Built {
         label: "Credits",
         window: "balance",
         unit: "credits",
-        note: "Not time-bound",
+        // The usage response carries no expiry for credits, so say nothing rather than imply none.
+        note: null,
       }),
     );
   }

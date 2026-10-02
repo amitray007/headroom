@@ -130,7 +130,7 @@ describe("codex", () => {
         label: "Credits",
         value: 61068,
         unit: "credits",
-        note: "Not time-bound",
+        note: null,
         unlimited: false,
       }),
       {

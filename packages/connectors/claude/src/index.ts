@@ -429,16 +429,17 @@ function metricsFrom(usage: UsageResponse): {
     }
   }
   const resetCredits: ResetCreditObservation[] = [];
-  if (usage.cedar_ember) {
-    const eligible = usage.cedar_ember.eligible === true;
+  // An ineligible response (seen with ineligible_reason "surface" for the Claude Code sign-in) withholds the
+  // grants rather than reporting none, so emit no count: an unavailable figure is unknown, not zero.
+  if (usage.cedar_ember?.eligible === true) {
     let total = 0;
     (usage.cedar_ember.grants ?? []).forEach((grant, index) => {
       const left = grant.resets_left ?? 0;
       total += Math.max(0, left);
       resetCredits.push({
         providerCreditId: `grant-${index}`,
-        eligible,
-        usable: eligible && left >= 1,
+        eligible: true,
+        usable: left >= 1,
         expiresAt: parseDate(grant.ends_at),
         rawLabel: `${left} left`,
       });
@@ -447,7 +448,7 @@ function metricsFrom(usage: UsageResponse): {
       providerMetricKey: "reset_grants.available",
       kind: "reset_inventory",
       scope: "account",
-      valueText: String(eligible ? total : 0),
+      valueText: String(total),
       unit: "resets",
       availability: "available",
       interface: "private",

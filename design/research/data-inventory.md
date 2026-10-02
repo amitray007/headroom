@@ -113,7 +113,7 @@ Source: `metricsFrom` (claude/index.ts:364-455).
 | `limits.<display_name>` | quota_percentage | percent | `window:604800s` | never | `resets_at` of the limit | no | raw `String(percent)` | only entries with `kind == "weekly_scoped"`; `<display_name>` is `scope.model.display_name`, else `scoped`. Other kinds (`session`, `weekly_all`, unknown) are ignored. No sanitizing, no dedupe |
 | `extra_usage.used` | spend | USD | `month` | never | never | no | cents divided by 100, 2 decimals, `"12.50"` | `extra_usage.is_enabled` is not exactly true (disabled gives no row and no partial) |
 | `extra_usage.monthly_limit` | spending_cap | USD | `month` | never | never | no | 2 decimals | extra usage disabled, or limit null, 0 or absent (no cap) |
-| `reset_grants.available` | reset_inventory | `resets` | `account` | never | never | no | integer string; sum of `resets_left` over grants if `cedar_ember.eligible` is true, else `"0"` | `cedar_ember` null or absent |
+| `reset_grants.available` | reset_inventory | `resets` | `account` | never | never | no | integer string; sum of `resets_left` over grants | `cedar_ember` null or absent, or `eligible` not true (the Claude Code sign-in gets `ineligible_reason: "surface"`, so the count is unknown, not zero) |
 
 Availability: bucket object without `utilization` is `unknown` with null value; `extra_usage.used` with null `used_credits` while enabled is `unknown`. Everything else `available`.
 

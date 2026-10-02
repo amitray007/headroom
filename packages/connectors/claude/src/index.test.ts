@@ -236,7 +236,7 @@ describe("Claude connector", () => {
     expect(result.failures).toEqual([]);
   });
 
-  test("missing utilization is unknown, disabled extra usage emits nothing, ineligible grants count zero", async () => {
+  test("missing utilization is unknown, disabled extra usage emits nothing, ineligible grants emit no count", async () => {
     const connector = createClaudeConnector({
       runner: new FakeRunner(),
       fetch: fakeFetch({ [usageUrl]: () => json(usageMinimal) }).fetch,
@@ -249,7 +249,7 @@ describe("Claude connector", () => {
     expect(byKey["five_hour"]).toMatchObject({ valueText: null, availability: "unknown" });
     expect(byKey["seven_day"]).toMatchObject({ valueText: "0", availability: "available" });
     expect(Object.keys(byKey)).not.toContain("extra_usage.used");
-    expect(byKey["reset_grants.available"]).toMatchObject({ valueText: "0" });
+    expect(byKey["reset_grants.available"]).toBeUndefined();
   });
 
   test("a scoped limit with percent null is unknown, never the string null", async () => {
