@@ -180,13 +180,16 @@ export function BrandMark(props: { readonly provider: Provider; readonly size?: 
   const className = props.size === 24 ? "brand lg" : "brand";
   if (mark.kind === "image") {
     return (
-      <span className={className}>
+      <span className={className} aria-hidden="true">
         <img src={mark.url} alt="" />
       </span>
     );
   }
   // The markup is a bundled static asset, never user input.
-  return <span className={className} dangerouslySetInnerHTML={{ __html: mark.svg }} />;
+  // Decorative: the provider's name is always written beside the mark.
+  return (
+    <span className={className} aria-hidden="true" dangerouslySetInnerHTML={{ __html: mark.svg }} />
+  );
 }
 
 /** The seeded DiceBear face, laid over the local one once it has loaded. Offline, the local one stays. */
