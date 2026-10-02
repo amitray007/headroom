@@ -8,3 +8,5 @@ are recoloured to `currentColor`; Claude and Antigravity keep their brand colour
 `avatar.svg` is a DiceBear "Voxel Art" identicon (CC0 1.0), generated from the seed `headroom` on
 2026-10-02 at `https://api.dicebear.com/10.x/voxel-art/svg?seed=headroom`. The app would seed it
 with the owner's username.
+
+The favicons and app icons are in `apps/web/public` (served from the site root). They are generated from the mark geometry in `src/ui/logo-geometry.ts` with `mise exec -- bun scripts/brand.ts`, which needs headless Chrome.

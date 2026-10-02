@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { z } from "zod";
 
 import { clientAddress, createApp } from "./app.ts";
@@ -29,6 +33,33 @@ describe("public routes", () => {
     expect(csp).toContain("frame-ancestors 'self' http://localhost:8080 https://app.example.com");
     expect(csp).toContain("object-src 'none'");
     expect(response.headers.get("x-frame-options")).toBeNull();
+  });
+});
+
+describe("built web UI", () => {
+  test("brand files are served as files; other paths fall back to index.html", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "headroom-web-"));
+    try {
+      writeFileSync(join(dir, "index.html"), "<!doctype html><title>shell</title>");
+      writeFileSync(join(dir, "favicon.ico"), "ico");
+      writeFileSync(join(dir, "favicon.svg"), "<svg/>");
+      writeFileSync(join(dir, "manifest.webmanifest"), '{"name":"Headroom"}');
+      const ctx = testContext({ HEADROOM_WEB_DIR: dir });
+      const app = createApp(ctx);
+
+      const ico = await app.request(url(ctx, "/favicon.ico"));
+      expect(ico.status).toBe(200);
+      expect(await ico.text()).toBe("ico");
+      const svg = await app.request(url(ctx, "/favicon.svg"));
+      expect(svg.headers.get("content-type")).toContain("image/svg+xml");
+      const manifest = await app.request(url(ctx, "/manifest.webmanifest"));
+      expect(await manifest.text()).toContain("Headroom");
+
+      const route = await app.request(url(ctx, "/settings"));
+      expect(await route.text()).toContain("shell");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

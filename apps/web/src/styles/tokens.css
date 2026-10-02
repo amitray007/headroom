@@ -19,6 +19,10 @@
   /* Accent is neutral for every provider. Status colours are for status only. */
   --accent: light-dark(oklch(30% 0 0), oklch(84% 0 0));
   /* Mix in oklab: neutral tokens carry hue 0, and an oklch mix would swing green and amber tints toward red. */
+  /* Logo mark: a deliberate tile in both schemes, not the page colours. Lightness mirrors logoLightness in ui/logo-geometry.ts. */
+  --logo-tile: light-dark(oklch(16% 0 0), oklch(94% 0 0));
+  --logo-ink: light-dark(oklch(98.6% 0 0), oklch(18% 0 0));
+  --logo-ceiling: light-dark(oklch(62% 0 0), oklch(56% 0 0));
   --track: color-mix(in oklab, var(--foreground) 8%, var(--surface));
   --success: light-dark(oklch(50% 0.17 150), oklch(78% 0.17 150));
   --warning: light-dark(oklch(60% 0.17 72), oklch(83% 0.16 80));

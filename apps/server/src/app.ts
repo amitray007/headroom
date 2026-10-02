@@ -22,6 +22,16 @@ import { overviewRoutes } from "./routes/overview.ts";
 import { providerRoutes } from "./routes/providers.ts";
 import { settingsRoutes } from "./routes/settings.ts";
 
+const brandFiles = [
+  "favicon.ico",
+  "favicon.svg",
+  "favicon-32.png",
+  "apple-touch-icon.png",
+  "icon-192.png",
+  "icon-512.png",
+  "manifest.webmanifest",
+];
+
 export const version = "0.0.0";
 
 export function createApp(ctx: AppContext): Hono {
@@ -101,6 +111,8 @@ export function createApp(ctx: AppContext): Hono {
   const webDir = ctx.config.webDir;
   if (webDir && existsSync(join(webDir, "index.html"))) {
     app.use("/assets/*", serveStatic({ root: webDir }));
+    // Brand files from apps/web/public sit at the root: browsers request /favicon.ico unprompted.
+    for (const file of brandFiles) app.get(`/${file}`, serveStatic({ root: webDir }));
     app.get("*", serveStatic({ root: webDir, path: "index.html" }));
   }
   return app;
