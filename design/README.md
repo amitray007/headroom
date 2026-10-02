@@ -25,9 +25,14 @@ share `headroom.css` for tokens and the bar, pip, tag and notice primitives.
 | --- | --- | --- |
 | `a-ledger.html` | One row per account, limits as aligned bars with a reset column | Comparing accounts at a glance, dense, scales to many accounts |
 | `b-tiles.html` | One tile per account, window buckets as 270° arcs, facts at the foot | A friendlier look, big numbers, phones |
-| `c-panels.html` | Provider sections, one panel per account, meters as display numbers over thick pill bars, facts behind a hairline | Current direction. Several accounts per provider, Arc UI level of finish |
+| `c-panels.html` | Provider sections, one panel per account, meters as display numbers over thick pill bars, facts behind a hairline | Superseded by D |
+| `d-panels.html` | D: every figure is a cell (window meters and big-number facts) in a wrapping row that never leaves a hole; status pills; segmented one-accent bars with legends; details behind a header toggle; logo lockup | Current direction |
+| `d-states.html` | D's states and primitives: status pills, buttons and hold-to-confirm, skeleton, never collected, list error, empty, over the limit | Review alongside D |
+| `logo.html` | Four logo concepts at 64, 32, 16 px, in a lockup and inverted | Concept 4 "Ledger" is used in D |
 
-Mockup C supersedes A and B. They stay for comparison.
+D is built from `structure.md`, which in turn rests on `research/data-inventory.md` (what the
+connectors emit) and `research/arc-ui.md` (Arc UI's tokens, components, blocks and motion).
+Mockups A to C stay for comparison. Add `&motion=off` to a D page URL for a still render.
 
 ## What C takes from Arc UI
 
@@ -88,7 +93,11 @@ animated numbers prove worth it.
 
 - 2026-10-02: A and B reviewed. Feedback: not enough detail and visual cleanness compared with
   Arc UI; several accounts per provider must be first-class. C built in response.
-- Accepted: none formally yet; C is the direction to iterate on.
+- 2026-10-02, later: deep Arc UI survey and data inventory written; `structure.md` drafted; D
+  built and audited three times (class collision broke fact cells, comma numbers showed NaN,
+  window labels sat too far from their label, Details sat on its own line, plus icon unsized,
+  Vercel decimals rounded). All fixed. Every panel now has a Details toggle in its header.
+- Accepted: none formally yet; D is the direction to iterate on.
 - Open: Whether a credits meter fills with used or remaining share. Brand marks versus monograms
   (SVGL assets need a rights check per provider). Whether a panel expands inline for
   capabilities and run history. Whether the display number should be the remaining share
