@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Headroom · mockup C · panels</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500&family=Geist+Mono:wght@500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="panels.css" />
+    <script>
+      /* ?scheme=light|dark forces the appearance for review; otherwise the OS decides. */
+      const s = new URLSearchParams(location.search).get("scheme");
+      if (s) document.documentElement.style.colorScheme = s;
+    </script>
+  </head>
+  <body>
+    <div class="page">
+      <header class="top">
+        <span class="wordmark">Headroom</span>
+        <nav aria-label="Page">
+          <span class="muted">9 accounts · refreshed 2 min ago</span
+          ><a href="#">Connect an account</a><a href="#">Settings</a>
+        </nav>
+      </header>
+
+      <section class="provider" aria-labelledby="p-claude">
+        <header>
+          <span class="mark" aria-hidden="true">CL</span>
+          <h2 id="p-claude">Claude</h2>
+          <span class="count">2 accounts</span>
+        </header>
+        <div class="stack">
+          <section class="panel" aria-labelledby="a-claude-1">
+            <header>
+              <h3 id="a-claude-1">Personal <span class="plan">Max</span></h3>
+              <div class="status">
+                <span class="dot"></span>2 min ago<span class="chip">private</span>
+              </div>
+            </header>
+            <div class="meters">
+              <div class="meter">
+                <div class="label">
+                  <span>Session <span class="window">5 h</span></span>
+                </div>
+                <div class="value num">42<span class="unit">%</span></div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="42"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Session usage"
+                  style="--v: 42%; --t: 57%"
+                >
+                  <span class="fill"></span><span class="tick"></span>
+                </div>
+                <div class="caption">resets in <b>2h 10m</b></div>
+              </div>
+              <div class="meter">
+                <div class="label">
+                  <span>Weekly <span class="window">7 d · all models</span></span>
+                </div>
+                <div class="value num">61<span class="unit">%</span></div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="61"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Weekly usage"
+                  style="--v: 61%; --t: 55%"
+                >
+                  <span class="fill"></span><span class="tick"></span>
+                </div>
+                <div class="caption">resets <b>Thu 09:00</b> · 3d 4h</div>
+              </div>
+              <div class="meter">
+                <div class="label">
+                  <span>Weekly <span class="window">7 d · Fable</span></span>
+                </div>
+                <div class="value num">23<span class="unit">%</span></div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="23"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Weekly usage"
+                  style="--v: 23%; --t: 55%"
+                >
+                  <span class="fill"></span><span class="tick"></span>
+                </div>
+                <div class="caption">same window</div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="fact"
+                >Reset grants
+                <span class="pips" aria-label="1 available"><span class="pip"></span></span>
+                <b>1</b> available</span
+              >
+              <span class="fact">Extra usage <b>off</b></span>
+            </div>
+          </section>
+          <section class="panel" aria-labelledby="a-claude-2">
+            <header>
+              <h3 id="a-claude-2">Studio <span class="plan">Pro</span></h3>
+              <div class="status">
+                <span class="dot"></span>14 min ago<span class="chip">private</span>
+              </div>
+            </header>
+            <div class="meters">
+              <div class="meter">
+                <div class="label">
+                  <span>Session <span class="window">5 h</span></span>
+                </div>
+                <div class="value num">8<span class="unit">%</span></div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="8"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Session usage"
+                  style="--v: 8%; --t: 12%"
+                >
+                  <span class="fill"></span><span class="tick"></span>
+                </div>
+                <div class="caption">resets in <b>4h 25m</b></div>
+              </div>
+              <div class="meter">
+                <div class="label">
+                  <span>Weekly <span class="window">7 d · all models</span></span>
+                </div>
+                <div class="value num">35<span class="unit">%</span></div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="35"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Weekly usage"
+                  style="--v: 35%; --t: 55%"
+                >
+                  <span class="fill"></span><span class="tick"></span>
+                </div>
+                <div class="caption">resets <b>Thu 09:00</b> · 3d 4h</div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="fact"
+                >Reset grants
+                <span class="pips" aria-label="0 available"><span class="pip spent"></span></span>
+                <b>0</b> available</span
+              >
+              <span class="fact">Extra usage <b>off</b></span>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="provider" aria-labelledby="p-codex">
+        <header>
+          <span class="mark" aria-hidden="true">CX</span>
+          <h2 id="p-codex">Codex</h2>
+          <span class="count">2 accounts</span>
+        </header>
+        <div class="stack">
+          <section class="panel" aria-labelledby="a-codex-1">
+            <header>
+              <h3 id="a-codex-1">Personal <span class="plan">Pro</span></h3>
+              <div class="status">
+                <span class="dot"></span>2 min ago<span class="chip">private</span>
+              </div>
+            </header>
+            <div class="meters">
+              <div class="meter">
+                <div class="label">
+                  <span>Weekly <span class="window">7 d</span></span>
+                </div>
+                <div class="value num">78<span class="unit">%</span></div>
+                <div
+                  class="bar warn"
+                  role="meter"
+                  aria-valuenow="78"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Weekly usage"
+                  style="--v: 78%; --t: 82%"
+                >
+                  <span class="fill"></span><span class="tick"></span>
+                </div>
+                <div class="caption">resets in <b>1d 6h</b></div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="fact">Credits <b class="num">1,240</b></span>
+              <span class="fact"
+                >Reset credits
+                <span class="pips" aria-label="3 usable"
+                  ><span class="pip"></span><span class="pip"></span><span class="pip"></span
+                ></span>
+                <b>3</b> <span class="muted">· first expires in 12 d</span></span
+              >
+              <span class="spacer"></span>
+              <button
+                type="button"
+                disabled
+                title="Switched off. Start Headroom with HEADROOM_ENABLE_ACTIONS=true to allow it."
+              >
+                Reset weekly limit now
+              </button>
+            </div>
+          </section>
+          <section class="panel" aria-labelledby="a-codex-2">
+            <header>
+              <h3 id="a-codex-2">Work <span class="plan">Business</span></h3>
+              <div class="status">
+                <span class="dot"></span>2 min ago<span class="chip">private</span
+                ><span class="chip">member</span>
+              </div>
+            </header>
+            <div class="meters">
+              <div class="meter">
+                <div class="label">
+                  <span>Weekly <span class="window">7 d</span></span>
+                </div>
+                <div class="value num">12<span class="unit">%</span></div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="12"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Weekly usage"
+                  style="--v: 12%; --t: 82%"
+                >
+                  <span class="fill"></span><span class="tick"></span>
+                </div>
+                <div class="caption">resets in <b>1d 6h</b></div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="fact">Credits <b>not reported</b></span>
+              <span class="fact">Reset credits <b>0</b></span>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="provider" aria-labelledby="p-cursor">
+        <header>
+          <span class="mark" aria-hidden="true">CU</span>
+          <h2 id="p-cursor">Cursor</h2>
+        </header>
+        <div class="stack">
+          <section class="panel" aria-labelledby="a-cursor">
+            <header>
+              <h3 id="a-cursor">Personal <span class="plan">Pro</span></h3>
+              <div class="status">
+                <span class="dot"></span>2 min ago<span class="chip">private</span>
+              </div>
+            </header>
+            <div class="meters">
+              <div class="meter">
+                <div class="label">
+                  <span>Included <span class="window">15 Sep – 15 Oct</span></span>
+                </div>
+                <div class="value num">58<span class="unit">%</span></div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="58"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Included usage 58%: API 40%, Auto 18%"
+                  style="--v: 58%; --t: 57%"
+                >
+                  <span class="seg a" style="width: 40%"></span
+                  ><span class="seg b" style="left: 40%; width: 18%"></span
+                  ><span class="tick"></span>
+                </div>
+                <div class="caption"><b>$20</b> plan · API 40 · Auto 18 · <b>13 d</b> left</div>
+              </div>
+              <div class="meter">
+                <div class="label">
+                  <span>On-demand <span class="window">this cycle</span></span>
+                </div>
+                <div class="value num">$3.20<span class="unit"></span></div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="16"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="On-demand spend $3.20 of $20"
+                  style="--v: 16%"
+                >
+                  <span class="fill"></span>
+                </div>
+                <div class="caption">of a <b>$20</b> cap</div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="provider" aria-labelledby="p-grok">
+        <header>
+          <span class="mark" aria-hidden="true">GK</span>
+          <h2 id="p-grok">Grok</h2>
+        </header>
+        <div class="stack">
+          <section class="panel" aria-labelledby="a-grok">
+            <header>
+              <h3 id="a-grok">Personal <span class="plan"></span></h3>
+              <div class="status stale">
+                <span class="dot stale"></span>3 h ago, stale<span class="chip">private</span>
+              </div>
+            </header>
+            <div class="meters">
+              <div class="meter">
+                <div class="label">
+                  <span>Weekly pool <span class="window">7 d</span></span>
+                </div>
+                <div class="value num">34<span class="unit">%</span></div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="34"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Weekly pool usage"
+                  style="--v: 34%; --t: 36%"
+                >
+                  <span class="fill"></span><span class="tick"></span>
+                </div>
+                <div class="caption">resets in <b>4d 11h</b></div>
+              </div>
+              <div class="meter">
+                <div class="label">
+                  <span>On-demand <span class="window">this week</span></span>
+                </div>
+                <div class="value num">120<span class="unit"></span></div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="24"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="On-demand 120 of 500 credits"
+                  style="--v: 24%"
+                >
+                  <span class="fill"></span>
+                </div>
+                <div class="caption">of a <b>500</b> credit cap</div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="fact"
+                >Prepaid balance <b class="num">2,500</b> <span class="unit">credits</span></span
+              >
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="provider" aria-labelledby="p-ag">
+        <header>
+          <span class="mark" aria-hidden="true">AG</span>
+          <h2 id="p-ag">Antigravity</h2>
+        </header>
+        <div class="stack">
+          <section class="panel" aria-labelledby="a-ag">
+            <header>
+              <h3 id="a-ag">Personal <span class="plan">Free</span></h3>
+              <div class="status">
+                <span class="dot"></span>2 min ago<span class="chip">private</span>
+              </div>
+            </header>
+            <div class="meters">
+              <div class="meter">
+                <div class="label">
+                  <span>Gemini <span class="window">7 d</span></span>
+                </div>
+                <div class="value num">95<span class="unit">%</span></div>
+                <div
+                  class="bar bad"
+                  role="meter"
+                  aria-valuenow="95"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Gemini usage"
+                  style="--v: 95%; --t: 27%"
+                >
+                  <span class="fill"></span><span class="tick"></span>
+                </div>
+                <div class="caption">resets in <b>5d 2h</b></div>
+              </div>
+              <div class="meter">
+                <div class="label">
+                  <span>Third-party models <span class="window">7 d</span></span>
+                </div>
+                <div class="value num">12<span class="unit">%</span></div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="12"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Third-party models usage"
+                  style="--v: 12%; --t: 27%"
+                >
+                  <span class="fill"></span><span class="tick"></span>
+                </div>
+                <div class="caption">same window</div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="fact muted">Only weekly buckets are reported on the free tier.</span>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="provider" aria-labelledby="p-cp">
+        <header>
+          <span class="mark" aria-hidden="true">GH</span>
+          <h2 id="p-cp">Copilot</h2>
+        </header>
+        <div class="stack">
+          <section class="panel dim" aria-labelledby="a-cp">
+            <header>
+              <h3 id="a-cp">Personal <span class="plan">Pro</span></h3>
+              <div class="status reconnect">
+                <span class="dot reconnect"></span>2 days ago<span class="chip">private</span>
+              </div>
+            </header>
+            <div class="notice bad">
+              <span>The provider rejected the saved sign-in.</span
+              ><button type="button" class="primary">Reconnect</button>
+            </div>
+            <div class="meters">
+              <div class="meter">
+                <div class="label">
+                  <span>Premium requests <span class="window">month</span></span>
+                </div>
+                <div class="value num">
+                  300<span class="unit"></span><span class="of">of 300</span>
+                </div>
+                <div
+                  class="bar bad"
+                  role="meter"
+                  aria-valuenow="100"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Premium requests 300 of 300"
+                  style="--v: 100%; --t: 6%"
+                >
+                  <span class="fill"></span><span class="tick"></span>
+                </div>
+                <div class="caption"><b>100%</b> of included · resets <b>1 Nov</b></div>
+              </div>
+              <div class="meter">
+                <div class="label">
+                  <span>Chat <span class="window">month</span></span>
+                </div>
+                <div class="value">∞</div>
+                <div class="caption">unlimited</div>
+              </div>
+              <div class="meter">
+                <div class="label">
+                  <span>Completions <span class="window">month</span></span>
+                </div>
+                <div class="value">∞</div>
+                <div class="caption">unlimited</div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="fact"
+                >Extra usage <b class="num">0</b> <span class="unit">requests</span></span
+              >
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="provider" aria-labelledby="p-vc">
+        <header>
+          <span class="mark" aria-hidden="true">VC</span>
+          <h2 id="p-vc">Vercel AI Gateway</h2>
+        </header>
+        <div class="stack">
+          <section class="panel" aria-labelledby="a-vc">
+            <header>
+              <h3 id="a-vc">Team <span class="plan"></span></h3>
+              <div class="status partial">
+                <span class="dot partial"></span>2 min ago<span class="chip warn">partial</span>
+              </div>
+            </header>
+            <div class="meters">
+              <div class="meter">
+                <div class="label"><span>Credits</span></div>
+                <div class="value num">
+                  14.20<span class="unit"></span><span class="of">left</span>
+                </div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="86"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Credits 14.20 left of 100"
+                  style="--v: 86%"
+                >
+                  <span class="fill"></span>
+                </div>
+                <div class="caption"><b>85.80</b> used of <b>100.00</b></div>
+              </div>
+              <div class="meter">
+                <div class="label">
+                  <span>Spend <span class="window">30 d</span></span>
+                </div>
+                <div class="value muted">—</div>
+                <div class="bar unknown" aria-label="Spend unknown"></div>
+                <div class="caption">unknown · the spend report needs a Pro plan</div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <a class="add" href="#">+ Connect another account</a>
+
+      <footer class="legend">
+        <span><span class="sw"></span>used share of the window</span>
+        <span><span class="sw tick"></span> how far the window has elapsed</span>
+        <span><span class="sw warn"></span>from 70%</span>
+        <span><span class="sw bad"></span>from 90%</span>
+        <span><span class="sw unknown"></span>unknown, not zero</span>
+      </footer>
+    </div>
+  </body>
+</html>

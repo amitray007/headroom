@@ -25,6 +25,33 @@ share `headroom.css` for tokens and the bar, pip, tag and notice primitives.
 | --- | --- | --- |
 | `a-ledger.html` | One row per account, limits as aligned bars with a reset column | Comparing accounts at a glance, dense, scales to many accounts |
 | `b-tiles.html` | One tile per account, window buckets as 270° arcs, facts at the foot | A friendlier look, big numbers, phones |
+| `c-panels.html` | Provider sections, one panel per account, meters as display numbers over thick pill bars, facts behind a hairline | Current direction. Several accounts per provider, Arc UI level of finish |
+
+Mockup C supersedes A and B. They stay for comparison.
+
+## What C takes from Arc UI
+
+Arc's polish comes from a few repeatable decisions, not from its components:
+
+- **Layered surfaces.** Page, panel, muted fill and raised, each one step apart in oklch
+  lightness. Panels are one step lighter than the page in dark mode, not black on black.
+- **One hairline weight**, subtle inside a panel and slightly stronger at its edge. No stacked
+  borders; a hairline separates the facts row from the meters.
+- **Big display numbers** with the unit at body size in secondary color. Labels at 14/500,
+  captions at 13 secondary, hints at 12 muted. Two weights only.
+- **Thick pill meters** (10 px) on a track mixed from the foreground at 9%. Segments in one hue
+  at stepped alpha, never two hues.
+- **Generous radii** (12 px controls, 20 px panels) and 24 px panel padding.
+- **Semantic roles only** in components: `--surface`, `--text-secondary`, `--accent`,
+  `--warning`. Raw values live once in `panels.css`.
+- Sentence case, no eyebrow labels, no decorative color.
+
+## Several accounts per provider
+
+A provider is a section with its mark, name and account count. Each linked account is its own
+panel under it, named by its label and plan, with its own state, data age and chips (`private`,
+scope such as `member`). Panels of one provider sit 12 px apart; providers sit 48 px apart, so
+spacing does the grouping. Meter columns are fixed thirds, so bars align across every panel.
 
 ## Visual rules the mockups propose
 
@@ -59,8 +86,11 @@ animated numbers prove worth it.
 
 ## Decision log
 
-- Accepted: none yet; awaiting review of A and B.
-- Open: A or B, or a hybrid (ledger rows on desktop, tiles on phones). Whether the Vercel credits
-  arc should fill with used or remaining share. Brand marks versus monograms (SVGL assets need a
-  rights check per provider). Whether a row expands inline for capabilities and run history.
+- 2026-10-02: A and B reviewed. Feedback: not enough detail and visual cleanness compared with
+  Arc UI; several accounts per provider must be first-class. C built in response.
+- Accepted: none formally yet; C is the direction to iterate on.
+- Open: Whether a credits meter fills with used or remaining share. Brand marks versus monograms
+  (SVGL assets need a rights check per provider). Whether a panel expands inline for
+  capabilities and run history. Whether the display number should be the remaining share
+  ("58% left") instead of the used share.
 - Rejected by the brief: sidebar, nav bar, header toolbar, chart-heavy dashboard blocks.
