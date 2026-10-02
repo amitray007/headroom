@@ -154,7 +154,7 @@ export function SettingsDialog(props: { readonly open: boolean; readonly onClose
             <Section title="Limits">
               <ChoiceRow
                 title="Show Limits As"
-                note="Used shows how much of a limit is spent. Left shows what remains."
+                note="Show what you have used, or what is left."
                 value={settings.limitsView}
                 options={[
                   { value: "used", label: "Used" },
@@ -164,7 +164,7 @@ export function SettingsDialog(props: { readonly open: boolean; readonly onClose
               />
               <NumberRow
                 title="Running Low Under"
-                note="Bars turn amber below this much left. They turn red under 10%."
+                note="Bars turn amber below this. Red means under 10%."
                 value={settings.lowThresholdPercent}
                 values={thresholds}
                 format={(value) => `${value}%`}
@@ -174,7 +174,7 @@ export function SettingsDialog(props: { readonly open: boolean; readonly onClose
             <Section title="Refresh">
               <NumberRow
                 title="Refresh Every"
-                note="How often Headroom checks each provider. Refresh on a panel still works any time."
+                note="How often your accounts update."
                 value={settings.refreshIntervalMinutes}
                 values={intervals}
                 format={(value) => `${value} min`}
@@ -184,7 +184,7 @@ export function SettingsDialog(props: { readonly open: boolean; readonly onClose
             <Section title="Time">
               <ChoiceRow
                 title="Times"
-                note="Countdown says “in 52 min”. Exact says “at 15:06”. Hover shows the other."
+                note="“In 52 min” or “at 15:06”."
                 value={settings.timeStyle}
                 options={[
                   { value: "countdown", label: "Countdown" },
@@ -194,7 +194,7 @@ export function SettingsDialog(props: { readonly open: boolean; readonly onClose
               />
               <ChoiceRow
                 title="Clock"
-                note="How exact times are written."
+                note="15:06 or 3:06 PM."
                 value={settings.clock}
                 options={[
                   { value: "24h", label: "24-Hour" },
@@ -206,7 +206,7 @@ export function SettingsDialog(props: { readonly open: boolean; readonly onClose
             <Section title="Display">
               <ChoiceRow
                 title="Density"
-                note="Compact fits more accounts on one screen."
+                note="Compact fits more on screen."
                 value={settings.density}
                 options={[
                   { value: "comfortable", label: "Comfortable" },
@@ -220,8 +220,8 @@ export function SettingsDialog(props: { readonly open: boolean; readonly onClose
                 title="Allow Account Actions"
                 note={
                   actionsAllowedByServer
-                    ? "Lets you redeem Codex reset credits with the hold button. Nothing runs on its own."
-                    : "Your server has account actions switched off."
+                    ? "Lets the hold button use a Codex reset."
+                    : "Turned off on your server."
                 }
                 checked={settings.accountActions && actionsAllowedByServer}
                 disabled={!actionsAllowedByServer}
@@ -231,19 +231,19 @@ export function SettingsDialog(props: { readonly open: boolean; readonly onClose
             <Section title="Notifications">
               <SwitchRow
                 title="Running Low"
-                note="When an account drops under the amber threshold."
+                note="When an account is running low."
                 checked={settings.notifications.runningLow}
                 onChange={notify("runningLow")}
               />
               <SwitchRow
                 title="Expiring Resets"
-                note="A few days before a banked Codex reset expires."
+                note="Before a saved Codex reset expires."
                 checked={settings.notifications.expiringResets}
                 onChange={notify("expiringResets")}
               />
               <SwitchRow
                 title="Refresh Failures"
-                note="When Headroom cannot refresh an account."
+                note="When an account stops updating."
                 checked={settings.notifications.refreshFailures}
                 onChange={notify("refreshFailures")}
               />

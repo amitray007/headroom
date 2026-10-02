@@ -146,6 +146,10 @@ describe("codex", () => {
   test("hold is the soonest usable credit", () => {
     expect(panel.hold).toEqual({ creditId: "c-a", expiresAt: expiries[1] ?? null });
   });
+  test("hold skips a credit that has already expired", () => {
+    const afterFirst = new Date(2025, 9, 6).getTime();
+    expect(presentPanel(conn, afterFirst).hold?.expiresAt).toBe(expiries[0] ?? null);
+  });
   test("no hold unless the connection supports the action", () => {
     expect(presentPanel({ ...conn, actions: { enabled: true, supported: [] } }).hold).toBeNull();
   });

@@ -1274,7 +1274,8 @@ time.when {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  /* A clear gutter between the label and its control. */
+  gap: 40px;
   padding: 10px 0;
 }
 .srow + .srow {
@@ -1284,6 +1285,7 @@ time.when {
   display: grid;
   gap: 2px;
   min-width: 0;
+  max-width: 34ch;
 }
 .srow .sbody b {
   font-weight: 500;

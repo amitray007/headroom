@@ -7,5 +7,11 @@ const apiOrigin = process.env["HEADROOM_API_ORIGIN"] ?? "http://localhost:18600"
 export default defineConfig({
   plugins: [react()],
   server: { proxy: { "/api": apiOrigin } },
-  build: { outDir: "dist", emptyOutDir: true },
+  build: {
+    outDir: "dist",
+    emptyOutDir: true,
+    // Browsers with native light-dark(). An older target makes the CSS minifier rewrite light-dark() into
+    // prefers-color-scheme fallbacks, which ignore the Light and Dark choice in the account menu.
+    cssTarget: ["chrome123", "edge123", "firefox120", "safari17.5"],
+  },
 });

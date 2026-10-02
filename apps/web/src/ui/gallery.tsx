@@ -617,7 +617,7 @@ export function Gallery() {
           <label className="srow" htmlFor="g-low">
             <span className="sbody">
               <b>Running Low</b>
-              <span className="muted">When an account drops under the amber threshold.</span>
+              <span className="muted">When an account is running low.</span>
             </span>
             <Switch id="g-low" checked={on} onChange={setOn} />
           </label>

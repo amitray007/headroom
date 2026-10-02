@@ -577,10 +577,13 @@ const primaryKeys: Partial<Record<OverviewConnection["provider"], string>> = {
 function holdOf(
   connection: OverviewConnection,
   credits: readonly ResetCredit[],
+  now: number | undefined,
 ): PanelModel["hold"] {
   if (!connection.actions.supported.includes("consume_reset_credit")) return null;
+  // The soonest-expiring credit that is still live, so the hold always spends the one about to lapse.
   const usable = credits
     .filter((credit) => credit.usable && credit.eligible)
+    .filter((credit) => now === undefined || credit.expiresAt === null || credit.expiresAt > now)
     .toSorted(
       (a, b) =>
         (a.expiresAt ?? Infinity) - (b.expiresAt ?? Infinity) ||
@@ -608,7 +611,8 @@ function tightestOf(
   return { label: best.short, used: best.used, resetsAt: best.resetsAt };
 }
 
-export function presentPanel(connection: OverviewConnection): PanelModel {
+/** `now` drops reset credits that have already expired from the hold target. */
+export function presentPanel(connection: OverviewConnection, now?: number): PanelModel {
   const snapshot = connection.snapshot;
   const context: Context = {
     connection,
@@ -626,7 +630,7 @@ export function presentPanel(connection: OverviewConnection): PanelModel {
   return {
     cells,
     facts,
-    hold: holdOf(connection, snapshot?.resetCredits ?? []),
+    hold: holdOf(connection, snapshot?.resetCredits ?? [], now),
     tightest: tightestOf(connection.provider, meters),
     balance:
       meters.length === 0 &&

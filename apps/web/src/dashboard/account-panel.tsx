@@ -3,6 +3,7 @@ import { useId, type ReactNode } from "react";
 import { api, type OverviewConnection } from "../api.ts";
 import { AlertIcon, ClockIcon, PauseIcon, PlayIcon, RetryIcon } from "../icons.tsx";
 import { accountName, planLabel, providerName, refreshFailed, statusOf } from "../lib/labels.ts";
+import { useNow } from "../lib/now.ts";
 import { presentPanel } from "../lib/present.ts";
 import { useSettings } from "../lib/settings.tsx";
 import { When } from "../lib/when.tsx";
@@ -63,7 +64,8 @@ export function AccountPanel(props: {
   const headingId = useId();
   const { actionsEnabled } = useSettings();
   const status = statusOf(connection);
-  const model = presentPanel(connection);
+  const now = useNow();
+  const model = presentPanel(connection, now);
   const disconnected = connection.state === "reconnect_required";
   const paused = connection.state === "paused";
   const waiting = connection.snapshot === null && !disconnected && !paused;
