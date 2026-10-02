@@ -1,0 +1,2773 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Headroom · mockup F · states</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500&family=Geist+Mono:wght@500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* Headroom mockup D. Semantic roles only in components; raw values live in :root. */
+      :root {
+        color-scheme: light dark;
+
+        /* Surfaces. Light depth comes from borders; dark steps surfaces by ~2.5 L. */
+        --background: light-dark(oklch(98.6% 0 0), oklch(18% 0 0));
+        --surface: light-dark(oklch(100% 0 0), oklch(21% 0 0));
+        --surface-raised: light-dark(oklch(100% 0 0), oklch(24% 0 0));
+        --surface-muted: light-dark(oklch(97% 0 0), oklch(26% 0 0));
+        --border-subtle: light-dark(oklch(95.5% 0 0), oklch(25% 0 0));
+        --border: light-dark(oklch(92% 0 0), oklch(29.5% 0 0));
+        --border-strong: light-dark(oklch(82% 0 0), oklch(40% 0 0));
+
+        /* Text roles, all at or above 4.5:1 on --surface. */
+        --foreground: light-dark(oklch(16% 0 0), oklch(96% 0 0));
+        --text-secondary: light-dark(oklch(46% 0 0), oklch(75% 0 0));
+        --text-muted: light-dark(oklch(55% 0 0), oklch(63% 0 0));
+
+        /* Accent is neutral: the fill of a used share. Status colours are for status only. */
+        --accent: light-dark(oklch(30% 0 0), oklch(84% 0 0));
+        --accent-2: color-mix(in oklch, var(--accent) 58%, var(--surface));
+        --accent-3: color-mix(in oklch, var(--accent) 34%, var(--surface));
+        --accent-subtle: color-mix(in oklch, var(--accent) 12%, var(--surface));
+        --track: color-mix(in oklch, var(--foreground) 8%, var(--surface));
+        --success: light-dark(oklch(50% 0.17 150), oklch(78% 0.17 150));
+        --warning: light-dark(oklch(60% 0.17 72), oklch(83% 0.16 80));
+        --danger: light-dark(oklch(54% 0.21 25), oklch(75% 0.19 25));
+
+        /* Provider accents: the only place a hue is spelled out. Dark values are lighter steps. */
+        --brand-claude: light-dark(#d97757, #e8957a);
+        --brand-codex: light-dark(#10a37f, #53dca6);
+        --brand-cursor: light-dark(#0284c7, #67c6ff);
+        --brand-copilot: light-dark(#8957e5, #b392f0);
+        --brand-grok: light-dark(#f48120, #ffad5e);
+        --brand-antigravity: light-dark(#3186ff, #7fb3ff);
+        --brand-vercel: light-dark(oklch(30% 0 0), oklch(84% 0 0));
+
+        /* Scales. Spacing 4 8 12 16 24 32 48. Type 12 13 14 16 30. */
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 24px;
+        --space-6: 32px;
+        --space-7: 48px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-base: 14px;
+        --text-md: 16px;
+        --text-display: 30px;
+        --radius-control: 12px;
+        --radius-panel: 20px;
+        --radius-pill: 9999px;
+        --shadow-floating: light-dark(
+          0 20px 48px oklch(0% 0 0 / 0.1),
+          0 22px 55px oklch(0% 0 0 / 0.34)
+        );
+        --font: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+        /* Motion. Enter is a strong ease-out; standard for colour and exits; spring for releases. */
+        --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+        --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+        --ease-spring: linear(
+          0,
+          0.026,
+          0.09,
+          0.176,
+          0.275,
+          0.378,
+          0.478,
+          0.57,
+          0.652,
+          0.724,
+          0.785,
+          0.836,
+          0.878,
+          0.912,
+          0.939,
+          0.96,
+          0.976,
+          0.988,
+          0.996,
+          1.002,
+          1.005,
+          1.0062,
+          1.0062,
+          1.006,
+          1.005,
+          1.004,
+          1.003,
+          1.002,
+          1.0013,
+          1
+        );
+        --dur-instant: 120ms;
+        --dur-fast: 160ms;
+        --dur-standard: 240ms;
+        --dur-considered: 480ms;
+        --dur-spring: 580ms;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+      }
+      body {
+        background: var(--background);
+        color: var(--foreground);
+        font: 400 var(--text-base)/1.45 var(--font);
+        letter-spacing: -0.005em;
+        font-feature-settings: "tnum", "cv11";
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      :focus-visible {
+        outline: 2px solid var(--border-strong);
+        outline-offset: 3px;
+        border-radius: 6px;
+      }
+      .secondary {
+        color: var(--text-secondary);
+      }
+      .muted {
+        color: var(--text-muted);
+      }
+      .num {
+        font-variant-numeric: tabular-nums;
+      }
+      .sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+
+      .page {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: var(--space-6) var(--space-5) 96px;
+      }
+
+      /* Top line */
+      .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-4);
+        margin-bottom: var(--space-7);
+        min-height: 36px;
+      }
+      .lockup {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: var(--text-md);
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      .lockup svg {
+        width: 24px;
+        height: 24px;
+        display: block;
+      }
+      .top nav {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-2) var(--space-4);
+        font-size: var(--text-base);
+        color: var(--text-secondary);
+      }
+      .top nav a {
+        padding: 6px 10px;
+        border-radius: 10px;
+      }
+      .top nav .summary {
+        padding-right: var(--space-2);
+      }
+      .top nav .summary b {
+        color: var(--foreground);
+        font-weight: 500;
+      }
+
+      /* Provider section: its accent becomes the fill of every meter inside it. */
+      .provider[data-accent="claude"] {
+        --accent: var(--brand-claude);
+      }
+      .provider[data-accent="codex"] {
+        --accent: var(--brand-codex);
+      }
+      .provider[data-accent="cursor"] {
+        --accent: var(--brand-cursor);
+      }
+      .provider[data-accent="copilot"] {
+        --accent: var(--brand-copilot);
+      }
+      .provider[data-accent="grok"] {
+        --accent: var(--brand-grok);
+      }
+      .provider[data-accent="antigravity"] {
+        --accent: var(--brand-antigravity);
+      }
+      .provider[data-accent="vercel_ai_gateway"] {
+        --accent: var(--brand-vercel);
+      }
+      .brand {
+        width: 20px;
+        height: 20px;
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        color: var(--foreground);
+      }
+      .brand svg {
+        width: 20px;
+        height: 20px;
+        display: block;
+      }
+      .brand.lg,
+      .brand.lg svg {
+        width: 24px;
+        height: 24px;
+      }
+
+      .provider {
+        margin-bottom: var(--space-7);
+      }
+      .provider > header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        margin: 0 0 var(--space-3) var(--space-1);
+      }
+      .provider > header h2 {
+        margin: 0;
+        font-size: var(--text-md);
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      .provider > header .count {
+        color: var(--text-muted);
+        font-size: var(--text-sm);
+      }
+      .mark {
+        width: 28px;
+        height: 28px;
+        border-radius: 9px;
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        background: var(--surface-muted);
+        color: var(--foreground);
+        font: 500 11px/1 var(--mono);
+        letter-spacing: 0.02em;
+      }
+      .stack {
+        display: grid;
+        gap: var(--space-3);
+      }
+
+      /* Account panel: border, no shadow at rest. */
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-panel);
+        padding: var(--space-5);
+        min-width: 0;
+      }
+      .panel > header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        flex-wrap: wrap;
+        margin-bottom: var(--space-5);
+        min-height: 28px;
+      }
+      .panel > header h3 {
+        margin: 0;
+        font-size: var(--text-md);
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      .panel > header h3 .plan {
+        color: var(--text-secondary);
+        font-weight: 400;
+      }
+      .panel > header .right {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        flex-wrap: wrap;
+      }
+      .panel.dim .cells,
+      .panel.dim .facts {
+        opacity: 0.55;
+      }
+
+      /* Status: plain text while healthy; a toned pill when something needs attention. */
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        white-space: nowrap;
+      }
+      .status .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--success);
+      }
+      .pill {
+        --tone: var(--foreground);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 26px;
+        padding: 0 10px;
+        border-radius: var(--radius-pill);
+        font-size: var(--text-xs);
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        color: var(--foreground);
+        background: color-mix(in oklch, var(--tone) 10%, var(--surface));
+        border: 1px solid color-mix(in oklch, var(--tone) 25%, var(--border));
+      }
+      .pill svg {
+        width: 14px;
+        height: 14px;
+        color: var(--tone);
+        flex: none;
+      }
+      .pill.neutral {
+        --tone: var(--foreground);
+        background: var(--surface-muted);
+        border-color: var(--border);
+        color: var(--text-secondary);
+      }
+      .pill.warn {
+        --tone: var(--warning);
+      }
+      .pill.bad {
+        --tone: var(--danger);
+      }
+      .pill.quiet {
+        --tone: var(--text-muted);
+        color: var(--text-secondary);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        height: 22px;
+        padding: 0 8px;
+        border-radius: var(--radius-pill);
+        background: var(--surface-muted);
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        font-size: 11px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+      /* Cells: every figure is a cell. Flex wrap with grow, so the last row never leaves a hole. */
+      .cells {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-5) var(--space-6);
+      }
+      .cell {
+        flex: 1 1 220px;
+        min-width: 0;
+        display: grid;
+        gap: var(--space-2);
+        align-content: start;
+      }
+      .cell .label {
+        font-size: var(--text-base);
+        font-weight: 500;
+        display: flex;
+        gap: 6px;
+        align-items: baseline;
+        min-height: 20px;
+      }
+      .cell .label .window {
+        color: var(--text-muted);
+        font-weight: 400;
+        font-size: var(--text-sm);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .cell .value {
+        display: flex;
+        align-items: baseline;
+        gap: 3px;
+        font-size: var(--text-display);
+        font-weight: 500;
+        letter-spacing: -0.03em;
+        line-height: 1;
+        min-height: 30px;
+      }
+      .cell .value .unit {
+        font-size: var(--text-base);
+        font-weight: 400;
+        color: var(--text-secondary);
+        letter-spacing: 0;
+      }
+      .cell .value .of {
+        font-size: var(--text-base);
+        font-weight: 400;
+        color: var(--text-secondary);
+        letter-spacing: 0;
+        margin-left: var(--space-1);
+      }
+      .cell .value.unknown {
+        color: var(--text-muted);
+        font-weight: 400;
+      }
+      .cell .caption {
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .cell .caption b {
+        font-weight: 500;
+        color: var(--foreground);
+      }
+      .cell.fact .bar {
+        display: none;
+      }
+
+      /* Bar: pill track, toned fill, optional segments with 2px gaps, hatch for not-yet-reported. */
+      .bar {
+        position: relative;
+        height: 12px;
+        border-radius: var(--radius-pill);
+        background: var(--track);
+        margin: 2px 0;
+      }
+      .bar .fill,
+      .bar .seg {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        border-radius: var(--radius-pill);
+        background: var(--accent);
+        transform-origin: left center;
+      }
+      .bar .fill {
+        width: max(var(--v), 12px);
+      }
+      .bar.warn .fill {
+        background: var(--warning);
+      }
+      .bar.bad .fill {
+        background: var(--danger);
+      }
+      .bar .seg {
+        width: calc(var(--w) - 2px);
+        left: var(--x);
+      }
+      .bar .seg.s2 {
+        background: var(--accent-2);
+      }
+      .bar .seg.s3 {
+        background: var(--accent-3);
+      }
+      .bar.thin {
+        height: 6px;
+      }
+      .bar.thin .fill {
+        width: max(var(--v), 6px);
+      }
+      .bar.unknown {
+        background: repeating-linear-gradient(135deg, var(--track) 0 4px, transparent 4px 9px);
+      }
+      .bar.hatch::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        left: var(--limit);
+        border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+        background: repeating-linear-gradient(45deg, transparent 0 3.5px, var(--surface) 3.5px 6px);
+      }
+
+      /* Legend for segmented bars */
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 14px;
+        margin-top: 2px;
+      }
+      .legend .item {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        padding: 2px 0;
+      }
+      .legend .sw {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        background: var(--accent);
+      }
+      .legend .sw.s2 {
+        background: var(--accent-2);
+      }
+      .legend .sw.s3 {
+        background: var(--accent-3);
+      }
+      .legend .sw.free {
+        background: var(--track);
+        box-shadow: inset 0 0 0 1px var(--border-strong);
+      }
+      .legend .item b {
+        color: var(--foreground);
+        font-weight: 500;
+      }
+
+      /* Facts row: hairline above; small facts; actions and the details toggle on the right. */
+      .facts {
+        margin-top: var(--space-5);
+        padding-top: var(--space-4);
+        border-top: 1px solid var(--border-subtle);
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2) var(--space-5);
+        align-items: center;
+        font-size: var(--text-base);
+        min-height: 36px;
+      }
+      .kv {
+        display: inline-flex;
+        align-items: baseline;
+        gap: var(--space-2);
+        color: var(--text-secondary);
+      }
+      .kv b {
+        font-weight: 500;
+        color: var(--foreground);
+      }
+      .facts .spacer {
+        flex: 1;
+      }
+      .pips {
+        display: inline-flex;
+        gap: 3px;
+        align-self: center;
+      }
+      .pip {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      .pip.spent {
+        background: transparent;
+        box-shadow: inset 0 0 0 1px var(--border-strong);
+      }
+
+      /* Buttons: 36px, 14/500, press scales .97 in 120ms and releases on the spring. */
+      .btn {
+        font: 500 var(--text-base)/20px var(--font);
+        letter-spacing: -0.005em;
+        color: var(--foreground);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-control);
+        height: 36px;
+        padding: 0 14px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        white-space: nowrap;
+        transition:
+          scale var(--dur-spring) var(--ease-spring),
+          background-color var(--dur-fast) var(--ease-standard),
+          border-color var(--dur-fast) var(--ease-standard),
+          opacity var(--dur-fast) var(--ease-standard);
+      }
+      .btn svg {
+        width: 16px;
+        height: 16px;
+      }
+      .btn:active:not(:disabled) {
+        scale: 0.97;
+        transition-duration: var(--dur-instant);
+      }
+      .btn:disabled {
+        opacity: 0.52;
+        cursor: not-allowed;
+      }
+      .btn.primary {
+        background: var(--foreground);
+        color: var(--background);
+        border-color: var(--foreground);
+      }
+      .btn.quiet {
+        background: transparent;
+        border-color: transparent;
+        color: var(--text-secondary);
+        padding: 0 8px;
+      }
+      .btn.danger {
+        color: var(--danger);
+      }
+      .btn.sm {
+        height: 30px;
+        padding: 0 10px;
+        font-size: var(--text-sm);
+        border-radius: 10px;
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .btn:hover:not(:disabled) {
+          background: var(--surface-muted);
+          border-color: var(--border-strong);
+        }
+        .btn.primary:hover:not(:disabled) {
+          background: var(--foreground);
+          border-color: var(--foreground);
+          opacity: 0.9;
+        }
+        .btn.quiet:hover:not(:disabled) {
+          color: var(--foreground);
+          border-color: transparent;
+        }
+        .btn.danger:hover:not(:disabled) {
+          border-color: color-mix(in oklch, var(--danger) 32%, var(--border));
+          background: color-mix(in oklch, var(--danger) 6%, var(--surface));
+        }
+        .top nav a:hover {
+          color: var(--foreground);
+          background: var(--surface-muted);
+        }
+        .legend .item:hover {
+          color: var(--foreground);
+        }
+      }
+
+      /* Hold to confirm: the face is drawn twice; the inverted copy is clipped to the hold progress. */
+      .hold {
+        position: relative;
+        overflow: hidden;
+        --p: 0%;
+        border-color: color-mix(in oklch, var(--danger) 32%, var(--border));
+        color: var(--danger);
+      }
+      .hold .face {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .hold .fillface {
+        position: absolute;
+        inset: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 14px;
+        background: var(--danger);
+        color: var(--background);
+        clip-path: inset(0 calc(100% - var(--p)) 0 0);
+      }
+      .hold:disabled {
+        color: var(--text-secondary);
+        border-color: var(--border);
+      }
+
+      /* Notice: one line, toned surface, action right. */
+      .notice {
+        --tone: var(--foreground);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        flex-wrap: wrap;
+        padding: 10px 10px 10px 14px;
+        border-radius: var(--radius-control);
+        margin-bottom: var(--space-5);
+        font-size: var(--text-base);
+        background: color-mix(in oklch, var(--tone) 8%, var(--surface));
+        border: 1px solid color-mix(in oklch, var(--tone) 22%, var(--border));
+      }
+      .notice .text {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .notice svg {
+        width: 16px;
+        height: 16px;
+        color: var(--tone);
+        flex: none;
+      }
+      .notice.bad {
+        --tone: var(--danger);
+      }
+      .notice.warn {
+        --tone: var(--warning);
+      }
+      .notice.neutral {
+        --tone: var(--text-muted);
+        background: var(--surface-muted);
+        border-color: var(--border);
+      }
+
+      /* Text swap: new text rises from 0.3em below with a blur; old text leaves upward, faster. */
+      /* The swap wrapper must win over inline-flex containers such as .foot .last and .status. */
+      .swap,
+      .foot .last.swap,
+      .status-slot.swap,
+      .label.swap,
+      .count.swap {
+        display: inline-grid;
+      }
+      .swap > * {
+        grid-area: 1 / 1;
+      }
+      @keyframes swap-in {
+        from {
+          opacity: 0;
+          translate: 0 0.3em;
+          filter: blur(4px);
+        }
+      }
+      @keyframes swap-out {
+        to {
+          opacity: 0;
+          translate: 0 -0.3em;
+          filter: blur(2px);
+        }
+      }
+      .swap-in {
+        animation: swap-in var(--dur-standard) var(--ease-enter) both;
+      }
+      .swap-out {
+        animation: swap-out var(--dur-fast) var(--ease-standard) both;
+        pointer-events: none;
+      }
+
+      /* Spinner and check for in-place confirmation */
+      .spin {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 1.5px solid color-mix(in oklch, currentColor 25%, transparent);
+        border-top-color: currentColor;
+        animation: spin 0.7s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          rotate: 360deg;
+        }
+      }
+      .check path {
+        stroke-dasharray: 24;
+        stroke-dashoffset: 24;
+        animation: draw var(--dur-standard) var(--ease-standard) 50ms forwards;
+      }
+      @keyframes draw {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+
+      /* Confirm morph: one pill whose faces slide; the asking face is tinted with the danger tone. */
+      .confirm {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 4px 0 12px;
+        border-radius: var(--radius-pill);
+        background: var(--surface-raised);
+        border: 1px solid color-mix(in oklch, var(--danger) 30%, var(--border));
+        font-size: var(--text-sm);
+        color: var(--foreground);
+        animation: swap-in var(--dur-standard) var(--ease-enter) both;
+      }
+      .confirm .q {
+        white-space: nowrap;
+      }
+      .confirm .btn.sm {
+        height: 24px;
+        padding: 0 9px;
+        border-radius: var(--radius-pill);
+        font-size: var(--text-xs);
+      }
+      .confirm .btn.sm.primary {
+        background: var(--danger);
+        border-color: var(--danger);
+        color: var(--background);
+      }
+
+      /* Hold progress is a custom property so it can transition. */
+      @property --p {
+        syntax: "<percentage>";
+        inherits: false;
+        initial-value: 0%;
+      }
+      .hold {
+        transition:
+          --p 1200ms linear,
+          scale var(--dur-spring) var(--ease-spring),
+          background-color var(--dur-fast) var(--ease-standard),
+          border-color var(--dur-fast) var(--ease-standard);
+      }
+      .hold.rewind {
+        transition: --p 400ms var(--ease-standard);
+      }
+      .hold.holding {
+        --p: 100%;
+      }
+      .hold.done {
+        --p: 0%;
+        color: var(--text-secondary);
+        border-color: var(--border);
+      }
+
+      /* Account menu: avatar trigger, floating panel with the only shadow on the page. */
+      .avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: inline-grid;
+        place-items: center;
+        background: var(--accent-subtle);
+        color: var(--foreground);
+        font: 500 13px/1 var(--font);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        transition: border-color var(--dur-fast) var(--ease-standard);
+      }
+      .avatar[aria-expanded="true"] {
+        border-color: var(--border-strong);
+        background: var(--surface-muted);
+      }
+      .menu-anchor {
+        position: relative;
+      }
+      .menu {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 8px);
+        min-width: 240px;
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: var(--shadow-floating);
+        padding: 6px;
+        z-index: 10;
+        transform-origin: top right;
+        display: none;
+      }
+      .menu.open {
+        display: block;
+        animation: menu-in var(--dur-fast) var(--ease-enter) both;
+      }
+      @keyframes menu-in {
+        from {
+          opacity: 0;
+          scale: 0.97;
+          translate: 0 -4px;
+        }
+      }
+      .menu .who {
+        padding: 10px 10px 8px;
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--border-subtle);
+        margin-bottom: 6px;
+      }
+      .menu .who b {
+        display: block;
+        color: var(--foreground);
+        font-weight: 500;
+        font-size: var(--text-base);
+      }
+      .menu .item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        height: 36px;
+        padding: 0 10px;
+        border-radius: 10px;
+        border: 0;
+        background: transparent;
+        color: var(--foreground);
+        font: 400 var(--text-base)/1 var(--font);
+        text-align: left;
+        cursor: pointer;
+      }
+      .menu .item svg {
+        width: 16px;
+        height: 16px;
+        color: var(--text-secondary);
+      }
+      .menu .item.danger {
+        color: var(--danger);
+      }
+      .menu .theme {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 10px 8px;
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+      }
+      .seg {
+        display: inline-flex;
+        background: var(--surface-muted);
+        border-radius: var(--radius-pill);
+        padding: 2px;
+        gap: 2px;
+      }
+      .seg button {
+        height: 26px;
+        padding: 0 10px;
+        border-radius: var(--radius-pill);
+        border: 0;
+        background: transparent;
+        color: var(--text-secondary);
+        font: 500 var(--text-xs)/1 var(--font);
+        cursor: pointer;
+        transition:
+          background-color var(--dur-fast) var(--ease-standard),
+          color var(--dur-fast) var(--ease-standard);
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--surface-raised);
+        color: var(--foreground);
+        box-shadow: 0 1px 2px oklch(0% 0 0 / 0.06);
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .menu .item:hover {
+          background: var(--surface-muted);
+        }
+      }
+
+      /* Connect page */
+      .intro h1 {
+        margin: 0;
+        font-size: var(--text-display);
+        font-weight: 500;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+      }
+      .intro p {
+        margin: var(--space-2) 0 0;
+        color: var(--text-secondary);
+        max-width: 60ch;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: var(--space-3);
+        margin-top: var(--space-5);
+      }
+      .card {
+        text-align: left;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-panel);
+        padding: var(--space-4);
+        display: grid;
+        gap: var(--space-3);
+        cursor: pointer;
+        color: var(--foreground);
+        font: inherit;
+        transition:
+          border-color var(--dur-fast) var(--ease-standard),
+          background-color var(--dur-fast) var(--ease-standard),
+          scale var(--dur-spring) var(--ease-spring);
+      }
+      .card:active {
+        scale: 0.985;
+        transition-duration: var(--dur-instant);
+      }
+      .card .head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: var(--text-md);
+        font-weight: 500;
+      }
+      .card .hint {
+        color: var(--text-secondary);
+        font-size: var(--text-sm);
+      }
+      .card .meta {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .card:hover {
+          border-color: var(--border-strong);
+          background: var(--surface-raised);
+        }
+      }
+      .step {
+        display: grid;
+        gap: var(--space-4);
+      }
+      .step .title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        flex-wrap: wrap;
+      }
+      .step h2 {
+        margin: 0;
+        font-size: var(--text-md);
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .code {
+        font: 500 28px/1 var(--mono);
+        letter-spacing: 0.12em;
+        padding: 14px 18px;
+        border-radius: var(--radius-control);
+        background: var(--surface-muted);
+        border: 1px solid var(--border);
+        display: inline-flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .code .btn {
+        letter-spacing: 0;
+      }
+      .field {
+        display: grid;
+        gap: 6px;
+        max-width: 520px;
+      }
+      .field label {
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+      }
+      .field input {
+        font: 400 var(--text-base)/1.4 var(--font);
+        height: 40px;
+        padding: 0 12px;
+        border-radius: var(--radius-control);
+        border: 1px solid var(--border-strong);
+        background: var(--surface);
+        color: var(--foreground);
+      }
+      .field input:focus {
+        outline: 2px solid var(--border-strong);
+        outline-offset: 2px;
+      }
+      .ok {
+        display: inline-grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: color-mix(in oklch, var(--success) 14%, var(--surface));
+        color: var(--success);
+      }
+      .ok svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* Skeleton: final layout dimensions, finite pulse. */
+      .sk {
+        background: color-mix(in oklch, var(--border-strong) 38%, var(--surface));
+        border-radius: 8px;
+        animation: pulse 1.8s var(--ease-in-out) 11;
+      }
+      .sk.line {
+        height: 12px;
+      }
+      .sk.title {
+        height: 16px;
+        width: 40%;
+      }
+      .sk.bar {
+        height: 12px;
+        border-radius: var(--radius-pill);
+      }
+      .sk.big {
+        height: 30px;
+        width: 56%;
+      }
+      .sk:nth-child(2) {
+        animation-delay: 90ms;
+      }
+      .sk:nth-child(3) {
+        animation-delay: 180ms;
+      }
+      .sk:nth-child(4) {
+        animation-delay: 270ms;
+      }
+      @keyframes pulse {
+        50% {
+          opacity: 0.52;
+        }
+      }
+
+      /* Empty state */
+      .empty {
+        text-align: center;
+        padding: clamp(32px, 8vw, 64px) 20px;
+        display: grid;
+        justify-items: center;
+      }
+      .empty .tile {
+        width: 48px;
+        height: 48px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: var(--surface-muted);
+        display: grid;
+        place-items: center;
+      }
+      .empty .tile svg {
+        width: 24px;
+        height: 24px;
+      }
+      .empty h2 {
+        margin: 20px 0 0;
+        font-size: var(--text-md);
+        font-weight: 500;
+      }
+      .empty p {
+        margin: 8px 0 0;
+        color: var(--text-secondary);
+        max-width: 24rem;
+        text-wrap: balance;
+      }
+      .empty .actions {
+        margin-top: 20px;
+        display: flex;
+        gap: var(--space-3);
+      }
+      .empty .providers {
+        margin-top: var(--space-5);
+        font-size: var(--text-sm);
+        color: var(--text-muted);
+      }
+
+      .add {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 64px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-panel);
+        color: var(--text-secondary);
+        font-size: var(--text-base);
+        transition:
+          color var(--dur-fast),
+          border-color var(--dur-fast);
+      }
+      .add svg {
+        width: 16px;
+        height: 16px;
+      }
+      .add:hover {
+        color: var(--foreground);
+        border-color: var(--text-muted);
+      }
+
+      .key {
+        margin-top: var(--space-7);
+        color: var(--text-muted);
+        font-size: var(--text-xs);
+        display: flex;
+        gap: var(--space-5);
+        flex-wrap: wrap;
+        padding-inline: var(--space-1);
+      }
+      .key .sw {
+        display: inline-block;
+        width: 16px;
+        height: 6px;
+        border-radius: 3px;
+        background: var(--accent);
+        vertical-align: middle;
+        margin-right: 6px;
+      }
+      .key .sw.warn {
+        background: var(--warning);
+      }
+      .key .sw.bad {
+        background: var(--danger);
+      }
+      .key .sw.unknown {
+        background: repeating-linear-gradient(135deg, var(--track) 0 3px, transparent 3px 7px);
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+
+      /* States page helpers */
+      .demo {
+        display: grid;
+        gap: var(--space-5);
+      }
+      .demo h2 {
+        margin: var(--space-6) 0 0;
+        font-size: var(--text-md);
+        font-weight: 500;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+        align-items: center;
+      }
+
+      /* First paint: bars grow from the left and numbers count up once. JS removes .pre one frame in. */
+      .pre .bar .fill,
+      .pre .bar .seg {
+        transform: scaleX(0);
+      }
+      .bar .fill,
+      .bar .seg {
+        transition: transform var(--dur-spring) var(--ease-standard);
+      }
+      @media (max-width: 720px) {
+        .page {
+          padding: var(--space-5) var(--space-4) var(--space-7);
+        }
+        .top {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: var(--space-2);
+          margin-bottom: var(--space-6);
+        }
+        .top nav .summary {
+          flex-basis: 100%;
+        }
+        .panel {
+          padding: var(--space-4);
+          border-radius: 16px;
+        }
+        .cells {
+          gap: var(--space-4);
+        }
+        .cell {
+          flex-basis: 100%;
+        }
+        .cell .value {
+          font-size: 26px;
+        }
+        .provider {
+          margin-bottom: var(--space-6);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+        }
+        .btn:active:not(:disabled) {
+          scale: 1;
+        }
+      }
+
+      /* ---- F overrides. These win by order over the inherited E rules. ---- */
+      /* Bars report headroom: green while plenty is left, amber under 30% left, red under 10% left. */
+      .bar .fill {
+        background: var(--success);
+      }
+      .bar.good .fill {
+        background: var(--success);
+      }
+      .bar.warn .fill {
+        background: var(--warning);
+      }
+      .bar.bad .fill {
+        background: var(--danger);
+      }
+      .bar.neutral .fill {
+        background: var(--accent);
+      }
+      .bar .tick {
+        display: none;
+      }
+      .tone {
+        font-weight: 500;
+      }
+      .tone.warn {
+        color: var(--warning-text, var(--warning));
+      }
+      .tone.bad {
+        color: var(--danger);
+      }
+      .provider[data-accent] {
+        --accent: light-dark(oklch(30% 0 0), oklch(84% 0 0));
+      }
+      .key .sw {
+        background: var(--success);
+      }
+      .key .sw.warn {
+        background: var(--warning);
+      }
+      .key .sw.bad {
+        background: var(--danger);
+      }
+
+      /* Actions sit on the facts row, right-aligned. */
+      .facts {
+        min-height: 0;
+      }
+      .facts .acts {
+        display: inline-flex;
+        gap: 2px;
+        align-items: center;
+        margin: -6px -10px -6px auto;
+      }
+
+      /* Provider header: count as a quiet chip. */
+      .provider > header .count:empty {
+        display: none;
+      }
+      .provider > header .chip.count {
+        margin-left: 2px;
+      }
+
+      /* Top line and summary sentence. */
+      .top nav {
+        gap: var(--space-3);
+      }
+      .summary {
+        margin: calc(-1 * var(--space-6)) 0 var(--space-6);
+        color: var(--text-secondary);
+        font-size: var(--text-base);
+        line-height: 1.5;
+      }
+      .summary b {
+        color: var(--foreground);
+        font-weight: 500;
+      }
+      .summary .tone svg {
+        width: 16px;
+        height: 16px;
+        vertical-align: -3px;
+        margin-right: 4px;
+      }
+
+      /* Avatar is an identicon. */
+      .avatar {
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        overflow: hidden;
+        background: var(--surface-muted);
+        border: 1px solid var(--border);
+        border-radius: 50%;
+        display: inline-grid;
+        place-items: center;
+        transition:
+          border-color var(--dur-fast) var(--ease-standard),
+          scale var(--dur-spring) var(--ease-spring);
+      }
+      .avatar svg {
+        width: 34px;
+        height: 34px;
+        display: block;
+      }
+      .avatar:active {
+        scale: 0.96;
+        transition-duration: var(--dur-instant);
+      }
+
+      /* Hold states */
+      .hold.good {
+        color: var(--success);
+        border-color: color-mix(in oklch, var(--success) 30%, var(--border));
+      }
+      .hold.failed {
+        color: var(--danger);
+      }
+      .hold.off {
+        color: var(--text-muted);
+        border-color: var(--border);
+        border-style: dashed;
+        cursor: not-allowed;
+        opacity: 1;
+      }
+      .hold .fillface {
+        padding: 0 12px;
+      }
+      .hold.sm .fillface {
+        padding: 0 10px;
+      }
+      .hold.sm .face svg,
+      .hold.sm .fillface svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      /* Connect cards: three rows, no empty bottom. */
+      .cards {
+        align-items: stretch;
+      }
+      .card {
+        grid-template-rows: auto 1fr auto;
+        gap: var(--space-2);
+      }
+      .card .meta {
+        color: var(--text-muted);
+        font-size: var(--text-xs);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .card .meta svg {
+        width: 14px;
+        height: 14px;
+        flex: none;
+      }
+      .card .meta {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .card .meta svg {
+        margin-top: 2px;
+      }
+    </style>
+    <script>
+      const s = new URLSearchParams(location.search).get("scheme");
+      if (s) document.documentElement.style.colorScheme = s;
+      if (
+        !matchMedia("(prefers-reduced-motion: reduce)").matches &&
+        new URLSearchParams(location.search).get("motion") !== "off"
+      )
+        document.documentElement.classList.add("pre");
+    </script>
+  </head>
+  <body>
+    <div class="page">
+      <header class="top">
+        <a class="lockup" href="f-panels.html"
+          ><svg viewBox="0 0 64 64" aria-hidden="true">
+            <rect width="64" height="64" rx="18" fill="currentColor" />
+            <rect
+              x="14"
+              y="16"
+              width="36"
+              height="4"
+              rx="2"
+              fill="var(--background)"
+              opacity=".55"
+            />
+            <rect x="14" y="30" width="26" height="8" rx="4" fill="var(--background)" />
+            <rect x="14" y="42" width="16" height="8" rx="4" fill="var(--background)" /></svg
+          >Headroom</a
+        >
+        <nav aria-label="Page">
+          <a class="btn" href="f-connect.html">Connect an Account</a>
+          <span class="menu-anchor"
+            ><button
+              class="avatar"
+              type="button"
+              aria-label="Account Menu"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-controls="account-menu"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 128 128"
+                fill="none"
+                shape-rendering="auto"
+                aria-hidden="true"
+              >
+                <metadata
+                  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:dc="http://purl.org/dc/elements/1.1/"
+                  xmlns:dcterms="http://purl.org/dc/terms/"
+                >
+                  <rdf:RDF
+                    ><rdf:Description
+                      ><dc:title>Voxel Art</dc:title><dc:creator>DiceBear</dc:creator
+                      ><dc:source xsi:type="dcterms:URI">https://www.dicebear.com</dc:source
+                      ><dcterms:license xsi:type="dcterms:URI"
+                        >https://creativecommons.org/publicdomain/zero/1.0/</dcterms:license
+                      ><dc:rights
+                        >“Voxel Art” (https://www.dicebear.com) by “DiceBear”, licensed under “CC0
+                        1.0” (https://creativecommons.org/publicdomain/zero/1.0/)</dc:rights
+                      ></rdf:Description
+                    ></rdf:RDF
+                  >
+                </metadata>
+                <defs>
+                  <g id="outfit-suit-16f2fe11">
+                    <path
+                      d="M32.5 100.7H40v7.5h-7.5Zm0 0H40l6-4.8h-7.5Zm7.5 0 6-4.8v7.5l-6 4.8Z"
+                      fill="#eab890"
+                    />
+                    <path
+                      d="M32.5 100.7H40v7.5h-7.5Zm0 0H40l6-4.8h-7.5Zm7.5 0 6-4.8v7.5l-6 4.8Z"
+                      fill="#000000"
+                      fill-opacity=".08"
+                    />
+                    <path d="M32.5 100.7H40l6-4.8h-7.5Z" fill="#ffffff" fill-opacity=".38" />
+                    <path d="m40 100.7 6-4.8v7.5l-6 4.8Z" fill="#000000" fill-opacity=".24" />
+                    <path fill="#000000" fill-opacity=".16" d="M42 108.6h15v2H42zm20 0h15v2H62z" />
+                    <path
+                      d="M32.5 85.7H40v15h-7.5Zm0 0H40l6-4.8h-7.5Zm7.5 0 6-4.8v15l-6 4.8Z"
+                      fill="#f8f9fa"
+                    />
+                    <path
+                      d="M32.5 85.7H40v15h-7.5Zm0 0H40l6-4.8h-7.5Zm7.5 0 6-4.8v15l-6 4.8Z"
+                      fill="#000000"
+                      fill-opacity=".08"
+                    />
+                    <path d="M32.5 85.7H40l6-4.8h-7.5Z" fill="#ffffff" fill-opacity=".38" />
+                    <path d="m40 85.7 6-4.8v15l-6 4.8Z" fill="#000000" fill-opacity=".24" />
+                    <path
+                      d="M39.5 83.6h40v25h-40Zm0 0h40l7-5.6h-40Zm40 0 7-5.6v25l-7 5.6Z"
+                      fill="#f8f9fa"
+                    />
+                    <path d="M39.5 83.6h40l7-5.6h-40Z" fill="#ffffff" fill-opacity=".38" />
+                    <path d="m79.5 83.6 7-5.6v25l-7 5.6Z" fill="#000000" fill-opacity=".24" />
+                    <path d="M49.5 83.6h20v25h-20Z" fill="#495057" fill-opacity="1" />
+                    <path d="M49.5 83.6h20v25h-20Z" fill="#ffffff" fill-opacity=".85" />
+                    <path
+                      d="M80 100.7h7.5v7.5H80Zm0 0h7.5l6-4.8H86Zm7.5 0 6-4.8v7.5l-6 4.8Z"
+                      fill="#eab890"
+                    />
+                    <path
+                      d="M80 100.7h7.5v7.5H80Zm0 0h7.5l6-4.8H86Zm7.5 0 6-4.8v7.5l-6 4.8Z"
+                      fill="#000000"
+                      fill-opacity=".08"
+                    />
+                    <path d="M80 100.7h7.5l6-4.8H86Z" fill="#ffffff" fill-opacity=".38" />
+                    <path d="m87.5 100.7 6-4.8v7.5l-6 4.8Z" fill="#000000" fill-opacity=".24" />
+                    <path
+                      d="M80 85.7h7.5v15H80Zm0 0h7.5l6-4.8H86Zm7.5 0 6-4.8v15l-6 4.8Z"
+                      fill="#f8f9fa"
+                    />
+                    <path
+                      d="M80 85.7h7.5v15H80Zm0 0h7.5l6-4.8H86Zm7.5 0 6-4.8v15l-6 4.8Z"
+                      fill="#000000"
+                      fill-opacity=".08"
+                    />
+                    <path d="M80 85.7h7.5l6-4.8H86Z" fill="#ffffff" fill-opacity=".38" />
+                    <path d="m87.5 85.7 6-4.8v15l-6 4.8Z" fill="#000000" fill-opacity=".24" />
+                    <path d="M39 84h12.5v25H39Zm0 0h12.5l.5-.4H39.5Z" fill="#f8f9fa" />
+                    <path d="M39 84h12.5l.5-.4H39.5Z" fill="#ffffff" fill-opacity=".38" />
+                    <path d="M66.5 84H79v25H66.5Zm0 0H79l.5-.4H67Z" fill="#f8f9fa" />
+                    <path d="M66.5 84H79l.5-.4H67Z" fill="#ffffff" fill-opacity=".38" />
+                  </g>
+                  <g id="mouth-bigSmile-16f2fe11">
+                    <path d="M25 0h10v2.5h2.5V5H35v2.5H25V5h-2.5V2.5H25Z" fill="#26190f" />
+                    <path fill="#ffffff" d="M25 2.5h10V5H25z" />
+                  </g>
+                  <g id="cheeks-pixel-16f2fe11">
+                    <path fill="#ff8fab" fill-opacity=".65" d="M2.5 0h5v5h-5zm50 0h5v5h-5z" />
+                  </g>
+                  <g id="eyes-soft-16f2fe11">
+                    <path d="M10 0h7.5v2.5H20v10h-2.5V15H10v-2.5H7.5v-10H10Z" fill="#ffffff" />
+                    <path fill="#26190f" d="M10 5h7.5v7.5H10z" />
+                    <path fill="#ffffff" fill-opacity=".95" d="M12.5 7.5H15V10h-2.5z" />
+                    <path d="M42.5 0H50v2.5h2.5v10H50V15h-7.5v-2.5H40v-10h2.5Z" fill="#ffffff" />
+                    <path fill="#26190f" d="M42.5 5H50v7.5h-7.5z" />
+                    <path fill="#ffffff" fill-opacity=".95" d="M45 7.5h2.5V10H45z" />
+                  </g>
+                  <g id="eyebrows-soft-16f2fe11">
+                    <path
+                      fill="#c98850"
+                      d="M7.5 2.5H15V5H7.5zM15 0h5v2.5h-5zm25 0h5v2.5h-5zm5 2.5h7.5V5H45z"
+                    />
+                  </g>
+                  <g id="animation-none-16f2fe11"></g>
+                  <g id="nose-tall-16f2fe11">
+                    <path fill="#000000" fill-opacity=".16" d="M55 72.7h5v1h-5z" />
+                    <path
+                      d="M55 62.7h5v10h-5Zm0 0h5l1.5-1.2h-5Zm5 0 1.5-1.2v10L60 72.7Z"
+                      fill="#eab890"
+                    />
+                    <path
+                      d="M55 62.7h5v10h-5Zm0 0h5l1.5-1.2h-5Zm5 0 1.5-1.2v10L60 72.7Z"
+                      fill="#e8590c"
+                      fill-opacity=".14"
+                    />
+                    <path d="M55 62.7h5l1.5-1.2h-5Z" fill="#ffffff" fill-opacity=".38" />
+                    <path d="m60 62.7 1.5-1.2v10L60 72.7Z" fill="#000000" fill-opacity=".24" />
+                  </g>
+                  <g id="top-halfShaved-16f2fe11">
+                    <path fill="#000000" fill-opacity=".16" d="M32 48.1h25v2H32zm-3-15h60v2H29z" />
+                    <path
+                      d="M32 28.1h25v20H32Zm0 0h25l2-1.6H34Zm25 0 2-1.6v20l-2 1.6Z"
+                      fill="#c98850"
+                    />
+                    <path d="M32 28.1h25l2-1.6H34Z" fill="#ffffff" fill-opacity=".38" />
+                    <path d="m57 28.1 2-1.6v20l-2 1.6Z" fill="#000000" fill-opacity=".24" />
+                    <path fill="#000000" fill-opacity=".16" d="M32 33.1h25v2H32z" />
+                    <path
+                      d="M24.5 25.6h65v7.5h-65Zm0 0h65l12.5-10H37Zm65 0 12.5-10v7.5l-12.5 10Z"
+                      fill="#c98850"
+                    />
+                    <path d="M24.5 25.6h65l12.5-10H37Z" fill="#ffffff" fill-opacity=".38" />
+                    <path d="m89.5 25.6 12.5-10v7.5l-12.5 10Z" fill="#000000" fill-opacity=".24" />
+                  </g>
+                  <clipPath id="clip-16f2fe11">
+                    <rect width="128" height="128" rx="0" ry="0" />
+                  </clipPath>
+                </defs>
+                <g clip-path="url(#clip-16f2fe11)">
+                  <rect width="128" height="128" fill="#ffd5dc" />
+                  <path d="M30 125.2h52.5L94 116H41.5Z" fill="#000000" fill-opacity=".08" />
+                  <path
+                    d="M41 121.9h15v2.5H41Zm0 0h15l8.5-6.8h-15Zm15 0 8.5-6.8v2.5l-8.5 6.8Z"
+                    fill="#343a40"
+                  />
+                  <path d="M41 121.9h15l8.5-6.8h-15Z" fill="#ffffff" fill-opacity=".38" />
+                  <path d="m56 121.9 8.5-6.8v2.5l-8.5 6.8Z" fill="#000000" fill-opacity=".24" />
+                  <path
+                    d="M41.5 119h15v5h-15Zm0 0h15l8-6.4h-15Zm15 0 8-6.4v5l-8 6.4Z"
+                    fill="#343a40"
+                  />
+                  <path d="M41.5 119h15l8-6.4h-15Z" fill="#ffffff" fill-opacity=".38" />
+                  <path d="m56.5 119 8-6.4v5l-8 6.4Z" fill="#000000" fill-opacity=".24" />
+                  <path
+                    d="M61 121.9h15v2.5H61Zm0 0h15l8.5-6.8h-15Zm15 0 8.5-6.8v2.5l-8.5 6.8Z"
+                    fill="#343a40"
+                  />
+                  <path d="M61 121.9h15l8.5-6.8h-15Z" fill="#ffffff" fill-opacity=".38" />
+                  <path d="m76 121.9 8.5-6.8v2.5l-8.5 6.8Z" fill="#000000" fill-opacity=".24" />
+                  <path
+                    d="M61.5 119h15v5h-15Zm0 0h15l8-6.4h-15Zm15 0 8-6.4v5l-8 6.4Z"
+                    fill="#343a40"
+                  />
+                  <path d="M61.5 119h15l8-6.4h-15Z" fill="#ffffff" fill-opacity=".38" />
+                  <path d="m76.5 119 8-6.4v5l-8 6.4Z" fill="#000000" fill-opacity=".24" />
+                  <path
+                    d="M42 103.6h15v15H42Zm0 0h15l7-5.6H49Zm15 0 7-5.6v15l-7 5.6Z"
+                    fill="#6b4f3a"
+                  />
+                  <path d="M42 103.6h15l7-5.6H49Z" fill="#ffffff" fill-opacity=".38" />
+                  <path d="m57 103.6 7-5.6v15l-7 5.6Z" fill="#000000" fill-opacity=".24" />
+                  <path
+                    d="M62 103.6h15v15H62Zm0 0h15l7-5.6H69Zm15 0 7-5.6v15l-7 5.6Z"
+                    fill="#6b4f3a"
+                  />
+                  <path d="M62 103.6h15l7-5.6H69Z" fill="#ffffff" fill-opacity=".38" />
+                  <path d="m77 103.6 7-5.6v15l-7 5.6Z" fill="#000000" fill-opacity=".24" />
+                  <g class="va-upper">
+                    <use href="#outfit-suit-16f2fe11" />
+                    <path
+                      fill="#000000"
+                      fill-opacity=".2"
+                      d="M32.5 86.5H40V89h-7.5zm7.5 0h39.5V89H40zm40 0h7.5V89H80z"
+                    />
+                    <path
+                      d="M28 55.3h2.5v10H28Zm0 0h2.5l4-3.2H32Zm2.5 0 4-3.2v10l-4 3.2Z"
+                      fill="#eab890"
+                    />
+                    <path d="M28 55.3h2.5l4-3.2H32Z" fill="#ffffff" fill-opacity=".38" />
+                    <path d="m30.5 55.3 4-3.2v10l-4 3.2Z" fill="#000000" fill-opacity=".24" />
+                    <path
+                      d="M29 31.5h60v55H29Zm0 0h60l10-8H39Zm60 0 10-8v55l-10 8Z"
+                      fill="#eab890"
+                    />
+                    <path d="M29 31.5h60l10-8H39Z" fill="#ffffff" fill-opacity=".38" />
+                    <path d="m89 31.5 10-8v55l-10 8Z" fill="#000000" fill-opacity=".24" />
+                    <path
+                      d="M90.5 55.3H93v10h-2.5Zm0 0H93l4-3.2h-2.5Zm2.5 0 4-3.2v10l-4 3.2Z"
+                      fill="#eab890"
+                    />
+                    <path d="M90.5 55.3H93l4-3.2h-2.5Z" fill="#ffffff" fill-opacity=".38" />
+                    <path d="m93 55.3 4-3.2v10l-4 3.2Z" fill="#000000" fill-opacity=".24" />
+                    <use transform="translate(29 74)" href="#mouth-bigSmile-16f2fe11" />
+                    <use transform="translate(29 64)" href="#cheeks-pixel-16f2fe11" />
+                    <use transform="translate(29 49)" href="#eyes-soft-16f2fe11" />
+                    <use transform="translate(29 44)" href="#eyebrows-soft-16f2fe11" />
+                    <use href="#animation-none-16f2fe11" />
+                    <use href="#nose-tall-16f2fe11" />
+                    <use href="#top-halfShaved-16f2fe11" />
+                  </g>
+                </g>
+              </svg>
+            </button>
+            <div class="menu" id="account-menu" role="menu">
+              <div class="who">Signed in as<b>maverick</b></div>
+              <div class="theme">
+                <span>Appearance</span
+                ><span class="seg" role="group" aria-label="Appearance"
+                  ><button type="button" data-scheme="system" aria-pressed="true">System</button
+                  ><button type="button" data-scheme="light" aria-pressed="false">Light</button
+                  ><button type="button" data-scheme="dark" aria-pressed="false">Dark</button></span
+                >
+              </div>
+              <a class="item" role="menuitem" href="#"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="8" cy="15" r="4" />
+                  <path d="m10.9 12.1 9.1-9.1M15 7l3 3" /></svg
+                >Passkeys and Password</a
+              >
+              <button class="item danger" role="menuitem" type="button">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg
+                >Sign Out
+              </button>
+            </div></span
+          >
+        </nav>
+      </header>
+      <div class="demo">
+        <h2>Status in the Panel Header</h2>
+        <div class="row">
+          <span class="status-slot"
+            ><span class="status"
+              ><span class="dot"></span><span class="age">2 min ago</span></span
+            ></span
+          ><span class="status-slot"
+            ><span class="pill neutral"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21 12a9 9 0 1 1-2.6-6.4" />
+                <path d="M21 3v6h-6" /></svg
+              >Refresh Failed · Retrying</span
+            ></span
+          ><span class="status-slot"
+            ><span class="pill warn"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" /></svg
+              >Not Updated for 3 h</span
+            ></span
+          ><span class="status-slot"
+            ><span class="pill warn"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="9" stroke-dasharray="4.2 3.2" /></svg
+              >Partial</span
+            ></span
+          ><span class="status-slot"
+            ><span class="pill bad"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v4M12 16h.01" /></svg
+              >Reconnect Needed</span
+            ></span
+          ><span class="status-slot"
+            ><span class="pill quiet"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="6" y="5" width="4" height="14" rx="1" />
+                <rect x="14" y="5" width="4" height="14" rx="1" /></svg
+              >Paused</span
+            ></span
+          ><span class="status-slot"
+            ><span class="pill quiet"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" /></svg
+              >Waiting for First Refresh</span
+            ></span
+          >
+        </div>
+
+        <h2>Reset Credit Action States</h2>
+        <div class="row">
+          <button class="btn hold" type="button" aria-describedby="hold-hint">
+            <span class="face"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                <path d="M3 3v6h6" /></svg
+              ><span class="label">Hold to Reset Weekly Limit</span></span
+            ><span class="fillface" aria-hidden="true"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                <path d="M3 3v6h6" /></svg
+              >Hold to Reset Weekly Limit</span
+            ></button
+          ><button
+            class="btn hold holding"
+            type="button"
+            aria-describedby="hold-hint"
+            style="--p: 42%"
+          >
+            <span class="face"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                <path d="M3 3v6h6" /></svg
+              ><span class="label">Hold to Reset Weekly Limit</span></span
+            ><span class="fillface" aria-hidden="true"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                <path d="M3 3v6h6" /></svg
+              >Hold to Reset Weekly Limit</span
+            ></button
+          ><button class="btn hold done" type="button" aria-describedby="hold-hint" disabled>
+            <span class="face"
+              ><span class="spin" aria-hidden="true"></span
+              ><span class="label">Resetting</span></span
+            ><span class="fillface" aria-hidden="true"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                <path d="M3 3v6h6" /></svg
+              >Resetting</span
+            ></button
+          ><button class="btn hold done good" type="button" aria-describedby="hold-hint" disabled>
+            <span class="face"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m5 12 5 5 9-10" /></svg
+              ><span class="label">Weekly Limit Reset</span></span
+            ><span class="fillface" aria-hidden="true"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                <path d="M3 3v6h6" /></svg
+              >Weekly Limit Reset</span
+            ></button
+          ><button class="btn hold failed" type="button" aria-describedby="hold-hint">
+            <span class="face"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                <path d="M3 3v6h6" /></svg
+              ><span class="label">Reset Failed · Hold to Try Again</span></span
+            ><span class="fillface" aria-hidden="true"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                <path d="M3 3v6h6" /></svg
+              >Reset Failed · Hold to Try Again</span
+            ></button
+          ><button
+            class="btn hold off"
+            type="button"
+            aria-describedby="hold-hint"
+            disabled
+            title="Account actions are switched off in Settings."
+          >
+            <span class="face"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                <path d="M3 3v6h6" /></svg
+              ><span class="label">Hold to Reset Weekly Limit</span></span
+            ><span class="fillface" aria-hidden="true"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                <path d="M3 3v6h6" /></svg
+              >Hold to Reset Weekly Limit</span
+            >
+          </button>
+        </div>
+        <p class="muted" style="margin: 0; font-size: 13px">
+          Idle, holding, resetting, reset, failed, switched off. The one on the left works; the
+          second from the right fails on purpose.
+        </p>
+        <div class="row">
+          <button class="btn hold" type="button" aria-describedby="hold-hint">
+            <span class="face"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                <path d="M3 3v6h6" /></svg
+              ><span class="label">Hold to Reset Weekly Limit</span></span
+            ><span class="fillface" aria-hidden="true"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                <path d="M3 3v6h6" /></svg
+              >Hold to Reset Weekly Limit</span
+            ></button
+          ><button
+            class="btn hold"
+            type="button"
+            aria-describedby="hold-hint"
+            data-outcome="failed"
+          >
+            <span class="face"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                <path d="M3 3v6h6" /></svg
+              ><span class="label">Hold to Reset Weekly Limit</span></span
+            ><span class="fillface" aria-hidden="true"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                <path d="M3 3v6h6" /></svg
+              >Hold to Reset Weekly Limit</span
+            ></button
+          ><span id="hold-hint" class="sr"
+            >Press and hold for 1.2 seconds to confirm. With a keyboard, hold Space or Enter.</span
+          >
+        </div>
+
+        <h2>Buttons</h2>
+        <div class="row">
+          <button class="btn primary" type="button">Reconnect</button
+          ><button class="btn" type="button">Resume</button
+          ><button class="btn quiet" type="button">Refresh</button
+          ><button class="btn quiet danger" type="button">Disconnect</button
+          ><button class="btn" type="button" disabled>Pause</button>
+        </div>
+
+        <h2>Trouble</h2>
+        <div class="collapse">
+          <section class="panel" aria-labelledby="s-retry">
+            <header>
+              <h3 id="s-retry">Personal <span class="plan">Max</span></h3>
+              <div class="right">
+                <span class="status-slot"
+                  ><span class="pill neutral"
+                    ><svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M21 12a9 9 0 1 1-2.6-6.4" />
+                      <path d="M21 3v6h-6" /></svg
+                    >Refresh Failed · Retrying</span
+                  ></span
+                >
+              </div>
+            </header>
+            <div class="notice neutral">
+              <span class="text"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M21 12a9 9 0 1 1-2.6-6.4" />
+                  <path d="M21 3v6h-6" /></svg
+                >Headroom could not refresh this account. It will try again in a few minutes.</span
+              >
+            </div>
+            <div class="cells">
+              <div class="cell">
+                <div class="label"><span>Session</span> <span class="window">5 hours</span></div>
+                <div class="value">
+                  <span class="num" data-count="49" data-decimals="0" data-prefix="">49</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar good"
+                  role="meter"
+                  aria-valuenow="49"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Session 49% used"
+                  style="--v: 49%"
+                >
+                  <span class="fill"></span>
+                </div>
+                <div class="caption">Resets in <b>1 h 12 min</b> · as of 14 min ago</div>
+              </div>
+              <div class="cell">
+                <div class="label"><span>Weekly</span> <span class="window">all models</span></div>
+                <div class="value unknown" aria-hidden="true">—</div>
+                <div class="bar unknown" aria-label="Weekly usage not reported" style=""></div>
+                <div class="caption">Not reported in the last refresh</div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="acts">
+                <button class="btn quiet sm" type="button" data-act="refresh">
+                  <span class="label">Refresh</span>
+                </button>
+                <button class="btn quiet sm" type="button" data-act="pause">
+                  <span class="label">Pause</span>
+                </button>
+                <button class="btn quiet sm danger" type="button" data-act="disconnect">
+                  <span class="label">Disconnect</span>
+                </button>
+              </span>
+            </div>
+          </section>
+        </div>
+
+        <div class="collapse">
+          <section class="panel" aria-labelledby="s-stale">
+            <header>
+              <h3 id="s-stale">Personal <span class="plan">X Premium</span></h3>
+              <div class="right">
+                <span class="status-slot"
+                  ><span class="pill warn"
+                    ><svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 7v5l3 2" /></svg
+                    >Not Updated for 3 h</span
+                  ></span
+                >
+              </div>
+            </header>
+            <div class="notice warn">
+              <span class="text"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" /></svg
+                >Grok has not answered for 3 hours. The numbers below are from the last good
+                refresh.</span
+              >
+            </div>
+            <div class="cells">
+              <div class="cell">
+                <div class="label"><span>Weekly Pool</span> <span class="window">7 days</span></div>
+                <div class="value">
+                  <span class="num" data-count="34" data-decimals="0" data-prefix="">34</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar good"
+                  role="meter"
+                  aria-valuenow="34"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Weekly Pool 34% used"
+                  style="--v: 34%"
+                >
+                  <span class="fill"></span>
+                </div>
+                <div class="caption">Resets in <b>4 d 11 h</b> · as of 3 h ago</div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="acts">
+                <button class="btn quiet sm" type="button" data-act="refresh">
+                  <span class="label">Refresh</span>
+                </button>
+                <button class="btn quiet sm" type="button" data-act="pause">
+                  <span class="label">Pause</span>
+                </button>
+                <button class="btn quiet sm danger" type="button" data-act="disconnect">
+                  <span class="label">Disconnect</span>
+                </button>
+              </span>
+            </div>
+          </section>
+        </div>
+
+        <div class="collapse">
+          <section class="panel dim" aria-labelledby="s-bad">
+            <header>
+              <h3 id="s-bad">Personal <span class="plan">Pro</span></h3>
+              <div class="right">
+                <span class="status-slot"
+                  ><span class="pill bad"
+                    ><svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 8v4M12 16h.01" /></svg
+                    >Reconnect Needed</span
+                  ></span
+                >
+              </div>
+            </header>
+            <div class="notice bad">
+              <span class="text"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 8v4M12 16h.01" /></svg
+                >The sign-in for this account has expired. Reconnect to keep tracking it.</span
+              ><button class="btn primary sm" type="button">Reconnect</button>
+            </div>
+            <div class="cells">
+              <div class="cell">
+                <div class="label"><span>AI Credits</span> <span class="window">monthly</span></div>
+                <div class="value">
+                  <span class="num" data-count="100" data-decimals="0" data-prefix="">100</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar bad"
+                  role="meter"
+                  aria-valuenow="100"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="AI Credits 100% used"
+                  style="--v: 100%"
+                >
+                  <span class="fill"></span>
+                </div>
+                <div class="caption">
+                  <span class="tone bad">Almost Out</span> · Resets <b>Nov 1</b> · as of 2 days ago
+                </div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="acts">
+                <button class="btn quiet sm" type="button" data-act="refresh">
+                  <span class="label">Refresh</span>
+                </button>
+                <button class="btn quiet sm" type="button" data-act="pause">
+                  <span class="label">Pause</span>
+                </button>
+                <button class="btn quiet sm danger" type="button" data-act="disconnect">
+                  <span class="label">Disconnect</span>
+                </button>
+              </span>
+            </div>
+          </section>
+        </div>
+
+        <h2>Loading</h2>
+        <section class="panel" aria-busy="true" aria-label="Loading account">
+          <header>
+            <div class="sk title"></div>
+            <div class="sk line" style="width: 96px"></div>
+          </header>
+          <div class="cells">
+            <div class="cell">
+              <div class="sk line" style="width: 40%"></div>
+              <div class="sk big"></div>
+              <div class="sk bar"></div>
+              <div class="sk line" style="width: 60%"></div>
+            </div>
+            <div class="cell">
+              <div class="sk line" style="width: 40%"></div>
+              <div class="sk big"></div>
+              <div class="sk bar"></div>
+              <div class="sk line" style="width: 60%"></div>
+            </div>
+            <div class="cell">
+              <div class="sk line" style="width: 40%"></div>
+              <div class="sk big"></div>
+              <div class="sk bar"></div>
+              <div class="sk line" style="width: 60%"></div>
+            </div>
+          </div>
+        </section>
+        <div class="collapse">
+          <section class="panel" aria-labelledby="s-wait">
+            <header>
+              <h3 id="s-wait">Personal <span class="plan">Pro</span></h3>
+              <div class="right">
+                <span class="status-slot"
+                  ><span class="pill quiet"
+                    ><svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 7v5l3 2" /></svg
+                    >Waiting for First Refresh</span
+                  ></span
+                >
+              </div>
+            </header>
+            <div class="notice neutral">
+              <span class="text"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" /></svg
+                >Connected just now. The first refresh is running.</span
+              >
+            </div>
+            <div class="cells">
+              <div class="cell">
+                <div class="sk line" style="width: 40%"></div>
+                <div class="sk big"></div>
+                <div class="sk bar"></div>
+                <div class="sk line" style="width: 60%"></div>
+              </div>
+              <div class="cell">
+                <div class="sk line" style="width: 40%"></div>
+                <div class="sk big"></div>
+                <div class="sk bar"></div>
+                <div class="sk line" style="width: 60%"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <h2>Page Could Not Load</h2>
+        <div class="notice bad">
+          <span class="text"
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v4M12 16h.01" /></svg
+            >Headroom could not load your accounts. Check that it is running and try again.</span
+          ><button class="btn sm" type="button">Try Again</button>
+        </div>
+
+        <h2>Empty</h2>
+        <section class="panel">
+          <div class="empty">
+            <div class="tile">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 22v-5M9 8V2M15 8V2M6 8h12v5a6 6 0 0 1-12 0V8z" />
+              </svg>
+            </div>
+            <h2>No Accounts Connected</h2>
+            <p>
+              Connect a provider account and its limits, balances and resets appear here within a
+              minute.
+            </p>
+            <div class="actions">
+              <a class="btn primary" href="f-connect.html">Connect an Account</a>
+            </div>
+          </div>
+        </section>
+        <h2>Over the Limit</h2>
+        <section class="panel">
+          <div class="cells">
+            <div class="cell">
+              <div class="label"><span>Weekly</span> <span class="window">7 days</span></div>
+              <div class="value">
+                <span class="num" data-count="112" data-decimals="0" data-prefix="">112</span
+                ><span class="unit">%</span>
+              </div>
+              <div
+                class="bar bad hatch"
+                role="meter"
+                aria-valuenow="100"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Weekly usage 112%, over the limit"
+                style="--v: 100%; --limit: 89%"
+              >
+                <span class="fill"></span>
+              </div>
+              <div class="caption">
+                <span class="tone bad">Over the Limit</span> · Resets in <b>1 d 6 h</b>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <script>
+      // Mockup E behaviour. Everything here is a demonstration of motion and state; nothing calls a server.
+      const reduce =
+        matchMedia("(prefers-reduced-motion: reduce)").matches ||
+        new URLSearchParams(location.search).get("motion") === "off";
+      const ease = (t) => 1 - Math.pow(1 - t, 4);
+      const wait = (ms) => new Promise((r) => setTimeout(r, reduce ? 0 : ms));
+      const ICON = {
+        spin: '<span class="spin" aria-hidden="true"></span>',
+        check:
+          '<svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>',
+      };
+
+      // Swap the text of an element: old copy leaves upward, new copy rises in. Width follows the new text.
+      function swap(el, html) {
+        if (reduce) {
+          el.innerHTML = html;
+          return;
+        }
+        const old = el.innerHTML;
+        el.classList.add("swap");
+        el.innerHTML = `<span class="swap-out">${old}</span><span class="swap-in">${html}</span>`;
+        setTimeout(() => {
+          el.classList.remove("swap");
+          el.innerHTML = html;
+        }, 260);
+      }
+
+      // Count numbers up once on first paint, 70 ms apart, 250 ms cap.
+      function count(el, i, from = 0) {
+        const target = Number(String(el.dataset.count).replace(/,/g, ""));
+        const decimals = Number(el.dataset.decimals || 0);
+        const fmt = new Intl.NumberFormat("en-US", {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+        });
+        const prefix = el.dataset.prefix || "";
+        if (reduce) {
+          el.textContent = prefix + fmt.format(target);
+          return;
+        }
+        const delay = Math.min(i * 70, 250),
+          dur = 580;
+        let start;
+        const step = (now) => {
+          if (start === undefined) start = now + delay;
+          const t = Math.min(Math.max((now - start) / dur, 0), 1);
+          el.textContent = prefix + fmt.format(from + (target - from) * ease(t));
+          if (t < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }
+
+      // Set a meter to a new value: bar refills on its transition, number counts, tone follows thresholds.
+      function setMeter(cell, value) {
+        const bar = cell.querySelector(".bar"),
+          num = cell.querySelector("[data-count]");
+        bar.style.setProperty("--v", value + "%");
+        bar.setAttribute("aria-valuenow", String(value));
+        bar.classList.toggle("good", value < 70);
+        bar.classList.toggle("warn", value >= 70 && value < 90);
+        bar.classList.toggle("bad", value >= 90);
+        const from = Number(num.dataset.count);
+        num.dataset.count = String(value);
+        count(num, 0, from);
+      }
+
+      // Refresh: the button confirms in place, then the header age swaps to "just now".
+      async function refresh(btn) {
+        const panel = btn.closest(".panel"),
+          label = btn.querySelector(".label");
+        btn.setAttribute("aria-busy", "true");
+        btn.disabled = true;
+        swap(label, `${ICON.spin} Refreshing`);
+        await wait(1400);
+        swap(label, `${ICON.check} Refreshed`);
+        const age = panel.querySelector(".status .age");
+        if (age) swap(age, "just now");
+        await wait(1800);
+        swap(label, "Refresh");
+        btn.removeAttribute("aria-busy");
+        btn.disabled = false;
+      }
+
+      // Pause and resume: the panel dims and the header status becomes a pill and back.
+      function togglePause(btn) {
+        const panel = btn.closest(".panel"),
+          paused = !panel.classList.contains("paused");
+        const status = panel.querySelector(".status-slot"),
+          label = btn.querySelector(".label");
+        panel.classList.toggle("paused", paused);
+        if (paused) {
+          status.dataset.prev = status.innerHTML;
+          swap(status, `<span class="pill quiet">${PAUSE_ICON}Paused</span>`);
+          swap(label, "Resume");
+        } else {
+          swap(status, status.dataset.prev);
+          swap(label, "Pause");
+        }
+      }
+
+      // Disconnect: the button becomes an inline question; confirm shows progress, then the panel leaves.
+      function disconnect(btn) {
+        const acts = btn.parentElement,
+          panel = btn.closest(".panel"),
+          name = panel.querySelector("h3").firstChild.textContent.trim();
+        const ask = document.createElement("span");
+        ask.className = "confirm";
+        ask.setAttribute("role", "group");
+        ask.setAttribute("aria-label", "Confirm disconnect");
+        ask.innerHTML = `<span class="q">Disconnect ${name}? Its saved sign-in is deleted.</span><button class="btn sm" type="button" data-cancel>Cancel</button><button class="btn sm primary" type="button" data-confirm>Disconnect</button>`;
+        btn.hidden = true;
+        acts.append(ask);
+        ask.querySelector("[data-cancel]").focus();
+        const close = () => {
+          ask.remove();
+          btn.hidden = false;
+          btn.focus();
+          clearTimeout(timer);
+        };
+        const timer = setTimeout(close, 6000);
+        ask.querySelector("[data-cancel]").addEventListener("click", close);
+        ask.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") close();
+        });
+        ask.querySelector("[data-confirm]").addEventListener(
+          "click",
+          () =>
+            void (async () => {
+              clearTimeout(timer);
+              ask.innerHTML = `<span class="q" role="status">${ICON.spin} Disconnecting</span>`;
+              await wait(1200);
+              ask.innerHTML = `<span class="q" role="status">${ICON.check} Disconnected</span>`;
+              await wait(700);
+              const wrap = panel.closest(".collapse");
+              panel.classList.add("leaving");
+              await wait(160);
+              wrap.classList.add("closed");
+              const section = panel.closest(".provider");
+              const left = section.querySelectorAll(".collapse:not(.closed)").length;
+              const countEl = section.querySelector(".count");
+              if (countEl) swap(countEl, left > 1 ? `${left} accounts` : "");
+              if (left === 0) {
+                await wait(240);
+                section.closest(".collapse")?.classList.add("closed");
+              }
+              await wait(300);
+              wrap.remove();
+              if (left === 0) section.closest(".collapse")?.remove();
+            })(),
+        );
+      }
+
+      // Hold to confirm: pointer or keyboard hold fills for 1.2 s; releasing early rewinds; completing renews the window.
+      function hold(btn) {
+        let timer = null,
+          done = false;
+        const start = () => {
+          if (done || btn.disabled || btn.classList.contains("off")) return;
+          btn.classList.remove("failed");
+          btn.classList.remove("rewind");
+          btn.classList.add("holding");
+          timer = setTimeout(complete, reduce ? 0 : 1200);
+        };
+        const cancel = () => {
+          if (done) return;
+          clearTimeout(timer);
+          btn.classList.add("rewind");
+          btn.classList.remove("holding");
+        };
+        const complete = async () => {
+          done = true;
+          btn.classList.add("done");
+          btn.disabled = true;
+          const face = btn.querySelector(".face .label");
+          swap(face, `${ICON.spin} Resetting`);
+          await wait(1200);
+          if (btn.dataset.outcome === "failed") {
+            btn.classList.remove("done", "holding");
+            btn.classList.add("failed");
+            btn.disabled = false;
+            done = false;
+            swap(face, "Reset Failed · Hold to Try Again");
+            return;
+          }
+          btn.classList.add("good");
+          swap(face, `${ICON.check} Weekly Limit Reset`);
+          const panel = btn.closest(".panel");
+          const weekly = panel.querySelector('[data-key="weekly"]');
+          if (weekly) {
+            setMeter(weekly, 2);
+            const cap = weekly.querySelector(".caption");
+            swap(cap, "Resets in <b>7 d</b>");
+          }
+          const resets = panel.querySelector('[data-key="resets"] [data-count]');
+          if (resets) {
+            resets.dataset.count = "2";
+            count(resets, 0, 3);
+          }
+          const pips = panel.querySelector('[data-key="resets"] .pips');
+          if (pips) pips.lastElementChild.classList.add("spent");
+        };
+        btn.addEventListener("pointerdown", (e) => {
+          if (e.button === 0) start();
+        });
+        for (const ev of ["pointerup", "pointerleave", "pointercancel"])
+          btn.addEventListener(ev, cancel);
+        btn.addEventListener("keydown", (e) => {
+          if ((e.key === " " || e.key === "Enter") && !e.repeat) {
+            e.preventDefault();
+            start();
+          }
+        });
+        btn.addEventListener("keyup", (e) => {
+          if (e.key === " " || e.key === "Enter") cancel();
+        });
+        btn.addEventListener("blur", cancel);
+        btn.addEventListener("contextmenu", (e) => e.preventDefault());
+      }
+
+      // Account menu
+      function menu(trigger) {
+        const panel = document.getElementById(trigger.getAttribute("aria-controls"));
+        const set = (open) => {
+          trigger.setAttribute("aria-expanded", String(open));
+          panel.classList.toggle("open", open);
+          if (open) panel.querySelector("button, a")?.focus();
+        };
+        trigger.addEventListener("click", () =>
+          set(trigger.getAttribute("aria-expanded") !== "true"),
+        );
+        document.addEventListener("click", (e) => {
+          if (!panel.contains(e.target) && e.target !== trigger) set(false);
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" && panel.classList.contains("open")) {
+            set(false);
+            trigger.focus();
+          }
+        });
+        for (const b of panel.querySelectorAll(".seg button"))
+          b.addEventListener("click", () => {
+            for (const o of b.parentElement.children)
+              o.setAttribute("aria-pressed", String(o === b));
+            document.documentElement.style.colorScheme =
+              b.dataset.scheme === "system" ? "" : b.dataset.scheme;
+          });
+      }
+
+      const PAUSE_ICON =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+
+      requestAnimationFrame(() => {
+        document.documentElement.classList.remove("pre");
+        document.querySelectorAll("[data-count]").forEach((el, i) => count(el, i));
+      });
+      for (const b of document.querySelectorAll("[data-act='refresh']"))
+        b.addEventListener("click", () => void refresh(b));
+      for (const b of document.querySelectorAll("[data-act='pause']"))
+        b.addEventListener("click", () => togglePause(b));
+      for (const b of document.querySelectorAll("[data-act='disconnect']"))
+        b.addEventListener("click", () => disconnect(b));
+      for (const b of document.querySelectorAll(".hold")) hold(b);
+      for (const t of document.querySelectorAll(".avatar[aria-controls]")) menu(t);
+    </script>
+  </body>
+</html>

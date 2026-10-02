@@ -11,8 +11,9 @@ really emit) and `research/arc-ui.md` (the finish and motion we borrow). Product
    resets keep their own units. Nothing is summed across accounts.
 3. A missing row is not drawn. An unavailable row is drawn as unknown with its reason. Zero is
    zero.
-4. The one derived visual is the elapsed tick: how far the window has run, next to how much of it
-   is used. Fill ahead of the tick means the account burns faster than it renews.
+4. Bars report room left in three colours: green while more than 30% is left, amber under 30%,
+   red under 10%. The colour always comes with a word in the caption ("Running Low", "Almost
+   Out"). No other derived visual.
 5. Monitoring is read-only. The only mutation is the Codex reset consume, behind the actions flag,
    a confirm step and the server's own checks.
 6. Finish comes from systems: layered surfaces, one hairline weight, two type weights, a fixed
@@ -93,9 +94,10 @@ everything that is not a window: balances, spend against caps, reset inventory, 
 counts. The action button, when any, sits at the far right. A spend with a cap gets a 6 px thin
 bar under the fact row only when the cap is known.
 
-**Footer.** Hairline above. Left: `Last refreshed 14:02 · succeeded` (the latest run's time and
-outcome, with the sanitized error in plain words when it failed). Right: quiet actions Refresh,
-Pause or Resume, Disconnect. Refresh confirms in place (Refreshing, then Refreshed with a check,
+**Facts row.** Hairline above. Left: small facts (reset grants, unlimited rows, counts, spend
+without a cap). Right: quiet actions Refresh, Pause or Resume, Disconnect. The latest run's time
+lives in the header status only; its outcome appears as a plain-language status or notice, never
+as an error code. Refresh confirms in place (Refreshing, then Refreshed with a check,
 then back) and the header age swaps to "just now". Pause dims the panel and swaps the header status
 to a paused pill. Disconnect becomes an inline question naming the account and the consequence,
 with Cancel focused; confirming shows Disconnecting, then Disconnected, then the panel collapses
@@ -106,15 +108,14 @@ version or sign-in method is shown; those stay in the API for diagnosis.
 
 | Kind | Shape | Rule |
 | --- | --- | --- |
-| `quota_percentage` with a window | Meter cell | Value `N%`, bar filled to N, tick at elapsed share when `resetsAt` and the span are known. Tone neutral, warning from 70, danger from 90. Clamp the fill at 100, show the true number |
-| `quota_percentage` without a window (`account`) | Meter cell, no tick | Same, caption names the scope |
+| `quota_percentage` | Meter cell | Value `N%`, bar filled to N. Green under 70 used, amber from 70, red from 90, with the word in the caption. Clamp the fill at 100, show the true number |
 | `absolute_quota` with `unlimited` | Fact | `Chat unlimited` |
 | `absolute_quota` count | Fact | `300 requests`; never "of" unless the provider gave the entitlement |
 | `credits` | Fact | `1,240 credits`, remaining; `unlimited` as text |
 | `spend` with a `spending_cap` in the same scope | Fact pair plus thin bar | `$3.20 of $20` with a 6 px bar; cap 0 means off |
 | `spend` without a cap | Fact | `$3.20 this cycle` |
 | `spending_cap` alone (Cursor `included.limit`) | Caption of the included meter | `$20 plan` |
-| `reset_inventory` | Fact with pips | Pips equal to count, `3 available`, first expiry in muted when rows carry one |
+| `reset_inventory` | Cell with pips and the action | `3 full resets`, first expiry, pips, and for Codex the hold-to-reset button with its states (idle, holding, resetting, reset, failed, off) |
 | availability `unknown` or `temporarily_unavailable` | Meter or fact in unknown style | Hatched bar or dash, caption "not reported in the last refresh". The data can still arrive |
 | availability `not_authorized` or `unsupported` | nothing in the cells | Not drawn. The partial chip in the header names what is missing and why (title text) |
 | row absent | nothing | Not drawn, not mentioned |
@@ -136,15 +137,17 @@ disappear; the layout never shows a placeholder for them.
 | --- | --- | --- | --- |
 | Claude | 5-hour · Weekly, all models · Weekly, Sonnet · Weekly, `<model>` scoped limits | Reset grants (pips) · Extra usage spend of cap when enabled | Scoped limits share the weekly reset: caption `same window` |
 | Codex | 5-hour or Weekly from scope seconds · `<name>` limits | Credits balance · Reset credits (pips, first expiry) · action Reset weekly limit now | The only action. Disabled with a hint while actions are off |
-| Grok | Weekly pool · `<product>` share of pool | On-demand spend of cap (thin bar) · Prepaid balance | Cap 0 shows `On-demand off` |
+| Grok | Weekly Pool · `<product>` share when reported | On-Demand (Off when the cap is 0, else spend of cap) · Prepaid Balance | Product rows are absent on the validated account |
 | Antigravity | Gemini 5-hour · Gemini weekly · Claude and GPT 5-hour · Claude and GPT weekly | none | Free tier reports weekly only; caption notes it |
 | Copilot | AI credits used (percent, monthly, reset date) | Credits used count · Extra usage count · Chat unlimited · Completions unlimited | No entitlement is reported, so never "x of y" |
-| Cursor | Included (segments Auto and API, caption `$20 plan`) | On-demand spend of cap (thin bar) | Billing cycle dates in the meter window text |
+| Cursor | Included · Auto Pool · API Pool as three meters (Auto and API are separate percentages, not parts of the total) | On-Demand Spend · Cycle dates | `$20 plan` in the Included window text |
 | Vercel AI Gateway | none | Credit balance · Credits used · Spend last 30 days (unknown without Pro, reason shown) | Permanently partial without Pro; the chip says so |
 
 ## 6. Labels and copy
 
-- Sentence case everywhere. No eyebrow labels, no all caps.
+- Title Case for labels, buttons, chips, statuses and headings. Sentence case for captions and
+  notices. No eyebrow labels, no all caps. No error codes or HTTP status numbers anywhere; "Refresh
+  Failed · Retrying" and "The sign-in for this account has expired" are the vocabulary.
 - Keys map to labels through one table in the web client (section 11 of the inventory). Unknown
   keys fall back to the key with dots replaced by spaces.
 - Units: `credits` are never dollars; `codex_credits`, `grok_credits` and `gateway_credits` all

@@ -30,12 +30,15 @@ share `headroom.css` for tokens and the bar, pip, tag and notice primitives.
 | `d-states.html` | D's states and primitives: status pills, buttons and hold-to-confirm, skeleton, never collected, list error, empty, over the limit | Superseded by E |
 | `e-panels.html` | E: D plus provider accents and brand marks, a footer with last refresh and live Refresh, Pause and Disconnect actions, a working hold-to-confirm, an account menu with appearance switch, and no technical tables. CSS, JS and marks are inlined so the published copy renders on its own | Current direction. Interactive: click Refresh, Pause, Disconnect, hold the reset button, open the avatar menu |
 | `e-states.html` | E's states, buttons, provider marks with their accents, skeleton, never collected, list error, empty, over the limit | Review alongside E |
-| `e-connect.html` | Connect page: provider cards with brand marks, then every step state (device code, paste redirect, API key, checking, connected) | Review alongside E |
+| `e-connect.html` | Connect page: provider cards with brand marks, then every step state (device code, paste redirect, API key, checking, connected) | Superseded by F |
+| `f-panels.html` | F: built from the seven real connections on localhost (values rounded, no identifiers). Bars are green, amber or red by room left; no elapsed tick; actions on the facts row; status top right; Title Case; a summary sentence; identicon avatar; the Codex reset lives in its Reset Credits cell with every state | Current direction. Interactive like E |
+| `f-states.html` | F's status pills, the six reset-action states (two live buttons, one fails on purpose), trouble panels with plain-language notices, loading, never collected, page error, empty, over the limit | Review alongside F |
+| `f-connect.html` | F connect page: cards with what each provider reports and how it signs in, then step states including Did Not Finish | Review alongside F |
 | `logo.html` | Four logo concepts at 64, 32, 16 px, in a lockup and inverted | Concept 4 "Ledger" is used in D |
 
 D is built from `structure.md`, which in turn rests on `research/data-inventory.md` (what the
 connectors emit) and `research/arc-ui.md` (Arc UI's tokens, components, blocks and motion).
-Mockups A to D stay for comparison. Add `&motion=off` to a D or E page URL for a still render.
+Mockups A to E stay for comparison. Add `&motion=off` to a D, E or F page URL for a still render.
 
 E follows Arc's own agent skill files (`https://uiarc.dev/r/skills/arc/*.md`, read on 2026-10-02):
 verb-plus-object buttons, sentence case, one primary per surface, confirm in place, status with a
@@ -116,7 +119,20 @@ animated numbers prove worth it.
   the partial chip names them; `unknown` and `temporarily_unavailable` rows draw hatched with
   "not reported in the last refresh". Published HTML inlines its CSS and JS because the viewer
   does not load sibling files (D's bars were invisible there).
-- Accepted: none formally yet; E is the direction to iterate on.
+- 2026-10-02, review of E: design from the real data, not assumptions; bars green, amber, red by
+  room left; remove the elapsed ticks; no technical error text; last refresh belongs top right
+  only; no private chips; actions on the facts row; Title Case; the reset action needs real
+  states; improve the summary and the account count; identicon avatar; fix uneven card spacing.
+  F built in response from the live `/api/connections` and detail responses.
+- What the real data changed: Claude has no Sonnet bucket and extra usage is off; its weekly and
+  Fable buckets reset in under an hour and Fable is at 91%. Cursor's Auto and API pools are
+  separate percentages, not segments of the total (Auto 19% exceeds the 17% total), so they are
+  three meters. Grok's on-demand cap is 0 (Off) and its weekly pool is 0%. Copilot is at 0.8% of
+  monthly credits with one credit used. Vercel holds 4.99 of 5.00 credits. Codex has one weekly
+  window, 61,068 credits and three full resets expiring in 2.7, 20 and 27 days; actions are
+  switched off on this install, so the reset button shows its off state. Only Codex has two
+  accounts in the mockup; the second one is synthetic.
+- Accepted: none formally yet; F is the direction to iterate on.
 - Open: Whether a credits meter fills with used or remaining share. Brand marks versus monograms
   (SVGL assets need a rights check per provider). Whether a panel expands inline for
   capabilities and run history. Whether the display number should be the remaining share
