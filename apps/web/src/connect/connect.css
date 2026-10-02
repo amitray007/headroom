@@ -169,40 +169,47 @@
 .accounts .drag-sib {
   transition: translate var(--dur-spring) var(--ease-spring);
 }
+/* The original stays in the table as an invisible placeholder; a floating copy on the body is what the owner sees. */
 .accounts .drag-item {
-  position: relative;
-  z-index: 2;
-  transition: scale var(--dur-standard) var(--ease-spring);
+  visibility: hidden;
 }
-.accounts .drag-item.drag-settle {
-  transition:
-    translate calc(var(--dur-spring) * 0.7) var(--ease-spring),
-    scale calc(var(--dur-spring) * 0.7) var(--ease-spring);
-}
-/* The raised surface sits behind the dragged item, above its siblings, and fades out on drop. */
-.drag-lift {
-  position: absolute;
-  z-index: 1;
+.drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  margin: 0;
+  overflow: hidden;
   border-radius: 12px;
   background: var(--surface-raised);
   box-shadow:
     0 14px 32px light-dark(oklch(0% 0 0 / 0.14), oklch(0% 0 0 / 0.5)),
     0 2px 8px light-dark(oklch(0% 0 0 / 0.08), oklch(0% 0 0 / 0.3)),
     0 0 0 1px var(--border);
-  opacity: 0;
   pointer-events: none;
-  transition:
-    opacity var(--dur-standard) var(--ease-standard),
-    scale var(--dur-standard) var(--ease-spring);
+  transition: scale var(--dur-standard) var(--ease-spring);
 }
-.drag-lift.on {
-  opacity: 1;
-}
-.drag-lift.drag-settle {
+.drag-ghost.drag-settle {
   transition:
-    opacity var(--dur-standard) var(--ease-standard),
     translate calc(var(--dur-spring) * 0.7) var(--ease-spring),
     scale calc(var(--dur-spring) * 0.7) var(--ease-spring);
+}
+.drag-ghost .accounts {
+  min-width: 0;
+}
+.drag-ghost .drag-handle {
+  opacity: 1;
+  color: var(--foreground);
+}
+.drag-ghost .tacts,
+.drag-ghost .drag-handle {
+  pointer-events: none;
+}
+.drag-ghost tbody > tr:last-child td {
+  border-bottom: 0;
+}
+.drag-ghost .tgroup-row th {
+  border-top: 0;
 }
 
 /* Lines follow the slot an item will take, not the slot it left: the last row has no line, the first group no top rule. */
@@ -221,10 +228,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .accounts .drag-sib,
-  .accounts .drag-item,
-  .accounts .drag-item.drag-settle,
-  .drag-lift,
-  .drag-lift.drag-settle {
+  .drag-ghost,
+  .drag-ghost.drag-settle {
     transition: none;
   }
 }

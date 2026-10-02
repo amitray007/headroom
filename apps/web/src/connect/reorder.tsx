@@ -76,7 +76,8 @@ export function useReorder(options: {
   useEffect(
     () => () => {
       stop.current?.();
-      session.current?.end(true);
+      session.current?.dispose();
+      session.current = null;
     },
     [],
   );
@@ -111,7 +112,6 @@ export function useReorder(options: {
       const started = startDrag({
         items,
         index,
-        host: scroller,
         scope,
         pointerY,
         onMove: (to) => setMessage(`Moved to position ${to + 1} of ${total}.`),

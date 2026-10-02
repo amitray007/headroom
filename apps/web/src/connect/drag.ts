@@ -8,16 +8,12 @@ const settleMs = 420;
 const settleKeyMs = 260;
 /** Pointer distance from a viewport edge where the page starts to scroll, and the fastest speed in pixels per frame. */
 const edge = 72;
-/** The lifted surface stops short of the card's sides, so its shadow shows there. */
-const inset = 4;
 const fastest = 22;
 
 export interface DragOptions {
   /** The siblings in their current order, the dragged one among them. */
   readonly items: readonly HTMLElement[];
   readonly index: number;
-  /** The scroller that holds the table. The lifted surface is placed inside it. */
-  readonly host: HTMLElement;
   /** The element the siblings of the dragged item sit in, for the drag classes. */
   readonly scope: HTMLElement;
   /** The pointer's start, or null when the keyboard drives the drag. */
@@ -35,18 +31,20 @@ export interface DragSession {
   step: (by: number) => void;
   /** End the drag. `cancel` puts everything back. */
   end: (cancel: boolean) => void;
+  /** Drop the drag at once with no commit: the page is going away. */
+  dispose: () => void;
 }
 
 const dragClasses = ["drag-item", "drag-sib", "drag-settle", "first-slot", "last-slot"];
 
 /**
  * A drag on a list of table rows or row groups, done with transforms: DOM order never changes during the drag,
- * so nothing reflows. The dragged item follows the pointer and carries a lifted surface; the others slide
+ * so nothing reflows. The dragged item follows the pointer and is shown by a floating copy on the body; the others slide
  * to open a gap. Release settles everything on its final slot, then the caller commits the new order and the
  * transforms go in the same frame.
  */
 export function startDrag(options: DragOptions): DragSession | null {
-  const { items, index: from, host, scope } = options;
+  const { items, index: from, scope } = options;
   const keyboard = options.pointerY === null;
   const reduced = prefersReducedMotion();
   const dragged = items[from];
@@ -63,19 +61,10 @@ export function startDrag(options: DragOptions): DragSession | null {
     max: clampShift(slots, from, Number.POSITIVE_INFINITY),
   };
 
-  // The lifted surface: a box behind the dragged item that carries the raised background and the shadow.
+  // The floating copy: a fixed element on the body, so no table stacking rule can paint a sibling over it.
   const box = dragged.getBoundingClientRect();
-  const hostBox = host.getBoundingClientRect();
-  const surface = document.createElement("div");
-  surface.className = "drag-lift";
-  surface.setAttribute("aria-hidden", "true");
-  Object.assign(surface.style, {
-    top: `${box.top - hostBox.top + host.scrollTop}px`,
-    left: `${box.left - hostBox.left + host.scrollLeft + inset}px`,
-    width: `${box.width - inset * 2}px`,
-    height: `${box.height}px`,
-  });
-  host.append(surface);
+  const ghost = makeGhost(dragged, scope, box);
+  document.body.append(ghost);
 
   let to = from;
   let shift = 0;
@@ -83,9 +72,11 @@ export function startDrag(options: DragOptions): DragSession | null {
   let frame = 0;
   let done = false;
 
-  const place = (offset: number): void => {
-    dragged.style.translate = `0 ${offset}px`;
-    surface.style.translate = `0 ${offset}px`;
+  let current = 0;
+  const place = (next: number): void => {
+    current = next;
+    // The ghost is fixed to the viewport; the offset is in page space, so scrolling is subtracted.
+    ghost.style.translate = `${box.left}px ${box.top + next - (window.scrollY - startScroll)}px`;
   };
   const layout = (): void => {
     const offsets = offsetsFor(slots, from, to);
@@ -139,20 +130,22 @@ export function startDrag(options: DragOptions): DragSession | null {
   for (const [index, item] of items.entries()) {
     item.classList.add(index === from ? "drag-item" : "drag-sib");
   }
-  if (keyboard) dragged.classList.add("drag-settle");
   scope.classList.add("sorting");
   layout();
-  void surface.offsetWidth;
-  surface.classList.add("on");
-  if (!reduced) {
-    dragged.style.scale = String(liftScale);
-    surface.style.scale = String(liftScale);
-  }
-  if (keyboard) place(0);
-  else {
-    frame = requestAnimationFrame(scrollTick);
-    place(0);
-  }
+  place(0);
+  void ghost.offsetWidth;
+  if (keyboard) ghost.classList.add("drag-settle");
+  if (!reduced) ghost.style.scale = String(liftScale);
+  if (!keyboard) frame = requestAnimationFrame(scrollTick);
+  const onScroll = (): void => {
+    if (!done) place(current);
+  };
+  const onAway = (): void => {
+    if (!done && (document.visibilityState === "hidden" || !keyboard)) session.end(true);
+  };
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("blur", onAway);
+  document.addEventListener("visibilitychange", onAway);
 
   const cleanup = (): void => {
     for (const item of items) {
@@ -161,11 +154,15 @@ export function startDrag(options: DragOptions): DragSession | null {
       item.classList.remove(...dragClasses);
     }
     scope.classList.remove("sorting");
-    surface.remove();
+    ghost.remove();
+    window.removeEventListener("scroll", onScroll);
+    window.removeEventListener("blur", onAway);
+    document.removeEventListener("visibilitychange", onAway);
     document.documentElement.classList.remove("is-reordering");
   };
 
-  return {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const session: DragSession = {
     pointer(clientY) {
       if (done || keyboard) return;
       lastY = clientY;
@@ -188,12 +185,9 @@ export function startDrag(options: DragOptions): DragSession | null {
       to = target;
       layout();
       place(offsetsFor(slots, from, target)[from] ?? 0);
-      dragged.classList.add("drag-settle");
-      surface.classList.add("drag-settle");
-      surface.classList.remove("on");
-      dragged.style.scale = "";
-      surface.style.scale = "";
-      setTimeout(
+      ghost.classList.add("drag-settle");
+      ghost.style.scale = "";
+      timer = setTimeout(
         () => {
           options.onFinish(target === from ? null : { from, to: target });
           cleanup();
@@ -201,5 +195,49 @@ export function startDrag(options: DragOptions): DragSession | null {
         reduced ? 0 : keyboard && !cancel ? settleKeyMs : settleMs,
       );
     },
+    dispose() {
+      done = true;
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      cleanup();
+    },
   };
+  return session;
+}
+
+/** A body-level copy of the dragged group or row, in a table whose columns match the live one. */
+function makeGhost(dragged: HTMLElement, scope: HTMLElement, box: DOMRect): HTMLElement {
+  const live = scope.closest("table");
+  const ghost = document.createElement("div");
+  ghost.className = "drag-ghost";
+  ghost.setAttribute("aria-hidden", "true");
+  ghost.inert = true;
+  Object.assign(ghost.style, { width: `${box.width}px`, height: `${box.height}px` });
+  const table = document.createElement("table");
+  table.className = "accounts";
+  table.style.width = `${box.width}px`;
+  table.style.tableLayout = "fixed";
+  const cols = document.createElement("colgroup");
+  for (const cell of live?.querySelectorAll("thead th") ?? []) {
+    const col = document.createElement("col");
+    col.style.width = `${cell.getBoundingClientRect().width}px`;
+    cols.append(col);
+  }
+  table.append(cols);
+  const copy = dragged.cloneNode(true);
+  if (!(copy instanceof HTMLElement)) return ghost;
+  for (const node of [copy, ...copy.querySelectorAll("[id]")]) node.removeAttribute("id");
+  for (const node of [
+    copy,
+    ...copy.querySelectorAll("[data-handle], [data-provider], [data-account]"),
+  ]) {
+    for (const name of ["data-handle", "data-provider", "data-account"]) node.removeAttribute(name);
+  }
+  if (copy.tagName === "TR") {
+    const body = document.createElement("tbody");
+    body.append(copy);
+    table.append(body);
+  } else table.append(copy);
+  ghost.append(table);
+  return ghost;
 }
