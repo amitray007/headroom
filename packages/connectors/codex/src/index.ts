@@ -264,7 +264,7 @@ export function createCodexConnector(options: CodexConnectorOptions): Connector 
           availability: "available",
           ...sourceInspected,
           reason:
-            "owner-triggered only, behind HEADROOM_ENABLE_ACTIONS; the direct route is source-inspected and unvalidated until the owner runs one",
+            "owner-triggered only, behind the owner's Allow Account Actions setting; the direct route is source-inspected and unvalidated until the owner runs one",
         },
       ]);
     },

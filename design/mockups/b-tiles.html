@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Headroom · mockup B · tiles</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="headroom.css" />
+    <script>
+      /* ?scheme=light|dark forces the appearance for review; otherwise the OS decides. */
+      const s = new URLSearchParams(location.search).get("scheme");
+      if (s) document.documentElement.style.colorScheme = s;
+    </script>
+    <style>
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 16px;
+        margin-top: 12px;
+      }
+      .tile {
+        background: var(--bg-raised);
+        border: 1px solid var(--line);
+        border-radius: var(--r-m);
+        padding: 16px 18px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-height: 236px;
+      }
+      .tile.dim .arcs,
+      .tile.dim .facts {
+        opacity: 0.55;
+      }
+      .tile header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .tile h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        line-height: 1.2;
+      }
+      .tile h2 .muted {
+        font-weight: 400;
+      }
+      .tile header .state {
+        margin-top: 2px;
+      }
+      .tile header .right {
+        margin-left: auto;
+      }
+
+      /* Arc gauges: 270° ring, value as pathLength percent. */
+      .arcs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .arc {
+        display: grid;
+        justify-items: center;
+        width: 86px;
+        text-align: center;
+      }
+      .arc svg {
+        width: 68px;
+        height: 68px;
+        overflow: visible;
+      }
+      .arc .track {
+        fill: none;
+        stroke: var(--track);
+        stroke-width: 6;
+        stroke-linecap: round;
+      }
+      .arc .v {
+        fill: none;
+        stroke: var(--fill);
+        stroke-width: 6;
+        stroke-linecap: round;
+        stroke-dasharray: var(--v) 100;
+      }
+      .arc.warn .v {
+        stroke: var(--warn);
+      }
+      .arc.bad .v {
+        stroke: var(--bad);
+      }
+      .arc .t {
+        stroke: var(--ink);
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        opacity: 0.85;
+        transform-box: view-box;
+        transform-origin: 32px 32px;
+        transform: rotate(calc(-135deg + var(--t) * 2.7deg));
+      }
+      .arc .pct {
+        font: 500 14px/1 var(--mono);
+        fill: var(--ink);
+        text-anchor: middle;
+        dominant-baseline: central;
+      }
+      .arc .pct.small {
+        font-size: 11px;
+      }
+      .arc .lbl {
+        font-size: 12px;
+        margin-top: 2px;
+        line-height: 1.2;
+      }
+      .arc .lbl .faint {
+        display: block;
+        font-family: var(--mono);
+        font-size: 11px;
+      }
+      .arc .rst {
+        font-size: 11px;
+        color: var(--ink-2);
+        margin-top: 3px;
+        white-space: nowrap;
+      }
+      .arc .rst .num {
+        color: var(--ink);
+      }
+      .arc.unknown .track {
+        stroke-dasharray: 3 4;
+      }
+
+      .facts {
+        margin-top: auto;
+        display: grid;
+        gap: 4px;
+        font-size: 13px;
+        color: var(--ink-2);
+      }
+      .facts .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .facts b {
+        color: var(--ink);
+        font-weight: 500;
+      }
+      .facts .num {
+        color: var(--ink);
+      }
+      .facts .bar {
+        margin: 2px 0 6px;
+      }
+
+      .tile .notice {
+        margin: -4px 0 0;
+      }
+      .addtile {
+        border: 1px dashed var(--line-strong);
+        border-radius: var(--r-m);
+        display: grid;
+        place-items: center;
+        color: var(--ink-2);
+        font-size: 13px;
+        min-height: 236px;
+        text-decoration: none;
+      }
+      .addtile:hover {
+        color: var(--ink);
+        border-color: var(--ink-3);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="top">
+        <span class="wordmark">Headroom</span>
+        <span class="links"
+          ><span class="faint">7 accounts · refreshed 2 min ago</span
+          ><a href="#">Connect an account</a><a href="#">Settings</a></span
+        >
+      </header>
+
+      <div class="grid">
+        <section class="tile" aria-labelledby="t-claude">
+          <header>
+            <span class="mark" aria-hidden="true">CL</span>
+            <div>
+              <h2 id="t-claude">Claude <span class="muted">Personal</span></h2>
+              <div class="state"><span class="dot"></span>Max · 2 min ago</div>
+            </div>
+            <span class="tag right">private</span>
+          </header>
+          <div class="arcs">
+            <div class="arc" style="--v: 42; --t: 57">
+              <svg
+                viewBox="0 0 64 64"
+                role="meter"
+                aria-valuenow="42"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Session usage 42%"
+              >
+                <path class="track" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <path class="v" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <line class="t" x1="32" y1="1.5" x2="32" y2="10.5" />
+                <text class="pct" x="32" y="32">42%</text>
+              </svg>
+              <div class="lbl">Session<span class="faint">5 h</span></div>
+              <div class="rst">in <span class="num">2h 10m</span></div>
+            </div>
+            <div class="arc" style="--v: 61; --t: 55">
+              <svg
+                viewBox="0 0 64 64"
+                role="meter"
+                aria-valuenow="61"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Weekly usage, all models 61%"
+              >
+                <path class="track" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <path class="v" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <line class="t" x1="32" y1="1.5" x2="32" y2="10.5" />
+                <text class="pct" x="32" y="32">61%</text>
+              </svg>
+              <div class="lbl">Weekly<span class="faint">7 d · all</span></div>
+              <div class="rst">Thu <span class="num">09:00</span></div>
+            </div>
+            <div class="arc" style="--v: 23; --t: 55">
+              <svg
+                viewBox="0 0 64 64"
+                role="meter"
+                aria-valuenow="23"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Weekly usage, Fable 23%"
+              >
+                <path class="track" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <path class="v" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <line class="t" x1="32" y1="1.5" x2="32" y2="10.5" />
+                <text class="pct" x="32" y="32">23%</text>
+              </svg>
+              <div class="lbl">Fable<span class="faint">7 d</span></div>
+              <div class="rst">same window</div>
+            </div>
+          </div>
+          <div class="facts">
+            <div class="row">
+              <span>Reset grants</span
+              ><span
+                ><span class="pips"><span class="pip"></span></span> <b>1</b></span
+              >
+            </div>
+            <div class="row"><span>Extra usage</span><b>off</b></div>
+          </div>
+        </section>
+
+        <section class="tile" aria-labelledby="t-codex">
+          <header>
+            <span class="mark" aria-hidden="true">CX</span>
+            <div>
+              <h2 id="t-codex">Codex <span class="muted">Personal</span></h2>
+              <div class="state"><span class="dot"></span>Pro · 2 min ago</div>
+            </div>
+            <span class="tag right">private</span>
+          </header>
+          <div class="arcs">
+            <div class="arc warn" style="--v: 78; --t: 82">
+              <svg
+                viewBox="0 0 64 64"
+                role="meter"
+                aria-valuenow="78"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Weekly usage 78%"
+              >
+                <path class="track" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <path class="v" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <line class="t" x1="32" y1="1.5" x2="32" y2="10.5" />
+                <text class="pct" x="32" y="32">78%</text>
+              </svg>
+              <div class="lbl">Weekly<span class="faint">7 d</span></div>
+              <div class="rst">in <span class="num">1d 6h</span></div>
+            </div>
+          </div>
+          <div class="facts">
+            <div class="row"><span>Credits</span><b class="num">1,240</b></div>
+            <div class="row">
+              <span>Reset credits <span class="faint">first expires in 12 d</span></span
+              ><span
+                ><span class="pips"
+                  ><span class="pip"></span><span class="pip"></span><span class="pip"></span
+                ></span>
+                <b>3</b></span
+              >
+            </div>
+            <div class="row" style="margin-top: 6px">
+              <button
+                type="button"
+                disabled
+                title="Switched off. Start Headroom with HEADROOM_ENABLE_ACTIONS=true to allow it."
+              >
+                Reset weekly limit now
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="tile" aria-labelledby="t-grok">
+          <header>
+            <span class="mark" aria-hidden="true">GK</span>
+            <div>
+              <h2 id="t-grok">Grok <span class="muted">Personal</span></h2>
+              <div class="state">
+                <span class="dot stale"></span><span class="age stale">3 h ago, stale</span>
+              </div>
+            </div>
+            <span class="tag right">private</span>
+          </header>
+          <div class="arcs">
+            <div class="arc" style="--v: 34; --t: 36">
+              <svg
+                viewBox="0 0 64 64"
+                role="meter"
+                aria-valuenow="34"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Weekly pool usage 34%"
+              >
+                <path class="track" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <path class="v" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <line class="t" x1="32" y1="1.5" x2="32" y2="10.5" />
+                <text class="pct" x="32" y="32">34%</text>
+              </svg>
+              <div class="lbl">Weekly pool<span class="faint">7 d</span></div>
+              <div class="rst">in <span class="num">4d 11h</span></div>
+            </div>
+          </div>
+          <div class="facts">
+            <div class="row">
+              <span>On-demand this week</span><span><b class="num">120</b> of 500 credits</span>
+            </div>
+            <div
+              class="bar thin"
+              role="meter"
+              aria-valuenow="120"
+              aria-valuemin="0"
+              aria-valuemax="500"
+              aria-label="On-demand credits against the cap"
+              style="--v: 24%"
+            >
+              <span class="fill"></span>
+            </div>
+            <div class="row">
+              <span>Prepaid balance</span><span><b class="num">2,500</b> credits</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="tile" aria-labelledby="t-ag">
+          <header>
+            <span class="mark" aria-hidden="true">AG</span>
+            <div>
+              <h2 id="t-ag">Antigravity <span class="muted">Personal</span></h2>
+              <div class="state"><span class="dot"></span>Free · 2 min ago</div>
+            </div>
+            <span class="tag right">private</span>
+          </header>
+          <div class="arcs">
+            <div class="arc bad" style="--v: 95; --t: 27">
+              <svg
+                viewBox="0 0 64 64"
+                role="meter"
+                aria-valuenow="95"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Gemini weekly usage 95%"
+              >
+                <path class="track" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <path class="v" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <line class="t" x1="32" y1="1.5" x2="32" y2="10.5" />
+                <text class="pct" x="32" y="32">95%</text>
+              </svg>
+              <div class="lbl">Gemini<span class="faint">7 d</span></div>
+              <div class="rst">in <span class="num">5d 2h</span></div>
+            </div>
+            <div class="arc" style="--v: 12; --t: 27">
+              <svg
+                viewBox="0 0 64 64"
+                role="meter"
+                aria-valuenow="12"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Third-party models weekly usage 12%"
+              >
+                <path class="track" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <path class="v" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <line class="t" x1="32" y1="1.5" x2="32" y2="10.5" />
+                <text class="pct" x="32" y="32">12%</text>
+              </svg>
+              <div class="lbl">Third-party<span class="faint">7 d</span></div>
+              <div class="rst">same window</div>
+            </div>
+          </div>
+          <div class="facts">
+            <div class="row faint">
+              <span>Only weekly buckets are reported on the free tier.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="tile dim" aria-labelledby="t-cp">
+          <header>
+            <span class="mark" aria-hidden="true">GH</span>
+            <div>
+              <h2 id="t-cp">Copilot <span class="muted">Personal</span></h2>
+              <div class="state"><span class="dot reconnect"></span>Pro · 2 days ago</div>
+            </div>
+            <span class="tag right">private</span>
+          </header>
+          <div class="notice bad">
+            <span>The provider rejected the saved sign-in.</span
+            ><button type="button" class="primary">Reconnect</button>
+          </div>
+          <div class="arcs">
+            <div class="arc bad" style="--v: 100; --t: 6">
+              <svg
+                viewBox="0 0 64 64"
+                role="meter"
+                aria-valuenow="100"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Premium requests 100% of included"
+              >
+                <path class="track" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <path class="v" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <line class="t" x1="32" y1="1.5" x2="32" y2="10.5" />
+                <text class="pct" x="32" y="32">300</text>
+              </svg>
+              <div class="lbl">Premium<span class="faint">month · 100%</span></div>
+              <div class="rst">resets <span class="num">1 Nov</span></div>
+            </div>
+          </div>
+          <div class="facts">
+            <div class="row"><span>Chat · Completions</span><b>unlimited</b></div>
+            <div class="row">
+              <span>Extra usage</span><span><b class="num">0</b> requests</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="tile" aria-labelledby="t-cu">
+          <header>
+            <span class="mark" aria-hidden="true">CU</span>
+            <div>
+              <h2 id="t-cu">Cursor <span class="muted">Personal</span></h2>
+              <div class="state"><span class="dot"></span>Pro · 2 min ago</div>
+            </div>
+            <span class="tag right">private</span>
+          </header>
+          <div class="arcs">
+            <div class="arc" style="--v: 58; --t: 57">
+              <svg
+                viewBox="0 0 64 64"
+                role="meter"
+                aria-valuenow="58"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Included usage 58% of $20"
+              >
+                <path class="track" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <path class="v" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <line class="t" x1="32" y1="1.5" x2="32" y2="10.5" />
+                <text class="pct" x="32" y="32">58%</text>
+              </svg>
+              <div class="lbl">Included<span class="faint">of $20</span></div>
+              <div class="rst"><span class="num">13 d</span> left</div>
+            </div>
+            <div class="arc" style="--v: 40; --t: 57">
+              <svg
+                viewBox="0 0 64 64"
+                role="meter"
+                aria-valuenow="40"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="API share 40%"
+              >
+                <path class="track" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <path class="v" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <text class="pct" x="32" y="32">40%</text>
+              </svg>
+              <div class="lbl">API<span class="faint">share</span></div>
+            </div>
+            <div class="arc" style="--v: 18; --t: 57">
+              <svg
+                viewBox="0 0 64 64"
+                role="meter"
+                aria-valuenow="18"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Auto share 18%"
+              >
+                <path class="track" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <path class="v" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <text class="pct" x="32" y="32">18%</text>
+              </svg>
+              <div class="lbl">Auto<span class="faint">share</span></div>
+            </div>
+          </div>
+          <div class="facts">
+            <div class="row">
+              <span>Billing cycle</span><span class="num">15 Sep – 15 Oct</span>
+            </div>
+            <div class="row"><span>On-demand this cycle</span><b class="num">$3.20</b></div>
+          </div>
+        </section>
+
+        <section class="tile" aria-labelledby="t-vc">
+          <header>
+            <span class="mark" aria-hidden="true">VC</span>
+            <div>
+              <h2 id="t-vc">Vercel AI Gateway <span class="muted">Team</span></h2>
+              <div class="state"><span class="dot partial"></span>Partial · 2 min ago</div>
+            </div>
+          </header>
+          <div class="arcs">
+            <div class="arc" style="--v: 86; --t: 0">
+              <svg
+                viewBox="0 0 64 64"
+                role="meter"
+                aria-valuenow="85.8"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Credits used 85.8 of 100"
+              >
+                <path class="track" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <path class="v" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <text class="pct small" x="32" y="32">14.20</text>
+              </svg>
+              <div class="lbl">Credits<span class="faint">left of 100</span></div>
+            </div>
+            <div class="arc unknown" style="--v: 0">
+              <svg viewBox="0 0 64 64" aria-label="30-day spend unknown">
+                <path class="track" pathLength="100" d="M13.6 50.4 A26 26 0 1 1 50.4 50.4" />
+                <text class="pct faint" x="32" y="32" style="fill: var(--ink-3)">—</text>
+              </svg>
+              <div class="lbl">Spend<span class="faint">30 d</span></div>
+              <div class="rst">unknown</div>
+            </div>
+          </div>
+          <div class="facts">
+            <div class="row faint"><span>Spend report needs a Pro plan.</span></div>
+          </div>
+        </section>
+
+        <a class="addtile" href="#">+ Connect another account</a>
+      </div>
+
+      <footer class="legend">
+        <span><span class="sw"></span>used share of the window</span>
+        <span><span class="sw tick"></span> how far the window has elapsed</span>
+        <span><span class="sw warn"></span>from 70%</span>
+        <span><span class="sw bad"></span>from 90%</span>
+        <span><span class="sw unknown"></span>unknown, not zero</span>
+      </footer>
+    </div>
+  </body>
+</html>

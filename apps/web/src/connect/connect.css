@@ -1,0 +1,89 @@
+/* Connect page additions: pieces the shared stylesheet does not cover. */
+.connect-page .waiting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.connect-page .waiting .spin {
+  width: 14px;
+  height: 14px;
+}
+.field textarea {
+  font: 400 var(--text-sm) / 1.5 var(--mono);
+  padding: 12px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--foreground);
+  resize: vertical;
+  min-height: 140px;
+}
+.field textarea:focus {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
+.choices {
+  display: grid;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-fast) var(--ease-standard);
+}
+.choice:has(input:checked) {
+  border-color: var(--border-strong);
+  background: var(--surface-raised);
+}
+.choice input {
+  accent-color: var(--foreground);
+}
+.connect-page .flow .seg {
+  justify-self: start;
+}
+.connect-page .tablecard .table-note {
+  display: block;
+  margin: 0;
+  padding: 0 24px 16px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.accounts .name-edit {
+  font-size: var(--text-base);
+  width: 100%;
+  max-width: 200px;
+}
+/* Screen-reader-only text is absolutely placed; keep it inside the scroller so it adds no page width. */
+.tscroll {
+  position: relative;
+}
+/* Narrow screens: the fixed columns need room, so the table scrolls inside its card instead of overlapping. */
+.accounts {
+  min-width: 960px;
+}
+.connect-page .thead-row {
+  flex-wrap: wrap;
+}
+
+/* Skeleton rows follow the real column alignment: Status and Last Refreshed centred, the menu button right. */
+.accounts .sk-row td:nth-child(3) > .sk,
+.accounts .sk-row td:nth-child(4) > .sk {
+  margin-inline: auto;
+}
+.accounts .sk-row td:nth-child(5) > .sk {
+  margin-left: auto;
+}

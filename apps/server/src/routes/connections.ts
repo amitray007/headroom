@@ -6,20 +6,24 @@ import { accountActionKindSchema, authMethodSchema } from "@headroom/core";
 import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
 import { handleServiceError } from "./errors.ts";
+import { metricJson, ms, resetCreditJson } from "./serialize.ts";
 
 const reconnectBody = z.object({ method: authMethodSchema });
 const pauseBody = z.object({ paused: z.boolean() });
+const maxNameLength = 40;
+const renameBody = z.object({
+  name: z
+    .string()
+    .nullable()
+    .transform((value) => (value === null ? null : value.trim()))
+    .refine((value) => value === null || value.length <= maxNameLength),
+});
 /** `confirm` must be literally true: the browser sets it after the owner confirmed the named credit. */
 const actionBody = z.object({
   action: accountActionKindSchema,
   creditId: z.string().min(1).optional(),
   confirm: z.literal(true),
 });
-
-/** Every instant leaves the API as epoch milliseconds; the web client's schemas expect numbers, not ISO strings. */
-function ms(value: Date | null | undefined): number | null {
-  return value?.getTime() ?? null;
-}
 
 export function connectionRoutes(ctx: AppContext): Hono<Env> {
   const app = new Hono<Env>();
@@ -36,6 +40,7 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
         id: connection.id,
         provider: connection.provider,
         label: connection.label,
+        name: connection.displayName,
         scope: connection.scope,
         state: connection.state,
         reconnectReason: connection.reconnectReason,
@@ -58,11 +63,20 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
     const latest = ctx.snapshots.latest(connection.id);
     const run = ctx.snapshots.latestRun(connection.id);
     return c.json({
+      // Built field by field: the stored row also holds providerAccountId and workspaceId.
       connection: {
-        ...connection,
+        id: connection.id,
+        provider: connection.provider,
+        label: connection.label,
+        name: connection.displayName,
+        scope: connection.scope,
+        state: connection.state,
+        reconnectReason: connection.reconnectReason,
+        interface: connection.interface,
+        authMethod: connection.authMethod,
+        lastSuccessAt: ms(connection.lastSuccessAt),
         createdAt: connection.createdAt.getTime(),
         updatedAt: connection.updatedAt.getTime(),
-        lastSuccessAt: ms(connection.lastSuccessAt),
       },
       capabilities: ctx.snapshots.capabilities(connection.id).map((row) => ({
         metricOrAction: row.metricOrAction,
@@ -77,28 +91,8 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
             observedAt: latest.snapshot.observedAt.getTime(),
             receivedAt: latest.snapshot.receivedAt.getTime(),
             connectorVersion: latest.snapshot.connectorVersion,
-            metrics: latest.metrics.map((metric) => ({
-              providerMetricKey: metric.providerMetricKey,
-              kind: metric.kind,
-              scope: metric.scope,
-              valueText: metric.valueText,
-              valueNum: metric.valueNum,
-              unit: metric.unit,
-              unlimited: metric.unlimited,
-              windowStart: ms(metric.windowStart),
-              windowEnd: ms(metric.windowEnd),
-              resetsAt: ms(metric.resetsAt),
-              availability: metric.availability,
-              interface: metric.interface,
-            })),
-            resetCredits: latest.resetCredits.map((credit) => ({
-              providerCreditId: credit.providerCreditId,
-              eligible: credit.eligible,
-              usable: credit.usable,
-              expiresAt: ms(credit.expiresAt),
-              cooldownUntil: ms(credit.cooldownUntil),
-              rawLabel: credit.rawLabel,
-            })),
+            metrics: latest.metrics.map(metricJson),
+            resetCredits: latest.resetCredits.map(resetCreditJson),
           }
         : null,
       latestRun: run
@@ -118,7 +112,7 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
 
   /**
    * Owner-triggered account mutation, for example consuming a Codex reset credit. Gated by
-   * HEADROOM_ENABLE_ACTIONS and by the literal confirm flag; never called by the scheduler.
+   * the owner's accountActions setting and by the literal confirm flag; never called by the scheduler.
    */
   app.post("/:id/actions", async (c) => {
     const connection = ctx.connections.get(c.req.param("id"));
@@ -168,6 +162,17 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
     } catch (error) {
       return handleServiceError(c, error);
     }
+  });
+
+  /** Owner-set display name. Empty or null clears it. */
+  app.patch("/:id", async (c) => {
+    const connection = ctx.connections.get(c.req.param("id"));
+    if (!connection) return c.json({ error: "not_found" }, 404);
+    const body = renameBody.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "invalid_body" }, 400);
+    const name = body.data.name === "" ? null : body.data.name;
+    ctx.connections.setDisplayName(connection.id, name);
+    return c.json({ name });
   });
 
   app.post("/:id/pause", async (c) => {

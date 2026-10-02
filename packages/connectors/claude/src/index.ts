@@ -294,7 +294,7 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
       if (!usage.success)
         throw new ConnectorError("invalid_response", "usage response shape changed");
       const observedAt = now();
-      const { metrics, resetCredits } = metricsFrom(usage.data);
+      const { metrics, resetCredits } = metricsFrom(usage.data, observedAt);
       return { observedAt, metrics, resetCredits, failures: [] };
     },
 
@@ -361,7 +361,10 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
   };
 }
 
-function metricsFrom(usage: UsageResponse): {
+function metricsFrom(
+  usage: UsageResponse,
+  observedAt: number,
+): {
   metrics: MetricObservation[];
   resetCredits: ResetCreditObservation[];
 } {
@@ -389,14 +392,16 @@ function metricsFrom(usage: UsageResponse): {
   for (const limit of usage.limits ?? []) {
     if (limit.kind !== "weekly_scoped") continue;
     const name = limit.scope?.model?.display_name ?? "scoped";
+    // JSON null and a missing field both mean the provider gave no number.
+    const percent = limit.percent ?? undefined;
     metrics.push({
       providerMetricKey: `limits.${name}`,
       kind: "quota_percentage",
       scope: "window:604800s",
-      valueText: limit.percent === undefined ? null : String(limit.percent),
+      valueText: percent === undefined ? null : String(percent),
       unit: "percent",
       resetsAt: parseDate(limit.resets_at),
-      availability: limit.percent === undefined ? "unknown" : "available",
+      availability: percent === undefined ? "unknown" : "available",
       interface: "private",
     });
   }
@@ -427,25 +432,33 @@ function metricsFrom(usage: UsageResponse): {
     }
   }
   const resetCredits: ResetCreditObservation[] = [];
-  if (usage.cedar_ember) {
-    const eligible = usage.cedar_ember.eligible === true;
+  // An ineligible response (seen with ineligible_reason "surface" for the Claude Code sign-in) withholds the
+  // grants rather than reporting none, so emit no count: an unavailable figure is unknown, not zero.
+  if (usage.cedar_ember?.eligible === true) {
     let total = 0;
     (usage.cedar_ember.grants ?? []).forEach((grant, index) => {
       const left = grant.resets_left ?? 0;
-      total += Math.max(0, left);
+      const startsAt = parseDate(grant.starts_at);
+      const endsAt = parseDate(grant.ends_at);
+      const usable =
+        grant.paused !== true &&
+        left >= 1 &&
+        (startsAt === null || startsAt <= observedAt) &&
+        (endsAt === null || endsAt > observedAt);
+      if (usable) total += left;
       resetCredits.push({
         providerCreditId: `grant-${index}`,
-        eligible,
-        usable: eligible && left >= 1,
-        expiresAt: parseDate(grant.ends_at),
-        rawLabel: `${left} left`,
+        eligible: true,
+        usable,
+        expiresAt: endsAt,
+        rawLabel: grant.label ?? `${left} left`,
       });
     });
     metrics.push({
       providerMetricKey: "reset_grants.available",
       kind: "reset_inventory",
       scope: "account",
-      valueText: String(eligible ? total : 0),
+      valueText: String(total),
       unit: "resets",
       availability: "available",
       interface: "private",

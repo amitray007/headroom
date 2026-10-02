@@ -71,7 +71,7 @@ Account cards, independent quota buckets, balance and spend views, reset countdo
 
 ## M6: Actions and release readiness
 
-Status: the Codex `consume_reset_credit` action is built on 2026-10-02 behind `HEADROOM_ENABLE_ACTIONS` with an action row, idempotency key, confirmation naming the credit and expiry, `uncertain` handling and a follow-up snapshot. The route is source-inspected and stays unvalidated until Amit runs one from the dashboard (D23). Release readiness items are not started.
+Status: the Codex `consume_reset_credit` action is built on 2026-10-02 behind the "Allow Account Actions" setting (the env flag was removed the same day) with an action row, idempotency key, confirmation naming the credit and expiry, `uncertain` handling and a follow-up snapshot. The route is source-inspected and stays unvalidated until Amit runs one from the dashboard (D23). Release readiness items are not started.
 
 Codex reset redemption with an action row, idempotency key, confirmation naming the credit, outcome reconciliation and a follow-up snapshot. No generic retry after an uncertain mutation. Disconnect with provider revocation where documented. Retention, backup and restore verification. Optional callback bridge on provider localhost ports for the direct-client fallbacks.
 
