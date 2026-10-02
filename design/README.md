@@ -27,12 +27,21 @@ share `headroom.css` for tokens and the bar, pip, tag and notice primitives.
 | `b-tiles.html` | One tile per account, window buckets as 270° arcs, facts at the foot | A friendlier look, big numbers, phones |
 | `c-panels.html` | Provider sections, one panel per account, meters as display numbers over thick pill bars, facts behind a hairline | Superseded by D |
 | `d-panels.html` | D: every figure is a cell (window meters and big-number facts) in a wrapping row that never leaves a hole; status pills; segmented one-accent bars with legends; details behind a header toggle; logo lockup | Current direction |
-| `d-states.html` | D's states and primitives: status pills, buttons and hold-to-confirm, skeleton, never collected, list error, empty, over the limit | Review alongside D |
+| `d-states.html` | D's states and primitives: status pills, buttons and hold-to-confirm, skeleton, never collected, list error, empty, over the limit | Superseded by E |
+| `e-panels.html` | E: D plus provider accents and brand marks, a footer with last refresh and live Refresh, Pause and Disconnect actions, a working hold-to-confirm, an account menu with appearance switch, and no technical tables. CSS, JS and marks are inlined so the published copy renders on its own | Current direction. Interactive: click Refresh, Pause, Disconnect, hold the reset button, open the avatar menu |
+| `e-states.html` | E's states, buttons, provider marks with their accents, skeleton, never collected, list error, empty, over the limit | Review alongside E |
+| `e-connect.html` | Connect page: provider cards with brand marks, then every step state (device code, paste redirect, API key, checking, connected) | Review alongside E |
 | `logo.html` | Four logo concepts at 64, 32, 16 px, in a lockup and inverted | Concept 4 "Ledger" is used in D |
 
 D is built from `structure.md`, which in turn rests on `research/data-inventory.md` (what the
 connectors emit) and `research/arc-ui.md` (Arc UI's tokens, components, blocks and motion).
-Mockups A to C stay for comparison. Add `&motion=off` to a D page URL for a still render.
+Mockups A to D stay for comparison. Add `&motion=off` to a D or E page URL for a still render.
+
+E follows Arc's own agent skill files (`https://uiarc.dev/r/skills/arc/*.md`, read on 2026-10-02):
+verb-plus-object buttons, sentence case, one primary per surface, confirm in place, status with a
+label, skeleton in the final layout, third-party marks in their real colours, hover on fine
+pointers only, press 0.97 with a spring release, exits faster than enters. The one Arc rule we
+reject is the removal of focus rings.
 
 ## What C takes from Arc UI
 
@@ -97,7 +106,17 @@ animated numbers prove worth it.
   built and audited three times (class collision broke fact cells, comma numbers showed NaN,
   window labels sat too far from their label, Details sat on its own line, plus icon unsized,
   Vercel decimals rounded). All fixed. Every panel now has a Details toggle in its header.
-- Accepted: none formally yet; D is the direction to iterate on.
+- 2026-10-02, review of D: drop the technical tables (capabilities, connector, signed in by), keep
+  the last refresh; show Refresh, Pause and Disconnect with motion; add Connect and an account
+  avatar; make it more colourful with provider marks; do not draw data the account cannot have
+  (Vercel spend without Pro) but keep data that can still arrive. E built in response.
+- E decisions: provider accent colours the fill of that provider's meters (Claude coral, Codex
+  green, Cursor sky, Copilot violet, Grok orange, Antigravity blue, Vercel neutral); thresholds
+  still override with warning and danger. `not_authorized` and `unsupported` rows are omitted and
+  the partial chip names them; `unknown` and `temporarily_unavailable` rows draw hatched with
+  "not reported in the last refresh". Published HTML inlines its CSS and JS because the viewer
+  does not load sibling files (D's bars were invisible there).
+- Accepted: none formally yet; E is the direction to iterate on.
 - Open: Whether a credits meter fills with used or remaining share. Brand marks versus monograms
   (SVGL assets need a rights check per provider). Whether a panel expands inline for
   capabilities and run history. Whether the display number should be the remaining share

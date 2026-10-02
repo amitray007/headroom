@@ -34,8 +34,14 @@ Connect row     + Connect another account
 Legend          fill · tick · 70% · 90% · unknown
 ```
 
-- **Top line.** Logo lockup, a muted summary (account count, oldest data age), two text links.
+- **Top line.** Logo lockup, a muted summary (account count, how many need attention), the
+  Connect link and an avatar that opens the account menu (signed-in name, appearance switch,
+  passkeys and password, sign out). The menu is the only floating layer and the only shadow.
   On phones the summary drops to its own line. No toolbar, no search, no filters.
+- **Connect page.** The one other page. Heading, one sentence, a grid of provider cards with brand
+  marks and the sign-in method in plain words, then the step panel for the running attempt:
+  device code with Open and Copy, paste redirect field, API key field, Checking, Connected with
+  "Open your accounts".
 - **Provider section.** Mark, provider name, account count when more than one. Providers sort by
   the most urgent account inside them (highest used share of any window), then by name.
 - **Account panel.** One linked account. Header, optional notice, meters, facts, a quiet
@@ -87,11 +93,14 @@ everything that is not a window: balances, spend against caps, reset inventory, 
 counts. The action button, when any, sits at the far right. A spend with a cap gets a 6 px thin
 bar under the fact row only when the cap is known.
 
-**Details disclosure.** A quiet "Details" text button at the far right of the facts row. Expands
-in place: capabilities table (metric or action, availability, evidence, reason), latest run
-(time, outcome, sanitized error), snapshot observed and received times, connector version, and
-the secondary actions Refresh now, Pause, Disconnect. Nothing in the disclosure is needed to read
-the panel.
+**Footer.** Hairline above. Left: `Last refreshed 14:02 · succeeded` (the latest run's time and
+outcome, with the sanitized error in plain words when it failed). Right: quiet actions Refresh,
+Pause or Resume, Disconnect. Refresh confirms in place (Refreshing, then Refreshed with a check,
+then back) and the header age swaps to "just now". Pause dims the panel and swaps the header status
+to a paused pill. Disconnect becomes an inline question naming the account and the consequence,
+with Cancel focused; confirming shows Disconnecting, then Disconnected, then the panel collapses
+and the provider section follows when it was the last account. No capabilities table, connector
+version or sign-in method is shown; those stay in the API for diagnosis.
 
 ## 4. Metric kind to shape
 
@@ -106,7 +115,8 @@ the panel.
 | `spend` without a cap | Fact | `$3.20 this cycle` |
 | `spending_cap` alone (Cursor `included.limit`) | Caption of the included meter | `$20 plan` |
 | `reset_inventory` | Fact with pips | Pips equal to count, `3 available`, first expiry in muted when rows carry one |
-| availability not `available` | Meter or fact in unknown style | Hatched bar or em dash, caption carries the reason in plain words |
+| availability `unknown` or `temporarily_unavailable` | Meter or fact in unknown style | Hatched bar or dash, caption "not reported in the last refresh". The data can still arrive |
+| availability `not_authorized` or `unsupported` | nothing in the cells | Not drawn. The partial chip in the header names what is missing and why (title text) |
 | row absent | nothing | Not drawn, not mentioned |
 
 Window labels follow `research/data-inventory.md` section 11: `5-hour`, `Weekly`, `Monthly`,
@@ -179,9 +189,12 @@ Borrowed from `research/arc-ui.md` and fixed here so the implementation does not
   every toned pill or notice carries an icon and words.
 - Healthy state is quiet text with a success dot. Pills appear only when something needs
   attention: retrying, stale, partial, reconnect, paused, waiting.
-- One accent, neutral. Segments of one bar are steps of that accent (100%, 58%, 34%) so a bar
-  reads as one allowance, not a rainbow. Warning and danger replace the accent only on the fill
-  that crossed the threshold.
+- Each provider section sets the accent to that provider's colour, so its meters fill in that
+  colour and the page reads as a set of brands rather than one grey. Segments of one bar are steps
+  of the accent (100%, 58%, 34%) so a bar reads as one allowance, not a rainbow. Warning and
+  danger replace the accent only on the fill that crossed the threshold.
+- Provider marks are the real brand marks (SVGL, see `mockups/icons/README.md`), monochrome ones
+  in the foreground colour, coloured ones as published. Headroom's own mark is the Ledger tile.
 - Radii 12 px for controls and 20 px for panels, pill for chips. Hover fills apply on fine
   pointers only. Focus rings stay visible (Arc removes them; we do not).
 - Buttons are 36 px, 14/500. Primary is the inverted foreground, one per page (Reconnect).
