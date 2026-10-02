@@ -5,6 +5,7 @@ FROM oven/bun:1.4.2 AS build
 WORKDIR /src
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/package.json
+COPY apps/web/package.json apps/web/package.json
 COPY packages/core/package.json packages/core/package.json
 COPY packages/connectors/antigravity/package.json packages/connectors/antigravity/package.json
 COPY packages/connectors/claude/package.json packages/connectors/claude/package.json
