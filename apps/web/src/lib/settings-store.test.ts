@@ -50,6 +50,8 @@ describe("defaults", () => {
       timeStyle: "countdown",
       clock: "24h",
       density: "comfortable",
+      detailedOrder: "urgency",
+      keepInactiveLast: true,
       accountActions: false,
       notifications: { runningLow: true, expiringResets: true, refreshFailures: true },
     });

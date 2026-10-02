@@ -8,6 +8,8 @@ import { ErrorNotice } from "../ui/error-notice.tsx";
 import { Segmented } from "../ui/segmented.tsx";
 import { Sk } from "../ui/skeleton.tsx";
 import { Switch } from "../ui/switch.tsx";
+import type { ViewProps } from "../views/props.ts";
+import { ProviderOrderList } from "./provider-order.tsx";
 
 /** True while the settings load: each row keeps its words and shows a placeholder where the control goes. */
 const WaitingContext = createContext(false);
@@ -118,14 +120,34 @@ function SwitchRow(props: {
   );
 }
 
+/** A row whose control is a list, so the note stays beside it and the list sits on the right. */
+function ListRow(props: {
+  readonly title: string;
+  readonly note: string;
+  readonly children: ReactNode;
+}) {
+  const waiting = useContext(WaitingContext);
+  return (
+    <div className="srow srow-list">
+      <Body title={props.title} note={props.note} />
+      {waiting ? <Sk width={200} height={120} className="sk-pill sk-control" /> : props.children}
+    </div>
+  );
+}
+
 const thresholds = [30, 20, 15] as const;
 const intervals = [5, 10, 15, 30] as const;
 
 /** The owner's preferences. Every change applies at once and is saved by the settings store. */
-export function SettingsDialog(props: { readonly open: boolean; readonly onClose: () => void }) {
+export function SettingsDialog(props: {
+  readonly open: boolean;
+  readonly onClose: () => void;
+  readonly overview: ViewProps["overview"];
+}) {
   const store = useSettings();
   const { settings, loaded, loadFailed } = store;
   const [retrying, setRetrying] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
   const retry = (): void => {
     setRetrying(true);
     void store.reload().finally(() => setRetrying(false));
@@ -214,6 +236,36 @@ export function SettingsDialog(props: { readonly open: boolean; readonly onClose
                 ]}
                 onChange={(density) => change({ density })}
               />
+            </Section>
+            <Section title="Detailed View">
+              <ChoiceRow
+                title="Default Order"
+                note="How the Detailed view sorts its accounts."
+                value={settings.detailedOrder}
+                options={[
+                  { value: "urgency", label: "Urgency" },
+                  { value: "provider", label: "Provider" },
+                  { value: "custom", label: "Custom" },
+                ]}
+                onChange={(detailedOrder) => change({ detailedOrder })}
+              />
+              <SwitchRow
+                title="Keep Inactive Last"
+                note="Paused and disconnected stay at the bottom."
+                checked={settings.keepInactiveLast}
+                onChange={(keepInactiveLast) => change({ keepInactiveLast })}
+              />
+              {props.overview.connections === null ||
+              props.overview.connections.length === 0 ? null : (
+                <ListRow title="Provider Order" note="Drag to reorder, or use the arrow keys.">
+                  <ProviderOrderList overview={props.overview} onError={setOrderError} />
+                </ListRow>
+              )}
+              {orderError === null ? null : (
+                <p className="form-error" role="alert">
+                  {orderError}
+                </p>
+              )}
             </Section>
             <Section title="Account Actions">
               <SwitchRow

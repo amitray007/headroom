@@ -191,6 +191,8 @@ const settingsSchema = z.object({
   timeStyle: z.enum(["countdown", "exact"]),
   clock: z.enum(["24h", "12h"]),
   density: z.enum(["comfortable", "compact"]),
+  detailedOrder: z.enum(["urgency", "provider", "custom"]),
+  keepInactiveLast: z.boolean(),
   accountActions: z.boolean(),
   notifications: z.object({
     runningLow: z.boolean(),

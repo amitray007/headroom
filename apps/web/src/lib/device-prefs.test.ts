@@ -8,6 +8,9 @@ import {
   densityKey,
   readDensity,
   readSessionHint,
+  readView,
+  saveView,
+  viewKey,
   saveSessionHint,
   sessionKey,
   privacyKey,
@@ -117,5 +120,13 @@ describe("stored prefs before first paint", () => {
     expect(readSessionHint(data)).toBe(true);
     saveSessionHint(data, false);
     expect(readSessionHint(data)).toBe(false);
+  });
+  test("the remembered view is one of the known views", () => {
+    const data = store();
+    expect(readView(data)).toBeNull();
+    saveView(data, "compare");
+    expect(data.data.get(viewKey)).toBe("compare");
+    expect(readView(data)).toBe("compare");
+    expect(readView(store({ [viewKey]: "gone" }))).toBeNull();
   });
 });

@@ -18,6 +18,8 @@ describe("settings", () => {
       timeStyle: "countdown",
       clock: "24h",
       density: "comfortable",
+      detailedOrder: "urgency",
+      keepInactiveLast: true,
       accountActions: false,
       notifications: { runningLow: true, expiringResets: true, refreshFailures: true },
     });
@@ -34,6 +36,8 @@ describe("settings", () => {
     );
     expect(merged.clock).toBe("12h");
     expect(merged.density).toBe("comfortable");
+    expect(merged.detailedOrder).toBe("urgency");
+    expect(merged.keepInactiveLast).toBe(true);
     expect(merged.notifications).toEqual({
       runningLow: false,
       expiringResets: true,
@@ -53,10 +57,24 @@ describe("settings", () => {
     expect(new SettingsStore(db, 900).get().limitsView).toBe("left");
   });
 
+  test("the Detailed view settings keep valid stored values and drop invalid ones", () => {
+    const merged = mergeSettings(
+      { detailedOrder: "custom", keepInactiveLast: false },
+      defaultSettings(900),
+    );
+    expect([merged.detailedOrder, merged.keepInactiveLast]).toEqual(["custom", false]);
+    const bad = mergeSettings(
+      { detailedOrder: "random", keepInactiveLast: "no" },
+      defaultSettings(900),
+    );
+    expect([bad.detailedOrder, bad.keepInactiveLast]).toEqual(["urgency", true]);
+  });
+
   test("the schema rejects values outside the options", () => {
     const base = defaultSettings(900);
     expect(settingsSchema.safeParse({ ...base, refreshIntervalMinutes: 7 }).success).toBe(false);
     expect(settingsSchema.safeParse({ ...base, lowThresholdPercent: 10 }).success).toBe(false);
+    expect(settingsSchema.safeParse({ ...base, detailedOrder: "name" }).success).toBe(false);
     expect(settingsSchema.safeParse({ ...base, extra: 1 }).success).toBe(true);
   });
 });

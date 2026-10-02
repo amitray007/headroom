@@ -22,6 +22,10 @@ export const settingsSchema = z.object({
   timeStyle: z.enum(["countdown", "exact"]),
   clock: z.enum(["24h", "12h"]),
   density: z.enum(["comfortable", "compact"]),
+  /** How the Detailed view sorts when the owner has not picked an order there. Provider and custom orders follow the saved display order. */
+  detailedOrder: z.enum(["urgency", "provider", "custom"]),
+  /** The Detailed view keeps paused and disconnected accounts at the bottom. */
+  keepInactiveLast: z.boolean(),
   /** The owner's half of the account-actions gate; the server flag is the other half. */
   accountActions: z.boolean(),
   notifications: z.object({
@@ -52,6 +56,8 @@ export function defaultSettings(refreshIntervalSeconds: number): Settings {
     timeStyle: "countdown",
     clock: "24h",
     density: "comfortable",
+    detailedOrder: "urgency",
+    keepInactiveLast: true,
     accountActions: false,
     notifications: { runningLow: true, expiringResets: true, refreshFailures: true },
   };
@@ -83,6 +89,8 @@ export function mergeSettings(stored: unknown, defaults: Settings): Settings {
     timeStyle: valid(shape.timeStyle, source["timeStyle"], defaults.timeStyle),
     clock: valid(shape.clock, source["clock"], defaults.clock),
     density: valid(shape.density, source["density"], defaults.density),
+    detailedOrder: valid(shape.detailedOrder, source["detailedOrder"], defaults.detailedOrder),
+    keepInactiveLast: valid(flag, source["keepInactiveLast"], defaults.keepInactiveLast),
     accountActions: valid(flag, source["accountActions"], defaults.accountActions),
     notifications: {
       runningLow: valid(flag, saved["runningLow"], defaults.notifications.runningLow),

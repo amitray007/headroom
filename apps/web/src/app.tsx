@@ -5,10 +5,13 @@ import { authClient } from "./auth.ts";
 import { ConnectPage } from "./connect-page.tsx";
 import { DashboardPage } from "./dashboard/page.tsx";
 import { useOverview } from "./dashboard/use-overview.ts";
-import { browserStorage, readSessionHint, saveSessionHint } from "./lib/device-prefs.ts";
+import { browserStorage, readSessionHint, saveSessionHint, saveView } from "./lib/device-prefs.ts";
+import { ComparePage } from "./views/compare/page.tsx";
+import { DetailedPage } from "./views/detailed/page.tsx";
+import { TimelinePage } from "./views/timeline/page.tsx";
 import { SettingsProvider } from "./lib/settings.tsx";
 import { useNotifications } from "./lib/use-notifications.ts";
-import { useRoute } from "./router.ts";
+import { useRoute, viewOf } from "./router.ts";
 import { BootFrame } from "./shell/boot.tsx";
 import { Shell } from "./shell/shell.tsx";
 
@@ -22,17 +25,22 @@ function SignedIn(props: { readonly name: string }) {
   const route = useRoute();
   const overview = useOverview();
   const notifications = useNotifications(overview.connections, overview.failed);
+  const view = viewOf(route);
+  // This device reopens on the view it used last.
+  useEffect(() => {
+    const storage = browserStorage();
+    if (storage !== null && view !== null) saveView(storage, view);
+  }, [view]);
   return (
-    <Shell
-      onConnectPage={route.page === "connect" || route.page === "reconnect"}
-      name={props.name}
-      notifications={notifications}
-    >
+    <Shell view={view} name={props.name} notifications={notifications} overview={overview}>
       {route.page === "connect" ? <ConnectPage onOrdered={overview.applyOrder} /> : null}
       {route.page === "reconnect" ? (
         <ConnectPage key={route.id} reconnectId={route.id} onOrdered={overview.applyOrder} />
       ) : null}
-      {route.page === "connections" ? <DashboardPage overview={overview} /> : null}
+      {route.page === "overview" ? <DashboardPage overview={overview} /> : null}
+      {route.page === "detailed" ? <DetailedPage overview={overview} /> : null}
+      {route.page === "compare" ? <ComparePage overview={overview} /> : null}
+      {route.page === "timeline" ? <TimelinePage overview={overview} /> : null}
     </Shell>
   );
 }

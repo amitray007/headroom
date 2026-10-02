@@ -47,6 +47,8 @@ The response carries no provider account id or workspace id. The detail route is
 | `timeStyle` | `countdown`, `exact` | `countdown` |
 | `clock` | `24h`, `12h` | `24h` |
 | `density` | `comfortable`, `compact` | `comfortable` |
+| `detailedOrder` | `urgency`, `provider`, `custom` (how the Detailed view sorts by default; provider and custom orders come from the saved display order, `PUT /api/order`, not from settings) | `urgency` |
+| `keepInactiveLast` | boolean (the Detailed view keeps paused and disconnected accounts at the bottom) | true |
 | `accountActions` | boolean | false |
 | `notifications` | `runningLow`, `expiringResets`, `refreshFailures`, all boolean | all true |
 
