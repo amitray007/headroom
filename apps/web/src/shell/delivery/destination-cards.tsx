@@ -1,9 +1,10 @@
 import type { NotificationChannelType } from "@headroom/core/contracts";
 
 import type { ChannelView } from "../../api.ts";
-import { DestinationMark } from "../../icons.tsx";
-import { useNow } from "../../lib/now.ts";
+import { AlertIcon, DestinationMark } from "../../icons.tsx";
 import { cx } from "../../ui/cx.ts";
+import { MarkCard } from "../../ui/mark-card.tsx";
+import { VerifiedSeal } from "../../ui/verified-seal.tsx";
 import { destinationName, destinationState } from "./status.ts";
 
 export const destinations: readonly NotificationChannelType[] = ["telegram", "webhook"];
@@ -14,22 +15,24 @@ function DestinationCard(props: {
   readonly selected: boolean;
   readonly onSelect: () => void;
 }) {
-  const now = useNow();
-  const state = destinationState(props.channel, now);
+  const state = destinationState(props.channel);
   return (
-    <button type="button" className="card" aria-pressed={props.selected} onClick={props.onSelect}>
-      <span className="head">
-        <DestinationMark type={props.type} size={24} />
-        {destinationName(props.type)}
-      </span>
-      <span className="dl-state">
-        <span className={cx("dl-dot", state.tone)} aria-hidden="true" />
-        <span className="dl-state-word">{state.word}</span>
-        {state.detail === null ? null : (
-          <span className="muted dl-state-detail">{state.detail}</span>
-        )}
-      </span>
-    </button>
+    <MarkCard
+      mark={<DestinationMark type={props.type} size={24} />}
+      name={destinationName(props.type)}
+      pressed={props.selected}
+      onClick={props.onSelect}
+      status={
+        state.mark === "on" || state.mark === "off" ? (
+          <VerifiedSeal tone={state.mark === "on" ? "good" : "muted"} label={state.label} />
+        ) : state.mark === "failing" ? (
+          <span className="dl-alert" title={state.label}>
+            <AlertIcon />
+            <span className="sr">{state.label}</span>
+          </span>
+        ) : undefined
+      }
+    />
   );
 }
 

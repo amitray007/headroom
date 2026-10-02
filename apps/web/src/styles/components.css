@@ -1403,11 +1403,6 @@ time.when {
   font-size: var(--text-xs);
   line-height: 1.35;
 }
-.srow .sbody b:has(.brand) {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
 label.srow {
   cursor: pointer;
 }
@@ -1664,6 +1659,37 @@ label.srow {
   gap: 10px;
   font-size: var(--text-base);
   font-weight: 500;
+}
+.card .card-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Settings, Notifications: provider switches as cards, two to a row. Off cards read quieter. */
+.ntf-cards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 6px 0 4px;
+}
+.ntf-cards .card {
+  min-height: 48px;
+  padding: 10px 14px;
+}
+.ntf-cards .card[aria-pressed="false"] {
+  color: var(--text-secondary);
+}
+.ntf-cards .card[aria-pressed="false"] .brand {
+  opacity: 0.55;
+}
+.ntf-cards .sk-card-slot {
+  width: 100%;
+  border-radius: var(--radius-panel);
+}
+/* A status mark, such as a seal, at the far right of the name row. */
+.card .card-status {
+  display: inline-flex;
+  margin-left: auto;
 }
 .cards .card[aria-pressed="true"] {
   border-color: var(--border-strong);

@@ -3,7 +3,6 @@ import { useContext, useId, useState } from "react";
 import type { Provider } from "@headroom/core/contracts";
 
 import type { Settings } from "../api.ts";
-import { providerName } from "@headroom/view-model/labels";
 import { useSettings } from "../lib/settings.tsx";
 import type { SettingsPatch } from "../lib/settings-store.ts";
 import { Dialog } from "../ui/dialog.tsx";
@@ -13,6 +12,7 @@ import { Sk } from "../ui/skeleton.tsx";
 import { SlideSwap, type SwapDirection } from "../ui/slide-swap.tsx";
 import { Tabs } from "../ui/tabs.tsx";
 import { DeliveryTab } from "./delivery/tab.tsx";
+import { ProviderCards } from "./provider-cards.tsx";
 import { Body, Section, SwitchRow, WaitingContext } from "./settings-rows.tsx";
 
 function ChoiceRow<T extends string>(props: {
@@ -225,16 +225,11 @@ function Notifications(props: {
         />
       </Section>
       <Section title="Providers">
-        {props.providers.map((provider) => (
-          <SwitchRow
-            key={provider}
-            title={providerName(provider)}
-            mark={provider}
-            note=""
-            checked={!on.mutedProviders.includes(provider)}
-            onChange={mute(provider)}
-          />
-        ))}
+        <ProviderCards
+          providers={props.providers}
+          muted={on.mutedProviders}
+          onToggle={(provider, shown) => mute(provider)(shown)}
+        />
       </Section>
     </>
   );

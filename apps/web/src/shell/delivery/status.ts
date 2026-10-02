@@ -74,20 +74,20 @@ export function destinationName(type: NotificationChannelType): string {
   return type === "telegram" ? "Telegram" : "Webhook";
 }
 
-/** What a destination card says under its name. `tone` colours the dot. */
-export function destinationState(
-  channel: Pick<ChannelView, "type" | "enabled" | "lastDelivery"> | null,
-  now: number,
-): {
-  readonly word: "Not Set Up" | "On" | "Off";
-  readonly detail: string | null;
-  readonly tone: "good" | "bad" | "quiet";
+/**
+ * The mark at the right of a destination card: a seal when it is set up (outlined when switched off), an alert when
+ * its last send failed, nothing when it is not set up. `label` names the mark for assistive tech and on hover.
+ */
+export function destinationState(channel: Pick<ChannelView, "enabled" | "lastDelivery"> | null): {
+  readonly mark: "none" | "on" | "off" | "failing";
+  readonly label: string;
 } {
-  if (channel === null) return { word: "Not Set Up", detail: null, tone: "quiet" };
-  if (!channel.enabled) return { word: "Off", detail: null, tone: "quiet" };
-  if (channel.lastDelivery === null) return { word: "On", detail: null, tone: "good" };
-  const line = statusLine(channel, now);
-  return { word: "On", detail: line.text, tone: line.tone === "bad" ? "bad" : "good" };
+  if (channel === null) return { mark: "none", label: "Not Set Up" };
+  if (!channel.enabled) return { mark: "off", label: "Set Up, Off" };
+  const last = channel.lastDelivery;
+  if (last !== null && last.status !== "delivered")
+    return { mark: "failing", label: "Not Sending" };
+  return { mark: "on", label: "Set Up" };
 }
 
 /** The bot name in a Telegram channel label such as "@bot \u00b7 Family". */

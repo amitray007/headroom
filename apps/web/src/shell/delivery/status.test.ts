@@ -73,25 +73,18 @@ test("chat type words", () => {
 });
 
 test("destination state", () => {
-  expect(destinationState(null, now)).toEqual({ word: "Not Set Up", detail: null, tone: "quiet" });
-  expect(destinationState({ type: "webhook", enabled: false, lastDelivery: null }, now).word).toBe(
-    "Off",
-  );
-  expect(destinationState({ type: "webhook", enabled: true, lastDelivery: null }, now)).toEqual({
-    word: "On",
-    detail: null,
-    tone: "good",
+  expect(destinationState(null)).toEqual({ mark: "none", label: "Not Set Up" });
+  expect(destinationState({ enabled: false, lastDelivery: null }).mark).toBe("off");
+  expect(destinationState({ enabled: true, lastDelivery: null })).toEqual({
+    mark: "on",
+    label: "Set Up",
   });
   const sent = { status: "delivered", at: now - 2 * minute, failure: null } as const;
-  expect(destinationState({ type: "telegram", enabled: true, lastDelivery: sent }, now)).toEqual({
-    word: "On",
-    detail: "Last sent 2 min ago",
-    tone: "good",
-  });
+  expect(destinationState({ enabled: true, lastDelivery: sent }).mark).toBe("on");
   const failed = { status: "failed", at: now - minute, failure: "timeout" } as const;
-  expect(
-    destinationState({ type: "telegram", enabled: true, lastDelivery: failed }, now).tone,
-  ).toBe("bad");
+  expect(destinationState({ enabled: true, lastDelivery: failed }).mark).toBe("failing");
+  const retrying = { status: "retrying", at: now - minute, failure: "network" } as const;
+  expect(destinationState({ enabled: true, lastDelivery: retrying }).mark).toBe("failing");
 });
 
 test("names", () => {

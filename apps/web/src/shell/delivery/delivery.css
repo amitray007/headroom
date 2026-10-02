@@ -8,35 +8,13 @@
   gap: 6px;
   min-width: 0;
 }
-.dl-state {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
+.dl-alert {
+  display: inline-flex;
+  color: var(--danger);
 }
-.dl-state-detail {
-  min-width: 0;
-  font-size: var(--text-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.dl-dot {
-  flex: none;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  border: 1.5px solid var(--text-muted);
-}
-.dl-dot.good {
-  border-color: var(--success);
-  background: var(--success);
-}
-.dl-dot.bad {
-  border-color: var(--danger);
-  background: var(--danger);
+.dl-alert svg {
+  width: 20px;
+  height: 20px;
 }
 .dl-panel {
   margin-top: var(--space-4);

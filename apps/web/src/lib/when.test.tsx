@@ -37,7 +37,10 @@ describe("When", () => {
       </SettingsContext.Provider>,
     );
     expect(html).not.toContain("Resets in");
-    expect(html).toMatch(/Resets <time[^>]*>at \d{1,2}:\d{2} (AM|PM)<\/time>/);
+    // Near midnight the time falls on the next day, which names the date instead of "at".
+    expect(html).toMatch(
+      /Resets <time[^>]*>(at|[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2} ·) \d{1,2}:\d{2} (AM|PM)<\/time>/,
+    );
     expect(html).toContain('title="52 min"');
   });
   test("ago without a prefix", () => {
