@@ -21,6 +21,7 @@ import {
   type Db,
   LeaseStore,
   openDatabase,
+  OrderStore,
   SettingsStore,
   SnapshotStore,
 } from "@headroom/core";
@@ -41,6 +42,7 @@ export interface AppContext {
   readonly connections: ConnectionStore;
   readonly snapshots: SnapshotStore;
   readonly settings: SettingsStore;
+  readonly order: OrderStore;
   readonly registry: ConnectorRegistry;
   readonly runner: CliLoginRunner;
   readonly connect: ConnectService;
@@ -96,6 +98,7 @@ export function bootstrap(options: BootstrapOptions): AppContext {
   const attempts = new AttemptStore(db, keyring, now);
   const connections = new ConnectionStore(db, now);
   const snapshots = new SnapshotStore(db, now);
+  const order = new OrderStore(db, now);
   const settings = new SettingsStore(db, config.refreshIntervalSeconds, now);
   const runner = new CliLoginRunner({ attemptsDir: join(config.dataDir, "attempts") });
   if (databasePath !== ":memory:") runner.sweep();
@@ -131,6 +134,7 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     connections,
     snapshots,
     settings,
+    order,
     registry,
     runner,
     connect: new ConnectService({ registry, attempts, connections, credentials, snapshots, now }),

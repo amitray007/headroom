@@ -1,12 +1,10 @@
 import { Hono } from "hono";
 
-import { providers, splitLabel } from "@headroom/core";
+import { splitLabel } from "@headroom/core";
 
 import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
 import { metricJson, ms, resetCreditJson } from "./serialize.ts";
-
-const order = (provider: string) => providers.findIndex((p) => p === provider);
 
 /** Everything the single page needs in one call: every account with its latest snapshot and run. */
 export function overviewRoutes(ctx: AppContext): Hono<Env> {
@@ -16,12 +14,7 @@ export function overviewRoutes(ctx: AppContext): Hono<Env> {
   app.get("/", (c) => {
     const now = ctx.now().getTime();
     const staleAfterMs = ctx.config.staleAfterSeconds * 1000;
-    const rows = ctx.connections
-      .list()
-      .toSorted(
-        (a, b) =>
-          order(a.provider) - order(b.provider) || a.createdAt.getTime() - b.createdAt.getTime(),
-      );
+    const rows = ctx.order.arrange(ctx.connections.list());
     const connections = rows.map((connection) => {
       const run = ctx.snapshots.latestRun(connection.id);
       const latest = ctx.snapshots.latest(connection.id);
@@ -64,6 +57,7 @@ export function overviewRoutes(ctx: AppContext): Hono<Env> {
     });
     return c.json({
       connections,
+      providerOrder: ctx.order.providerOrder(),
       refreshIntervalMs: ctx.settings.get().refreshIntervalMinutes * 60_000,
       staleAfterMs,
     });

@@ -48,6 +48,8 @@ export const connections = sqliteTable(
     label: text("label").notNull(),
     /** Owner-set display name. Null until set; reconnect and collection never write it. */
     displayName: text("display_name"),
+    /** Owner-set order within the provider, ascending. Null sorts last, then by createdAt. */
+    position: integer("position"),
     authMethod: text("auth_method", { enum: authMethods }).notNull(),
     state: text("state", { enum: connectionStates }).notNull(),
     reconnectReason: text("reconnect_reason", { enum: reconnectReasons }),
@@ -227,5 +229,12 @@ export const leases = sqliteTable("leases", {
 export const settings = sqliteTable("settings", {
   id: text("id").primaryKey(),
   json: text("json").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+
+/** The owner's provider order as one JSON array, in its own row so saving settings never clobbers it. */
+export const displayOrder = sqliteTable("display_order", {
+  id: text("id").primaryKey(),
+  providersJson: text("providers_json").notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
 });

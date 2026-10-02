@@ -5,7 +5,11 @@ import { appliedMigrations, openDatabase, schema } from "./index.ts";
 describe("openDatabase", () => {
   test("applies the embedded migrations once and records them", () => {
     const { sqlite } = openDatabase({ path: ":memory:" });
-    expect(appliedMigrations(sqlite)).toEqual(["0000_init", "0001_names_and_settings"]);
+    expect(appliedMigrations(sqlite)).toEqual([
+      "0000_init",
+      "0001_names_and_settings",
+      "0002_display_order",
+    ]);
     const tables = sqlite
       .query<{ name: string }, []>(
         "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",

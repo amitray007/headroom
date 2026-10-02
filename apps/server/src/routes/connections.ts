@@ -32,7 +32,7 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
   app.get("/", (c) => {
     const now = ctx.now().getTime();
     const staleAfterMs = ctx.config.staleAfterSeconds * 1000;
-    const rows = ctx.connections.list().map((connection) => {
+    const rows = ctx.order.arrange(ctx.connections.list()).map((connection) => {
       const run = ctx.snapshots.latestRun(connection.id);
       const latest = ctx.snapshots.latest(connection.id);
       const lastSuccessAt = connection.lastSuccessAt?.getTime() ?? null;

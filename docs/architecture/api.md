@@ -16,10 +16,11 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 | `DELETE /api/connections/:id` | Disconnect and delete local data |
 | `GET /api/providers`, `/api/attempts/...` | Connect flow, see [the connection lifecycle](connections.md) |
 | `GET /api/settings`, `PUT /api/settings` | Owner preferences |
+| `PUT /api/order` | Owner-defined order of providers and of accounts within a provider |
 
 ## Overview
 
-`GET /api/overview` returns `{ connections, refreshIntervalMs, staleAfterMs }`. Connections are ordered by the provider order in `packages/core/src/enums.ts`, then by creation time. Each entry holds:
+`GET /api/overview` returns `{ connections, providerOrder, refreshIntervalMs, staleAfterMs }`. `providerOrder` lists every provider in the owner's effective order. Connections follow it, then the owner's account position (unpositioned last), then creation time. `GET /api/connections` uses the same order. Each entry holds:
 
 - `id`, `provider`, `scope`, `state`, `reconnectReason`, `interface`, `authMethod`, `createdAt`, `lastSuccessAt`, `stale`.
 - `name`: the owner-set display name, or null.
@@ -48,6 +49,8 @@ The response carries no provider account id or workspace id. The detail route is
 | `density` | `comfortable`, `compact` | `comfortable` |
 | `accountActions` | boolean | false |
 | `notifications` | `runningLow`, `expiringResets`, `refreshFailures`, all boolean | all true |
+
+`PUT /api/order` takes `{ providers, accounts }`: `providers` is a list of provider names and `accounts` maps a provider to a list of connection ids. It needs a session and returns `400 invalid_body` for a duplicate or unknown provider, or a connection id that is duplicated, unknown or on another provider. Partial input is allowed: providers not listed follow the listed ones in default order, and connections not listed follow the listed ones within their provider. All writes happen in one transaction, so a rejected request changes nothing. The response is the full effective order, `{ providers, accounts }`, with `accounts` holding every provider that has connections. A new connection has no position and lands last in its provider; reconnect and disconnect leave the other positions alone.
 
 The scheduler reads `refreshIntervalMinutes` on every tick, so a change applies without a restart. The overview reports it as `refreshIntervalMs`.
 

@@ -46,7 +46,11 @@ describe("bootstrap", () => {
           HEADROOM_AUTH_SECRET_FILE: join(dir, "auth"),
         }),
       });
-      expect(describeDatabase(ctx).migrations).toEqual(["0000_init", "0001_names_and_settings"]);
+      expect(describeDatabase(ctx).migrations).toEqual([
+        "0000_init",
+        "0001_names_and_settings",
+        "0002_display_order",
+      ]);
       expect(statSync(join(dir, "data", "headroom.db")).isFile()).toBe(true);
       expect(statSync(join(dir, "auth")).mode & 0o777).toBe(0o600);
       expect(ownerExists(ctx.db)).toBe(false);

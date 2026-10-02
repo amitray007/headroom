@@ -20,6 +20,13 @@ export {
 } from "./auth/index.ts";
 export * from "./connector.ts";
 export { splitLabel, type SplitLabel } from "./label.ts";
+export {
+  OrderStore,
+  InvalidOrderError,
+  orderBodySchema,
+  type EffectiveOrder,
+  type OrderBody,
+} from "./order.ts";
 export { SettingsStore, defaultSettings, settingsSchema, type Settings } from "./settings.ts";
 export {
   AttemptStore,

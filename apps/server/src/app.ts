@@ -18,6 +18,7 @@ import type { AppContext } from "./bootstrap.ts";
 import { type Env, rejectCrossSite, requireSession } from "./middleware/session.ts";
 import { attemptRoutes } from "./routes/attempts.ts";
 import { connectionRoutes } from "./routes/connections.ts";
+import { orderRoutes } from "./routes/order.ts";
 import { overviewRoutes } from "./routes/overview.ts";
 import { providerRoutes } from "./routes/providers.ts";
 import { settingsRoutes } from "./routes/settings.ts";
@@ -103,6 +104,7 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/connections", connectionRoutes(ctx));
   api.route("/attempts", attemptRoutes(ctx));
   api.route("/overview", overviewRoutes(ctx));
+  api.route("/order", orderRoutes(ctx));
   api.route("/settings", settingsRoutes(ctx));
 
   app.route("/api", api);
