@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import type { Provider } from "@headroom/core/contracts";
 
@@ -6,6 +6,14 @@ import { api, type OverviewConnection } from "../api.ts";
 import { BrandMark, UserIcon } from "../icons.tsx";
 import { accountName, groupByProvider, planLabel, providerName, statusOf } from "../lib/labels.ts";
 import { messageOf } from "../lib/load.ts";
+import {
+  applyOrder,
+  moveAccount,
+  moveProvider,
+  orderBody,
+  orderOf,
+  type DisplayOrder,
+} from "../lib/reorder.ts";
 import { When } from "../lib/when.tsx";
 import { Button } from "../ui/button.tsx";
 import { Dialog } from "../ui/dialog.tsx";
@@ -14,6 +22,7 @@ import { ErrorNotice } from "../ui/error-notice.tsx";
 import { StatusPill, type StatusKind } from "../ui/pill.tsx";
 import { LimitsCell } from "./limits.tsx";
 import { TableSkeleton } from "./skeletons.tsx";
+import { useReorder, type OrderChange } from "./reorder.tsx";
 import { RowActions, type RowHandlers } from "./row-actions.tsx";
 
 const statusKinds: Record<ReturnType<typeof statusOf>["word"], StatusKind> = {
@@ -116,14 +125,17 @@ function AccountRow(props: {
   readonly busy: boolean;
   readonly handlers: RowHandlers;
   readonly onRenamed: (name: string | null) => void;
+  /** The drag handle, or null when the provider has a single account. */
+  readonly handle: ReactNode;
 }) {
   const { connection } = props;
   const name = accountName(connection);
   const plan = planLabel(connection.plan);
   const status = statusOf(connection);
   return (
-    <tr>
+    <tr data-account={connection.id}>
       <td className="tname">
+        {props.handle}
         {props.editing ? (
           <RenameInput initial={name} onDone={props.onRenamed} />
         ) : (
@@ -177,12 +189,16 @@ function ProviderGroup(props: {
   readonly busyId: string | null;
   readonly handlers: RowHandlers;
   readonly onRenamed: (connection: OverviewConnection, name: string | null) => void;
+  /** Handles are null when there is nothing to reorder. */
+  readonly providerHandle: ReactNode;
+  readonly accountHandle: (connection: OverviewConnection) => ReactNode;
 }) {
   const count = props.connections.length;
   return (
-    <tbody className="tgroup">
+    <tbody className="tgroup" data-provider={props.provider}>
       <tr className="tgroup-row">
         <th scope="rowgroup" colSpan={5}>
+          {props.providerHandle}
           <BrandMark provider={props.provider} />
           {providerName(props.provider)}
           {count > 1 ? <span className="muted">{count} accounts</span> : null}
@@ -196,6 +212,7 @@ function ProviderGroup(props: {
           busy={props.busyId === connection.id}
           handlers={props.handlers}
           onRenamed={(name) => props.onRenamed(connection, name)}
+          handle={props.connections.length > 1 ? props.accountHandle(connection) : null}
         />
       ))}
     </tbody>
@@ -211,18 +228,76 @@ const revocationNotice = {
 /** The Connected Accounts table with its row actions. `reload` loads the overview again. */
 export function AccountsTable(props: {
   readonly connections: readonly OverviewConnection[];
+  /** The owner's provider order, every provider included. */
+  readonly providerOrder: readonly Provider[];
+  /** The new order, so the dashboard shows it before the server confirms it. */
+  readonly onOrdered: (order: DisplayOrder) => void;
   /** Loading shows placeholder rows; failed shows a notice with Try Again; ready shows the accounts or the empty state. */
   readonly status: "loading" | "failed" | "ready";
   /** The overview is loading again, so Try Again shows its busy state. */
   readonly retrying: boolean;
   readonly reload: () => void;
 }) {
-  const { connections, reload, status } = props;
+  const { connections, reload, status, onOrdered } = props;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<OverviewConnection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // The order the owner just chose shows at once. It holds until a newer overview arrives, or while a save runs.
+  const [chosen, setChosen] = useState<{
+    readonly base: readonly OverviewConnection[];
+    readonly order: DisplayOrder;
+  } | null>(null);
+  const [saving, setSaving] = useState(0);
+  const [orderFailure, setOrderFailure] = useState<{
+    readonly next: DisplayOrder;
+    readonly previous: DisplayOrder;
+  } | null>(null);
+  const saveSeq = useRef(0);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const order =
+    chosen !== null && (chosen.base === connections || saving > 0) ? chosen.order : null;
+  const shown = order === null ? connections : applyOrder(connections, order);
+  const shownProviders = order === null ? props.providerOrder : order.providers;
+
+  async function saveOrder(next: DisplayOrder, previous: DisplayOrder): Promise<void> {
+    const seq = (saveSeq.current += 1);
+    setChosen({ base: connections, order: next });
+    setOrderFailure(null);
+    setSaving((count) => count + 1);
+    onOrdered(next);
+    try {
+      await api.saveOrder(orderBody(next));
+    } catch {
+      // A later drop sends the full order again, so only the newest save rolls back.
+      if (seq === saveSeq.current) {
+        setChosen({ base: connections, order: previous });
+        onOrdered(previous);
+        setOrderFailure({ next, previous });
+      }
+    } finally {
+      setSaving((count) => count - 1);
+    }
+  }
+
+  function reorder(change: OrderChange): void {
+    const visible = groupByProvider(shown, shownProviders).map((group) => group.provider);
+    const base = orderOf(shown, shownProviders);
+    const next =
+      change.kind === "provider"
+        ? moveProvider(base, visible, change.provider, change.to)
+        : moveAccount(base, change.provider, change.id, change.to);
+    void saveOrder(next, base);
+  }
+
+  const { handle, status: reorderStatus } = useReorder({
+    table: tableRef,
+    host: hostRef,
+    onReorder: reorder,
+  });
 
   async function run(id: string, work: () => Promise<void>): Promise<boolean> {
     setBusyId(id);
@@ -265,7 +340,7 @@ export function AccountsTable(props: {
 
   const removing = confirming?.state === "reconnect_required";
   const confirmName = confirming === null ? "" : accountName(confirming);
-  const groups = groupByProvider(connections);
+  const groups = groupByProvider(shown, shownProviders);
   return (
     <section className="panel tablecard" aria-labelledby="connected-title">
       <div className="thead-row">
@@ -276,6 +351,17 @@ export function AccountsTable(props: {
       </div>
       {error === null && notice === null ? null : (
         <output className="table-note">{error ?? notice}</output>
+      )}
+      {orderFailure === null ? null : (
+        <div className="table-state">
+          <ErrorNotice
+            inline
+            busy={saving > 0}
+            onRetry={() => void saveOrder(orderFailure.next, orderFailure.previous)}
+          >
+            Could not save the new order.
+          </ErrorNotice>
+        </div>
       )}
       {status === "loading" ? <TableSkeleton /> : null}
       {status === "failed" ? (
@@ -291,8 +377,9 @@ export function AccountsTable(props: {
         </EmptyState>
       ) : null}
       {status === "ready" && groups.length > 0 ? (
-        <div className="tscroll">
-          <table className="accounts">
+        <div className="tscroll" ref={hostRef}>
+          {reorderStatus}
+          <table className="accounts" ref={tableRef}>
             <thead>
               <tr>
                 <th scope="col">Account</th>
@@ -313,6 +400,24 @@ export function AccountsTable(props: {
                 busyId={busyId}
                 handlers={handlers}
                 onRenamed={renamed}
+                providerHandle={
+                  groups.length > 1
+                    ? handle({
+                        kind: "provider",
+                        provider: group.provider,
+                        id: group.provider,
+                        label: providerName(group.provider),
+                      })
+                    : null
+                }
+                accountHandle={(connection) =>
+                  handle({
+                    kind: "account",
+                    provider: group.provider,
+                    id: connection.id,
+                    label: accountName(connection),
+                  })
+                }
               />
             ))}
           </table>

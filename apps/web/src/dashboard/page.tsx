@@ -9,7 +9,7 @@ import type { useOverview } from "./use-overview.ts";
 
 /** The one dashboard page: every provider, every account, no sidebars. */
 export function DashboardPage(props: { readonly overview: ReturnType<typeof useOverview> }) {
-  const { connections, failed, stale, reload } = props.overview;
+  const { connections, providerOrder, failed, stale, reload } = props.overview;
   const { loaded } = useSettings();
   const [retrying, setRetrying] = useState(false);
 
@@ -37,7 +37,7 @@ export function DashboardPage(props: { readonly overview: ReturnType<typeof useO
   return (
     <div className="reveal">
       {stale ? <LoadFailed stale busy={retrying} onRetry={retry} /> : null}
-      {groupByProvider(connections).map((group) => (
+      {groupByProvider(connections, providerOrder).map((group) => (
         <ProviderSection
           key={group.provider}
           provider={group.provider}

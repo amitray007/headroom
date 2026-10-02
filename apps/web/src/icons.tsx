@@ -192,3 +192,21 @@ export function BrandMark(props: { readonly provider: Provider; readonly size?: 
 export function Avatar() {
   return <img src={avatarUrl} alt="" width={34} height={34} />;
 }
+
+/** Six dots in two columns: the grip that starts a drag. */
+export function GripIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+      className={props.className}
+    >
+      {[8, 12, 16].flatMap((cy) => [
+        <circle key={`l${cy}`} cx="9" cy={cy} r="1.5" />,
+        <circle key={`r${cy}`} cx="15" cy={cy} r="1.5" />,
+      ])}
+    </svg>
+  );
+}

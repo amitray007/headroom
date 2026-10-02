@@ -2,8 +2,8 @@ import type { AuthMethod, ConnectionScope, Provider } from "@headroom/core/contr
 
 import type { OverviewConnection } from "../api.ts";
 
-/** Display order on the dashboard, as in the approved mockup. */
-const providerOrder: readonly Provider[] = [
+/** Default display order, as in the approved mockup. The owner's own order takes precedence. */
+const defaultOrder: readonly Provider[] = [
   "claude",
   "codex",
   "cursor",
@@ -27,16 +27,19 @@ export function providerName(provider: Provider): string {
   return providerNames[provider];
 }
 
-/** Connections grouped by provider in display order; empty providers are left out. */
+/**
+ * Connections grouped by provider, in `order` (providers it misses follow in the default order). Accounts keep
+ * the order they came in, which the server has already sorted. Empty providers are left out.
+ */
 export function groupByProvider(
   connections: readonly OverviewConnection[],
+  order: readonly Provider[] = defaultOrder,
 ): { provider: Provider; connections: OverviewConnection[] }[] {
-  return providerOrder
+  const ranked = [...order, ...defaultOrder.filter((provider) => !order.includes(provider))];
+  return ranked
     .map((provider) => ({
       provider,
-      connections: connections
-        .filter((connection) => connection.provider === provider)
-        .toSorted((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id)),
+      connections: connections.filter((connection) => connection.provider === provider),
     }))
     .filter((group) => group.connections.length > 0);
 }

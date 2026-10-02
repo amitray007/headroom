@@ -10,7 +10,7 @@ describe("overview store", () => {
       overview: () =>
         fail
           ? Promise.reject(new Error("down"))
-          : Promise.resolve({ connections: [connection("claude")] }),
+          : Promise.resolve({ connections: [connection("claude")], providerOrder: [] }),
     });
     const stop = store.subscribe(() => undefined);
     await store.reload();
@@ -19,6 +19,7 @@ describe("overview store", () => {
     await store.reload();
     expect(store.getState()).toEqual({
       connections: [connection("claude")],
+      providerOrder: [],
       failed: false,
       stale: true,
     });
@@ -29,7 +30,7 @@ describe("overview store", () => {
   });
   test("an unchanged poll keeps the same list and does not notify", async () => {
     const store = createOverviewStore({
-      overview: () => Promise.resolve({ connections: [connection("claude")] }),
+      overview: () => Promise.resolve({ connections: [connection("claude")], providerOrder: [] }),
     });
     await store.reload();
     const first = store.getState();
@@ -43,6 +44,34 @@ describe("overview store", () => {
   test("reports failure only while nothing is loaded", async () => {
     const store = createOverviewStore({ overview: () => Promise.reject(new Error("down")) });
     await store.reload();
-    expect(store.getState()).toEqual({ connections: null, failed: true, stale: false });
+    expect(store.getState()).toEqual({
+      connections: null,
+      providerOrder: [],
+      failed: true,
+      stale: false,
+    });
+  });
+  test("an applied order shows at once and the next load replaces it", async () => {
+    const first = connection("claude");
+    const second = connection("codex");
+    const store = createOverviewStore({
+      overview: () =>
+        Promise.resolve({
+          connections: [first, second],
+          providerOrder: ["claude", "codex"],
+        }),
+    });
+    await store.reload();
+    store.applyOrder({
+      providers: ["codex", "claude"],
+      accounts: { claude: [first.id], codex: [second.id] },
+    });
+    expect(store.getState().connections?.map((entry) => entry.provider)).toEqual([
+      "codex",
+      "claude",
+    ]);
+    expect(store.getState().providerOrder).toEqual(["codex", "claude"]);
+    await store.reload();
+    expect(store.getState().providerOrder).toEqual(["claude", "codex"]);
   });
 });

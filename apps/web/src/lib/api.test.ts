@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { api } from "../api.ts";
+import { api, type OrderBody } from "../api.ts";
 import { defaultSettings } from "./settings-store.ts";
 
 const realFetch = globalThis.fetch;
@@ -78,6 +78,7 @@ const overviewBody = {
       actions: { enabled: false, supported: [] },
     },
   ],
+  providerOrder: ["codex", "claude"],
   refreshIntervalMs: 900_000,
   staleAfterMs: 2_700_000,
 };
@@ -88,12 +89,19 @@ describe("api client", () => {
     const overview = await api.overview();
     expect(calls[0]).toEqual({ method: "GET", path: "/api/overview", body: undefined });
     expect(overview.refreshIntervalMs).toBe(900_000);
+    expect(overview.providerOrder).toEqual(["codex", "claude"]);
     expect(overview.connections[0]?.latestRun?.outcome).toBeNull();
     expect(overview.connections[0]?.snapshot?.metrics[0]?.valueNum).toBe(78);
   });
   test("overview rejects a shape the server should not send", async () => {
     stub({ connections: [{ id: "c1" }], refreshIntervalMs: 1, staleAfterMs: 1 });
     expect(await failure(api.overview())).toContain("unexpected response");
+  });
+  test("saving the order sends PUT with the full order", async () => {
+    const order: OrderBody = { providers: ["codex", "claude"], accounts: { codex: ["a", "b"] } };
+    const calls = stub(order);
+    expect(await api.saveOrder(order)).toEqual(order);
+    expect(calls[0]).toEqual({ method: "PUT", path: "/api/order", body: order });
   });
   test("rename sends PATCH with the name", async () => {
     const calls = stub({ name: "Work" });

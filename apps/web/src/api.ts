@@ -167,9 +167,17 @@ const overviewConnectionSchema = z.object({
 export type OverviewConnection = z.infer<typeof overviewConnectionSchema>;
 const overviewSchema = z.object({
   connections: z.array(overviewConnectionSchema),
+  /** The effective order of every provider, including those with no accounts. */
+  providerOrder: z.array(providerSchema),
   refreshIntervalMs: z.number(),
   staleAfterMs: z.number(),
 });
+
+const orderSchema = z.object({
+  providers: z.array(providerSchema),
+  accounts: z.record(z.string(), z.array(z.string())),
+});
+export type OrderBody = z.infer<typeof orderSchema>;
 
 const renameSchema = z.object({ name: z.string().nullable() });
 
@@ -245,6 +253,7 @@ export const api = {
   cancelAttempt: (id: string) => request("POST", `/api/attempts/${id}/cancel`, attemptEnvelope),
   connections: () => request("GET", "/api/connections", connectionListSchema),
   overview: () => request("GET", "/api/overview", overviewSchema),
+  saveOrder: (order: OrderBody) => request("PUT", "/api/order", orderSchema, order),
   rename: (id: string, name: string | null) =>
     request("PATCH", `/api/connections/${id}`, renameSchema, { name }),
   settings: () => request("GET", "/api/settings", settingsEnvelopeSchema),

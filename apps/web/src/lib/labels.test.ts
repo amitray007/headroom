@@ -37,18 +37,28 @@ describe("names", () => {
   });
 });
 
+const shape = (groups: ReturnType<typeof groupByProvider>) =>
+  groups.map((g) => [g.provider, g.connections.map((c) => c.id)]);
+
 describe("grouping", () => {
-  test("provider order, then oldest first", () => {
-    const groups = groupByProvider([
-      connection("copilot", { id: "p" }),
-      connection("codex", { id: "x2", createdAt: 20 }),
-      connection("claude", { id: "c" }),
-      connection("codex", { id: "x1", createdAt: 10 }),
-    ]);
-    expect(groups.map((g) => [g.provider, g.connections.map((c) => c.id)])).toEqual([
+  const list = [
+    connection("copilot", { id: "p" }),
+    connection("codex", { id: "x2" }),
+    connection("claude", { id: "c" }),
+    connection("codex", { id: "x1" }),
+  ];
+  test("default provider order, accounts as given", () => {
+    expect(shape(groupByProvider(list))).toEqual([
       ["claude", ["c"]],
-      ["codex", ["x1", "x2"]],
+      ["codex", ["x2", "x1"]],
       ["copilot", ["p"]],
+    ]);
+  });
+  test("follows the given provider order", () => {
+    expect(shape(groupByProvider(list, ["copilot", "claude"]))).toEqual([
+      ["copilot", ["p"]],
+      ["claude", ["c"]],
+      ["codex", ["x2", "x1"]],
     ]);
   });
 });

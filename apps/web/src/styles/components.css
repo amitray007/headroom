@@ -1741,7 +1741,9 @@ label.srow {
 }
 .accounts {
   width: 100%;
-  border-collapse: collapse;
+  /* Separate borders belong to their cells, so a row's lines move with it while it is dragged. */
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
   font-size: var(--text-base);
 }

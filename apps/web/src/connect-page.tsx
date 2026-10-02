@@ -7,6 +7,7 @@ import { AccountsTable } from "./connect/accounts-table.tsx";
 import "./connect/connect.css";
 import { ConnectFlow } from "./connect/flow.tsx";
 import { CardsSkeleton } from "./connect/skeletons.tsx";
+import type { DisplayOrder } from "./lib/reorder.ts";
 import { useLoad } from "./lib/load.ts";
 import { BrandMark, PlugIcon } from "./icons.tsx";
 import { providerName } from "./lib/labels.ts";
@@ -33,8 +34,12 @@ function orderOf(provider: Provider): number {
 }
 
 /** Pick a provider and sign in, then see every connected account. With `reconnectId`, signs an existing account in again. */
-export function ConnectPage(props: { readonly reconnectId?: string }) {
-  const { reconnectId } = props;
+export function ConnectPage(props: {
+  readonly reconnectId?: string;
+  /** The owner reordered accounts: the dashboard store takes the new order at once. */
+  readonly onOrdered: (order: DisplayOrder) => void;
+}) {
+  const { reconnectId, onOrdered } = props;
   const providers = useLoad(() => api.providers(), "providers");
   const overview = useLoad(() => api.overview(), "overview");
   const existing = useLoad(
@@ -163,6 +168,8 @@ export function ConnectPage(props: { readonly reconnectId?: string }) {
       </div>
       <AccountsTable
         connections={overview.data?.connections ?? []}
+        providerOrder={overview.data?.providerOrder ?? []}
+        onOrdered={onOrdered}
         status={
           overview.data === null
             ? overview.error === null
