@@ -217,6 +217,8 @@ div.d-head:active {
   align-items: center;
   gap: var(--space-3);
   margin: 0 0 var(--space-3) var(--space-1);
+  /* Provider headings are bare text, so they need more air above them than a card does. */
+  padding-top: var(--space-3);
 }
 .d-group-head h2 {
   margin: 0;
