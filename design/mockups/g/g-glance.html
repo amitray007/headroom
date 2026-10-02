@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Headroom · Overview</title>
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="g-views.css" />
+  </head>
+  <body>
+    <div class="page g-page">
+      <header class="top"></header>
+      <main>
+        <section class="g-summary" id="summary" aria-live="polite"></section>
+        <div class="g-tools">
+          <div class="g-chips" id="chips" role="group" aria-label="Filter by provider"></div>
+          <div class="g-segs">
+            <div class="seg" role="group" aria-label="Order" id="mode">
+              <button type="button" data-v="urgency" aria-pressed="true">By Urgency</button>
+              <button type="button" data-v="provider" aria-pressed="false">By Provider</button>
+            </div>
+            <div class="seg" role="group" aria-label="Show limits as" id="limits">
+              <button type="button" data-v="left" aria-pressed="true">Left</button>
+              <button type="button" data-v="used" aria-pressed="false">Used</button>
+            </div>
+          </div>
+        </div>
+        <div class="g-list" id="list"></div>
+      </main>
+    </div>
+    <script type="module">
+      import {
+        accounts,
+        providers,
+        renderShell,
+        brandMark,
+        countdown,
+        ago,
+        tone,
+        toneWords,
+        tightest,
+        display,
+        bar,
+        statusLine,
+        resetText,
+        windowName,
+        providerName,
+        accountDetail,
+        icons,
+        esc,
+        pct,
+        isLive,
+        getLimitsView,
+        setLimitsView,
+        attention,
+        growBars,
+      } from "./g-shell.js";
+
+      renderShell({ active: "overview" });
+
+      const state = { filter: "all", mode: "urgency", view: getLimitsView(), open: new Set() };
+
+      /* Worst first: disconnected, almost out, out of date or failed, running low, fine (least room first), paused last. */
+      const info = (a) => {
+        const t = tightest(a);
+        const tn = t ? tone(t.used) : null;
+        let rank = 4;
+        if (a.status === "disconnected") rank = 0;
+        else if (a.status === "paused") rank = 5;
+        else if (tn === "bad") rank = 1;
+        else if (a.status === "failed" || a.status === "stale") rank = 2;
+        else if (tn === "warn") rank = 3;
+        return { a, t, tone: tn, rank, room: t ? 100 - t.used : 101 };
+      };
+      const ranked = accounts.map(info).sort((x, y) => x.rank - y.rank || x.room - y.room);
+
+      /* ----- Summary: one line that answers "can I keep working?" ----- */
+      function summary() {
+        const needs = ranked.filter((r) => r.rank <= 2);
+        const label = (r) => `${providerName(r.a.provider)} ${r.a.name}`;
+        const jump = (r, text) =>
+          `<button type="button" data-jump="${r.a.id}">${esc(text)}</button>`;
+        const parts = [];
+        for (const r of needs) {
+          if (r.a.status === "disconnected") parts.push(`${jump(r, label(r))} is disconnected`);
+          else if (r.a.status === "failed") parts.push(`${jump(r, label(r))} could not refresh`);
+          else if (r.a.status === "stale") parts.push(`${jump(r, label(r))} is out of date`);
+          else parts.push(`${jump(r, label(r))} is almost out`);
+        }
+        const upcoming = ranked
+          .filter((r) => isLive(r.a))
+          .flatMap((r) => r.a.meters.filter((m) => m.resets > 0 && !m.words).map((m) => ({ r, m })))
+          .sort((x, y) => x.m.resets - y.m.resets)[0];
+        const tail = upcoming ? `Next reset in ${countdown(upcoming.m.resets)}` : "";
+        const head =
+          needs.length === 0
+            ? "Everything has room"
+            : `${needs.length} ${needs.length === 1 ? "account needs" : "accounts need"} attention`;
+        const toneName = needs.some((r) => r.rank <= 1) ? "bad" : needs.length ? "warn" : "good";
+        const line = [...parts, tail]
+          .filter(Boolean)
+          .join('<span class="sep" aria-hidden="true">·</span>');
+        const paused = ranked.filter((r) => r.a.status === "paused").length;
+        const ok = needs.length === 0 && paused === 0 ? "All accounts are fine." : "";
+        return `<span class="g-ico ${toneName === "good" ? "" : toneName}">${needs.length ? icons.alert : icons.check}</span>
+          <div><h1>${head}</h1><p>${line || ok}</p></div>`;
+      }
+      document.getElementById("summary").innerHTML = summary();
+
+      /* ----- Rows ----- */
+      function row(r, grouped) {
+        const { a, t } = r;
+        const open = state.open.has(a.id);
+        const live = isLive(a);
+        const d = t ? display(t.used, state.view) : null;
+        let limit;
+        if (!t) {
+          limit = `<span class="g-limit"><span class="g-limit-top"><b class="muted">—</b><span class="window">Not reported</span></span>${bar(null, { thin: true })}</span>`;
+        } else if (t.balance) {
+          const value = t.balance.value;
+          limit = `<span class="g-limit"><span class="g-limit-top"><b>${value} of ${t.balance.of}</b><span class="window">${esc(t.label)}</span></span>${bar(t.used, { thin: true, view: "left", label: `${t.label} ${value} left` })}</span>`;
+        } else {
+          const tn = tone(t.used);
+          limit = `<span class="g-limit"><span class="g-limit-top"><b>${d.text}${d.unit}</b><span class="window">${esc(windowName(t))}</span>${toneWords[tn] ? `<span class="tone ${tn}">${toneWords[tn]}</span>` : ""}</span>${bar(t.used, { thin: true, view: state.view, label: `${windowName(t)} ${pct(t.used)}% used` })}</span>`;
+        }
+        const reset = !live
+          ? `<span class="g-reset">Updated ${ago(a.refreshed)}</span>`
+          : t
+            ? `<span class="g-reset">${t.balance ? "" : resetText(t)}</span>`
+            : `<span class="g-reset"></span>`;
+        const plan = a.plan
+          ? `<span class="plan"><span class="sep" aria-hidden="true">·</span>${esc(a.plan)}</span>`
+          : "";
+        const sub = [
+          grouped ? "" : esc(providerName(a.provider)),
+          a.identity ? `<span class="who">${esc(a.identity)}</span>` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        return `<div class="g-fold g-item" data-id="${a.id}" data-provider="${a.provider}"><div class="g-clip">
+          <article class="g-card${open ? " open" : ""}${live ? "" : " dim"}">
+            <button class="g-head" type="button" aria-expanded="${open}" aria-controls="d-${a.id}">
+              <span class="g-who">${brandMark(a.provider)}<span class="g-titles"><span class="g-name">${esc(a.name)}${plan}</span>${sub ? `<span class="g-sub">${sub}</span>` : ""}</span></span>
+              ${limit}${reset}
+              <span class="g-state">${statusLine(a)}</span>
+              <span class="g-chev">${icons.chevron}</span>
+            </button>
+            <div class="g-drawer" id="d-${a.id}"${open ? "" : " inert"}><div class="g-drawer-in"><div class="g-body">${accountDetail(a, state.view)}</div></div></div>
+          </article></div></div>`;
+      }
+
+      const list = document.getElementById("list");
+      function build() {
+        if (state.mode === "urgency") {
+          list.innerHTML = ranked.map((r) => row(r, false)).join("");
+        } else {
+          const order = providers
+            .map((p) => ({ p, rows: ranked.filter((r) => r.a.provider === p.id) }))
+            .filter((g) => g.rows.length)
+            .sort((x, y) => x.rows[0].rank - y.rows[0].rank || x.rows[0].room - y.rows[0].room);
+          list.innerHTML = order
+            .map(
+              ({
+                p,
+                rows,
+              }) => `<section class="g-fold g-group" data-provider="${p.id}"><div class="g-clip">
+              <header class="g-group-head">${brandMark(p.id, 24)}<h2>${esc(p.name)}</h2>${rows.length > 1 ? `<span class="chip count">${rows.length} Accounts</span>` : ""}</header>
+              ${rows.map((r) => row(r, true)).join("")}</div></section>`,
+            )
+            .join("");
+        }
+        applyFilter(false);
+        growBars(list);
+      }
+
+      function applyFilter() {
+        for (const el of list.querySelectorAll(".g-item")) {
+          el.classList.toggle(
+            "closed",
+            state.filter !== "all" && el.dataset.provider !== state.filter,
+          );
+        }
+        for (const el of list.querySelectorAll(".g-group")) {
+          el.classList.toggle(
+            "closed",
+            state.filter !== "all" && el.dataset.provider !== state.filter,
+          );
+        }
+        for (const el of list.querySelectorAll(".g-fold.closed")) {
+          el.inert = true;
+        }
+        for (const el of list.querySelectorAll(".g-fold:not(.closed)")) el.inert = false;
+      }
+
+      /* ----- Chips ----- */
+      const chips = document.getElementById("chips");
+      const counts = Object.fromEntries(
+        providers.map((p) => [p.id, accounts.filter((a) => a.provider === p.id).length]),
+      );
+      chips.innerHTML =
+        `<button class="g-chip" type="button" data-f="all" aria-pressed="true">All <span class="n">${accounts.length}</span></button>` +
+        providers
+          .filter((p) => counts[p.id])
+          .map(
+            (p) =>
+              `<button class="g-chip" type="button" data-f="${p.id}" aria-pressed="false">${brandMark(p.id, 16)}${esc(p.name)} <span class="n">${counts[p.id]}</span></button>`,
+          )
+          .join("");
+      chips.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-f]");
+        if (!b) return;
+        state.filter = b.dataset.f;
+        chips
+          .querySelectorAll("[data-f]")
+          .forEach((c) => c.setAttribute("aria-pressed", String(c === b)));
+        applyFilter();
+      });
+
+      /* ----- Segmented toggles ----- */
+      const seg = (id, key, after) => {
+        const el = document.getElementById(id);
+        el.addEventListener("click", (e) => {
+          const b = e.target.closest("[data-v]");
+          if (!b || state[key] === b.dataset.v) return;
+          state[key] = b.dataset.v;
+          el.querySelectorAll("[data-v]").forEach((x) =>
+            x.setAttribute("aria-pressed", String(x === b)),
+          );
+          after();
+        });
+      };
+      const swap = (fn) =>
+        document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? document.startViewTransition(fn)
+          : fn();
+      seg("mode", "mode", () => swap(build));
+      seg("limits", "view", () => {
+        setLimitsView(state.view);
+        build();
+      });
+      if (state.view === "used") {
+        document
+          .querySelectorAll("#limits [data-v]")
+          .forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.v === "used")));
+      }
+
+      /* ----- Expand a row inline ----- */
+      function toggle(id, force) {
+        const card = list.querySelector(`.g-item[data-id="${id}"] .g-card`);
+        if (!card) return;
+        const open = force ?? !card.classList.contains("open");
+        card.classList.toggle("open", open);
+        card.querySelector(".g-head").setAttribute("aria-expanded", String(open));
+        card.querySelector(".g-drawer").inert = !open;
+        open ? state.open.add(id) : state.open.delete(id);
+        if (open) {
+          card.querySelectorAll(".bar.pre").forEach((b) => b.classList.remove("pre"));
+        }
+      }
+      list.addEventListener("click", (e) => {
+        const head = e.target.closest(".g-head");
+        if (head) toggle(head.closest(".g-item").dataset.id);
+      });
+      document.getElementById("summary").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-jump]");
+        if (!b) return;
+        state.filter = "all";
+        chips
+          .querySelectorAll("[data-f]")
+          .forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.f === "all")));
+        applyFilter();
+        toggle(b.dataset.jump, true);
+        list
+          .querySelector(`.g-item[data-id="${b.dataset.jump}"]`)
+          ?.scrollIntoView({
+            behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+            block: "center",
+          });
+      });
+
+      build();
+    </script>
+  </body>
+</html>

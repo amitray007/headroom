@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Headroom · Compare</title>
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="g-views.css" />
+  </head>
+  <body>
+    <div class="page g-page">
+      <header class="top"></header>
+      <main>
+        <div class="g-tools">
+          <div class="g-tabs" id="tabs" role="tablist" aria-label="Provider"></div>
+          <div class="g-segs">
+            <div class="seg" role="group" aria-label="Show limits as" id="limits">
+              <button type="button" data-v="left" aria-pressed="true">Left</button>
+              <button type="button" data-v="used" aria-pressed="false">Used</button>
+            </div>
+          </div>
+        </div>
+        <div id="stage" role="tabpanel"></div>
+        <div id="singles"></div>
+      </main>
+    </div>
+    <script type="module">
+      import {
+        accounts,
+        providers,
+        renderShell,
+        brandMark,
+        countdown,
+        ago,
+        tone,
+        toneWords,
+        tightest,
+        display,
+        bar,
+        statusPill,
+        resetText,
+        windowName,
+        providerName,
+        icons,
+        esc,
+        pct,
+        isLive,
+        getLimitsView,
+        setLimitsView,
+        growBars,
+      } from "./g-shell.js";
+
+      renderShell({ active: "compare" });
+
+      const state = {
+        provider: "claude",
+        view: getLimitsView(),
+        sort: { col: "room", dir: "desc" },
+      };
+      const byProvider = (id) => accounts.filter((a) => a.provider === id);
+      const multi = providers.filter((p) => byProvider(p.id).length >= 2);
+      const singles = providers.filter((p) => byProvider(p.id).length === 1);
+      const room = (a) => {
+        const t = tightest(a);
+        return t ? 100 - t.used : null;
+      };
+      const planOf = (a) =>
+        a.plan
+          ? `<span class="plan"><span class="sep" aria-hidden="true">·</span>${esc(a.plan)}</span>`
+          : "";
+
+      /* Columns: every window any account of the provider reports. Session windows first. */
+      function columns(id) {
+        const cols = [];
+        for (const a of byProvider(id)) {
+          for (const m of a.meters)
+            if (!cols.some((c) => c.key === m.key))
+              cols.push({ key: m.key, label: m.label, window: m.window });
+        }
+        return cols.sort((x, y) => (y.key === "session") - (x.key === "session"));
+      }
+
+      /* "Weekly" + "all models" reads as "weekly"; a named window stays in brackets. */
+      function phrase(m) {
+        if (m.balance) return m.label.toLowerCase();
+        const plain =
+          !m.window ||
+          m.window === "all models" ||
+          /^\d+\s*(hours?|days?)$|^(weekly|monthly)$/i.test(m.window);
+        const w = plain ? "" : ` (${m.window})`;
+        return `${m.label.toLowerCase()}${w}`;
+      }
+
+      /* ----- The pick: the live account with the most room in its tightest window ----- */
+      function pick(id) {
+        const live = byProvider(id).filter((a) => isLive(a) && tightest(a));
+        const ranked = [...live].sort((x, y) => room(y) - room(x));
+        const best = ranked[0];
+        if (!best)
+          return {
+            html: `<section class="g-best"><span class="g-ico" style="--x:0">${icons.alert}</span><div><div class="eyebrow">Best Right Now</div><h2>No account is ready</h2><p>Every ${esc(providerName(id))} account is paused or disconnected.</p></div></section>`,
+            best: null,
+          };
+        const t = tightest(best);
+        const d = display(t.used, state.view);
+        const sentences = [
+          `${esc(best.name)} has ${pct(100 - t.used)}% of its ${esc(phrase(t))} limit left.`,
+        ];
+        const worst = ranked.length > 1 ? ranked[ranked.length - 1] : null;
+        if (worst && tone(tightest(worst).used)) {
+          const wt = tightest(worst);
+          sentences.push(
+            `${esc(worst.name)} is ${tone(wt.used) === "bad" ? "almost out" : "running low"} and ${wt.resets ? `resets in ${countdown(wt.resets)}` : "has no reset time"}.`,
+          );
+        }
+        const dormant = byProvider(id).filter((a) => !isLive(a));
+        for (const a of dormant)
+          sentences.push(`${esc(a.name)} is ${a.status === "paused" ? "paused" : "disconnected"}.`);
+        const next = ranked[1];
+        const nextLine = next
+          ? `Next best: ${esc(next.name)}, ${pct(room(next))}% left. Percentages are per account; plans differ in size.`
+          : "";
+        return {
+          best,
+          html: `<section class="g-best" aria-label="Best right now">
+            <span class="g-ico">${icons.star}</span>
+            <div>
+              <div class="eyebrow">Best Right Now</div>
+              <h2>${esc(best.name)}${planOf(best)}</h2>
+              <p>${sentences.join(" ")}</p>
+              ${nextLine ? `<div class="next">${nextLine}</div>` : ""}
+            </div>
+            <div class="g-score"><div class="value">${d.text}<span class="unit">${d.unit}</span></div>${bar(t.used, { thin: true, view: state.view, label: `${windowName(t)} ${pct(t.used)}% used` })}<div class="window">${esc(windowName(t))}</div></div>
+          </section>`,
+        };
+      }
+
+      /* ----- The matrix ----- */
+      function sortRows(rows, cols) {
+        const { col, dir } = state.sort;
+        const sign = dir === "asc" ? 1 : -1;
+        const value = (a) => {
+          if (col === "name") return a.name.toLowerCase();
+          if (col === "room") return room(a);
+          const m = a.meters.find((x) => x.key === col);
+          return m && m.used !== null ? 100 - m.used : null;
+        };
+        return [...rows].sort((x, y) => {
+          if (isLive(x) !== isLive(y)) return isLive(x) ? -1 : 1; // paused and disconnected stay at the bottom
+          const vx = value(x);
+          const vy = value(y);
+          if (vx === null || vy === null) return vx === vy ? 0 : vx === null ? 1 : -1; // unknown sorts last
+          return (vx < vy ? -1 : vx > vy ? 1 : 0) * sign;
+        });
+      }
+
+      function cell(a, c, tightKey) {
+        const m = a.meters.find((x) => x.key === c.key);
+        if (!m)
+          return `<td><div class="g-mc none"><div class="top-line"><b class="muted">—</b></div><div class="cap">Not reported</div></div></td>`;
+        if (m.used === null || m.used === undefined) {
+          return `<td><div class="g-mc none"><div class="top-line"><b>Not Started</b></div>${bar(null, { thin: true })}<div class="cap">Nothing running yet</div></div></td>`;
+        }
+        const d = display(m.used, state.view);
+        const t = tone(m.used);
+        const isTight = m.key === tightKey && isLive(a);
+        return `<td><div class="g-mc ${t}${isTight ? " tight" : ""}"><div class="top-line"><b>${d.text}${d.unit}</b>${isTight ? `<span class="tag">Tightest</span>` : toneWords[t] ? `<span class="tag">${toneWords[t]}</span>` : ""}</div>${bar(m.used, { thin: true, view: state.view, label: `${windowName(m)} ${pct(m.used)}% used` })}<div class="cap">${resetText(m)}</div></div></td>`;
+      }
+
+      function matrix(id, bestId) {
+        const cols = columns(id);
+        const rows = sortRows(byProvider(id), cols);
+        const th = (key, inner, def) => {
+          const on = state.sort.col === key;
+          const aria = on
+            ? ` aria-sort="${state.sort.dir === "asc" ? "ascending" : "descending"}"`
+            : "";
+          return `<th scope="col"${aria}><button class="g-sort" type="button" data-sort="${key}" data-def="${def}">${inner}${icons.arrow}</button></th>`;
+        };
+        const head =
+          th("name", "<b>Account</b>", "asc") +
+          th("room", "<b>Room Left</b>", "desc") +
+          cols
+            .map((c) =>
+              th(
+                c.key,
+                `<b>${esc(c.label)}</b><span class="window">${esc(c.window ?? "")}</span>`,
+                "desc",
+              ),
+            )
+            .join("");
+        const body = rows
+          .map((a) => {
+            const t = tightest(a);
+            const live = isLive(a);
+            const why = live
+              ? ""
+              : `<span class="why">${a.status === "paused" ? icons.pause : icons.alert}${a.status === "paused" ? "Paused. Not counted." : "Disconnected. Not counted."}</span>`;
+            const acct = `<td scope="row"><div class="g-acct"><div class="line"><span class="name">${esc(a.name)}${planOf(a)}</span>${a.id === bestId ? `<span class="pick">${icons.check}Best Now</span>` : ""}</div>${why || (a.identity ? `<span class="sub"><span class="who">${esc(a.identity)}</span></span>` : "")}${!live ? `<span class="sub">Updated ${ago(a.refreshed)}</span>` : ""}</div></td>`;
+            let overall;
+            if (!live)
+              overall = `<td class="overall"><div class="g-mc none"><div class="top-line"><b>—</b></div><div class="cap">Not counted</div></div></td>`;
+            else if (!t)
+              overall = `<td class="overall"><div class="g-mc none"><div class="top-line"><b>—</b></div><div class="cap">Not reported</div></div></td>`;
+            else {
+              const d = display(t.used, state.view);
+              overall = `<td class="overall"><div class="g-mc ${tone(t.used)}"><div class="top-line"><b>${d.text}${d.unit}</b></div>${bar(t.used, { thin: true, view: state.view, label: `${windowName(t)} ${pct(t.used)}% used` })}<div class="cap">${esc(windowName(t))}</div></div></td>`;
+            }
+            return `<tr class="${live ? "" : "inactive"}">${acct}${overall}${cols.map((c) => cell(a, c, t?.key)).join("")}</tr>`;
+          })
+          .join("");
+        return `<div class="g-matrix-card"><div class="g-scroll"><table class="g-matrix"><caption class="sr">${esc(providerName(id))} accounts and their limits</caption><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+      }
+
+      /* ----- Single-account providers ----- */
+      function single(a) {
+        const live = isLive(a);
+        const rows = a.meters
+          .map((m) => {
+            if (m.used === null || m.used === undefined)
+              return `<div class="row"><div class="top-line"><b class="muted">—</b><span class="window">${esc(windowName(m))}</span><span class="r">${m.notStarted ? "Not Started" : "Not reported"}</span></div>${bar(null, { thin: true })}</div>`;
+            const d = display(m.used, state.view);
+            const t = tone(m.used);
+            return `<div class="row"><div class="top-line"><b>${d.text}${d.unit}</b><span class="window">${esc(windowName(m))}</span>${toneWords[t] ? `<span class="tone ${t}">${toneWords[t]}</span>` : ""}</div>${bar(m.used, { thin: true, view: state.view, label: `${windowName(m)} ${pct(m.used)}% used` })}</div>`;
+          })
+          .join("");
+        const bal = (a.balances ?? [])
+          .map((b) => {
+            const n =
+              b.unit === "usd"
+                ? `$${b.value}`
+                : `${b.value.toLocaleString("en-US", { maximumFractionDigits: 2 })} credits`;
+            if (b.of)
+              return `<div class="row"><div class="top-line"><b>${b.value} of ${b.of}</b><span class="window">${esc(b.label)}</span></div>${bar(((b.of - b.value) / b.of) * 100, { thin: true, view: "left", label: `${b.label} ${b.value} left of ${b.of}` })}</div>`;
+            return `<div class="row"><div class="top-line"><b>${n}</b><span class="window">${esc(b.label)}</span></div></div>`;
+          })
+          .join("");
+        const t = tightest(a);
+        const foot = !live ? `Updated ${ago(a.refreshed)}` : t && !t.balance ? resetText(t) : "";
+        return `<article class="g-single${live ? "" : " dim"}">
+          <header>${brandMark(a.provider, 24)}<span class="g-titles"><span class="g-name">${esc(providerName(a.provider))}</span><span class="g-sub">${esc(a.name)}${a.plan ? ` · ${esc(a.plan)}` : ""}</span></span>${statusPill(a.status)}</header>
+          <div class="rows">${rows}${bal}</div>
+          ${foot ? `<div class="g-sub">${foot}</div>` : ""}
+        </article>`;
+      }
+
+      /* ----- Render ----- */
+      const stage = document.getElementById("stage");
+      function renderStage(animate) {
+        const { html, best } = pick(state.provider);
+        stage.innerHTML = html + matrix(state.provider, best?.id);
+        if (animate) {
+          stage.classList.remove("g-stage");
+          void stage.offsetWidth; // restart the enter animation
+        }
+        stage.classList.add("g-stage");
+        const scroller = stage.querySelector(".g-scroll");
+        const table = stage.querySelector(".g-matrix");
+        scroller.addEventListener(
+          "scroll",
+          () => table.classList.toggle("scrolled", scroller.scrollLeft > 2),
+          { passive: true },
+        );
+        growBars(stage);
+      }
+      function renderSingles() {
+        document.getElementById("singles").innerHTML = singles.length
+          ? `<div class="g-singles-head"><h2>Single Accounts</h2><span class="muted">One account each, so nothing to compare</span></div><div class="g-singles">${singles.map((p) => single(byProvider(p.id)[0])).join("")}</div>`
+          : "";
+        growBars(document.getElementById("singles"));
+      }
+
+      const tabs = document.getElementById("tabs");
+      tabs.innerHTML = multi
+        .map(
+          (p) =>
+            `<button class="g-chip" type="button" role="tab" data-p="${p.id}" aria-selected="${p.id === state.provider}">${brandMark(p.id, 16)}${esc(p.name)} <span class="n">${byProvider(p.id).length}</span></button>`,
+        )
+        .join("");
+      tabs.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-p]");
+        if (!b || b.dataset.p === state.provider) return;
+        state.provider = b.dataset.p;
+        state.sort = { col: "room", dir: "desc" };
+        tabs
+          .querySelectorAll("[data-p]")
+          .forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+        renderStage(true);
+      });
+      tabs.addEventListener("keydown", (e) => {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        const all = [...tabs.querySelectorAll("[data-p]")];
+        const next =
+          all[
+            (all.indexOf(document.activeElement) + (e.key === "ArrowRight" ? 1 : -1) + all.length) %
+              all.length
+          ];
+        next.focus();
+        next.click();
+      });
+
+      stage.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-sort]");
+        if (!b) return;
+        const col = b.dataset.sort;
+        state.sort =
+          state.sort.col === col
+            ? { col, dir: state.sort.dir === "asc" ? "desc" : "asc" }
+            : { col, dir: b.dataset.def };
+        const keep = stage.querySelector(".g-scroll").scrollLeft;
+        const swap = () => {
+          renderStage(false);
+          stage.querySelector(".g-scroll").scrollLeft = keep;
+        };
+        document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? document.startViewTransition(swap)
+          : swap();
+        stage.querySelector(`[data-sort="${col}"]`)?.focus({ preventScroll: true });
+      });
+
+      document.getElementById("limits").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-v]");
+        if (!b || state.view === b.dataset.v) return;
+        state.view = b.dataset.v;
+        setLimitsView(state.view);
+        document
+          .querySelectorAll("#limits [data-v]")
+          .forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+        renderStage(false);
+        renderSingles();
+      });
+      if (state.view === "used")
+        document
+          .querySelectorAll("#limits [data-v]")
+          .forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.v === "used")));
+
+      renderStage(true);
+      renderSingles();
+    </script>
+  </body>
+</html>

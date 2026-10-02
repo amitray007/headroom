@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Headroom · Timeline</title>
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="g-views.css" />
+    <link rel="stylesheet" href="g-timeline.css" />
+  </head>
+  <body>
+    <div class="page wide">
+      <header class="top"></header>
+      <div class="vhead">
+        <div>
+          <h1>Timeline</h1>
+          <p id="lede">When does capacity come back?</p>
+        </div>
+      </div>
+
+      <section class="tl" aria-labelledby="tl-title">
+        <div class="tl-bar">
+          <h2 id="tl-title" class="sr">Reset Timeline</h2>
+          <div class="seg" role="group" aria-label="Time Range" id="range">
+            <button type="button" data-range="day" aria-pressed="true">Next 24 Hours</button>
+            <button type="button" data-range="week" aria-pressed="false">Next 7 Days</button>
+          </div>
+          <div class="legend" aria-label="Legend">
+            <span><i class="key-dot"></i>Plenty Left</span>
+            <span><i class="key-dot warn"></i>Running Low</span>
+            <span><i class="key-dot bad"></i>Almost Out</span>
+            <span><i class="key-diamond"></i>Banked Reset Expires</span>
+          </div>
+        </div>
+        <div class="tl-body" id="chart"></div>
+        <div class="strips" id="strips"></div>
+      </section>
+
+      <section class="next" aria-labelledby="next-title">
+        <h2 id="next-title">Up Next</h2>
+        <ul class="next-list" id="next"></ul>
+      </section>
+    </div>
+
+    <script type="module">
+      import { providers, accounts, now, at } from "./data.js";
+      import * as shell from "./g-shell.js";
+
+      shell.renderShell({ active: "timeline" });
+
+      /* Local helpers (fallbacks when the shell lacks one). */
+      const { brandMark, statusPill } = shell;
+      const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+      const duration = (m) => {
+        m = Math.max(0, Math.round(m));
+        if (m < 60) return `${m} min`;
+        if (m < 1440) {
+          const h = Math.floor(m / 60),
+            r = m % 60;
+          return r ? `${h} h ${r} min` : `${h} h`;
+        }
+        const d = Math.floor(m / 1440),
+          h = Math.round((m % 1440) / 60);
+        return h ? `${plural(d, "day")} ${h} h` : plural(d, "day");
+      };
+      const exact = (m) =>
+        new Date(at(m)).toLocaleString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      const toneOf = (used) => shell.tone(used) ?? "good";
+      const TONE_WORD = { good: "Plenty Left", warn: "Running Low", bad: "Almost Out" };
+      const ICON = {
+        good: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg>',
+        warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.01"/></svg>',
+        bad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.2v.01"/></svg>',
+        off: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5v5M14.5 9.5v5"/></svg>',
+      };
+      const STATUS_WORD = {
+        paused: "Paused",
+        disconnected: "Disconnected",
+        failed: "Failed",
+        stale: "Stale",
+      };
+      const esc = (s) =>
+        String(s).replace(
+          /[&<>"]/g,
+          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
+        );
+      const providerName = Object.fromEntries(providers.map((p) => [p.id, p.name]));
+
+      const isCycle = (m) => m.words || /monthly|billing/.test(m.window);
+      const meterName = (m) => (isCycle(m) ? "Cycle Ends" : m.label);
+      const meterFull = (m) => `${m.label} · ${m.window}`;
+
+      /* Events per account. Meters that reset together share one marker. */
+      function eventsFor(a) {
+        const out = [];
+        const byTime = new Map();
+        for (const m of a.meters) {
+          if (m.resets == null) continue;
+          if (!byTime.has(m.resets)) byTime.set(m.resets, []);
+          byTime.get(m.resets).push(m);
+        }
+        for (const [t, ms] of byTime) {
+          const worst = Math.max(...ms.map((m) => m.used ?? 0));
+          const names = [...new Set(ms.map(meterName))];
+          out.push({
+            id: `${a.id}-r${t}`,
+            acct: a,
+            t,
+            kind: "reset",
+            tone: toneOf(worst),
+            label: names.length > 1 ? names[0] : names[0],
+            text: `${names[0]} ${names[0] === "Cycle Ends" ? "" : "Resets"}`.trim(),
+            lines: ms.map((m) => ({
+              text: `${meterFull(m)} · ${m.used}% used`,
+              tone: toneOf(m.used),
+            })),
+          });
+        }
+        if (a.banked) {
+          a.banked.expiries.forEach((t, i) =>
+            out.push({
+              id: `${a.id}-b${i}`,
+              acct: a,
+              t,
+              kind: "bank",
+              tone: "good",
+              label: a.banked.label.replace("Reset ", "") + " Expires",
+              text: `${a.banked.label} Expires`,
+              lines: [{ text: `1 of ${a.banked.count} banked`, tone: null }],
+            }),
+          );
+        }
+        return out.sort((x, y) => x.t - y.t);
+      }
+      const events = accounts.map((a) => ({ a, ev: eventsFor(a) }));
+
+      const limitName = (m) =>
+        m.label === "Weekly"
+          ? m.window === "all models" || m.window === "7 days"
+            ? "Weekly"
+            : `${m.window} Weekly`
+          : m.label;
+      function tightest(a) {
+        const ms = a.meters.filter((m) => m.used != null);
+        if (!ms.length) return null;
+        return ms.reduce((w, m) => (m.used > w.used ? m : w));
+      }
+
+      const RANGES = {
+        day: {
+          min: 1440,
+          ticks: [0, 4, 8, 12, 16, 20, 24].map((h) => h * 60),
+          lede: "When does capacity come back? The next 24 hours.",
+        },
+        week: {
+          min: 10080,
+          ticks: [0, 1, 2, 3, 4, 5, 6, 7].map((d) => d * 1440),
+          lede: "When does capacity come back? The next 7 days.",
+        },
+      };
+      const tickLabel = (m, range) => {
+        if (m === 0) return "Now";
+        const d = new Date(at(m));
+        return range === "day"
+          ? d.toLocaleTimeString("en-US", { hour: "numeric" })
+          : d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
+      };
+
+      function laneHtml(a, evs, range) {
+        const R = RANGES[range];
+        const off = a.status !== "active";
+        const tg = tightest(a);
+        const tone = tg ? toneOf(tg.used) : null;
+        let tightHtml;
+        if (off) tightHtml = "";
+        else if (tg) {
+          tightHtml = `<span class="tight ${tone}">${ICON[tone]}<span><strong>${100 - tg.used}% Left</strong> · ${esc(limitName(tg))}</span></span>`;
+        } else if (a.meters.some((m) => m.notStarted)) {
+          tightHtml = `<span class="tight off">${ICON.off}<span>Session Not Started</span></span>`;
+        } else tightHtml = `<span class="tight off">${ICON.off}<span>Balance Only</span></span>`;
+        const stateHtml = off ? `<span class="state">${statusPill(a.status)}</span>` : "";
+        const inRange = evs.filter((e) => e.t <= R.min);
+        const later = evs.filter((e) => e.t > R.min);
+        const mks = inRange
+          .map((e, i) => {
+            const pct = (e.t / R.min) * 100;
+            const flip = pct > 72;
+            const lines = e.lines
+              .map(
+                (l) =>
+                  `<span class="line ${l.tone ?? ""}">${l.tone ? "<i></i>" : ""}${esc(l.text)}</span>`,
+              )
+              .join("");
+            return `<button type="button" class="mk ${e.kind} ${e.tone} ${flip ? "flip" : ""}" style="--x:${pct}%;--i:${i}" data-ev="${e.id}" aria-label="${esc(`${providerName[a.provider]} ${a.name}: ${e.text}, in ${duration(e.t)}, ${exact(e.t)}`)}">
+              <span class="pt"></span><span class="tx">${esc(e.label)}</span>
+              <span class="pop" role="tooltip"><strong>${esc(e.text)}</strong><span class="when">In ${duration(e.t)} · ${exact(e.t)}</span>${lines}</span></button>`;
+          })
+          .join("");
+        const note = !inRange.length
+          ? `<span class="no-events">${evs.length ? `Nothing in this range. Next in ${duration(evs[0].t)}.` : "Nothing scheduled."}</span>`
+          : later.length
+            ? `<span class="later" title="${esc(later.map((e) => `${e.text}: ${exact(e.t)}`).join("\n"))}">${later.length} Later</span>`
+            : "";
+        return `<div class="lane ${off ? "off" : ""}">
+          <div class="lw"><b>${esc(a.name)}<span class="plan">${a.plan ? esc(a.plan) : ""}</span></b>${tightHtml}${stateHtml}</div>
+          <div class="track">${mks}${note}</div></div>`;
+      }
+
+      function render(range) {
+        const R = RANGES[range];
+        document.getElementById("lede").textContent = R.lede;
+        const ticks = R.ticks
+          .map((m) => `<span style="left:${(m / R.min) * 100}%">${tickLabel(m, range)}</span>`)
+          .join("");
+        const grid =
+          R.ticks.map((m) => `<i style="left:${(m / R.min) * 100}%"></i>`).join("") +
+          `<i class="now" style="left:0"></i>`;
+        let html = `<div class="tl-axis"><div></div><div class="ticks">${ticks}</div></div><div class="grid-overlay" aria-hidden="true">${grid}</div>`;
+        for (const p of providers) {
+          const rows = events.filter((x) => x.a.provider === p.id);
+          if (!rows.length) continue;
+          html += `<div class="group-head">${brandMark(p.id)}<span>${esc(p.name)}</span><span class="count">${plural(rows.length, "account")}</span></div>`;
+          html += rows.map((x) => laneHtml(x.a, x.ev, range)).join("");
+        }
+        document.getElementById("chart").innerHTML = html;
+        document
+          .querySelectorAll("#range button")
+          .forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.range === range)));
+        wireHighlight();
+      }
+
+      /* Up Next */
+      const all = events.flatMap((x) => x.ev).sort((a, b) => a.t - b.t);
+      function nextHtml() {
+        const groups = [
+          ["Next 24 Hours", (e) => e.t <= 1440],
+          ["Later This Week", (e) => e.t > 1440 && e.t <= 10080],
+          ["Beyond 7 Days", (e) => e.t > 10080],
+        ];
+        let html = "";
+        for (const [title, f] of groups) {
+          const rows = all.filter(f);
+          if (!rows.length) continue;
+          html += `<li class="sec" role="presentation">${title}</li>`;
+          html += rows
+            .map((e) => {
+              const a = e.acct;
+              const off = a.status !== "active";
+              return `<li class="ev ${off ? "off" : ""}" data-ev="${e.id}">
+                <span class="in"><small>In</small>${duration(e.t)}</span>
+                <span class="kind ${e.kind === "bank" ? "diamond" : `dot ${e.tone}`}" aria-hidden="true"></span>
+                <span class="what">${brandMark(a.provider)}<span><strong style="font-weight:500">${esc(providerName[a.provider])} ${esc(a.name)}</strong> <span class="acct">${esc(e.text)}</span></span>${off ? statusPill(a.status) : ""}</span>
+                <span class="exact">${exact(e.t)}</span></li>`;
+            })
+            .join("");
+        }
+        return html;
+      }
+      document.getElementById("next").innerHTML = nextHtml();
+
+      /* Phone strips: a thin 7-day line per account. */
+      document.getElementById("strips").innerHTML = accounts
+        .map((a) => {
+          const evs = eventsFor(a);
+          const off = a.status !== "active";
+          const tg = tightest(a);
+          const tone = tg ? toneOf(tg.used) : null;
+          const dots = evs
+            .filter((e) => e.t <= 10080)
+            .map(
+              (e) =>
+                `<i class="${e.kind === "bank" ? "bank" : e.tone}" style="--x:${(e.t / 10080) * 100}%"></i>`,
+            )
+            .join("");
+          const first = evs[0];
+          const status = off
+            ? statusPill(a.status)
+            : tg
+              ? `<span class="tight ${tone}">${ICON[tone]}<strong>${100 - tg.used}% Left</strong></span>`
+              : `<span class="tight off">${ICON.off}${a.meters.some((m) => m.notStarted) ? "Not Started" : "Balance Only"}</span>`;
+          return `<div class="strip ${off ? "off" : ""}"><div class="row"><b>${brandMark(a.provider)}${esc(providerName[a.provider])} ${esc(a.name)}</b>${status}</div>
+            <div class="mini" aria-hidden="true">${dots}</div>
+            <div class="nextline">${first ? `Next: ${esc(first.text)} in ${duration(first.t)}` : "Nothing scheduled"}</div></div>`;
+        })
+        .join("");
+
+      /* Hover a list row to light up its marker. */
+      function wireHighlight() {
+        document.querySelectorAll(".ev").forEach((row) => {
+          const set = (on) =>
+            document.querySelector(`.mk[data-ev="${row.dataset.ev}"]`)?.classList.toggle("hl", on);
+          row.onmouseenter = () => set(true);
+          row.onmouseleave = () => set(false);
+        });
+      }
+
+      document
+        .querySelectorAll("#range button")
+        .forEach((b) => b.addEventListener("click", () => render(b.dataset.range)));
+      render("day");
+    </script>
+  </body>
+</html>
