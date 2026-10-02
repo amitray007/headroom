@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { groupByProvider } from "../lib/labels.ts";
 import { useSettings } from "../lib/settings.tsx";
@@ -10,16 +10,8 @@ import type { useOverview } from "./use-overview.ts";
 /** The one dashboard page: every provider, every account, no sidebars. */
 export function DashboardPage(props: { readonly overview: ReturnType<typeof useOverview> }) {
   const { connections, failed, stale, reload } = props.overview;
-  const { settings, loaded } = useSettings();
+  const { loaded } = useSettings();
   const [retrying, setRetrying] = useState(false);
-
-  // Account actions only unlock on a panel once the overview says so, so reload when the owner flips the switch.
-  const actions = useRef(settings.accountActions);
-  useEffect(() => {
-    if (actions.current === settings.accountActions) return;
-    actions.current = settings.accountActions;
-    void reload();
-  }, [settings.accountActions, reload]);
 
   const retry = (): void => {
     setRetrying(true);

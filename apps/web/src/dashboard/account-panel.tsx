@@ -186,7 +186,8 @@ export function AccountPanel(props: {
                 <HoldButton
                   size="sm"
                   label="Hold to Reset Weekly Limit"
-                  off={!(connection.actions.enabled && actionsEnabled)}
+                  // Follows the Settings switch directly; the server refuses the action whenever the saved setting is off.
+                  off={!actionsEnabled}
                   onConfirm={async () => {
                     try {
                       const outcome = await api.consumeResetCredit(connection.id, hold.creditId);
