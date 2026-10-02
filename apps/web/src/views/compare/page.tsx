@@ -119,11 +119,7 @@ export function ComparePage(props: ViewProps) {
           onChange={(limitsView) => void store.update({ limitsView })}
         />
       </div>
-      {active === undefined ? (
-        <p className="cmp-note muted">
-          No provider has two or more accounts, so there is nothing to compare yet.
-        </p>
-      ) : (
+      {active === undefined ? null : (
         <div
           key={active.provider}
           id={panelId}
@@ -146,8 +142,7 @@ export function ComparePage(props: ViewProps) {
       {singles.length === 0 ? null : (
         <section aria-labelledby={`${panelId}-singles`}>
           <div className="cmp-singles-head">
-            <h2 id={`${panelId}-singles`}>Single Accounts</h2>
-            <span className="muted">One account each, so nothing to compare</span>
+            <h2 id={`${panelId}-singles`}>More Accounts</h2>
           </div>
           <div className="cmp-singles">
             {singles.map((group) => (

@@ -11,9 +11,6 @@
   gap: var(--space-3);
   margin-bottom: var(--space-4);
 }
-.cmp-note {
-  margin: var(--space-4) 0;
-}
 .cmp-stage {
   animation: cmp-enter var(--dur-considered) var(--ease-enter) both;
 }
@@ -350,7 +347,11 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-3);
-  margin: var(--space-7) 0 var(--space-3) var(--space-1);
+  margin: var(--space-2) 0 var(--space-3) var(--space-1);
+}
+/* A full gap only when a comparison sits above the list. */
+.cmp-stage + section .cmp-singles-head {
+  margin-top: var(--space-7);
 }
 .cmp-singles-head h2 {
   white-space: nowrap;
