@@ -1,0 +1,190 @@
+/* Loading, empty and error states. Placeholders use the final layout's dimensions so nothing moves. */
+
+/* A slot holds a placeholder at the height of the text it stands in for. */
+.sk-slot {
+  display: flex;
+  align-items: center;
+}
+.sk-slot > .sk {
+  flex: none;
+  max-width: 100%;
+}
+.sk-pill {
+  border-radius: var(--radius-pill);
+}
+.cell .caption.sk-slot {
+  min-height: calc(var(--text-sm) * 1.45);
+}
+.cell .value.sk-slot > .sk.big {
+  height: 28px;
+}
+.sk-name {
+  min-height: 23.8px;
+}
+.sk-ident {
+  min-height: 19px;
+}
+.cell .label.sk-slot {
+  min-height: 20.8px;
+}
+.sk-status {
+  min-height: 28px;
+}
+.provider > header.sk-head {
+  min-height: calc(var(--text-md) * 1.45);
+}
+/* The real row is the hairline, the padding and the 30px buttons, which hang over the bottom edge. */
+.facts.sk-facts {
+  height: 35px;
+}
+.facts.sk-facts .sk-acts {
+  margin-left: auto;
+}
+html[data-density="compact"] .facts.sk-facts {
+  height: 31px;
+}
+/* On a phone the actions take a row of their own. */
+@media (max-width: 720px) {
+  .facts.sk-facts {
+    height: 47px;
+  }
+  .facts.sk-facts > .sk {
+    display: none;
+  }
+  .facts.sk-facts .sk-acts {
+    flex: 0 0 100%;
+    display: flex;
+    justify-content: flex-end;
+  }
+  html[data-density="compact"] .facts.sk-facts {
+    height: 43px;
+  }
+}
+
+/* The first data arrives with one calm fade. Numbers and bars then run their own single entrance. */
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+  }
+}
+.reveal {
+  animation: reveal-in var(--dur-standard) var(--ease-enter) backwards;
+}
+
+/* Empty state sizes. */
+.empty.compact {
+  padding: var(--space-5) var(--space-4);
+}
+.empty.compact .tile {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+}
+.empty.compact .tile svg {
+  width: 20px;
+  height: 20px;
+}
+.empty.compact h2 {
+  margin-top: var(--space-3);
+  font-size: var(--text-base);
+}
+.empty.compact p {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+}
+.empty .actions:empty {
+  display: none;
+}
+
+/* Error notice used inside a card or dialog, where the page margin does not apply. */
+.notice.inline {
+  margin: 0;
+}
+
+/* Provider cards while the list loads. */
+.card.sk-card {
+  cursor: default;
+  pointer-events: none;
+}
+.card.sk-card .head {
+  min-height: 24px;
+}
+
+/* Accounts table while the overview loads. The column headings are real; the rows are placeholders. */
+.accounts .sk-row td {
+  height: 68px;
+}
+.accounts .sk-row .stack-sk {
+  display: grid;
+  gap: 6px;
+}
+.accounts .tgroup-row .sk-slot {
+  gap: var(--space-2);
+}
+
+/* Boot and sign-in frames. The top bar placeholder matches the real bar. */
+.top .sk-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.top .sk-round {
+  border-radius: 50%;
+}
+.top .sk-round + .sk-round {
+  margin-left: 2px;
+}
+.auth-card h1.sk-slot {
+  min-height: 29px;
+}
+.auth-card .sk-field {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  height: 64.8px;
+}
+.auth-card .sk-input {
+  height: 40px;
+  border-radius: var(--radius-control);
+}
+.auth-card .sk-button {
+  height: 36px;
+  border-radius: var(--radius-control);
+}
+
+/* Dialog placeholders: settings rows and passkey rows. */
+.srow .sk-control {
+  flex: none;
+}
+.plist li.sk-item {
+  animation: none;
+}
+.nlist .nrow.sk-item {
+  animation: none;
+}
+.cards-note {
+  margin-top: var(--space-5);
+}
+.cards-note .notice {
+  margin-bottom: 0;
+}
+.tablecard .table-state {
+  padding: 0 var(--space-5) var(--space-5);
+}
+/* Placeholders sit where the real cells align their content: centred, centred, then right. */
+.accounts .sk-row td:nth-child(2) {
+  padding-right: 28px;
+}
+.accounts .sk-row td:nth-child(3) > .sk,
+.accounts .sk-row td:nth-child(4) > .sk {
+  margin-inline: auto;
+}
+.accounts .sk-row td:nth-child(5) > .sk {
+  margin-left: auto;
+}
+
+/* Passkey rows while loading hold the height of the empty state, so the dialog does not resize when it answers. */
+.plist[aria-busy="true"] {
+  min-height: 144px;
+  align-content: start;
+}

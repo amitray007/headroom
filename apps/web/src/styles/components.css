@@ -1,0 +1,2159 @@
+/* Components. Later rules win at equal specificity, as in the approved mockup. */
+
+/* Top bar */
+.top {
+  position: relative;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-7);
+  min-height: 36px;
+}
+.lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-md);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.lockup svg {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+.top nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+}
+.top nav a {
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+.top nav .menu-anchor + .menu-anchor {
+  margin-left: 2px;
+}
+
+/* Provider section and brand mark */
+.brand {
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  color: var(--foreground);
+}
+.brand svg,
+.brand img {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+.brand.lg,
+.brand.lg svg,
+.brand.lg img {
+  width: 24px;
+  height: 24px;
+}
+.provider {
+  margin-bottom: var(--space-7);
+}
+.provider > header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3) var(--space-1);
+}
+.provider > header h2 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.provider > header .count {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.provider > header .count:empty {
+  display: none;
+}
+.provider > header .chip.count {
+  margin-left: 2px;
+}
+.stack {
+  display: grid;
+  gap: var(--space-3);
+}
+
+/* Account panel: border, no shadow at rest. */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  padding: var(--space-5);
+  min-width: 0;
+}
+.panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+  min-height: 28px;
+}
+.panel > header h3 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.panel > header h3 .plan {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+.panel > header .right {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.panel.dim .cells,
+.panel.dim .facts {
+  opacity: 0.55;
+}
+
+/* Titles: name, plan, rename, and the identity line under them. */
+.titles {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.titles h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.titles h3 .plan {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+}
+.titles h3 .plan .sep {
+  color: var(--text-muted);
+}
+.titles h3 .rename {
+  margin-left: 2px;
+}
+.rename {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-fast) var(--ease-standard);
+}
+.rename svg {
+  width: 13px;
+  height: 13px;
+}
+.titles:hover .rename,
+.rename:focus-visible,
+.titles:focus-within .rename {
+  opacity: 1;
+}
+@media (hover: none) {
+  .rename {
+    opacity: 1;
+  }
+}
+.rename:hover {
+  color: var(--foreground);
+  background: var(--surface-muted);
+}
+.ident {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 4px;
+}
+.who {
+  color: var(--text-secondary);
+  transition: filter var(--dur-standard) var(--ease-standard);
+}
+html[data-privacy] .who {
+  filter: blur(5px);
+  user-select: none;
+  cursor: default;
+}
+html[data-privacy] .who:hover,
+html[data-privacy] .who:focus-visible {
+  filter: blur(0);
+}
+.name-edit {
+  font: inherit;
+  font-size: var(--text-md);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+  background: var(--surface-muted);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 2px 8px;
+  margin: -3px 0;
+  width: 12ch;
+  min-width: 6ch;
+}
+.name-edit:focus {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
+.saved {
+  color: var(--success);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.saved svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Status: plain text while healthy; a toned pill when something needs attention. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.status .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+}
+.status-slot {
+  display: inline-flex;
+  min-width: 136px;
+  height: 26px;
+  align-items: center;
+  justify-content: flex-end;
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.status-slot.fading {
+  opacity: 0;
+}
+.pill {
+  --tone: var(--foreground);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--tone) 10%, var(--surface));
+  border: 1px solid color-mix(in oklab, var(--tone) 25%, var(--border));
+}
+.pill svg {
+  width: 14px;
+  height: 14px;
+  color: var(--tone);
+  flex: none;
+}
+.pill.neutral {
+  --tone: var(--foreground);
+  background: var(--surface-muted);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+.pill.warn {
+  --tone: var(--warning);
+}
+.pill.bad {
+  --tone: var(--danger);
+}
+.pill.quiet {
+  --tone: var(--text-muted);
+  color: var(--text-secondary);
+}
+.pill.good {
+  --tone: var(--success);
+}
+.pill.good .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Cells: every figure is a cell. Flex wrap with grow, so the last row never leaves a hole. */
+.cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5) var(--space-6);
+}
+.cell {
+  flex: 1 1 220px;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+}
+.cell .label {
+  font-size: var(--text-base);
+  font-weight: 500;
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-height: 20px;
+}
+.cell .label .window {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cell .value {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: var(--text-display);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  min-height: 30px;
+}
+.cell .value .unit,
+.cell .value .of {
+  font-size: var(--text-base);
+  font-weight: 400;
+  color: var(--text-secondary);
+  letter-spacing: 0;
+}
+.cell .value .of {
+  margin-left: var(--space-1);
+}
+.cell .value.unknown {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.cell .caption {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cell .caption b {
+  font-weight: 500;
+  color: var(--foreground);
+}
+.cell.fact .bar {
+  display: none;
+}
+.tone {
+  font-weight: 500;
+}
+.tone.warn {
+  color: var(--warning);
+}
+.tone.bad {
+  color: var(--danger);
+}
+time.when {
+  text-decoration: underline dotted;
+  text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+  cursor: default;
+}
+
+/* Bar: pill track and a toned fill that reports headroom. .pre holds the fill at zero for the first paint. */
+.bar {
+  position: relative;
+  height: 12px;
+  border-radius: var(--radius-pill);
+  background: var(--track);
+  margin: 2px 0;
+}
+.bar .fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: max(var(--v), 12px);
+  border-radius: var(--radius-pill);
+  background: var(--success);
+  transform-origin: left center;
+  transition:
+    transform var(--dur-spring) var(--ease-standard),
+    width var(--dur-spring) var(--ease-standard);
+}
+.bar.pre .fill {
+  transform: scaleX(0);
+}
+.bar.good .fill {
+  background: var(--success);
+}
+.bar.warn .fill {
+  background: var(--warning);
+}
+.bar.bad .fill {
+  background: var(--danger);
+}
+.bar.neutral .fill {
+  background: var(--accent);
+}
+.bar.thin {
+  height: 6px;
+}
+.bar.thin .fill {
+  width: max(var(--v), 6px);
+}
+/* "zero", not "empty": .empty is the empty-state block and would pad the bar into a large pill. */
+.bar.zero .fill {
+  display: none;
+}
+.bar.unknown {
+  background: repeating-linear-gradient(135deg, var(--track) 0 4px, transparent 4px 9px);
+}
+.bar.hatch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  left: var(--limit);
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  background: repeating-linear-gradient(45deg, transparent 0 3.5px, var(--surface) 3.5px 6px);
+}
+
+/* Facts row: hairline above; small facts; actions on the right. */
+.facts {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  align-items: center;
+  font-size: var(--text-base);
+}
+.kv {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+.kv b {
+  font-weight: 500;
+  color: var(--foreground);
+}
+.facts .acts {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  margin: -6px -10px -6px auto;
+}
+.acts .btn {
+  min-width: 104px;
+  justify-content: center;
+}
+.acts .btn .label {
+  justify-content: center;
+}
+.acts .btn svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.acts .btn.sm {
+  gap: 6px;
+}
+/* The hold-to-reset action sits at the far left of the facts row; account actions stay far right. */
+.facts > .lead {
+  display: inline-flex;
+  align-items: center;
+  margin: -6px 0;
+}
+.facts > .lead .hold.sm {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .facts > .lead {
+    flex: 0 0 100%;
+    margin: 0;
+  }
+  .facts .acts {
+    flex: 0 0 100%;
+    justify-content: flex-end;
+    margin: 0 -10px 0 0;
+  }
+  .top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    margin-bottom: var(--space-6);
+  }
+  .panel {
+    padding: var(--space-4);
+    border-radius: 16px;
+  }
+  .cells {
+    gap: var(--space-4);
+  }
+  .cell {
+    flex-basis: 100%;
+  }
+  .cell .value {
+    font-size: 26px;
+  }
+  .provider {
+    margin-bottom: var(--space-6);
+  }
+}
+
+/* Buttons: 36px, 14/500, press scales .97 in 120ms and releases on the spring. */
+.btn {
+  font: 500 var(--text-base) / 20px var(--font);
+  letter-spacing: -0.005em;
+  color: var(--foreground);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  height: 36px;
+  padding: 0 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+  transition:
+    scale var(--dur-spring) var(--ease-spring),
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    opacity var(--dur-fast) var(--ease-standard);
+}
+.btn svg {
+  width: 16px;
+  height: 16px;
+}
+.btn:active:not(:disabled) {
+  scale: 0.97;
+  transition-duration: var(--dur-instant);
+}
+.btn:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+.btn.primary {
+  background: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
+}
+.btn.primary svg {
+  color: var(--background);
+}
+.btn.quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+  padding: 0 12px;
+}
+.btn.danger {
+  color: var(--danger);
+}
+.btn.sm {
+  height: 30px;
+  padding: 0 12px;
+  font-size: var(--text-sm);
+  border-radius: 15px;
+}
+.btn .label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity var(--dur-instant) var(--ease-standard);
+}
+.btn .label.fading {
+  opacity: 0;
+}
+.btn .label .spin {
+  width: 12px;
+  height: 12px;
+}
+.btn[aria-busy="true"] {
+  opacity: 1;
+  color: var(--text-secondary);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled) {
+    background: var(--surface-muted);
+    border-color: var(--border-strong);
+  }
+  .btn.primary:hover:not(:disabled) {
+    background: var(--foreground);
+    border-color: var(--foreground);
+    opacity: 0.9;
+  }
+  .btn.quiet:hover:not(:disabled) {
+    color: var(--foreground);
+    border-color: transparent;
+  }
+  .btn.danger:hover:not(:disabled) {
+    border-color: color-mix(in oklab, var(--danger) 32%, var(--border));
+    background: color-mix(in oklab, var(--danger) 6%, var(--surface));
+  }
+  .top nav a:hover {
+    color: var(--foreground);
+    background: var(--surface-muted);
+  }
+  /* The top-bar primary link keeps inverted text on hover. */
+  .top nav a.btn.primary:hover {
+    color: var(--background);
+    background: var(--foreground);
+  }
+  .top nav a.btn.primary:hover svg {
+    color: var(--background);
+  }
+}
+
+/* Hold to confirm: the face is drawn twice; the inverted copy is clipped to the hold progress. */
+.hold {
+  position: relative;
+  overflow: hidden;
+  --p: 0%;
+  border-color: color-mix(in oklab, var(--danger) 32%, var(--border));
+  border-radius: 18px;
+  color: var(--danger);
+  transition:
+    --p 1200ms linear,
+    scale var(--dur-spring) var(--ease-spring),
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard);
+}
+.hold.sm {
+  border-radius: 15px;
+}
+.hold {
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.hold .face {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.hold .fillface {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: var(--danger);
+  color: var(--background);
+  clip-path: inset(0 calc(100% - var(--p)) 0 0);
+}
+.hold.sm .fillface {
+  padding: 0 10px;
+}
+.hold.sm .face svg,
+.hold.sm .fillface svg {
+  width: 14px;
+  height: 14px;
+}
+.hold:disabled {
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.hold.rewind {
+  transition: --p 400ms var(--ease-standard);
+}
+.hold.holding {
+  --p: 100%;
+}
+.hold.done {
+  --p: 0%;
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.hold.good {
+  color: var(--success);
+  border-color: color-mix(in oklab, var(--success) 30%, var(--border));
+}
+.hold.failed {
+  color: var(--danger);
+}
+.hold.off {
+  color: var(--text-muted);
+  border-color: var(--border);
+  border-style: dashed;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+/* Notice: one line, toned surface, action right. */
+.notice {
+  --tone: var(--foreground);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: 10px 10px 10px 14px;
+  border-radius: var(--radius-control);
+  margin-bottom: var(--space-5);
+  font-size: var(--text-base);
+  background: color-mix(in oklab, var(--tone) 8%, var(--surface));
+  border: 1px solid color-mix(in oklab, var(--tone) 22%, var(--border));
+}
+.notice .text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.notice svg {
+  width: 16px;
+  height: 16px;
+  color: var(--tone);
+  flex: none;
+}
+.notice.bad {
+  --tone: var(--danger);
+}
+.notice.warn {
+  --tone: var(--warning);
+}
+.notice.neutral {
+  --tone: var(--text-muted);
+  background: var(--surface-muted);
+  border-color: var(--border);
+}
+
+/* Text swap: new text rises from 0.3em below with a blur; old text leaves upward, faster. */
+.swap {
+  display: inline-grid;
+}
+.swap > * {
+  grid-area: 1 / 1;
+}
+@keyframes swap-in {
+  from {
+    opacity: 0;
+    translate: 0 0.3em;
+    filter: blur(4px);
+  }
+}
+@keyframes swap-out {
+  to {
+    opacity: 0;
+    translate: 0 -0.3em;
+    filter: blur(2px);
+  }
+}
+.swap-in {
+  animation: swap-in var(--dur-standard) var(--ease-enter) both;
+}
+.swap-out {
+  animation: swap-out var(--dur-fast) var(--ease-standard) both;
+  pointer-events: none;
+}
+
+/* Spinner and check for in-place confirmation */
+.spin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in oklab, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to {
+    rotate: 360deg;
+  }
+}
+.check path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: draw var(--dur-standard) var(--ease-standard) 50ms forwards;
+}
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Confirm morph: one pill whose faces slide; the asking face is tinted with the danger tone. */
+.confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 4px 0 12px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  border: 1px solid color-mix(in oklab, var(--danger) 30%, var(--border));
+  font-size: var(--text-sm);
+  color: var(--foreground);
+  animation: swap-in var(--dur-standard) var(--ease-enter) both;
+}
+.confirm .q {
+  white-space: nowrap;
+}
+.confirm .btn.sm {
+  height: 24px;
+  padding: 0 9px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+}
+.confirm .btn.sm.primary {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--background);
+}
+
+/* Floating layers (menus, notification panel, info popover) share one entrance. */
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+    translate: 0 -4px;
+  }
+}
+@keyframes menu-in-up {
+  from {
+    opacity: 0;
+    scale: 0.97;
+    translate: 0 4px;
+  }
+}
+@keyframes item-in {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
+/* Account menu: avatar trigger, floating panel with the only shadow on the page. */
+.avatar {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface-muted);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-standard),
+    scale var(--dur-spring) var(--ease-spring);
+}
+.avatar[aria-expanded="true"] {
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
+}
+.avatar svg,
+.avatar img {
+  width: 34px;
+  height: 34px;
+  display: block;
+}
+.avatar:active {
+  scale: 0.96;
+  transition-duration: var(--dur-instant);
+}
+.menu-anchor {
+  position: relative;
+  /* A block-level box, so the line height of the surrounding text cannot make the avatar taller than the bell. */
+  display: inline-flex;
+}
+/* Menus and the notification panel are popovers in the top layer, placed from the trigger by script. */
+.menu,
+.notif {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  overflow: visible;
+  color: inherit;
+  width: max-content;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-floating);
+  transform-origin: top right;
+}
+.menu {
+  min-width: 288px;
+  border-radius: 16px;
+  padding: 6px;
+}
+.menu:popover-open {
+  display: block;
+  animation: menu-in var(--dur-fast) var(--ease-enter) both;
+}
+.menu.above {
+  transform-origin: bottom right;
+}
+.menu.above:popover-open {
+  animation-name: menu-in-up;
+}
+.menu .who {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px;
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 6px;
+}
+.menu .who b {
+  display: inline;
+  color: var(--foreground);
+  font-weight: 500;
+  font-size: var(--text-base);
+}
+.menu .item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  font: 400 var(--text-base) / 1 var(--font);
+  text-align: left;
+  cursor: pointer;
+}
+.menu .item svg {
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+}
+.menu .item.danger {
+  color: var(--danger);
+}
+.menu .theme {
+  display: block;
+  padding: 6px 10px 10px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.rowmenu .menu {
+  min-width: 200px;
+}
+.rowmenu .menu .item svg {
+  width: 15px;
+  height: 15px;
+}
+.menu .item:focus-visible {
+  outline: none;
+  background: var(--surface-muted);
+}
+@media (hover: hover) and (pointer: fine) {
+  .menu .item:hover {
+    background: var(--surface-muted);
+  }
+}
+
+/* Segmented control. .full spreads the options across the width of its container. */
+.seg {
+  display: inline-flex;
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  background: var(--surface-muted);
+  border-radius: var(--radius-pill);
+  padding: 2px;
+  gap: 2px;
+}
+.seg button {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: 500 var(--text-xs) / 1 var(--font);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
+}
+.seg button[aria-pressed="true"] {
+  background: var(--surface-raised);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px oklch(0% 0 0 / 0.06);
+}
+.seg.full {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  width: 100%;
+  padding: 3px;
+  gap: 3px;
+}
+.seg.full button {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0;
+  font-size: var(--text-sm);
+}
+
+/* Switch (Arc switch: 42 by 24, 18 px thumb) and its row in a menu. */
+.switchrow {
+  cursor: pointer;
+  justify-content: space-between;
+}
+.switchrow .lbl {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 24px;
+}
+.switch input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.switch .track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--foreground) 14%, var(--surface));
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+.switch .thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  box-shadow:
+    0 0 0 0.5px oklch(0% 0 0 / 0.07),
+    0 1px 2px oklch(0% 0 0 / 0.14);
+  transition:
+    translate var(--dur-spring) var(--ease-spring),
+    background-color var(--dur-fast) var(--ease-standard);
+}
+.switch input:checked + .track {
+  background: var(--foreground);
+}
+.switch input:checked + .track .thumb {
+  translate: 18px 0;
+  background: var(--background);
+}
+.switch input:focus-visible + .track {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
+
+/* Notification center: bell with a count, floating panel, staggered rows. */
+.bell {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-fast) var(--ease-standard),
+    scale var(--dur-spring) var(--ease-spring);
+}
+.bell svg {
+  width: 16px;
+  height: 16px;
+  transition: rotate var(--dur-standard) var(--ease-spring);
+}
+.bell[aria-expanded="true"] {
+  color: var(--foreground);
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
+}
+.bell[aria-expanded="true"] svg {
+  rotate: -12deg;
+}
+.bell:active {
+  scale: 0.96;
+  transition-duration: var(--dur-instant);
+}
+.bell .badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: var(--background);
+  font: 500 10px / 1 var(--font);
+  font-variant-numeric: tabular-nums;
+  border: 2px solid var(--background);
+  transition:
+    scale var(--dur-standard) var(--ease-spring),
+    opacity var(--dur-fast) var(--ease-standard);
+}
+.bell .badge:empty,
+.bell .badge.zero {
+  scale: 0.4;
+  opacity: 0;
+}
+.notif {
+  padding: 0;
+  width: min(400px, calc(100vw - 24px));
+  max-height: min(560px, calc(100vh - 24px));
+  overflow: auto;
+  border-radius: 20px;
+}
+.notif:popover-open {
+  display: block;
+  animation: menu-in var(--dur-standard) var(--ease-enter) both;
+}
+.notif.above {
+  transform-origin: bottom right;
+}
+.notif:focus-visible {
+  outline: none;
+}
+.nhead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 12px 12px 20px;
+}
+.nhead h2 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.nsub {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.nlist {
+  list-style: none;
+  margin: 0;
+  /* Same 10px inset on the sides and the bottom, so the last row never touches the panel edge. */
+  padding: 0 10px 10px;
+  display: grid;
+  gap: 2px;
+}
+.nrow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 10px 10px 9px;
+  border-radius: 12px;
+  animation: item-in var(--dur-standard) var(--ease-enter) calc(var(--index, 0) * 35ms) both;
+}
+.nrow .nicon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, var(--ntone) 12%, var(--surface));
+  color: var(--ntone);
+}
+.nrow .nicon svg {
+  width: 16px;
+  height: 16px;
+}
+.nrow[data-tone="bad"] {
+  --ntone: var(--danger);
+}
+.nrow[data-tone="warn"] {
+  --ntone: var(--warning);
+}
+.nrow[data-tone="info"] {
+  --ntone: var(--text-secondary);
+}
+.nbody {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ntitle {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--foreground);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.nrow:not(.unread) .ntitle {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+.nrow:not(.unread) .nicon {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+.nrow.unread {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+.ndesc {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+.ntime {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  padding-top: 2px;
+  white-space: nowrap;
+}
+.nrow.leaving {
+  animation: swap-out var(--dur-fast) var(--ease-standard) both;
+}
+@media (hover: hover) and (pointer: fine) {
+  .nrow:hover {
+    background: var(--surface-muted);
+  }
+  .nrow.unread:hover {
+    background: color-mix(in oklab, var(--foreground) 8%, transparent);
+  }
+  .bell:hover {
+    color: var(--foreground);
+    border-color: var(--border-strong);
+  }
+}
+
+/* Dialog: the only modal. Floating shadow, 20 px corners, backdrop dim with a soft blur. */
+.dlg {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface-raised);
+  color: var(--foreground);
+  padding: 0;
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  box-shadow: var(--shadow-floating);
+}
+.dlg::backdrop {
+  background: oklch(10% 0 0 / 0.46);
+  backdrop-filter: blur(6px);
+}
+.dlg[open] {
+  display: flex;
+  flex-direction: column;
+  animation: menu-in var(--dur-standard) var(--ease-enter) both;
+  transform-origin: center;
+}
+.dhead {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 14px 12px 24px;
+}
+.dhead h2 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.dbody {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.dsec {
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--border-subtle);
+  display: grid;
+  gap: 12px;
+}
+.dsec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+}
+.dsec-head h3 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.plist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.plist li {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 4px 8px 0;
+  animation: item-in var(--dur-standard) var(--ease-enter) both;
+}
+.plist .pk {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  display: grid;
+  place-items: center;
+}
+.plist .pk svg {
+  width: 16px;
+  height: 16px;
+}
+.plist .pbody {
+  display: grid;
+  gap: 1px;
+  font-size: var(--text-sm);
+}
+.plist .pbody b {
+  font-weight: 500;
+}
+.plist .pbody .muted {
+  font-size: var(--text-xs);
+}
+.plist .empty-note {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  padding: 6px 0;
+}
+.pform {
+  display: grid;
+  gap: 12px;
+}
+.pform .field {
+  max-width: none;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+/* Settings dialog: sections of rows, each a title and one-line note on the left with a segment or switch on the right. */
+.dlg.settings {
+  width: min(560px, calc(100vw - 32px));
+}
+.dlg.settings .dsec {
+  gap: 4px;
+  padding: 10px 24px 14px;
+}
+.dlg.settings .dsec-head {
+  min-height: 32px;
+}
+.dlg.settings .dsec-head h3 {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.srow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 10px 0;
+}
+.srow + .srow {
+  border-top: 1px solid var(--border-subtle);
+}
+.srow .sbody {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.srow .sbody b {
+  font-weight: 500;
+  font-size: var(--text-base);
+}
+.srow .sbody .muted {
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+label.srow {
+  cursor: pointer;
+}
+.srow .seg {
+  flex: none;
+  padding: 3px;
+  gap: 3px;
+}
+.srow .seg button {
+  height: 28px;
+  padding: 0 12px;
+  font-size: var(--text-sm);
+}
+.srow .switch {
+  flex: none;
+}
+
+/* Info popover: opens after a short delay on hover, at once on focus or click. */
+.info {
+  position: relative;
+  display: inline-grid;
+  vertical-align: -3px;
+  margin-left: 6px;
+}
+.infobtn {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: help;
+  display: inline-grid;
+  place-items: center;
+}
+.infobtn svg {
+  width: 15px;
+  height: 15px;
+}
+.infobtn:hover,
+.infobtn:focus-visible {
+  color: var(--foreground);
+}
+.tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  translate: -50% 4px;
+  min-width: 220px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-floating);
+  display: grid;
+  gap: 4px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--dur-fast) var(--ease-standard),
+    translate var(--dur-fast) var(--ease-standard),
+    visibility 0s linear var(--dur-fast);
+  z-index: 5;
+}
+.tip b {
+  color: var(--foreground);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+.info.open .tip {
+  opacity: 1;
+  visibility: visible;
+  translate: -50% 0;
+  transition-delay: 0s;
+}
+
+/* Connect page */
+.intro h1 {
+  margin: 0;
+  font-size: var(--text-display);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.intro p {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+  max-width: 60ch;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  align-items: stretch;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+.card {
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  padding: 14px 16px;
+  min-height: 56px;
+  display: grid;
+  grid-template-rows: auto;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  color: var(--foreground);
+  font: inherit;
+  transition:
+    border-color var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-fast) var(--ease-standard),
+    scale var(--dur-spring) var(--ease-spring);
+}
+.card:active {
+  scale: 0.985;
+  transition-duration: var(--dur-instant);
+}
+.card .head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.cards .card[aria-pressed="true"] {
+  border-color: var(--border-strong);
+  background: var(--surface-raised);
+}
+.cards.picked .card:not([aria-pressed="true"]) {
+  opacity: 0.45;
+}
+@media (hover: hover) and (pointer: fine) {
+  .card:hover {
+    border-color: var(--border-strong);
+    background: var(--surface-raised);
+  }
+}
+
+/* Connect flow: stepper, stages, step panel, fields, result. */
+.step {
+  display: grid;
+  gap: var(--space-4);
+}
+.step .title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  min-height: 28px;
+}
+.step .title .status svg {
+  width: 14px;
+  height: 14px;
+}
+.step .title .status .spin {
+  width: 12px;
+  height: 12px;
+}
+.step h2 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.flow {
+  margin-top: var(--space-4);
+}
+.stepper {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.stepper li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  padding: 4px 10px 4px 4px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  transition:
+    color var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-fast) var(--ease-standard);
+}
+.stepper li .n {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.stepper li.current {
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--foreground) 8%, var(--surface));
+}
+.stepper li.current .n {
+  background: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
+}
+.stepper li.done {
+  color: var(--text-secondary);
+}
+.stepper li.done .n {
+  background: color-mix(in oklab, var(--success) 14%, var(--surface));
+  color: var(--success);
+  border-color: color-mix(in oklab, var(--success) 30%, var(--border));
+}
+.stepper li.failed .n {
+  background: color-mix(in oklab, var(--danger) 14%, var(--surface));
+  color: var(--danger);
+  border-color: color-mix(in oklab, var(--danger) 30%, var(--border));
+}
+.stage {
+  display: grid;
+  gap: var(--space-4);
+  animation: swap-in var(--dur-standard) var(--ease-enter) both;
+}
+.code {
+  font: 500 28px / 1 var(--mono);
+  letter-spacing: 0.12em;
+  padding: 14px 18px;
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+}
+.code .btn {
+  letter-spacing: 0;
+}
+.field {
+  display: grid;
+  gap: 6px;
+  max-width: 520px;
+}
+.field label {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.field input {
+  font: 400 var(--text-base) / 1.4 var(--font);
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--foreground);
+}
+.field input:focus {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
+.ok {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--success) 14%, var(--surface));
+  color: var(--success);
+}
+.ok svg {
+  width: 16px;
+  height: 16px;
+}
+.ok.bad {
+  background: color-mix(in oklab, var(--danger) 14%, var(--surface));
+  color: var(--danger);
+}
+.result {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.result b {
+  font-size: var(--text-md);
+  font-weight: 500;
+}
+
+/* Skeleton: final layout dimensions, finite pulse. */
+.sk {
+  background: color-mix(in oklab, var(--border-strong) 38%, var(--surface));
+  border-radius: 8px;
+  animation: pulse 1.8s var(--ease-in-out) 11;
+}
+.sk.line {
+  height: 12px;
+}
+.sk.title {
+  height: 16px;
+  width: 40%;
+}
+.sk.bar {
+  height: 12px;
+  border-radius: var(--radius-pill);
+}
+.sk.big {
+  height: 30px;
+  width: 56%;
+}
+.sk:nth-child(2) {
+  animation-delay: 90ms;
+}
+.sk:nth-child(3) {
+  animation-delay: 180ms;
+}
+.sk:nth-child(4) {
+  animation-delay: 270ms;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.52;
+  }
+}
+
+/* Empty state */
+.empty {
+  text-align: center;
+  padding: clamp(32px, 8vw, 64px) 20px;
+  display: grid;
+  justify-items: center;
+}
+.empty .tile {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  display: grid;
+  place-items: center;
+}
+.empty .tile svg {
+  width: 24px;
+  height: 24px;
+}
+.empty h2 {
+  margin: 20px 0 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+}
+.empty p {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  max-width: 24rem;
+  text-wrap: balance;
+}
+.empty .actions {
+  margin-top: 20px;
+  display: flex;
+  gap: var(--space-3);
+}
+.empty .providers {
+  margin-top: var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* Connect another account: dashed at rest, solid on hover, the plus turns a quarter. */
+.add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 64px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-panel);
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  transition:
+    color var(--dur-fast),
+    border-color var(--dur-fast);
+}
+.add svg {
+  width: 16px;
+  height: 16px;
+  transition:
+    rotate var(--dur-standard) var(--ease-spring),
+    color var(--dur-fast) var(--ease-standard);
+}
+.add:hover {
+  color: var(--foreground);
+  border-color: var(--text-muted);
+  border-style: solid;
+  background: var(--surface);
+}
+.add:hover svg {
+  rotate: 90deg;
+}
+.add:active {
+  scale: 0.995;
+  transition-duration: var(--dur-instant);
+}
+
+/* Connected accounts table: scrolls inside its card, fixed columns, hairline dividers, hover fill. */
+.tablecard {
+  margin-top: var(--space-6);
+  padding: 0;
+  overflow: hidden;
+}
+.thead-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px 14px;
+}
+.thead-row h2 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.tscroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.accounts {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--text-base);
+}
+.accounts th {
+  text-align: left;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  height: 44px;
+  padding: 0 12px;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+.accounts th:first-child,
+.accounts td:first-child {
+  padding-left: 24px;
+}
+.accounts th:last-child,
+.accounts td:last-child {
+  padding-right: 16px;
+}
+.accounts td {
+  height: 68px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.accounts tbody tr:last-child td {
+  border-bottom: 0;
+}
+.accounts thead th {
+  height: 48px;
+  border-top: 0;
+}
+.accounts th:nth-child(2),
+.accounts td:nth-child(2) {
+  width: 236px;
+  text-align: left;
+}
+.accounts th:nth-child(3),
+.accounts td:nth-child(3) {
+  width: 164px;
+  text-align: center;
+}
+.accounts th:nth-child(4),
+.accounts td:nth-child(4) {
+  width: 168px;
+  text-align: center;
+}
+.accounts th:nth-child(5),
+.accounts td:nth-child(5) {
+  width: 176px;
+  text-align: right;
+}
+.accounts .tname {
+  display: flex;
+  align-items: center;
+  align-content: center;
+  gap: 2px 6px;
+  flex-wrap: wrap;
+  height: 68px;
+  padding-left: 24px;
+}
+.accounts .tname .name {
+  font-weight: 500;
+  font-size: var(--text-base);
+}
+.accounts .tname .plan {
+  color: var(--text-secondary);
+}
+.accounts .tname .plan .sep {
+  color: var(--text-muted);
+  margin: 0 6px 0 0;
+}
+.accounts .twho {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.accounts .tname .twho {
+  flex-basis: 100%;
+  max-width: none;
+  line-height: 1.2;
+  margin-top: 0;
+}
+.accounts .tstatus {
+  text-align: center;
+}
+.accounts .tstatus .status-slot {
+  min-width: 0;
+  width: 100%;
+  justify-content: center;
+}
+.accounts .tlast {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.accounts .tacts {
+  text-align: right;
+}
+.accounts .tacts .acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin: 0;
+}
+.accounts .tacts .acts .btn {
+  width: auto;
+  min-width: 0;
+}
+.accounts .tacts .acts .btn.kebab {
+  width: 32px;
+  padding: 0;
+  justify-content: center;
+}
+.accounts .tacts .acts .btn.kebab svg {
+  width: 16px;
+  height: 16px;
+}
+/* Limits column: tightest window per account as a thin toned bar, reset beneath. */
+.accounts .troom {
+  padding-right: 28px;
+}
+.accounts .troom .rtop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+.accounts .troom .rnum {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.accounts .troom .rnum.warn {
+  color: var(--warning);
+}
+.accounts .troom .rnum.bad {
+  color: var(--danger);
+}
+.accounts .troom .rwin {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.accounts .troom .bar.thin {
+  height: 5px;
+  margin: 0;
+}
+.accounts .troom .rsub {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+}
+.accounts .troom.dim .rnum,
+.accounts .troom.dim .bar .fill {
+  opacity: 0.55;
+}
+.accounts .troom.dim .bar .fill {
+  background: var(--text-muted);
+}
+/* A provider row heads each group of account rows. */
+.accounts .tgroup-row th {
+  height: 44px;
+  padding: 0 12px 0 24px;
+  text-align: left;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.accounts .tgroup-row th .brand {
+  vertical-align: -5px;
+  margin-right: 10px;
+}
+.accounts .tgroup-row th .muted {
+  font-weight: 400;
+  font-size: var(--text-xs);
+  margin-left: 8px;
+}
+.accounts .tgroup:first-of-type .tgroup-row th {
+  border-top: 0;
+}
+.accounts .tgroup + .tgroup .tgroup-row th {
+  border-top: 1px solid var(--border);
+}
+@media (hover: hover) and (pointer: fine) {
+  .accounts tbody tr {
+    transition: background-color var(--dur-fast) var(--ease-standard);
+  }
+  .accounts tbody tr:hover {
+    background: color-mix(in oklab, var(--foreground) 4%, transparent);
+  }
+}
+
+/* Table header tally: status breakdown with tone dots, total after a divider. */
+.tally {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.tally-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.tally-item.total {
+  color: var(--text-muted);
+}
+.tdot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex: none;
+}
+.tdot.good {
+  background: var(--success);
+}
+.tdot.bad {
+  background: var(--danger);
+}
+.tdot.quiet {
+  background: var(--text-muted);
+  opacity: 0.7;
+}
+.tally-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+}
+
+/* Density: compact tightens panel padding, cell gaps and the display numbers. */
+html[data-density="compact"] .panel:not(.tablecard) {
+  padding: var(--space-4);
+}
+html[data-density="compact"] .cells {
+  gap: var(--space-4) var(--space-5);
+}
+html[data-density="compact"] .cell .value {
+  font-size: calc(var(--text-display) * 0.78);
+  min-height: 26px;
+}
+html[data-density="compact"] .bar:not(.thin) {
+  height: 8px;
+}
+html[data-density="compact"] .facts {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+}
+html[data-density="compact"] .accounts td,
+html[data-density="compact"] .accounts .tname {
+  height: 56px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:active:not(:disabled) {
+    scale: 1;
+  }
+}

@@ -12,11 +12,12 @@ import {
   nextStepPayloadSchema,
   providerSchema,
   reconnectReasonSchema,
+  syncRunOutcomeSchema,
   type SubmitInput,
 } from "@headroom/core/contracts";
 import { z } from "zod";
 
-class ApiError extends Error {
+export class ApiError extends Error {
   readonly status: number;
   constructor(status: number, message: string) {
     super(message);
@@ -58,7 +59,7 @@ export type Attempt = z.infer<typeof attemptSchema>;
 
 const latestRunSchema = z.object({
   startedAt: z.number(),
-  outcome: z.string(),
+  outcome: z.string().nullable(),
   error: z.string().nullable(),
 });
 const connectionSummarySchema = z.object({
@@ -75,7 +76,6 @@ const connectionSummarySchema = z.object({
   latestRun: latestRunSchema.nullable(),
   metricCount: z.number(),
 });
-export type ConnectionSummary = z.infer<typeof connectionSummarySchema>;
 const connectionListSchema = z.object({ connections: z.array(connectionSummarySchema) });
 
 const metricSchema = z.object({
@@ -100,6 +100,8 @@ const resetCreditSchema = z.object({
   cooldownUntil: z.number().nullable(),
   rawLabel: z.string().nullable(),
 });
+export type Metric = z.infer<typeof metricSchema>;
+export type ResetCredit = z.infer<typeof resetCreditSchema>;
 const capabilitySchema = z.object({
   metricOrAction: z.string(),
   availability: availabilitySchema,
@@ -130,7 +132,70 @@ const connectionDetailSchema = z.object({
     .nullable(),
   actions: z.object({ enabled: z.boolean(), supported: z.array(accountActionKindSchema) }),
 });
-export type ConnectionDetail = z.infer<typeof connectionDetailSchema>;
+
+const overviewConnectionSchema = z.object({
+  id: z.string(),
+  provider: providerSchema,
+  scope: connectionScopeSchema,
+  state: connectionStateSchema,
+  reconnectReason: reconnectReasonSchema.nullable(),
+  interface: interfaceLabelSchema,
+  authMethod: authMethodSchema,
+  name: z.string().nullable(),
+  identity: z.string().nullable(),
+  plan: z.string().nullable(),
+  createdAt: z.number(),
+  lastSuccessAt: z.number().nullable(),
+  stale: z.boolean(),
+  latestRun: z
+    .object({
+      startedAt: z.number(),
+      finishedAt: z.number().nullable(),
+      outcome: syncRunOutcomeSchema.nullable(),
+      error: z.string().nullable(),
+    })
+    .nullable(),
+  snapshot: z
+    .object({
+      observedAt: z.number(),
+      metrics: z.array(metricSchema),
+      resetCredits: z.array(resetCreditSchema),
+    })
+    .nullable(),
+  actions: z.object({ enabled: z.boolean(), supported: z.array(accountActionKindSchema) }),
+});
+export type OverviewConnection = z.infer<typeof overviewConnectionSchema>;
+const overviewSchema = z.object({
+  connections: z.array(overviewConnectionSchema),
+  refreshIntervalMs: z.number(),
+  staleAfterMs: z.number(),
+});
+
+const renameSchema = z.object({ name: z.string().nullable() });
+
+const refreshIntervalSchema = z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(30)]);
+const lowThresholdSchema = z.union([z.literal(30), z.literal(20), z.literal(15)]);
+/** Owner preferences kept on the server. Mirrors the backend settings document. */
+const settingsSchema = z.object({
+  limitsView: z.enum(["used", "left"]),
+  lowThresholdPercent: lowThresholdSchema,
+  refreshIntervalMinutes: refreshIntervalSchema,
+  timeStyle: z.enum(["countdown", "exact"]),
+  clock: z.enum(["24h", "12h"]),
+  density: z.enum(["comfortable", "compact"]),
+  accountActions: z.boolean(),
+  notifications: z.object({
+    runningLow: z.boolean(),
+    expiringResets: z.boolean(),
+    refreshFailures: z.boolean(),
+  }),
+});
+export type Settings = z.infer<typeof settingsSchema>;
+const settingsEnvelopeSchema = z.object({
+  settings: settingsSchema,
+  actionsAllowedByServer: z.boolean(),
+});
+export type SettingsEnvelope = z.infer<typeof settingsEnvelopeSchema>;
 
 const actionOutcomeSchema = z.object({
   action: z.object({
@@ -144,12 +209,10 @@ const actionOutcomeSchema = z.object({
   }),
   state: connectionStateSchema.optional(),
 });
-export type ActionOutcome = z.infer<typeof actionOutcomeSchema>;
 
 const refreshSchema = z.object({ outcome: z.unknown(), state: connectionStateSchema });
 const pauseSchema = z.object({ state: connectionStateSchema });
 const revocationSchema = z.object({ revocation: z.enum(["revoked", "local_only", "failed"]) });
-export type Revocation = z.infer<typeof revocationSchema>["revocation"];
 
 async function request<T>(
   method: string,
@@ -182,6 +245,12 @@ export const api = {
     request("POST", `/api/attempts/${id}/input`, attemptEnvelope, { input }),
   cancelAttempt: (id: string) => request("POST", `/api/attempts/${id}/cancel`, attemptEnvelope),
   connections: () => request("GET", "/api/connections", connectionListSchema),
+  overview: () => request("GET", "/api/overview", overviewSchema),
+  rename: (id: string, name: string | null) =>
+    request("PATCH", `/api/connections/${id}`, renameSchema, { name }),
+  settings: () => request("GET", "/api/settings", settingsEnvelopeSchema),
+  saveSettings: (settings: Settings) =>
+    request("PUT", "/api/settings", settingsEnvelopeSchema, settings),
   connection: (id: string) => request("GET", `/api/connections/${id}`, connectionDetailSchema),
   reconnect: (id: string, method: string) =>
     request("POST", `/api/connections/${id}/reconnect`, attemptEnvelope, { method }),

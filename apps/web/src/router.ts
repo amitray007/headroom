@@ -4,36 +4,28 @@ export type Route =
   | { page: "connections" }
   | { page: "connect" }
   | { page: "reconnect"; id: string }
-  | { page: "detail"; id: string }
-  | { page: "account" };
+  | { page: "gallery" };
 
-/** Parse a location hash such as "#/connections/abc" into a route; unknown hashes list connections. */
+/** Parse a location hash such as "#/reconnect/abc" into a route; unknown hashes show the dashboard. */
 export function parseRoute(hash: string): Route {
   const [, first, second] = hash.replace(/^#/, "").split("/");
   if (first === "connect") return { page: "connect" };
   if (first === "reconnect" && second) return { page: "reconnect", id: decodeURIComponent(second) };
-  if (first === "connections" && second) return { page: "detail", id: decodeURIComponent(second) };
-  if (first === "account") return { page: "account" };
+  if (first === "dev" && second === "ui") return { page: "gallery" };
   return { page: "connections" };
 }
 
 export function href(route: Route): string {
   switch (route.page) {
     case "connections":
-      return "#/connections";
+      return "#/";
     case "connect":
       return "#/connect";
     case "reconnect":
       return `#/reconnect/${encodeURIComponent(route.id)}`;
-    case "detail":
-      return `#/connections/${encodeURIComponent(route.id)}`;
-    case "account":
-      return "#/account";
+    case "gallery":
+      return "#/dev/ui";
   }
-}
-
-export function navigate(route: Route): void {
-  window.location.hash = href(route);
 }
 
 export function useRoute(): Route {

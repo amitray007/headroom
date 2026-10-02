@@ -1,0 +1,53 @@
+/* Collapse: a panel or provider leaves by animating its grid row to zero height. */
+.collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows var(--dur-spring) var(--ease-standard),
+    margin var(--dur-spring) var(--ease-standard),
+    opacity var(--dur-standard) var(--ease-standard);
+}
+.collapse > * {
+  min-height: 0;
+}
+.collapse.closed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+}
+.collapse.closed > * {
+  overflow: hidden;
+}
+.stack > .collapse.closed {
+  margin-bottom: calc(var(--space-3) * -1);
+}
+
+/* Captions clip long text, but the reset tooltip must show. */
+.cell .caption:has(.info) {
+  overflow: visible;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+.pform .success {
+  color: var(--success);
+}
+fieldset.confirm {
+  margin: 0;
+  min-width: 0;
+}
+.confirm .q .spin,
+.confirm .q svg {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+}
+
+/* The account menu header shares the .who class with the identity line; it is the owner's own name, so it stays readable. */
+html[data-privacy] .menu .who {
+  filter: none;
+  user-select: auto;
+}
