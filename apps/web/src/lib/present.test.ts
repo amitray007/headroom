@@ -80,7 +80,12 @@ describe("claude", () => {
     expect(none.banked).toBeNull();
   });
   test("the table shows the weekly all-models limit, not the highest", () => {
-    expect(panel.tightest).toEqual({ label: "Weekly", used: 78, resetsAt: reset });
+    expect(panel.tightest).toEqual({
+      label: "Weekly",
+      used: 78,
+      resetsAt: reset,
+      resetWords: "resets",
+    });
   });
   test("a scoped Sonnet limit replaces the older Sonnet bucket", () => {
     const both = presentPanel(
@@ -302,7 +307,12 @@ describe("cursor", () => {
     ]);
   });
   test("the table shows included usage even when a pool is higher", () => {
-    expect(panel.tightest).toEqual({ label: "Included Usage", used: 17.02, resetsAt: cycleEnd });
+    expect(panel.tightest).toEqual({
+      label: "Included Usage",
+      used: 17.02,
+      resetsAt: cycleEnd,
+      resetWords: "cycle_end",
+    });
   });
 });
 
@@ -378,7 +388,12 @@ describe("antigravity", () => {
       ["Gemini", "weekly", 0],
       ["Claude and GPT", "weekly", 25],
     ]);
-    expect(panel.tightest).toEqual({ label: "Claude and GPT Weekly", used: 25, resetsAt: null });
+    expect(panel.tightest).toEqual({
+      label: "Claude and GPT Weekly",
+      used: 25,
+      resetsAt: null,
+      resetWords: "resets",
+    });
   });
 });
 

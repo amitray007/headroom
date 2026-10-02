@@ -32,6 +32,8 @@ export interface MeterRef {
   readonly short: string;
   readonly used: number | null;
   readonly resetsAt: number | null;
+  /** How the reset is worded; see `ResetCaption`. */
+  readonly resetWords: MeterCell["resetWords"];
   /** A session window whose clock has not started: nothing was used since the last reset. */
   readonly notStarted: boolean;
 }
@@ -103,6 +105,7 @@ function refOf(cell: MeterCell): MeterRef {
     short: cell.short,
     used: cell.used,
     resetsAt: cell.resetsAt,
+    resetWords: cell.resetWords,
     notStarted: cell.resetWords === "not_started",
   };
 }

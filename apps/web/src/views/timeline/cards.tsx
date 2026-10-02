@@ -84,7 +84,7 @@ export function UpNextCard(props: { readonly items: readonly UpNextItem[]; reado
     <section className="tl-card" aria-labelledby={titleId}>
       <h2 id={titleId}>Up Next</h2>
       <div className="tl-card-body">
-        {items.length === 0 ? <p className="tl-empty">No Resets Ahead.</p> : null}
+        {items.length === 0 ? <p className="tl-empty">No resets ahead.</p> : null}
         {groups.map((group) => (
           <div key={group.label}>
             <h3 className="tl-sub">{group.label}</h3>
@@ -133,7 +133,7 @@ export function WatchListCard(props: {
       <div className="tl-card-body">
         <h3 className="tl-sub">Running Low Until</h3>
         {low.length === 0 ? (
-          <p className="tl-empty">Nothing Is Running Low.</p>
+          <p className="tl-empty">Nothing is running low.</p>
         ) : (
           <ul>
             {low.map((row) => (
@@ -152,7 +152,7 @@ export function WatchListCard(props: {
         )}
         <h3 className="tl-sub">Saved Resets</h3>
         {saved.length === 0 ? (
-          <p className="tl-empty">No Saved Resets.</p>
+          <p className="tl-empty">No saved resets.</p>
         ) : (
           <ul>
             {saved.map((row) => {

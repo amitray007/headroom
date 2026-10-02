@@ -270,7 +270,7 @@ div.d-head:active {
   .d-tools {
     align-items: stretch;
   }
-  .d-tools .pchips {
+  .d-tools .ptokens {
     flex: 1 1 100%;
   }
 }

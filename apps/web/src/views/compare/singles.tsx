@@ -5,18 +5,10 @@ import { providerName, statusOf } from "../../lib/labels.ts";
 import { formatNumber } from "../../lib/present.ts";
 import { Bar } from "../../ui/bar.tsx";
 import { cx } from "../../ui/cx.ts";
-import { StatusPill, type StatusKind } from "../../ui/pill.tsx";
+import { StatusPill, statusKindOf } from "../../ui/pill.tsx";
 import type { Row } from "./compare-model.ts";
 import { figureOfRoom, figureOfWindow, type Figure, type Look } from "./figure.ts";
 import { ResetLine } from "./parts.tsx";
-
-const statusKinds: Record<ReturnType<typeof statusOf>["word"], StatusKind> = {
-  Active: "active",
-  Paused: "paused",
-  Disconnected: "disconnected",
-  "Refresh Failed": "refresh_failed",
-  "Out of Date": "out_of_date",
-};
 
 /** One window or balance of a single account: the figure, its name, a thin bar and a line of words. */
 function Line(props: {
@@ -68,8 +60,7 @@ export function SingleCard(props: { readonly row: Row; readonly look: Look }) {
   const { row, look } = props;
   const { connection } = row;
   const provider = connection.provider;
-  const kind: StatusKind =
-    connection.snapshot === null ? "waiting" : statusKinds[statusOf(connection).word];
+  const kind = connection.snapshot === null ? "waiting" : statusKindOf(statusOf(connection).word);
   return (
     <article className={cx("cmp-single", row.inactive && "dim")}>
       <header>

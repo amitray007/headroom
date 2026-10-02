@@ -9,17 +9,9 @@ import { presentPanel } from "../../lib/present.ts";
 import { When } from "../../lib/when.tsx";
 import { cx } from "../../ui/cx.ts";
 import { Fold } from "../../ui/fold.tsx";
-import { HealthyStatus, StatusPill, type StatusKind } from "../../ui/pill.tsx";
+import { HealthyStatus, StatusPill, statusKindOf } from "../../ui/pill.tsx";
 import { RowDetail } from "./detail.tsx";
 import { headlineOf, RowLimit, RowReset } from "./limit.tsx";
-
-const statusKinds: Record<ReturnType<typeof statusOf>["word"], StatusKind> = {
-  Active: "active",
-  Paused: "paused",
-  Disconnected: "disconnected",
-  "Refresh Failed": "refresh_failed",
-  "Out of Date": "out_of_date",
-};
 
 function RowStatus(props: { readonly connection: OverviewConnection }) {
   const { connection } = props;
@@ -32,7 +24,7 @@ function RowStatus(props: { readonly connection: OverviewConnection }) {
   if (status.word === "Active" && connection.lastSuccessAt !== null) {
     return <HealthyStatus age={<When at={connection.lastSuccessAt} kind="ago" />} />;
   }
-  return <StatusPill kind={statusKinds[status.word]} />;
+  return <StatusPill kind={statusKindOf(status.word)} />;
 }
 
 /** One account as a row: its tightest limit and status, opening inline into the full figures. */

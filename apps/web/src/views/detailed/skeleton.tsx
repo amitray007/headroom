@@ -33,7 +33,7 @@ export function DetailedSkeleton() {
     <div aria-busy="true">
       <LoadingNote>Loading accounts</LoadingNote>
       <div className="d-tools" aria-hidden="true">
-        <div className="pchips">
+        <div className="ptokens">
           <Sk width={64} height={32} className="sk-pill" />
           <Sk width={110} height={32} className="sk-pill" />
           <Sk width={104} height={32} className="sk-pill" />

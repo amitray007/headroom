@@ -3,26 +3,12 @@ import { roomOf } from "../../lib/accounts.ts";
 import { formatNumber, type Cell } from "../../lib/present.ts";
 import { useSettings } from "../../lib/settings.tsx";
 import { displayMeter } from "../../lib/tone.ts";
+import { ResetCaption } from "../../lib/reset-caption.tsx";
 import { When } from "../../lib/when.tsx";
 import { Bar } from "../../ui/bar.tsx";
 
 type MeterCell = Extract<Cell, { kind: "meter" }>;
 type AmountCell = Extract<Cell, { kind: "amount" }>;
-
-/** The reset of one meter, worded the way the panel words it. */
-function ResetWords(props: { readonly cell: MeterCell }) {
-  const { cell } = props;
-  if (cell.resetWords === "with_cycle") return "Resets with the cycle";
-  if (cell.resetWords === "not_started") return "Not Started";
-  if (cell.resetsAt === null) return "No reset time";
-  return (
-    <When
-      at={cell.resetsAt}
-      kind="until"
-      prefix={cell.resetWords === "cycle_end" ? "Cycle ends" : "Resets"}
-    />
-  );
-}
 
 /** What the row shows for the account's tightest limit: a meter, a balance, or nothing known. */
 export type Headline =
@@ -155,7 +141,9 @@ export function RowReset(props: {
   }
   return (
     <span className="d-reset">
-      {headline.kind === "meter" ? <ResetWords cell={headline.cell} /> : null}
+      {headline.kind === "meter" ? (
+        <ResetCaption resetWords={headline.cell.resetWords} resetsAt={headline.cell.resetsAt} />
+      ) : null}
     </span>
   );
 }

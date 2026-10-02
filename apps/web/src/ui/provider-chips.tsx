@@ -1,7 +1,6 @@
 import type { Provider } from "@headroom/core/contracts";
 
-import { BrandMark } from "../icons.tsx";
-import "./provider-chips.css";
+import { ProviderToken } from "./provider-token.tsx";
 
 export type ProviderFilter = Provider | "all";
 
@@ -22,25 +21,24 @@ export function ProviderChips(props: {
   readonly label: string;
 }) {
   return (
-    <fieldset className="pchips" aria-label={props.label}>
+    <fieldset className="ptokens" aria-label={props.label}>
       <button
-        className="pchip"
+        className="ptoken"
         type="button"
         aria-pressed={props.value === "all"}
         onClick={() => props.onChange("all")}
       >
-        All <span className="n">{props.total}</span>
+        <ProviderToken name="All" count={props.total} />
       </button>
       {props.options.map((option) => (
         <button
           key={option.provider}
-          className="pchip"
+          className="ptoken"
           type="button"
           aria-pressed={props.value === option.provider}
           onClick={() => props.onChange(option.provider)}
         >
-          <BrandMark provider={option.provider} />
-          {option.label} <span className="n">{option.count}</span>
+          <ProviderToken provider={option.provider} name={option.label} count={option.count} />
         </button>
       ))}
     </fieldset>

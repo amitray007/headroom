@@ -19,19 +19,11 @@ import { Button } from "../ui/button.tsx";
 import { Dialog } from "../ui/dialog.tsx";
 import { EmptyState } from "../ui/empty-state.tsx";
 import { ErrorNotice } from "../ui/error-notice.tsx";
-import { StatusPill, type StatusKind } from "../ui/pill.tsx";
+import { StatusPill, statusKindOf } from "../ui/pill.tsx";
 import { LimitsCell } from "./limits.tsx";
 import { TableSkeleton } from "./skeletons.tsx";
 import { useReorder, type OrderChange } from "./reorder.tsx";
 import { RowActions, type RowHandlers } from "./row-actions.tsx";
-
-const statusKinds: Record<ReturnType<typeof statusOf>["word"], StatusKind> = {
-  Active: "active",
-  Paused: "paused",
-  Disconnected: "disconnected",
-  "Refresh Failed": "refresh_failed",
-  "Out of Date": "out_of_date",
-};
 
 function Tally(props: { readonly connections: readonly OverviewConnection[] }) {
   const { connections } = props;
@@ -160,7 +152,7 @@ function AccountRow(props: {
       <LimitsCell connection={connection} />
       <td className="tstatus">
         <span className="status-slot">
-          <StatusPill kind={statusKinds[status.word]} />
+          <StatusPill kind={statusKindOf(status.word)} />
         </span>
       </td>
       <td className="tlast">

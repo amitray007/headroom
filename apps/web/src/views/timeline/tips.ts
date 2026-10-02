@@ -1,5 +1,6 @@
 import type { OverviewConnection } from "../../api.ts";
 import { accountName, providerName } from "../../lib/labels.ts";
+import { resetVerb } from "../../lib/reset-caption.tsx";
 import { age, countdown, exactFull, type Clock } from "../../lib/time.ts";
 import { displayMeter, toneOf, type LimitsView } from "../../lib/tone.ts";
 import type { PopoverContent } from "../../ui/hover-popover.tsx";
@@ -104,7 +105,7 @@ export function windowTip(lane: Lane, role: Role, context: TipContext): PopoverC
   const passed = Math.round(
     Math.min(1, Math.max(0, (now - lane.start) / (lane.end - lane.start))) * 100,
   );
-  const verb = lane.kind === "cycle" ? "Cycle ends" : "Resets";
+  const verb = resetVerb(lane.drawn.resetWords);
   return {
     title,
     when: `${verb} in ${countdown(lane.end, now)} · ${exactFull(lane.end, now, clock)}`,

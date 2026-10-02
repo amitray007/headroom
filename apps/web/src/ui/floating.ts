@@ -11,6 +11,11 @@ import {
 
 const edge = 10;
 
+/** The start of a span of `size`, moved as little as needed to sit `margin` inside a viewport `limit` long. */
+export function keepInView(start: number, size: number, limit: number, margin: number): number {
+  return Math.max(margin, Math.min(start, limit - size - margin));
+}
+
 /** The layer that is open now. Opening another layer closes it, so only one is ever open. */
 let closeCurrent: (() => void) | null = null;
 
@@ -70,7 +75,7 @@ export function useFloatingLayer(gap: number): {
     setPlacement({
       above: !below,
       top: below ? rect.bottom + gap : Math.max(edge, rect.top - gap - height),
-      left: Math.max(edge, Math.min(rect.right - width, window.innerWidth - width - edge)),
+      left: keepInView(rect.right - width, width, window.innerWidth, edge),
     });
   }, [open, gap]);
 

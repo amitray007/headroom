@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { AlertIcon, ClockIcon, PartialIcon, PauseIcon, RetryIcon } from "../icons.tsx";
+import type { StatusView } from "../lib/labels.ts";
 import { cx } from "./cx.ts";
 import { Fade } from "./fade.tsx";
 
@@ -48,6 +49,19 @@ export function StatusPill(props: { readonly kind: StatusKind; readonly label?: 
       {props.label ?? look.words}
     </Pill>
   );
+}
+
+const kindOfWord: Record<StatusView["word"], StatusKind> = {
+  Active: "active",
+  Paused: "paused",
+  Disconnected: "disconnected",
+  "Refresh Failed": "refresh_failed",
+  "Out of Date": "out_of_date",
+};
+
+/** The pill kind for the word `statusOf` gives an account. */
+export function statusKindOf(word: StatusView["word"]): StatusKind {
+  return kindOfWord[word];
 }
 
 /** The healthy panel status: a dot and how long ago the account refreshed. */

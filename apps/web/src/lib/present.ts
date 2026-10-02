@@ -73,6 +73,7 @@ export interface PanelModel {
     readonly label: string;
     readonly used: number;
     readonly resetsAt: number | null;
+    readonly resetWords: MeterCell["resetWords"];
   } | null;
   /** For accounts with no meters: the credit balance. */
   readonly balance: {
@@ -640,7 +641,12 @@ function tightestOf(
     }
   }
   if (best === undefined || best.used === null) return null;
-  return { label: best.short, used: best.used, resetsAt: best.resetsAt };
+  return {
+    label: best.short,
+    used: best.used,
+    resetsAt: best.resetsAt,
+    resetWords: best.resetWords,
+  };
 }
 
 /** `now` drops reset credits that have already expired from the hold target. */

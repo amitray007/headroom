@@ -4,6 +4,7 @@ import { useSettings } from "../lib/settings.tsx";
 import { exactFull } from "../lib/time.ts";
 import { displayMeter, toneOf } from "../lib/tone.ts";
 import { useNow } from "../lib/now.ts";
+import { ResetCaption } from "../lib/reset-caption.tsx";
 import { When } from "../lib/when.tsx";
 import { Bar } from "../ui/bar.tsx";
 import { CountUp } from "../ui/count-up.tsx";
@@ -85,19 +86,7 @@ function MeterCell(props: {
             {" · "}
           </>
         )}
-        {cell.resetWords === "with_cycle" ? (
-          "Resets with the cycle"
-        ) : cell.resetWords === "not_started" ? (
-          "Not Started"
-        ) : cell.resetsAt === null ? (
-          "No reset time"
-        ) : (
-          <When
-            at={cell.resetsAt}
-            kind="until"
-            prefix={cell.resetWords === "cycle_end" ? "Cycle ends" : "Resets"}
-          />
-        )}
+        <ResetCaption resetWords={cell.resetWords} resetsAt={cell.resetsAt} />
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type { Tone } from "../lib/tone.ts";
+import { keepInView } from "./floating.ts";
 import "./hover-popover.css";
 
 /** What the popover says: a title, one line of timing, then facts. A fact may carry a tone dot. */
@@ -130,7 +131,7 @@ export function HoverPopover(props: { readonly resolve: (id: string) => PopoverC
     const width = el.offsetWidth;
     const height = el.offsetHeight;
     const center = Math.min(rect.right, Math.max(rect.left, shown.x ?? rect.left + rect.width / 2));
-    const left = Math.max(margin, Math.min(center - width / 2, window.innerWidth - width - margin));
+    const left = keepInView(center - width / 2, width, window.innerWidth, margin);
     const above = rect.top - height - gap;
     const useBelow = above < margin;
     el.style.left = `${left}px`;

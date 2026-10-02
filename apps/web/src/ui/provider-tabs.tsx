@@ -1,9 +1,7 @@
-import "./provider-tabs.css";
-
 import type { Provider } from "@headroom/core/contracts";
 import { useRef, type KeyboardEvent } from "react";
 
-import { BrandMark } from "../icons.tsx";
+import { ProviderToken } from "./provider-token.tsx";
 
 /** One tab: a provider, the name to show and how many accounts it has. */
 export interface ProviderTab {
@@ -48,7 +46,7 @@ export function ProviderTabs(props: {
   return (
     <div
       ref={list}
-      className="provider-tabs"
+      className="ptokens"
       role="tablist"
       aria-label={props.label}
       tabIndex={-1}
@@ -64,12 +62,10 @@ export function ProviderTabs(props: {
             aria-selected={selected}
             aria-controls={props.panelId}
             tabIndex={selected ? 0 : -1}
-            className="provider-tab"
+            className="ptoken"
             onClick={() => onChange(tab.provider)}
           >
-            <BrandMark provider={tab.provider} />
-            {tab.name}
-            <span className="count">{tab.count}</span>
+            <ProviderToken provider={tab.provider} name={tab.name} count={tab.count} />
           </button>
         );
       })}
