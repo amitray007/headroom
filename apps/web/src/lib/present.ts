@@ -277,7 +277,26 @@ function claude(context: Context): Built {
   }
   const spend = take(context, "extra_usage.used");
   const cap = take(context, "extra_usage.monthly_limit");
-  const facts = factFor(context, "reset_grants.available", "Reset Grants", (n) => String(n));
+  const facts: Fact[] = [];
+  const grants = take(context, "reset_grants.available");
+  const banked = context.connection.snapshot?.resetCredits ?? [];
+  // Display only: no hold, because the Claude connector supports no account action.
+  const others: Cell[] =
+    grants === null && banked.length === 0
+      ? []
+      : [
+          {
+            kind: "resets",
+            key: "reset_grants.available",
+            label: "Reset Grants",
+            window: "banked",
+            count: grants === null ? banked.filter((c) => c.usable).length : numberOf(grants),
+            expiries: banked
+              .filter((grant) => grant.usable && grant.expiresAt !== null)
+              .map((grant) => grant.expiresAt ?? 0)
+              .toSorted((a, b) => a - b),
+          },
+        ];
   if (spend !== null) {
     const used = numberOf(spend);
     const limit = cap === null ? null : numberOf(cap);
@@ -293,7 +312,7 @@ function claude(context: Context): Built {
       ),
     );
   }
-  return { meters, others: [], facts };
+  return { meters, others, facts };
 }
 
 function codex(context: Context): Built {

@@ -33,9 +33,45 @@ describe("claude", () => {
       ["Weekly", "all models", 78],
       ["Weekly", "Fable", 91],
     ]);
-    expect(panel.facts).toEqual([
-      { key: "reset_grants.available", label: "Reset Grants", value: "0" },
-    ]);
+    expect(panel.facts).toEqual([]);
+    expect(panel.cells.at(-1)).toEqual({
+      kind: "resets",
+      key: "reset_grants.available",
+      label: "Reset Grants",
+      window: "banked",
+      count: 0,
+      expiries: [],
+    });
+    expect(panel.hold).toBeNull();
+  });
+  test("banked grants list every usable expiry, soonest first, with no hold", () => {
+    const late = new Date(2025, 9, 20).getTime();
+    const soon = new Date(2025, 9, 5).getTime();
+    const banked = presentPanel(
+      connection("claude", {
+        metrics: [
+          metric("reset_grants.available", {
+            kind: "reset_inventory",
+            unit: "resets",
+            scope: "account",
+            valueText: "2",
+            valueNum: 2,
+          }),
+        ],
+        resetCredits: [
+          credit("grant-0", { expiresAt: late }),
+          credit("grant-1", { expiresAt: soon }),
+          credit("grant-2", { usable: false, expiresAt: 1 }),
+        ],
+        actions: { enabled: true, supported: [] },
+      }),
+    );
+    expect(banked.cells.at(-1)).toMatchObject({ kind: "resets", count: 2, expiries: [soon, late] });
+    expect(banked.hold).toBeNull();
+  });
+  test("an ineligible account shows no grants cell", () => {
+    const none = presentPanel(connection("claude", { metrics: [percent("seven_day", 5)] }));
+    expect(none.cells.some((cell) => cell.kind === "resets")).toBe(false);
   });
   test("the table shows the weekly all-models limit, not the highest", () => {
     expect(panel.tightest).toEqual({ label: "Weekly", used: 78, resetsAt: reset });

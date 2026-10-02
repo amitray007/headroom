@@ -113,7 +113,7 @@ Source: `metricsFrom` (claude/index.ts:364-455).
 | `limits.<display_name>` | quota_percentage | percent | `window:604800s` | never | `resets_at` of the limit | no | raw `String(percent)` | only entries with `kind == "weekly_scoped"`; `<display_name>` is `scope.model.display_name`, else `scoped`. Other kinds (`session`, `weekly_all`, unknown) are ignored. No sanitizing, no dedupe |
 | `extra_usage.used` | spend | USD | `month` | never | never | no | cents divided by 100, 2 decimals, `"12.50"` | `extra_usage.is_enabled` is not exactly true (disabled gives no row and no partial) |
 | `extra_usage.monthly_limit` | spending_cap | USD | `month` | never | never | no | 2 decimals | extra usage disabled, or limit null, 0 or absent (no cap) |
-| `reset_grants.available` | reset_inventory | `resets` | `account` | never | never | no | integer string; sum of `resets_left` over grants | `cedar_ember` null or absent, or `eligible` not true (the Claude Code sign-in gets `ineligible_reason: "surface"`, so the count is unknown, not zero) |
+| `reset_grants.available` | reset_inventory | `resets` | `account` | never | never | no | integer string; sum of `resets_left` over usable grants (not paused, `resets_left >= 1`, `starts_at` not after the observation, `ends_at` after it; absent dates pass). 0 is a real zero when eligible | `cedar_ember` null or absent, or `eligible` not true (a request without the Claude Code user agent gets `ineligible_reason: "surface"`, so the count is unknown, not zero) |
 
 Availability: bucket object without `utilization` is `unknown` with null value; `extra_usage.used` with null `used_credits` while enabled is `unknown`. Everything else `available`.
 
@@ -131,10 +131,10 @@ Rows come from `cedar_ember.grants` (claude/index.ts:429-453):
 | --- | --- |
 | `providerCreditId` | `grant-<index>` (not stable across responses) |
 | `eligible` | `cedar_ember.eligible === true`, same for every grant |
-| `usable` | `eligible && resets_left >= 1` |
+| `usable` | the usable-grant rule above |
 | `expiresAt` | `ends_at`, null if absent |
 | `cooldownUntil` | never set |
-| `rawLabel` | `"<resets_left> left"` (missing counts as 0) |
+| `rawLabel` | `label`, else `"<resets_left> left"` (missing counts as 0) |
 
 No action: `supportedActions` is absent, so `actions.supported` is `[]`. Capability `reset_grants.redeem` is `unsupported`, reason "no documented action". Do not draw a button.
 
@@ -146,7 +146,7 @@ No action: `supportedActions` is absent, so `actions.supported` is `[]`. Capabil
 | `seven_day` | available | validated | none |
 | `limits.weekly_scoped` | available | validated | none |
 | `extra_usage` | available | source_inspected | collected while extra usage is switched on |
-| `reset_grants` | available | validated | count validated; grant element shape source-inspected |
+| `reset_grants` | available | validated | count and grant element shape validated 2026-10-02 |
 | `reset_grants.redeem` | unsupported | source_inspected | no documented action |
 
 All `private`. No `not_authorized`.
@@ -550,7 +550,7 @@ Metric key to label map (suggested). Keys carry their own meaning where scope is
 | `grok_credits` | Grok `on_demand_cap` (spending_cap), `on_demand.used` (spend), `prepaid_balance` (credits) | integer-looking string | "N credits". `on_demand_cap` of `0` means on-demand is off; show "off", not "0 of cap" |
 | `gateway_credits` | Vercel `credits.balance`, `credits.total_used` (credits) | decimal string, 2 decimals in tests | "N credits". Do not prefix with a dollar sign |
 | `USD` | Claude `extra_usage.*`, Cursor `included.limit` and `on_demand.*`, Vercel `spend.<N>d` | decimal string: 2 decimals (Claude, Cursor), 6 decimals (Vercel) | Currency format with 2 decimals; Vercel may show more for tiny values |
-| `resets` | `reset_credits.available_count`, `reset_grants.available` (reset_inventory) | non-negative integer string | A row of pips plus the count. Separate from the bucket's reset time. Claude shows `0` when not eligible, which is zero usable, not unknown |
+| `resets` | `reset_credits.available_count`, `reset_grants.available` (reset_inventory) | non-negative integer string | A row of pips plus the count. Separate from the bucket's reset time. Claude shows the cell only when eligible; an ineligible response gives no count and no cell, which is unknown, not zero |
 
 Kind to display shape: `quota_percentage` is a meter; `absolute_quota` is a count; `credits` is a balance or lifetime total; `spend` is an amount over a span; `spending_cap` is a ceiling shown beside its spend row (`on_demand.used` next to `on_demand.limit`, `extra_usage.used` next to `extra_usage.monthly_limit`, except Cursor `included.limit`, which is the included allowance); `reset_inventory` is a count; `reset_timestamp` is declared in core/enums.ts:130 but no connector emits it, so the reset time of a bucket is its `resetsAt` field.
 

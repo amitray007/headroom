@@ -294,7 +294,7 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
       if (!usage.success)
         throw new ConnectorError("invalid_response", "usage response shape changed");
       const observedAt = now();
-      const { metrics, resetCredits } = metricsFrom(usage.data);
+      const { metrics, resetCredits } = metricsFrom(usage.data, observedAt);
       return { observedAt, metrics, resetCredits, failures: [] };
     },
 
@@ -361,7 +361,10 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
   };
 }
 
-function metricsFrom(usage: UsageResponse): {
+function metricsFrom(
+  usage: UsageResponse,
+  observedAt: number,
+): {
   metrics: MetricObservation[];
   resetCredits: ResetCreditObservation[];
 } {
@@ -435,13 +438,20 @@ function metricsFrom(usage: UsageResponse): {
     let total = 0;
     (usage.cedar_ember.grants ?? []).forEach((grant, index) => {
       const left = grant.resets_left ?? 0;
-      total += Math.max(0, left);
+      const startsAt = parseDate(grant.starts_at);
+      const endsAt = parseDate(grant.ends_at);
+      const usable =
+        grant.paused !== true &&
+        left >= 1 &&
+        (startsAt === null || startsAt <= observedAt) &&
+        (endsAt === null || endsAt > observedAt);
+      if (usable) total += left;
       resetCredits.push({
         providerCreditId: `grant-${index}`,
         eligible: true,
-        usable: left >= 1,
-        expiresAt: parseDate(grant.ends_at),
-        rawLabel: `${left} left`,
+        usable,
+        expiresAt: endsAt,
+        rawLabel: grant.label ?? `${left} left`,
       });
     });
     metrics.push({

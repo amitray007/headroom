@@ -102,6 +102,18 @@ describe("expiring resets", () => {
       }),
     );
   });
+  test("Claude grants raise the same notice", () => {
+    const banked = connection("claude", {
+      id: "c1",
+      resetCredits: [
+        credit("grant-0", { expiresAt: expires }),
+        credit("grant-1", { usable: false, expiresAt: expires }),
+      ],
+    });
+    const [item] = deriveNotifications([banked], defaultSettings, now);
+    expect(item?.title).toBe("A Claude Reset Expires in 3 Days");
+    expect(item?.description).toBe("1 of 1 banked full resets expires Oct 5.");
+  });
   test("several soon", () => {
     const two = connection("codex", {
       resetCredits: [

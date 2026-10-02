@@ -90,7 +90,14 @@ export const usageResponseSchema = z
           .array(
             z
               .object({
+                /** `id` is the redemption handle; it is never parsed or stored. */
+                label: z.string().nullable().optional(),
+                resets_total: z.number().optional(),
                 resets_left: z.number().optional(),
+                starts_at: z.string().nullable().optional(),
+                paused: z.boolean().optional(),
+                usable_now: z.boolean().optional(),
+                clears: z.array(z.string()).optional(),
                 ends_at: z.string().nullable().optional(),
               })
               .loose(),
