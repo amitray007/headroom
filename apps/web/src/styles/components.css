@@ -1403,8 +1403,55 @@ label.srow {
 .srow .switch {
   flex: none;
 }
-.srow-list {
-  align-items: flex-start;
+/* Tabs at the top of the dialog body: text with a line that glides under the chosen one. They stay put while the
+   rows scroll, and scroll sideways on a narrow phone. */
+.dlg.settings .stabs {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  gap: 2px;
+  padding: 0 18px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.dlg.settings .stabs::-webkit-scrollbar {
+  display: none;
+}
+.dlg.settings .stab {
+  flex: none;
+  height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-muted);
+  font: 500 var(--text-base) / 1 var(--font);
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease-standard),
+    scale var(--dur-spring) var(--ease-spring);
+}
+.dlg.settings .stab[aria-selected="true"] {
+  color: var(--foreground);
+}
+.dlg.settings .stab:active {
+  scale: 0.97;
+  transition-duration: var(--dur-instant);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dlg.settings .stab:hover {
+    color: var(--foreground);
+  }
+}
+.dlg.settings .dsec:first-child {
+  border-top: 0;
+}
+/* The fading copy of the old tab sits on the dialog's own surface. */
+.dlg.settings .slide-swap-ghost {
+  background: var(--surface-raised);
 }
 
 /* Sortable list: a grip, a mark and a name per row. Rows slide with a spring while one is dragged. */

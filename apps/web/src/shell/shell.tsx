@@ -2,11 +2,9 @@ import { useState, type ReactNode } from "react";
 
 import type { ViewId } from "../router.ts";
 import { useSettings } from "../lib/settings.tsx";
-import type { ViewProps } from "../views/props.ts";
 import { ErrorNotice } from "../ui/error-notice.tsx";
 import type { NotificationsView } from "../lib/use-notifications.ts";
 import { AccountDialog } from "./account-dialog.tsx";
-import { OpenSettingsContext, type SettingsSection } from "./open-settings.ts";
 import { SettingsDialog } from "./settings-dialog.tsx";
 import { TopBar } from "./top-bar.tsx";
 
@@ -33,38 +31,24 @@ export function Shell(props: {
   readonly view: ViewId | null;
   readonly name: string;
   readonly notifications: NotificationsView;
-  /** The settings dialog orders the providers the overview holds. */
-  readonly overview: ViewProps["overview"];
   readonly children: ReactNode;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [section, setSection] = useState<SettingsSection | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const { loadFailed } = useSettings();
-  const openSettings = (target?: SettingsSection): void => {
-    setSection(target ?? null);
-    setSettingsOpen(true);
-  };
   return (
-    <OpenSettingsContext value={openSettings}>
-      <div className="page">
-        <TopBar
-          view={props.view}
-          name={props.name}
-          notifications={props.notifications}
-          onSettings={() => openSettings()}
-          onAccount={() => setAccountOpen(true)}
-        />
-        {loadFailed ? <SettingsFailed /> : null}
-        {props.children}
-        <SettingsDialog
-          open={settingsOpen}
-          section={section}
-          onClose={() => setSettingsOpen(false)}
-          overview={props.overview}
-        />
-        <AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} />
-      </div>
-    </OpenSettingsContext>
+    <div className="page">
+      <TopBar
+        view={props.view}
+        name={props.name}
+        notifications={props.notifications}
+        onSettings={() => setSettingsOpen(true)}
+        onAccount={() => setAccountOpen(true)}
+      />
+      {loadFailed ? <SettingsFailed /> : null}
+      {props.children}
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} />
+    </div>
   );
 }

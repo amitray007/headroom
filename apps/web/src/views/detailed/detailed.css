@@ -40,6 +40,27 @@
   height: 15px;
 }
 
+/* The Arrange panel: a title, one line, and the provider list. */
+.notif.arrange-pop {
+  display: grid;
+  gap: var(--space-3);
+  width: min(256px, calc(100vw - 24px));
+  padding: 16px;
+  border-radius: var(--radius-panel);
+}
+.arrange-head h2 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.arrange-head p {
+  margin: 2px 0 0;
+  font-size: var(--text-xs);
+}
+.arrange-pop .sortlist {
+  width: auto;
+}
+
 .d-item > .fold-clip > .d-card,
 .d-list > .d-item > .d-card {
   margin-bottom: var(--space-2);

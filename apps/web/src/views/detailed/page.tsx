@@ -1,17 +1,16 @@
 import { useState } from "react";
 
-import { BrandMark, ReorderIcon } from "../../icons.tsx";
+import { BrandMark } from "../../icons.tsx";
 import { AddAccountLink, LoadFailed, NoAccounts } from "../../dashboard/states.tsx";
 import { providerName } from "../../lib/labels.ts";
 import { useSettings } from "../../lib/settings.tsx";
-import { useOpenSettings } from "../../shell/open-settings.ts";
-import { Button } from "../../ui/button.tsx";
 import { cx } from "../../ui/cx.ts";
 import { Fold } from "../../ui/fold.tsx";
 import { ProviderChips, type ProviderFilter } from "../../ui/provider-chips.tsx";
 import { Segmented } from "../../ui/segmented.tsx";
 import type { ViewProps } from "../props.ts";
 import { arrange, matches, providerCounts, type DetailedOrder, type Section } from "./arrange.ts";
+import { ArrangePopover } from "./arrange-popover.tsx";
 import { AccountRow } from "./row.tsx";
 import { DetailedSkeleton } from "./skeleton.tsx";
 import "./detailed.css";
@@ -58,10 +57,9 @@ export function DetailedPage(props: ViewProps) {
   const { connections, providerOrder, failed, stale, reload } = props.overview;
   const store = useSettings();
   const { settings, loaded, loadFailed } = store;
-  const openSettings = useOpenSettings();
   const [filter, setFilter] = useState<ProviderFilter>("all");
   const [openId, setOpenId] = useState<string | null>(null);
-  // The order is the saved Default Order, so this page and Settings always agree. If the settings never loaded,
+  // The order is the saved Detailed order, kept in Settings. If the settings never loaded,
   // saving is not safe, so the choice stays on this page until reload.
   const [localOrder, setLocalOrder] = useState<DetailedOrder | null>(null);
   const [retrying, setRetrying] = useState(false);
@@ -129,15 +127,7 @@ export function DetailedPage(props: ViewProps) {
             options={limitViews}
             onChange={(limitsView) => void store.update({ limitsView })}
           />
-          <Button
-            variant="quiet"
-            size="sm"
-            className="d-arrange"
-            icon={<ReorderIcon />}
-            onClick={() => openSettings("detailed")}
-          >
-            Arrange
-          </Button>
+          <ArrangePopover overview={props.overview} />
         </div>
       </div>
       <div className="d-list">

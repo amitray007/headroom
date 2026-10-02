@@ -35,6 +35,18 @@ export function SlideSwap(props: {
     height: 0,
   });
 
+  // The height is also kept current as the content resizes, so content that was hidden when it last rendered
+  // (a closed dialog) still has a real starting height for the next change.
+  useLayoutEffect(() => {
+    const bodyEl = body.current;
+    if (bodyEl === null) return;
+    const watcher = new ResizeObserver(() => {
+      if (bodyEl.offsetParent !== null) last.current.height = bodyEl.getBoundingClientRect().height;
+    });
+    watcher.observe(bodyEl);
+    return () => watcher.disconnect();
+  }, []);
+
   useLayoutEffect(() => {
     const rootEl = root.current;
     const bodyEl = body.current;

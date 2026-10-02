@@ -32,7 +32,7 @@ function SignedIn(props: { readonly name: string }) {
     if (storage !== null && view !== null) saveView(storage, view);
   }, [view]);
   return (
-    <Shell view={view} name={props.name} notifications={notifications} overview={overview}>
+    <Shell view={view} name={props.name} notifications={notifications}>
       {route.page === "connect" ? <ConnectPage onOrdered={overview.applyOrder} /> : null}
       {route.page === "reconnect" ? (
         <ConnectPage key={route.id} reconnectId={route.id} onOrdered={overview.applyOrder} />

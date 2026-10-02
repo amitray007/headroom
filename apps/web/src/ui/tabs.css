@@ -1,0 +1,26 @@
+/* The line under the chosen tab. It glides with a transform, so a tab change never reflows the row. */
+.tabs {
+  position: relative;
+}
+.tabs-mark {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: var(--tab-w, 0px);
+  border-radius: 2px;
+  background: var(--foreground);
+  translate: var(--tab-x, 0px) 0;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    translate var(--dur-standard) var(--ease-in-out),
+    width var(--dur-standard) var(--ease-in-out),
+    opacity var(--dur-fast) var(--ease-standard);
+}
+.tabs-mark[data-on] {
+  opacity: 1;
+}
+.tabs-mark[data-snap] {
+  transition: none;
+}
