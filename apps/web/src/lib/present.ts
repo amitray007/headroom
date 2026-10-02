@@ -61,6 +61,13 @@ export interface PanelModel {
   readonly facts: readonly Fact[];
   /** The reset credit the hold-to-confirm button would use: the soonest to expire. */
   readonly hold: { readonly creditId: string; readonly expiresAt: number | null } | null;
+  /** Banked resets shown as a compact summary instead of a cell, or null when the account has none to report. */
+  readonly banked: {
+    readonly count: number;
+    readonly label: string;
+    /** Expiry instants of usable resets, soonest first. */
+    readonly expiries: readonly number[];
+  } | null;
   /** The meter that best summarises the account, for the accounts table. */
   readonly tightest: {
     readonly label: string;
@@ -250,6 +257,7 @@ interface Built {
   meters: MeterCell[];
   others: Cell[];
   facts: Fact[];
+  banked?: PanelModel["banked"];
 }
 
 function claude(context: Context): Built {
@@ -279,24 +287,21 @@ function claude(context: Context): Built {
   const cap = take(context, "extra_usage.monthly_limit");
   const facts: Fact[] = [];
   const grants = take(context, "reset_grants.available");
-  const banked = context.connection.snapshot?.resetCredits ?? [];
+  const stored = context.connection.snapshot?.resetCredits ?? [];
   // Display only: no hold, because the Claude connector supports no account action.
-  const others: Cell[] =
-    grants === null && banked.length === 0
-      ? []
-      : [
-          {
-            kind: "resets",
-            key: "reset_grants.available",
-            label: "Reset Grants",
-            window: "banked",
-            count: grants === null ? banked.filter((c) => c.usable).length : numberOf(grants),
-            expiries: banked
-              .filter((grant) => grant.usable && grant.expiresAt !== null)
-              .map((grant) => grant.expiresAt ?? 0)
-              .toSorted((a, b) => a - b),
-          },
-        ];
+  const grantCount = grants === null ? stored.filter((c) => c.usable).length : numberOf(grants);
+  // An unreported count is unknown, not zero, so it shows nothing.
+  const banked: PanelModel["banked"] =
+    (grants === null && stored.length === 0) || grantCount === null
+      ? null
+      : {
+          count: grantCount,
+          label: "Reset Grant",
+          expiries: stored
+            .filter((grant) => grant.usable && grant.expiresAt !== null)
+            .map((grant) => grant.expiresAt ?? 0)
+            .toSorted((a, b) => a - b),
+        };
   if (spend !== null) {
     const used = numberOf(spend);
     const limit = cap === null ? null : numberOf(cap);
@@ -312,7 +317,7 @@ function claude(context: Context): Built {
       ),
     );
   }
-  return { meters, others, facts };
+  return { meters, others: [], facts, banked };
 }
 
 function codex(context: Context): Built {
@@ -650,6 +655,7 @@ export function presentPanel(connection: OverviewConnection, now?: number): Pane
   return {
     cells,
     facts,
+    banked: built.banked ?? null,
     hold: holdOf(connection, snapshot?.resetCredits ?? [], now),
     tightest: tightestOf(connection.provider, meters),
     balance:

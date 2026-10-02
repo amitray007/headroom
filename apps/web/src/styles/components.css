@@ -511,6 +511,8 @@ time.when {
 .facts > .lead {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-2) var(--space-4);
+  min-width: 0;
   margin: -6px 0;
 }
 .facts > .lead .hold.sm {
@@ -2030,4 +2032,54 @@ html[data-density="compact"] .accounts .tname {
   .srow-choice .sk-segs > .sk {
     width: auto !important;
   }
+}
+
+/* Banked resets: a one-line read-only summary, level with the 30px action buttons. */
+.banked {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: 30px;
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+}
+.banked-chip {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--foreground) 7%, var(--surface));
+  color: var(--text-secondary);
+}
+.banked-chip svg {
+  width: 14px;
+  height: 14px;
+}
+.banked-text {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  white-space: nowrap;
+}
+.banked-count {
+  font-weight: 500;
+  color: var(--foreground);
+}
+.banked-dot {
+  color: var(--text-muted);
+}
+.banked-when {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.banked-zero {
+  color: var(--text-muted);
+}
+.banked .info {
+  margin-left: 0;
+  vertical-align: baseline;
 }

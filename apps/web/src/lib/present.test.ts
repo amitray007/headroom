@@ -34,14 +34,8 @@ describe("claude", () => {
       ["Weekly", "Fable", 91],
     ]);
     expect(panel.facts).toEqual([]);
-    expect(panel.cells.at(-1)).toEqual({
-      kind: "resets",
-      key: "reset_grants.available",
-      label: "Reset Grants",
-      window: "banked",
-      count: 0,
-      expiries: [],
-    });
+    expect(panel.cells.some((cell) => cell.kind === "resets")).toBe(false);
+    expect(panel.banked).toEqual({ count: 0, label: "Reset Grant", expiries: [] });
     expect(panel.hold).toBeNull();
   });
   test("banked grants list every usable expiry, soonest first, with no hold", () => {
@@ -66,12 +60,12 @@ describe("claude", () => {
         actions: { enabled: true, supported: [] },
       }),
     );
-    expect(banked.cells.at(-1)).toMatchObject({ kind: "resets", count: 2, expiries: [soon, late] });
+    expect(banked.banked).toEqual({ count: 2, label: "Reset Grant", expiries: [soon, late] });
     expect(banked.hold).toBeNull();
   });
-  test("an ineligible account shows no grants cell", () => {
+  test("an ineligible account shows no banked summary", () => {
     const none = presentPanel(connection("claude", { metrics: [percent("seven_day", 5)] }));
-    expect(none.cells.some((cell) => cell.kind === "resets")).toBe(false);
+    expect(none.banked).toBeNull();
   });
   test("the table shows the weekly all-models limit, not the highest", () => {
     expect(panel.tightest).toEqual({ label: "Weekly", used: 78, resetsAt: reset });
@@ -501,7 +495,14 @@ describe("vercel", () => {
 describe("general", () => {
   test("no snapshot gives an empty panel", () => {
     const panel = presentPanel({ ...connection("claude"), snapshot: null });
-    expect(panel).toEqual({ cells: [], facts: [], hold: null, tightest: null, balance: null });
+    expect(panel).toEqual({
+      cells: [],
+      facts: [],
+      banked: null,
+      hold: null,
+      tightest: null,
+      balance: null,
+    });
   });
   test("keys no rule knows still show", () => {
     const panel = presentPanel(

@@ -4,6 +4,8 @@ import { providers, type Provider } from "@headroom/core/contracts";
 
 import * as icons from "../icons.tsx";
 import { Avatar, BrandMark } from "../icons.tsx";
+import { BankedResets } from "./banked-resets.tsx";
+import { useNow } from "../lib/now.ts";
 import { Bar, type BarTone } from "./bar.tsx";
 import { Button, ButtonLink } from "./button.tsx";
 import { CountUp } from "./count-up.tsx";
@@ -250,6 +252,7 @@ export function Gallery() {
   const [dialog, setDialog] = useState<"none" | "plain" | "settings">("none");
   const [density, setDensity] = useState<"comfortable" | "compact">("comfortable");
   const [segment, setSegment] = useState("used");
+  const now = useNow();
   const [on, setOn] = useState(true);
   useEffect(() => {
     document.documentElement.style.colorScheme = scheme === "system" ? "" : scheme;
@@ -325,9 +328,6 @@ export function Gallery() {
           <div className="facts">
             <span className="lead">
               <HoldButton size="sm" label="Hold to Reset Weekly Limit" onConfirm={succeed("ok")} />
-            </span>
-            <span className="kv">
-              Reset Grants <b>0</b>
             </span>
             <span className="acts">
               <Button variant="quiet" size="sm" icon={<icons.PauseIcon />}>
@@ -475,6 +475,18 @@ export function Gallery() {
               <span>Reset 2 · expires Wed, Oct 22 at 14:39</span>
             </InfoTip>
           </span>
+        </Row>
+      </Section>
+
+      <Section title="Banked Resets">
+        <Row>
+          <BankedResets count={1} label="Reset Grant" expiries={[now + 3 * 86_400_000]} />
+          <BankedResets
+            count={3}
+            label="Reset Grant"
+            expiries={[now + 3 * 86_400_000, now + 9 * 86_400_000, now + 20 * 86_400_000]}
+          />
+          <BankedResets count={0} label="Reset Grant" expiries={[]} />
         </Row>
       </Section>
 

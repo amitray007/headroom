@@ -8,6 +8,7 @@ import { presentPanel } from "../lib/present.ts";
 import { useSettings } from "../lib/settings.tsx";
 import { When } from "../lib/when.tsx";
 import { ActionButton } from "../ui/action-button.tsx";
+import { BankedResets } from "../ui/banked-resets.tsx";
 import { ButtonLink } from "../ui/button.tsx";
 import { cx } from "../ui/cx.ts";
 import { HoldButton } from "../ui/hold-button.tsx";
@@ -70,6 +71,7 @@ export function AccountPanel(props: {
   const paused = connection.state === "paused";
   const waiting = connection.snapshot === null && !disconnected && !paused;
   const hold = model.hold;
+  const banked = model.banked;
 
   const resume = async (): Promise<void> => {
     try {
@@ -149,7 +151,7 @@ export function AccountPanel(props: {
     right = <StatusPill kind={statusKinds[status.word]} />;
   }
 
-  const showFacts = model.facts.length > 0 || hold !== null || !waiting;
+  const showFacts = model.facts.length > 0 || hold !== null || banked !== null || !waiting;
   return (
     <div className={cx("collapse", props.closed && "closed")}>
       <section
@@ -181,23 +183,26 @@ export function AccountPanel(props: {
         )}
         {showFacts ? (
           <div className="facts">
-            {hold === null ? null : (
+            {hold === null && banked === null ? null : (
               <span className="lead">
-                <HoldButton
-                  size="sm"
-                  label="Hold to Reset Weekly Limit"
-                  // Follows the Settings switch directly; the server refuses the action whenever the saved setting is off.
-                  off={!actionsEnabled}
-                  onConfirm={async () => {
-                    try {
-                      const outcome = await api.consumeResetCredit(connection.id, hold.creditId);
-                      setTimeout(() => void onChanged(), resetReloadMs);
-                      return outcome.action.state === "succeeded" ? "ok" : "failed";
-                    } catch {
-                      return "failed";
-                    }
-                  }}
-                />
+                {hold === null ? null : (
+                  <HoldButton
+                    size="sm"
+                    label="Hold to Reset Weekly Limit"
+                    // Follows the Settings switch directly; the server refuses the action whenever the saved setting is off.
+                    off={!actionsEnabled}
+                    onConfirm={async () => {
+                      try {
+                        const outcome = await api.consumeResetCredit(connection.id, hold.creditId);
+                        setTimeout(() => void onChanged(), resetReloadMs);
+                        return outcome.action.state === "succeeded" ? "ok" : "failed";
+                      } catch {
+                        return "failed";
+                      }
+                    }}
+                  />
+                )}
+                {banked === null ? null : <BankedResets {...banked} />}
               </span>
             )}
             {model.facts.map((fact) => (
