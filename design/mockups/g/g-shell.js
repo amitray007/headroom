@@ -142,6 +142,7 @@ export const icons = {
   sliders: stroke(
     '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
   ),
+  plus: stroke('<path d="M12 5v14M5 12h14"/>'),
   reorder: stroke('<path d="m3 16 4 4 4-4M7 20V4M21 8l-4-4-4 4M17 4v16"/>'),
   info: stroke('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
   star: stroke(
@@ -247,7 +248,7 @@ export function accountDetail(account, view = getLimitsView()) {
   const note = !isLive(account)
     ? `<span class="kv">${account.status === "paused" ? "Paused" : "Disconnected"} <b>Numbers from ${ago(account.refreshed)}</b></span>`
     : `<span class="kv">Refreshed <b>${ago(account.refreshed)}</b></span>`;
-  return `<div class="cells${isLive(account) ? "" : " dim"}">${cells.join("")}</div><div class="facts">${note}<a class="btn sm g-open" href="../f-panels.html">Open in Detailed</a></div>`;
+  return `<div class="cells${isLive(account) ? "" : " dim"}">${cells.join("")}</div><div class="facts">${note}<a class="btn sm g-open" href="g-panels.html">Open in Overview</a></div>`;
 }
 
 /** Let bars grow from zero once, as in the app. Call after inserting markup. */
@@ -261,9 +262,10 @@ export function growBars(root = document) {
 
 /* ---------- Top bar ---------- */
 
+// The panel view is the default and is called Overview; the compact list is Detailed.
 const views = [
-  { id: "detailed", label: "Detailed", href: "../f-panels.html" },
-  { id: "overview", label: "Overview", href: "g-glance.html" },
+  { id: "overview", label: "Overview", href: "g-panels.html" },
+  { id: "detailed", label: "Detailed", href: "g-glance.html" },
   { id: "compare", label: "Compare", href: "g-compare.html" },
   { id: "timeline", label: "Timeline", href: "g-timeline.html" },
 ];
@@ -281,7 +283,7 @@ export function attention() {
   });
 }
 
-/** Render the top bar into <header class="top">. `active` is one of detailed, overview, compare, timeline. */
+/** Render the top bar into <header class="top">. `active` is one of overview, detailed, compare, timeline. */
 export function renderShell({ active }) {
   // Identity lines are blurred like the app's Hide Details; hovering reveals them.
   document.documentElement.dataset.privacy = "";
@@ -289,11 +291,12 @@ export function renderShell({ active }) {
   const n = attention().length;
   host.classList.add("g-top");
   host.innerHTML = `
-    <a class="lockup" href="../f-panels.html">${lockupMark}Headroom</a>
+    <a class="lockup" href="g-panels.html">${lockupMark}Headroom</a>
     <div class="seg g-switch" role="navigation" aria-label="View">
       ${views.map((v) => `<a href="${v.href}"${v.id === active ? ' aria-current="page"' : ""}>${v.label}</a>`).join("")}
     </div>
     <nav aria-label="Account">
+      <a class="btn primary sm g-connect" href="../f-connect.html">${icons.plus}Connect</a>
       <span class="menu-anchor"><button class="bell" type="button" aria-label="Notifications, ${n} unread">${icons.bell}<span class="badge num${n === 0 ? " zero" : ""}" aria-hidden="true">${n === 0 ? "" : n}</span></button></span>
       <span class="menu-anchor"><button class="avatar" type="button" aria-label="Account Menu"><img src="avatar.svg" alt="" width="34" height="34" /></button></span>
     </nav>`;

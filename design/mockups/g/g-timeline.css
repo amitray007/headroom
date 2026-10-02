@@ -551,7 +551,8 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-5);
   margin-top: var(--space-5);
-  align-items: stretch;
+  /* Each card keeps its own height, so Show All grows Up Next without stretching the Watch List. */
+  align-items: start;
 }
 .tl-card {
   display: flex;

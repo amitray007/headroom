@@ -59,7 +59,6 @@
       <div id="list" class="tl-list" aria-label="Quota windows by account">
         <div class="tl-body"></div>
       </div>
-      <p id="missing" class="tl-missing"></p>
 
       <div class="tl-legend" aria-label="Legend">
         <span><i class="tl-lg tl-cur"></i>Current Window</span>
@@ -72,10 +71,6 @@
           <i class="tl-dot t-bad"></i>Almost Out</span
         >
       </div>
-      <p class="tl-note">
-        Each bar runs from when a window opened to when it resets. The strip inside it shows how
-        much is <span id="strip-word">used</span>.
-      </p>
 
       <div class="tl-pair">
         <section class="tl-card" aria-labelledby="next-title">
@@ -105,7 +100,6 @@
         when,
         startOfDay,
         lanesFor,
-        missingFor,
       } from "./g-timeline-data.js";
 
       shell.renderShell({ active: "timeline" });
@@ -601,15 +595,6 @@
           .join("");
         for (const b of $("views").children)
           b.setAttribute("aria-pressed", String(b.dataset.view === state.view));
-        $("strip-word").textContent = state.view === "used" ? "used" : "left";
-        const miss = missingFor(state.kind);
-        $("missing").textContent = miss.length
-          ? `Not Shown: ${
-              miss.length <= 3
-                ? miss.map((a) => `${providerName(a.provider)} · ${a.name}`).join(", ")
-                : plural(miss.length, "account")
-            } ${miss.length === 1 ? "has" : "have"} no ${KINDS[state.kind].label} window.`
-          : "";
         renderCards();
 
         if (firstRender) {

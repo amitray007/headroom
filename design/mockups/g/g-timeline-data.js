@@ -71,7 +71,3 @@ export function lanesFor(kind) {
   }
   return out;
 }
-
-/** Accounts with no timed limit of this kind (shown as a short note). */
-export const missingFor = (kind) =>
-  accounts.filter((a) => !a.meters.some((m) => kindOf(m) === kind));

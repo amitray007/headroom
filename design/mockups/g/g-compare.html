@@ -149,7 +149,7 @@
       function roomChip(x, isBinding, showTag) {
         const { m, left: l } = x;
         let body;
-        if (m.notStarted) body = "not started";
+        if (m.notStarted) body = "Not Started";
         else if (m.balance) body = `${m.balance.value} of ${m.balance.of}`;
         else {
           const d = display(m.used, state.view);
