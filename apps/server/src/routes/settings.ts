@@ -9,11 +9,7 @@ export function settingsRoutes(ctx: AppContext): Hono<Env> {
   const app = new Hono<Env>();
   app.use(requireSession(ctx));
 
-  const view = () => ({
-    settings: ctx.settings.get(),
-    // The server flag is the other half of the account-actions gate; the owner cannot flip it here.
-    actionsAllowedByServer: ctx.config.actionsEnabled,
-  });
+  const view = () => ({ settings: ctx.settings.get() });
 
   app.get("/", (c) => c.json(view()));
 

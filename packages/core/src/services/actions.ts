@@ -14,7 +14,7 @@ import type { ConnectorRegistry } from "./connect.ts";
  * runs under the connection lease; `uncertain` is recorded explicitly and never retried; a
  * successful action is followed by one ordinary collection so the dashboard shows the result.
  *
- * Two gates sit in front of every action: the `HEADROOM_ENABLE_ACTIONS` flag plus the owner's `accountActions` setting, both off by default,
+ * Two gates sit in front of every action: the owner's `accountActions` setting, off by default,
  * and an explicit `confirm` in the request. Monitoring never calls this service.
  */
 
@@ -47,7 +47,7 @@ export interface ActionOutcome {
 
 export class ActionsDisabledError extends Error {
   constructor() {
-    super("account actions are switched off (HEADROOM_ENABLE_ACTIONS)");
+    super("account actions are switched off in Settings");
     this.name = "ActionsDisabledError";
   }
 }

@@ -12,7 +12,6 @@ function Probe() {
 
 const exactValue: SettingsValue = {
   settings: { ...defaultSettings, timeStyle: "exact", clock: "12h" },
-  actionsAllowedByServer: true,
   loaded: true,
   loadFailed: false,
   error: null,

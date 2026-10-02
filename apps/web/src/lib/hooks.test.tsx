@@ -17,7 +17,6 @@ const claude = [connection("claude", { metrics: [percent("seven_day", 95)] })];
 
 const loadedSettings: SettingsValue = {
   settings: defaultSettings,
-  actionsAllowedByServer: false,
   loaded: true,
   loadFailed: false,
   error: null,

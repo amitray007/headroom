@@ -10,7 +10,6 @@ import {
 
 const envelope = (settings: Settings): SettingsEnvelope => ({
   settings,
-  actionsAllowedByServer: true,
 });
 
 function fakeClient(options: { failSave?: boolean; stored?: Settings } = {}) {
@@ -66,7 +65,6 @@ describe("store", () => {
     await store.load();
     expect(store.getState()).toEqual({
       settings: stored,
-      actionsAllowedByServer: true,
       loaded: true,
       loadFailed: false,
       error: null,
@@ -89,9 +87,7 @@ describe("store", () => {
     const stored = { ...defaultSettings, clock: "12h" } as const;
     const store = createSettingsStore({
       settings: () =>
-        fail
-          ? Promise.reject(new Error("down"))
-          : Promise.resolve({ settings: stored, actionsAllowedByServer: true }),
+        fail ? Promise.reject(new Error("down")) : Promise.resolve({ settings: stored }),
       saveSettings: () => Promise.reject(new Error("down")),
     });
     await store.load();

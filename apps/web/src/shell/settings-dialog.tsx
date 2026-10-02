@@ -124,7 +124,7 @@ const intervals = [5, 10, 15, 30] as const;
 /** The owner's preferences. Every change applies at once and is saved by the settings store. */
 export function SettingsDialog(props: { readonly open: boolean; readonly onClose: () => void }) {
   const store = useSettings();
-  const { settings, actionsAllowedByServer, loaded, loadFailed } = store;
+  const { settings, loaded, loadFailed } = store;
   const [retrying, setRetrying] = useState(false);
   const retry = (): void => {
     setRetrying(true);
@@ -218,13 +218,8 @@ export function SettingsDialog(props: { readonly open: boolean; readonly onClose
             <Section title="Account Actions">
               <SwitchRow
                 title="Allow Account Actions"
-                note={
-                  actionsAllowedByServer
-                    ? "Lets the hold button use a Codex reset."
-                    : "Turned off on your server."
-                }
-                checked={settings.accountActions && actionsAllowedByServer}
-                disabled={!actionsAllowedByServer}
+                note="Lets the hold button use a Codex reset."
+                checked={settings.accountActions}
                 onChange={(accountActions) => change({ accountActions })}
               />
             </Section>

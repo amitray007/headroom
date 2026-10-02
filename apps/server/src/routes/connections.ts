@@ -112,7 +112,7 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
 
   /**
    * Owner-triggered account mutation, for example consuming a Codex reset credit. Gated by
-   * HEADROOM_ENABLE_ACTIONS and by the literal confirm flag; never called by the scheduler.
+   * the owner's accountActions setting and by the literal confirm flag; never called by the scheduler.
    */
   app.post("/:id/actions", async (c) => {
     const connection = ctx.connections.get(c.req.param("id"));

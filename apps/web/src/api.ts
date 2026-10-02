@@ -193,7 +193,6 @@ const settingsSchema = z.object({
 export type Settings = z.infer<typeof settingsSchema>;
 const settingsEnvelopeSchema = z.object({
   settings: settingsSchema,
-  actionsAllowedByServer: z.boolean(),
 });
 export type SettingsEnvelope = z.infer<typeof settingsEnvelopeSchema>;
 

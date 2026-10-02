@@ -107,7 +107,7 @@ describe("api client", () => {
     expect(await api.rename("c1", null)).toEqual({ name: null });
   });
   test("settings load and save the full document", async () => {
-    const envelope = { settings: defaultSettings, actionsAllowedByServer: false };
+    const envelope = { settings: defaultSettings };
     const calls = stub(envelope);
     expect(await api.settings()).toEqual(envelope);
     expect(await api.saveSettings({ ...defaultSettings, clock: "12h" })).toEqual(envelope);
@@ -121,7 +121,6 @@ describe("api client", () => {
   test("a settings value outside the allowed set is refused", async () => {
     stub({
       settings: { ...defaultSettings, lowThresholdPercent: 25 },
-      actionsAllowedByServer: true,
     });
     expect(await failure(api.settings())).toContain("unexpected response");
   });

@@ -60,7 +60,7 @@ If the detail route fails, no credit rows are written, the count metric still co
 
 Action: `supportedActions = ["consume_reset_credit"]` (codex/index.ts:398). The detail response returns `actions: { enabled, supported: ["consume_reset_credit"] }` (server/routes/connections.ts:112-115). Gates, all enforced by the server (core/services/actions.ts:92-103, 171-177):
 
-1. `HEADROOM_ENABLE_ACTIONS=true` (default false). `actions.enabled` tells the UI.
+1. The owner's "Allow Account Actions" setting (default off). `actions.enabled` tells the UI.
 2. Request body has the literal `confirm: true`.
 3. Connection state is `ready` or `partial`.
 4. A `creditId` is given, is in the latest snapshot and has `usable: true`.

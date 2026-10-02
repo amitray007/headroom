@@ -132,8 +132,8 @@ describe("GET /api/overview", () => {
     expect(text).not.toContain("providerAccountId");
   });
 
-  test("reports the interval from settings and the effective actions gate", async () => {
-    const h = await harness({ HEADROOM_ENABLE_ACTIONS: "true" });
+  test("reports the interval from settings and the actions setting", async () => {
+    const h = await harness();
     addConnection(h, "codex", "a1", "Codex");
     const read = async () => overviewSchema.parse(await (await h.get("/api/overview")).json());
     expect((await read()).connections[0]?.actions.enabled).toBe(false);
@@ -233,12 +233,12 @@ describe("GET /api/connections/:id", () => {
 });
 
 describe("settings routes", () => {
-  test("defaults, round trip, and the server flag report", async () => {
+  test("defaults and round trip", async () => {
     const h = await harness({ HEADROOM_REFRESH_INTERVAL_SECONDS: "600" });
     const first = z
-      .object({ settings: z.record(z.string(), z.unknown()), actionsAllowedByServer: z.boolean() })
+      .object({ settings: z.record(z.string(), z.unknown()) })
+      .strict()
       .parse(await (await h.get("/api/settings")).json());
-    expect(first.actionsAllowedByServer).toBe(false);
     expect(first.settings).toMatchObject({
       limitsView: "used",
       lowThresholdPercent: 30,
@@ -251,11 +251,8 @@ describe("settings routes", () => {
     const next = { ...first.settings, limitsView: "left", clock: "12h" };
     const put = await h.send("PUT", "/api/settings", next);
     expect(put.status).toBe(200);
-    expect(await put.json()).toEqual({ settings: next, actionsAllowedByServer: false });
-    expect(await (await h.get("/api/settings")).json()).toEqual({
-      settings: next,
-      actionsAllowedByServer: false,
-    });
+    expect(await put.json()).toEqual({ settings: next });
+    expect(await (await h.get("/api/settings")).json()).toEqual({ settings: next });
   });
 
   test("rejects a partial or out-of-range body", async () => {

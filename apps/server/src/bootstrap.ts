@@ -136,8 +136,8 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     connect: new ConnectService({ registry, attempts, connections, credentials, snapshots, now }),
     collection,
     actions: new ActionService({
-      // Both halves must agree: the server flag and the owner's setting.
-      enabled: () => config.actionsEnabled && settings.get().accountActions,
+      // The owner's setting is the only gate; it is read at call time.
+      enabled: () => settings.get().accountActions,
       registry,
       connections,
       credentials,

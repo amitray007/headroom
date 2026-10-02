@@ -27,7 +27,6 @@ export function applyPatch(settings: Settings, patch: SettingsPatch): Settings {
 
 export interface SettingsState {
   readonly settings: Settings;
-  readonly actionsAllowedByServer: boolean;
   /** True once the first load finished, whether or not it worked. */
   readonly loaded: boolean;
   /** The first load failed, so the settings shown are the defaults and saving is not safe yet. */
@@ -58,7 +57,6 @@ const same = (a: Settings, b: Settings): boolean => JSON.stringify(a) === JSON.s
 export function createSettingsStore(client: SettingsClient): SettingsStore {
   let state: SettingsState = {
     settings: defaultSettings,
-    actionsAllowedByServer: false,
     loaded: false,
     loadFailed: false,
     error: null,
@@ -73,10 +71,7 @@ export function createSettingsStore(client: SettingsClient): SettingsStore {
     try {
       const envelope = await client.saveSettings(wanted);
       saved = envelope.settings;
-      set({
-        actionsAllowedByServer: envelope.actionsAllowedByServer,
-        ...(same(state.settings, wanted) ? { settings: envelope.settings } : {}),
-      });
+      if (same(state.settings, wanted)) set({ settings: envelope.settings });
     } catch {
       set({ settings: saved, error: "Could not save your settings. Nothing was changed." });
     }
@@ -101,7 +96,6 @@ export function createSettingsStore(client: SettingsClient): SettingsStore {
         saved = envelope.settings;
         set({
           settings: envelope.settings,
-          actionsAllowedByServer: envelope.actionsAllowedByServer,
           loaded: true,
           loadFailed: false,
           error: null,

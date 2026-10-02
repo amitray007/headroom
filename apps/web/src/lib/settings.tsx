@@ -19,7 +19,7 @@ import {
 } from "./settings-store.ts";
 
 export interface SettingsValue extends SettingsState {
-  /** The server allows account actions and the owner switched them on. */
+  /** The owner switched account actions on in Settings. */
   readonly actionsEnabled: boolean;
   update(patch: SettingsPatch): Promise<void>;
   /** Load the settings again, after a failed first load. */
@@ -28,7 +28,6 @@ export interface SettingsValue extends SettingsState {
 
 const fallback: SettingsValue = {
   settings: defaultSettings,
-  actionsAllowedByServer: false,
   loaded: false,
   loadFailed: false,
   error: null,
@@ -68,7 +67,7 @@ export function SettingsProvider({ children, client }: ProviderProps) {
   const value = useMemo<SettingsValue>(
     () => ({
       ...state,
-      actionsEnabled: state.actionsAllowedByServer && state.settings.accountActions,
+      actionsEnabled: state.settings.accountActions,
       update: store.update,
       reload: store.load,
     }),

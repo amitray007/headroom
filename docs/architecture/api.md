@@ -36,7 +36,7 @@ The response carries no provider account id or workspace id. The detail route is
 
 ## Settings
 
-`GET /api/settings` returns `{ settings, actionsAllowedByServer }`. `PUT /api/settings` takes the full settings object, validates it against `settingsSchema` and returns the same shape, or `400 invalid_body`.
+`GET /api/settings` returns `{ settings }`. `PUT /api/settings` takes the full settings object, validates it against `settingsSchema` and returns the same shape, or `400 invalid_body`.
 
 | Key | Values | Default |
 | --- | --- | --- |
@@ -53,4 +53,4 @@ The scheduler reads `refreshIntervalMinutes` on every tick, so a change applies 
 
 ## Account actions gate
 
-Account actions run only when the `HEADROOM_ENABLE_ACTIONS` flag and the owner's `accountActions` setting are both true. `actionsAllowedByServer` reports the flag; the owner cannot change it from the browser. With either half off, the action route answers `403 actions_disabled`. The confirm literal, connection state and usable-credit checks still apply. See [the data model](data-model.md#actions).
+Account actions are off by default and run only after the owner switches on "Allow Account Actions" in Settings (`accountActions`) and confirms each action. With the setting off, the action route answers `403 actions_disabled`. The confirm literal, connection state and usable-credit checks still apply. See [the data model](data-model.md#actions).
