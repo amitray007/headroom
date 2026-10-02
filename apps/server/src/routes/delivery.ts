@@ -5,6 +5,7 @@ import {
   type ChannelRow,
   type NotificationDeliveryFailure,
   generateWebhookSecret,
+  webhookSecretSchema,
 } from "@headroom/core";
 
 import type { AppContext } from "../bootstrap.ts";
@@ -36,6 +37,7 @@ const createBody = z.discriminatedUnion("type", [
   z.strictObject({
     type: z.literal("webhook"),
     url: webhookUrl,
+    secret: webhookSecretSchema.optional(),
     includeIdentity: z.boolean().default(false),
   }),
 ]);
@@ -47,7 +49,16 @@ const patchBody = z.strictObject({
   chatId: chatId.optional(),
   chatTitle: chatTitle.optional(),
   url: webhookUrl.optional(),
+  secret: webhookSecretSchema.optional(),
 });
+
+const botBody = z.strictObject({ botToken });
+
+const verifyBody = z.union([
+  z.strictObject({ type: z.literal("telegram"), botToken, chatId }),
+  z.strictObject({ type: z.literal("telegram"), channelId: z.string().min(1), chatId }),
+  z.strictObject({ type: z.literal("webhook"), url: webhookUrl, secret: webhookSecretSchema }),
+]);
 
 const chatsBody = z.union([
   z.strictObject({ botToken }),
@@ -91,7 +102,7 @@ export function deliveryRoutes(ctx: AppContext): Hono<Env> {
     if (!body.success) return c.json({ error: "invalid_body" }, 400);
     const input = body.data;
     if (input.type === "webhook") {
-      const secret = generateWebhookSecret();
+      const secret = input.secret ?? generateWebhookSecret();
       const url = parseWebhookUrl(input.url);
       if (!url) return c.json({ error: "invalid_body" }, 400);
       const channel = ctx.channels.create(
@@ -99,7 +110,10 @@ export function deliveryRoutes(ctx: AppContext): Hono<Env> {
         { url: url.toString(), secret },
         { includeIdentity: input.includeIdentity, label: url.host },
       );
-      return c.json({ channel: view(channel), secret }, 201);
+      return c.json(
+        input.secret ? { channel: view(channel) } : { channel: view(channel), secret },
+        201,
+      );
     }
     const me = await telegramGetMe(ctx.fetch, input.botToken);
     if (!me.ok) return tokenFailure(c, me.failure);
@@ -128,14 +142,16 @@ export function deliveryRoutes(ctx: AppContext): Hono<Env> {
       if (patch.botToken || patch.chatId || patch.chatTitle !== undefined)
         return c.json({ error: "invalid_body" }, 400);
       const url = patch.url === undefined ? null : parseWebhookUrl(patch.url);
-      if (url) {
+      if (url || patch.secret !== undefined) {
+        const nextUrl = url ? url.toString() : config.url;
         Object.assign(update, {
-          config: { url: url.toString(), secret: config.secret },
-          label: url.host,
+          config: { url: nextUrl, secret: patch.secret ?? config.secret },
+          label: url ? url.host : current.label,
         });
       }
     } else {
-      if (patch.url !== undefined) return c.json({ error: "invalid_body" }, 400);
+      if (patch.url !== undefined || patch.secret !== undefined)
+        return c.json({ error: "invalid_body" }, 400);
       const nextToken = patch.botToken ?? config.botToken;
       const nextChat = patch.chatId ?? config.chatId;
       const prefix = current.label.split(" · ")[0] ?? current.label;
@@ -189,6 +205,50 @@ export function deliveryRoutes(ctx: AppContext): Hono<Env> {
     const secret = generateWebhookSecret();
     ctx.channels.update(id, { config: { url: config.url, secret } });
     return c.json({ secret });
+  });
+
+  app.post("/telegram/bot", async (c) => {
+    const body = botBody.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "invalid_body" }, 400);
+    const me = await telegramGetMe(ctx.fetch, body.data.botToken);
+    if (!me.ok) return tokenFailure(c, me.failure);
+    return c.json({ bot: { username: me.username, name: me.name } });
+  });
+
+  // Sends a test message with the supplied settings. Nothing is saved or recorded.
+  app.post("/verify", async (c) => {
+    const body = verifyBody.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "invalid_body" }, 400);
+    const input = body.data;
+    let result;
+    if (input.type === "webhook") {
+      const url = parseWebhookUrl(input.url);
+      if (!url) return c.json({ error: "invalid_body" }, 400);
+      result = await webhookSend(
+        ctx.fetch,
+        { url: url.toString(), secret: input.secret },
+        { type: "test" },
+        ctx.now().getTime(),
+      );
+    } else {
+      let token: string;
+      if ("botToken" in input) {
+        token = input.botToken;
+      } else {
+        const config = ctx.channels.get(input.channelId)
+          ? ctx.channels.secretConfig(input.channelId)
+          : null;
+        if (!config) return c.json({ error: "not_found" }, 404);
+        if (config.type !== "telegram") return c.json({ error: "unsupported_channel" }, 400);
+        token = config.botToken;
+      }
+      result = await telegramSend(
+        ctx.fetch,
+        { botToken: token, chatId: input.chatId },
+        telegramTestText,
+      );
+    }
+    return result.ok ? c.json({ ok: true }) : c.json({ error: result.failure }, 502);
   });
 
   app.post("/telegram/chats", async (c) => {

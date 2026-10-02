@@ -72,6 +72,7 @@ export {
 export {
   ChannelStore,
   generateWebhookSecret,
+  webhookSecretSchema,
   telegramConfigSchema,
   webhookConfigSchema,
   type ChannelConfig,

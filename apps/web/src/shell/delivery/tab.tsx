@@ -1,56 +1,68 @@
 import { useState } from "react";
 
+import type { NotificationChannelType } from "@headroom/core/contracts";
+
 import { ErrorNotice } from "../../ui/error-notice.tsx";
+import { SlideSwap } from "../../ui/slide-swap.tsx";
 import { Sk } from "../../ui/skeleton.tsx";
 import { Section } from "../settings-rows.tsx";
-import { TelegramCard } from "./telegram-card.tsx";
+import { DestinationCards, destinations } from "./destination-cards.tsx";
+import { DestinationPanel } from "./destination-panel.tsx";
 import { useChannels } from "./use-channels.ts";
-import { WebhookCard } from "./webhook-card.tsx";
 import "./delivery.css";
 
 function Waiting() {
   return (
-    <>
-      {["Telegram", "Webhook"].map((title) => (
-        <Section key={title}>
-          <div className="srow">
-            <span className="sbody">
-              <Sk width={90} height={16} />
-              <Sk width={190} height={12} />
-            </span>
-            <Sk width={64} height={28} className="sk-pill sk-control" />
-          </div>
-        </Section>
+    <div className="cards dl-cards">
+      {destinations.map((type) => (
+        <div key={type} className="card">
+          <Sk width={90} height={20} />
+          <Sk width={64} height={12} />
+        </div>
       ))}
-    </>
+    </div>
   );
 }
 
-/** Where notices go: Telegram and a webhook. What is sent follows the Notifications tab. */
+/** Where notices go. Press Telegram or Webhook to set it up or change it. What is sent follows the Notifications tab. */
 export function DeliveryTab() {
   const { status, channels, reload } = useChannels();
   const [retrying, setRetrying] = useState(false);
+  const [selected, setSelected] = useState<NotificationChannelType | null>(null);
   const retry = (): void => {
     setRetrying(true);
     reload();
     setTimeout(() => setRetrying(false), 600);
   };
-  const find = (type: "telegram" | "webhook") =>
-    channels.find((entry) => entry.type === type) ?? null;
-  return status === "failed" ? (
-    <section className="dsec">
-      <ErrorNotice inline busy={retrying} onRetry={retry}>
-        Headroom could not load your delivery settings.
-      </ErrorNotice>
-    </section>
-  ) : status === "loading" ? (
-    <div aria-busy="true" aria-label="Loading delivery settings">
-      <Waiting />
-    </div>
-  ) : (
-    <>
-      <TelegramCard channel={find("telegram")} reload={reload} />
-      <WebhookCard channel={find("webhook")} reload={reload} />
-    </>
+  if (status === "failed") {
+    return (
+      <Section>
+        <ErrorNotice inline busy={retrying} onRetry={retry}>
+          Headroom could not load your delivery settings.
+        </ErrorNotice>
+      </Section>
+    );
+  }
+  if (status === "loading") {
+    return (
+      <div aria-busy="true" aria-label="Loading delivery settings">
+        <Waiting />
+      </div>
+    );
+  }
+  return (
+    <Section>
+      <DestinationCards channels={channels} selected={selected} onSelect={setSelected} />
+      <SlideSwap swapKey={selected ?? "none"} direction="swap">
+        {selected === null ? null : (
+          <DestinationPanel
+            key={selected}
+            type={selected}
+            channel={channels.find((entry) => entry.type === selected) ?? null}
+            reload={reload}
+          />
+        )}
+      </SlideSwap>
+    </Section>
   );
 }

@@ -119,10 +119,14 @@ describe("telegram calls", () => {
 
   test("getMe returns the username", async () => {
     const { fetchFn } = fake(() => json({ ok: true, result: { username: "synthetic_bot" } }));
-    expect(await telegramGetMe(fetchFn, token)).toEqual({ ok: true, username: "synthetic_bot" });
+    expect(await telegramGetMe(fetchFn, token)).toEqual({
+      ok: true,
+      username: "synthetic_bot",
+      name: "synthetic_bot",
+    });
   });
 
-  test("getUpdates returns unique chats with titles", async () => {
+  test("getUpdates returns unique chats with titles, newest first", async () => {
     const { fetchFn } = fake(() =>
       json({
         ok: true,
@@ -147,9 +151,9 @@ describe("telegram calls", () => {
     expect(await telegramGetChats(fetchFn, token)).toEqual({
       ok: true,
       chats: [
-        { id: "5", title: "Ada L", type: "private" },
-        { id: "-100", title: "Ops", type: "supergroup" },
         { id: "-200", title: "News", type: "channel" },
+        { id: "-100", title: "Ops", type: "supergroup" },
+        { id: "5", title: "Ada L", type: "private" },
       ],
     });
   });

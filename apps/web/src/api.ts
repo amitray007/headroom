@@ -209,6 +209,7 @@ const chatsSchema = z.object({
   bot: z.object({ username: z.string() }),
   chats: z.array(z.object({ id: z.string(), title: z.string(), type: z.string() })),
 });
+const botSchema = z.object({ bot: z.object({ username: z.string() }) });
 export type FoundChat = z.infer<typeof chatsSchema>["chats"][number];
 
 /** What a new channel needs. A Telegram channel needs a token and a chat; a webhook needs a URL. */
@@ -220,7 +221,18 @@ export type NewChannel =
       readonly chatTitle?: string;
       readonly includeIdentity: boolean;
     }
-  | { readonly type: "webhook"; readonly url: string; readonly includeIdentity: boolean };
+  | {
+      readonly type: "webhook";
+      readonly url: string;
+      readonly includeIdentity: boolean;
+      readonly secret?: string;
+    };
+
+/** A test send that saves nothing. Telegram uses a typed token or a saved channel's token. */
+export type VerifyRequest =
+  | { readonly type: "telegram"; readonly botToken: string; readonly chatId: string }
+  | { readonly type: "telegram"; readonly channelId: string; readonly chatId: string }
+  | { readonly type: "webhook"; readonly url: string; readonly secret: string };
 
 /** The fields of a channel that can change. */
 export interface ChannelPatch {
@@ -230,6 +242,7 @@ export interface ChannelPatch {
   readonly chatId?: string;
   readonly chatTitle?: string;
   readonly url?: string;
+  readonly secret?: string;
 }
 
 async function request<T>(
@@ -274,6 +287,10 @@ export const api = {
     request("POST", `/api/delivery/channels/${id}/secret`, secretSchema),
   findChats: (source: { readonly botToken: string } | { readonly channelId: string }) =>
     request("POST", "/api/delivery/telegram/chats", chatsSchema, source),
+  checkBot: (botToken: string) =>
+    request("POST", "/api/delivery/telegram/bot", botSchema, { botToken }),
+  verifyDelivery: (body: VerifyRequest) =>
+    request("POST", "/api/delivery/verify", testResultSchema, body),
   setup: () => request("GET", "/api/setup", setupSchema),
   me: () => request("GET", "/api/me", meSchema),
   providers: () => request("GET", "/api/providers", providersSchema),

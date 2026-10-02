@@ -60,6 +60,12 @@ export function generateWebhookSecret(): string {
   return `whsec_${randomBytes(24).toString("base64")}`;
 }
 
+/** A client-supplied signing secret: `whsec_` plus standard base64 that decodes to 24 bytes or more. */
+export const webhookSecretSchema = z
+  .string()
+  .regex(/^whsec_[A-Za-z0-9+/]{32,}={0,2}$/)
+  .refine((value) => Buffer.from(value.slice("whsec_".length), "base64").length >= 24);
+
 function aad(id: string): string {
   return `notification_channel:${id}`;
 }

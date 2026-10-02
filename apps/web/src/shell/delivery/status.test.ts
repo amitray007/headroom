@@ -3,8 +3,10 @@ import { describe, expect, test } from "bun:test";
 import {
   chatTypeWord,
   failureText,
-  isFullUrl,
-  problemText,
+  botCheckProblem,
+  botNameOf,
+  destinationName,
+  destinationState,
   statusLine,
   testProblem,
 } from "./status.ts";
@@ -15,11 +17,16 @@ const minute = 60_000;
 describe("failureText", () => {
   test("differs by channel where the cause differs", () => {
     expect(failureText("telegram", "unauthorized")).toBe("Telegram did not accept the bot token.");
-    expect(failureText("webhook", "unauthorized")).toBe("The URL refused the request.");
-    expect(failureText("webhook", "not_found")).toBe("The URL was not found.");
+    expect(failureText("webhook", "unauthorized")).toBe(
+      "Your receiver refused it. Check that it uses this secret.",
+    );
+    expect(failureText("webhook", "not_found")).toBe("Nothing answered at this path.");
+    expect(failureText("webhook", "rejected")).toBe("Your receiver rejected the request.");
+    expect(failureText("webhook", "server_error")).toBe("Your receiver had an error.");
+    expect(failureText("webhook", "timeout")).toBe("Headroom could not reach this URL.");
   });
-  test("is shared otherwise", () => {
-    expect(failureText("telegram", "timeout")).toBe(failureText("webhook", "timeout"));
+  test("is shared where the cause is the same", () => {
+    expect(failureText("telegram", "rate_limited")).toBe(failureText("webhook", "rate_limited"));
   });
 });
 
@@ -53,7 +60,7 @@ describe("statusLine", () => {
       },
       now,
     );
-    expect(line.text).toBe("Last failed 5 min ago. Headroom could not reach it.");
+    expect(line.text).toBe("Last failed 5 min ago. Headroom could not reach this URL.");
     expect(line.tone).toBe("bad");
   });
 });
@@ -65,21 +72,44 @@ test("chat type words", () => {
   expect(chatTypeWord("other")).toBe("Chat");
 });
 
-test("URL check", () => {
-  expect(isFullUrl("https://example.com/headroom")).toBe(true);
-  expect(isFullUrl(" http://localhost:3000 ")).toBe(true);
-  expect(isFullUrl("example.com")).toBe(false);
-  expect(isFullUrl("https://")).toBe(false);
+test("destination state", () => {
+  expect(destinationState(null, now)).toEqual({ word: "Not Set Up", detail: null, tone: "quiet" });
+  expect(destinationState({ type: "webhook", enabled: false, lastDelivery: null }, now).word).toBe(
+    "Off",
+  );
+  expect(destinationState({ type: "webhook", enabled: true, lastDelivery: null }, now)).toEqual({
+    word: "On",
+    detail: null,
+    tone: "good",
+  });
+  const sent = { status: "delivered", at: now - 2 * minute, failure: null } as const;
+  expect(destinationState({ type: "telegram", enabled: true, lastDelivery: sent }, now)).toEqual({
+    word: "On",
+    detail: "Last sent 2 min ago",
+    tone: "good",
+  });
+  const failed = { status: "failed", at: now - minute, failure: "timeout" } as const;
+  expect(
+    destinationState({ type: "telegram", enabled: true, lastDelivery: failed }, now).tone,
+  ).toBe("bad");
 });
 
-test("problem text", () => {
-  expect(problemText("telegram_token_rejected", "x")).toBe("Telegram did not accept this token.");
-  expect(problemText("invalid_body", "fallback")).toBe("fallback");
-  expect(problemText(null, "fallback")).toBe("fallback");
+test("names", () => {
+  expect(destinationName("telegram")).toBe("Telegram");
+  expect(botNameOf("@family_bot \u00b7 Family")).toBe("@family_bot");
+  expect(botNameOf("@family_bot")).toBe("@family_bot");
+});
+
+test("bot check problem", () => {
+  expect(botCheckProblem("telegram_token_rejected")).toBe(
+    "Telegram did not accept this token. Copy it again from BotFather.",
+  );
+  expect(botCheckProblem("timeout")).toBe("Headroom could not reach Telegram. Try again.");
+  expect(botCheckProblem(null)).toBe("Headroom could not reach Telegram. Try again.");
 });
 
 test("test problem", () => {
-  expect(testProblem("webhook", "not_found")).toBe("The URL was not found.");
+  expect(testProblem("webhook", "not_found")).toBe("Nothing answered at this path.");
   expect(testProblem("webhook", "nonsense")).toBe("Headroom could not send it.");
   expect(testProblem("telegram", null)).toBe("Headroom could not send it.");
 });

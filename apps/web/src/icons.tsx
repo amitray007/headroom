@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 
-import type { Provider } from "@headroom/core/contracts";
+import type { NotificationChannelType, Provider } from "@headroom/core/contracts";
 
 import antigravityUrl from "./assets/antigravity.svg";
 import avatarUrl from "./assets/avatar.svg";
@@ -10,6 +10,7 @@ import codexRaw from "./assets/codex.svg?raw";
 import copilotRaw from "./assets/copilot.svg?raw";
 import cursorRaw from "./assets/cursor.svg?raw";
 import grokRaw from "./assets/grok.svg?raw";
+import telegramUrl from "./assets/telegram.svg";
 import vercelRaw from "./assets/vercel_ai_gateway.svg?raw";
 import { inlineSvg } from "./ui/inline-svg.ts";
 
@@ -189,6 +190,27 @@ export function BrandMark(props: { readonly provider: Provider; readonly size?: 
   // Decorative: the provider's name is always written beside the mark.
   return (
     <span className={className} aria-hidden="true" dangerouslySetInnerHTML={{ __html: mark.svg }} />
+  );
+}
+
+/** Lucide's webhook glyph (ISC licence). */
+const WebhookIcon = stroke(
+  <>
+    <path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2" />
+    <path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06" />
+    <path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8" />
+  </>,
+);
+
+/** Delivery destination mark: 20 px by default, 24 px with size={24}. Decorative; write the name beside it. */
+export function DestinationMark(props: {
+  readonly type: NotificationChannelType;
+  readonly size?: 20 | 24;
+}) {
+  return (
+    <span className={props.size === 24 ? "brand lg" : "brand"} aria-hidden="true">
+      {props.type === "telegram" ? <img src={telegramUrl} alt="" /> : <WebhookIcon />}
+    </span>
   );
 }
 

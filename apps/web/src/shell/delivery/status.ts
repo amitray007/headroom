@@ -7,27 +7,24 @@ import { age } from "@headroom/view-model/time";
 
 import type { ChannelView } from "../../api.ts";
 
-const common: Record<NotificationDeliveryFailure, string> = {
-  timeout: "It took too long to answer.",
-  network: "Headroom could not reach it.",
-  unauthorized: "",
-  not_found: "",
-  rate_limited: "Too many messages. Headroom will try again.",
-  rejected: "The message was rejected.",
-  server_error: "The other side had an error.",
-};
-
-const specific: Record<
-  NotificationChannelType,
-  Pick<Record<NotificationDeliveryFailure, string>, "unauthorized" | "not_found">
-> = {
+const texts: Record<NotificationChannelType, Record<NotificationDeliveryFailure, string>> = {
   telegram: {
+    timeout: "It took too long to answer.",
+    network: "Headroom could not reach it.",
     unauthorized: "Telegram did not accept the bot token.",
     not_found: "The chat was not found. Send your bot a message first.",
+    rate_limited: "Too many messages. Headroom will try again.",
+    rejected: "The message was rejected.",
+    server_error: "The other side had an error.",
   },
   webhook: {
-    unauthorized: "The URL refused the request.",
-    not_found: "The URL was not found.",
+    timeout: "Headroom could not reach this URL.",
+    network: "Headroom could not reach this URL.",
+    unauthorized: "Your receiver refused it. Check that it uses this secret.",
+    not_found: "Nothing answered at this path.",
+    rate_limited: "Too many messages. Headroom will try again.",
+    rejected: "Your receiver rejected the request.",
+    server_error: "Your receiver had an error.",
   },
 };
 
@@ -36,8 +33,7 @@ export function failureText(
   type: NotificationChannelType,
   failure: NotificationDeliveryFailure,
 ): string {
-  if (failure === "unauthorized" || failure === "not_found") return specific[type][failure];
-  return common[failure];
+  return texts[type][failure];
 }
 
 /** The status line under a channel. `tone` colours it. */
@@ -64,28 +60,44 @@ export function chatTypeWord(type: string): string {
   return "Chat";
 }
 
-/** True when `text` is a full http or https URL. */
-export function isFullUrl(text: string): boolean {
-  if (!/^https?:\/\//i.test(text.trim())) return false;
-  try {
-    return new URL(text.trim()).hostname !== "";
-  } catch {
-    return false;
-  }
-}
-
-export const urlProblem = "Enter a full URL, starting with https://.";
 export const saveProblem = "Headroom could not save this. Check the details and try again.";
 export const changeProblem = "Headroom could not save that change. Try again.";
-
-/** A plain sentence for a failed save or lookup, from the error word the server sent. */
-export function problemText(code: string | null, fallback: string): string {
-  if (code === "telegram_token_rejected") return "Telegram did not accept this token.";
-  return fallback;
-}
 
 /** Why a test send failed, from the error word the server sent. */
 export function testProblem(type: NotificationChannelType, code: string | null): string {
   const failure = notificationDeliveryFailureSchema.safeParse(code);
   return failure.success ? failureText(type, failure.data) : "Headroom could not send it.";
+}
+
+/** The name of a destination. */
+export function destinationName(type: NotificationChannelType): string {
+  return type === "telegram" ? "Telegram" : "Webhook";
+}
+
+/** What a destination card says under its name. `tone` colours the dot. */
+export function destinationState(
+  channel: Pick<ChannelView, "type" | "enabled" | "lastDelivery"> | null,
+  now: number,
+): {
+  readonly word: "Not Set Up" | "On" | "Off";
+  readonly detail: string | null;
+  readonly tone: "good" | "bad" | "quiet";
+} {
+  if (channel === null) return { word: "Not Set Up", detail: null, tone: "quiet" };
+  if (!channel.enabled) return { word: "Off", detail: null, tone: "quiet" };
+  if (channel.lastDelivery === null) return { word: "On", detail: null, tone: "good" };
+  const line = statusLine(channel, now);
+  return { word: "On", detail: line.text, tone: line.tone === "bad" ? "bad" : "good" };
+}
+
+/** The bot name in a Telegram channel label such as "@bot \u00b7 Family". */
+export function botNameOf(label: string): string {
+  return label.split(" \u00b7 ")[0] ?? label;
+}
+
+/** Why a bot token check failed, from the error word the server sent. */
+export function botCheckProblem(code: string | null): string {
+  return code === "telegram_token_rejected" || code === "unauthorized"
+    ? "Telegram did not accept this token. Copy it again from BotFather."
+    : "Headroom could not reach Telegram. Try again.";
 }

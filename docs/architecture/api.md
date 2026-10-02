@@ -65,7 +65,9 @@ Account actions are off by default and run only after the owner switches on "All
 
 ## Delivery
 
-Server-side notification channels; behavior in [notifications](notifications.md#delivery). All routes need a session, and writes pass the cross-site guard. No response carries a bot token, chat id, webhook URL or signing secret, except the webhook secret returned once by create and rotate. Errors are `{ "error": "<code>" }`, `invalid_body` (400) for a body that fails validation and `not_found` (404) for an unknown channel.
+Server-side notification channels; behavior in [notifications](notifications.md#delivery). All routes need a session, and writes pass the cross-site guard. No response carries a bot token, chat id, webhook URL or signing secret, except the webhook secret returned once by create (when the client did not supply one) and rotate. Errors are `{ "error": "<code>" }`, `invalid_body` (400) for a body that fails validation and `not_found` (404) for an unknown channel.
+
+A webhook `secret` is `whsec_` plus base64 of at least 24 bytes (`^whsec_[A-Za-z0-9+/]{32,}={0,2}$`).
 
 `ChannelView`:
 
@@ -86,11 +88,13 @@ Server-side notification channels; behavior in [notifications](notifications.md#
 | Route | Body | Response |
 | --- | --- | --- |
 | `GET /api/delivery/channels` | | `{ channels: ChannelView[] }` |
-| `POST /api/delivery/channels` | `{ type: "telegram", botToken, chatId, chatTitle?, includeIdentity? }` or `{ type: "webhook", url, includeIdentity? }` | `201 { channel }`; a webhook adds `secret`, shown once |
-| `PATCH /api/delivery/channels/:id` | Any of `enabled`, `includeIdentity`, and for Telegram `botToken`, `chatId`, `chatTitle`, for a webhook `url` | `{ channel }` |
+| `POST /api/delivery/channels` | `{ type: "telegram", botToken, chatId, chatTitle?, includeIdentity? }` or `{ type: "webhook", url, secret?, includeIdentity? }` | `201 { channel }`; a webhook without a client `secret` adds a generated `secret`, shown once. With a client `secret`, the response has none |
+| `PATCH /api/delivery/channels/:id` | Any of `enabled`, `includeIdentity`, and for Telegram `botToken`, `chatId`, `chatTitle`, for a webhook `url`, `secret` | `{ channel }`. Telegram `chatId` and `chatTitle` change without a token |
 | `DELETE /api/delivery/channels/:id` | | `204`, deletes the channel and its delivery records |
 | `POST /api/delivery/channels/:id/test` | | `{ ok: true }`, or `502 { error: <failure class> }`. Not recorded as a delivery |
 | `POST /api/delivery/channels/:id/secret` | | `{ secret }`; webhook only (`400 unsupported_channel` otherwise). The old secret stops working |
+| `POST /api/delivery/telegram/bot` | `{ botToken }` | `{ bot: { username, name } }`. A rejected token is `400 telegram_token_rejected`, another failure `502 { error: <failure class> }` |
+| `POST /api/delivery/verify` | `{ type: "telegram", botToken, chatId }`, `{ type: "telegram", channelId, chatId }` or `{ type: "webhook", url, secret }` | `{ ok: true }`, or `502 { error: <failure class> }`. Sends a test and saves nothing. `404` for an unknown `channelId`, `400 unsupported_channel` for a webhook channel |
 | `POST /api/delivery/telegram/chats` | `{ botToken }` or `{ channelId }` | `{ bot: { username }, chats: [{ id, title, type }] }` |
 
 Validation: a Telegram `botToken` matches `^\d{5,}:[A-Za-z0-9_-]{30,}$`, a `chatId` is a number or `@name`, `chatTitle` is at most 128 characters, a webhook `url` is `http:` or `https:` without credentials. Creating a channel, changing its token and discovering chats call Telegram `getMe`. A token Telegram refuses is `400 telegram_token_rejected`. A timeout, network error, rate limit or Telegram server error is `502` with the failure class. Chat discovery shows chats that wrote to the bot in the last 24 hours.

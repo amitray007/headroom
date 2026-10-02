@@ -1,81 +1,74 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState } from "react";
 
 import { api, ApiError, type ChannelView } from "../../api.ts";
-import { BellIcon } from "../../icons.tsx";
+import { BellIcon, DestinationMark } from "../../icons.tsx";
 import { useNow } from "../../lib/now.ts";
 import { ActionButton } from "../../ui/action-button.tsx";
 import { Button } from "../../ui/button.tsx";
 import { cx } from "../../ui/cx.ts";
 import { Switch } from "../../ui/switch.tsx";
 import { SwitchRow } from "../settings-rows.tsx";
-import { changeProblem, statusLine, testProblem } from "./status.ts";
+import { Problem } from "./form-parts.tsx";
+import { RemoveButton } from "./remove-button.tsx";
+import { SecretRotation } from "./secret-rotation.tsx";
+import { changeProblem, destinationName, statusLine, testProblem } from "./status.ts";
 
-/** Remove, in two steps: the first press asks, the second confirms. The question lapses after a few seconds. */
-function RemoveButton(props: { readonly onRemove: () => Promise<void> }) {
-  const [armed, setArmed] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(timer.current), []);
-  const press = (): void => {
-    if (!armed) {
-      setArmed(true);
-      timer.current = setTimeout(() => setArmed(false), 4000);
-      return;
-    }
-    clearTimeout(timer.current);
-    setBusy(true);
-    void props.onRemove().finally(() => {
-      setBusy(false);
-      setArmed(false);
-    });
-  };
-  return (
-    <Button
-      size="sm"
-      variant="quiet-danger"
-      busy={busy}
-      busyLabel="Removing"
-      onClick={press}
-      onBlur={() => {
-        if (!busy) setArmed(false);
-      }}
-    >
-      {armed ? "Confirm Remove" : "Remove"}
-    </Button>
-  );
+interface Change {
+  readonly enabled?: boolean;
+  readonly includeIdentity?: boolean;
 }
 
+type Instant = { readonly [Key in keyof Change]: Change[Key] | undefined };
+
 /**
- * A set-up channel: its name, last result and On switch, then Include Account Email and the actions. The
- * owner's own buttons (Change, New Secret) arrive as `actions`. Every change goes to the server and the list
- * reloads, so the server stays the source of truth.
+ * A set-up channel: its name, last result and On switch, then Include Account Email and the actions. A switch
+ * moves at once and goes back if the server refuses. `onChange` opens the setup flow again.
  */
 export function ChannelPanel(props: {
   readonly channel: ChannelView;
-  readonly title: string;
-  readonly actions: ReactNode;
   readonly reload: () => void;
+  readonly onChange: () => void;
 }) {
   const { channel, reload } = props;
   const now = useNow();
   const line = statusLine(channel, now);
+  const title = destinationName(channel.type);
+  const webhook = channel.type === "webhook";
   const [error, setError] = useState<string | null>(null);
   const [testFailure, setTestFailure] = useState<string | null>(null);
+  const [rotating, setRotating] = useState(false);
+  // Values the owner just set, shown until the reload brings the server's own.
+  const [instant, setInstant] = useState<Instant>({});
+  const [seen, setSeen] = useState(channel);
+  if (seen !== channel) {
+    setSeen(channel);
+    setInstant({});
+  }
+  const enabled = instant.enabled ?? channel.enabled;
+  const includeIdentity = instant.includeIdentity ?? channel.includeIdentity;
 
-  const patch = (change: { enabled?: boolean; includeIdentity?: boolean }): void => {
+  const patch = (change: Change): void => {
     setError(null);
+    setInstant((current) => ({ ...current, ...change }));
     api
       .updateChannel(channel.id, change)
-      .catch(() => setError(changeProblem))
-      .finally(reload);
+      .then(reload)
+      .catch(() => {
+        // Undo only what this change set.
+        setInstant((current) => ({
+          ...current,
+          ...(change.enabled === undefined ? {} : { enabled: undefined }),
+          ...(change.includeIdentity === undefined ? {} : { includeIdentity: undefined }),
+        }));
+        setError(changeProblem);
+      });
   };
   const test = async (): Promise<void> => {
     setTestFailure(null);
     try {
       await api.testChannel(channel.id);
     } catch (cause) {
-      const code = cause instanceof ApiError ? cause.code : null;
-      setTestFailure(testProblem(channel.type, code));
+      setTestFailure(testProblem(channel.type, cause instanceof ApiError ? cause.code : null));
       throw cause;
     } finally {
       reload();
@@ -91,24 +84,27 @@ export function ChannelPanel(props: {
   };
 
   return (
-    <>
+    <section className="dl-panel dl-manage" aria-label={`${title} Settings`}>
       <div className="srow">
         <span className="sbody">
-          <b>{props.title}</b>
+          <b>
+            <DestinationMark type={channel.type} size={24} />
+            {title}
+          </b>
           <span className="muted">{channel.label}</span>
           <span className={cx("muted", "dl-status", line.tone)}>{line.text}</span>
         </span>
         <Switch
-          checked={channel.enabled}
-          label={`${props.title} On`}
-          onChange={(enabled) => patch({ enabled })}
+          checked={enabled}
+          label={`${title} On`}
+          onChange={(next) => patch({ enabled: next })}
         />
       </div>
       <SwitchRow
         title="Include Account Email"
         note="Adds the email or login of each account."
-        checked={channel.includeIdentity}
-        onChange={(includeIdentity) => patch({ includeIdentity })}
+        checked={includeIdentity}
+        onChange={(next) => patch({ includeIdentity: next })}
       />
       <div className="dl-actions">
         <ActionButton
@@ -121,19 +117,21 @@ export function ChannelPanel(props: {
           failedLabel="Not Sent"
           onAction={test}
         />
-        {props.actions}
+        <Button size="sm" variant="quiet" onClick={props.onChange}>
+          {webhook ? "Change URL" : "Set Up Again"}
+        </Button>
+        {webhook && !rotating ? (
+          <Button size="sm" variant="quiet" onClick={() => setRotating(true)}>
+            New Secret
+          </Button>
+        ) : null}
         <RemoveButton onRemove={remove} />
       </div>
-      {testFailure === null ? null : (
-        <p className="form-error dl-problem" role="alert">
-          {testFailure}
-        </p>
-      )}
-      {error === null ? null : (
-        <p className="form-error dl-problem" role="alert">
-          {error}
-        </p>
-      )}
-    </>
+      {webhook && rotating ? (
+        <SecretRotation channelId={channel.id} onClose={() => setRotating(false)} />
+      ) : null}
+      <Problem>{testFailure}</Problem>
+      <Problem>{error}</Problem>
+    </section>
   );
 }

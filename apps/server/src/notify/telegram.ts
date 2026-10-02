@@ -70,15 +70,19 @@ export async function telegramSend(
 }
 
 export type MeResult =
-  | { readonly ok: true; readonly username: string }
+  | { readonly ok: true; readonly username: string; readonly name: string }
   | Extract<SendResult, { ok: false }>;
 
 /** Verify a token and read the bot's username. */
 export async function telegramGetMe(fetchFn: Fetch, botToken: string): Promise<MeResult> {
   const result = await call(fetchFn, botToken, "getMe", {});
   if (!result.ok) return result;
-  const me = z.object({ username: z.string().min(1) }).safeParse(result.result);
-  return me.success ? { ok: true, username: me.data.username } : { ok: false, failure: "rejected" };
+  const me = z
+    .object({ username: z.string().min(1), first_name: z.string().optional() })
+    .safeParse(result.result);
+  return me.success
+    ? { ok: true, username: me.data.username, name: me.data.first_name || me.data.username }
+    : { ok: false, failure: "rejected" };
 }
 
 interface TelegramChat {
@@ -116,8 +120,9 @@ export async function telegramGetChats(fetchFn: Fetch, botToken: string): Promis
   if (!result.ok) return result;
   const updates = z.array(z.unknown()).safeParse(result.result);
   if (!updates.success) return { ok: false, failure: "rejected" };
+  // Newest first: updates arrive oldest first, so walk them backwards and keep each chat's latest sighting.
   const chats = new Map<string, TelegramChat>();
-  for (const raw of updates.data) {
+  for (const raw of updates.data.toReversed()) {
     const update = updateSchema.safeParse(raw);
     if (!update.success) continue;
     const chat = (
@@ -128,6 +133,7 @@ export async function telegramGetChats(fetchFn: Fetch, botToken: string): Promis
     )?.chat;
     if (!chat) continue;
     const id = String(chat.id);
+    if (chats.has(id)) continue;
     const person = [chat.first_name, chat.last_name].filter(Boolean).join(" ");
     const title = chat.title ?? (person || (chat.username ?? id));
     chats.set(id, { id, title, type: chat.type });

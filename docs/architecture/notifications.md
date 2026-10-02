@@ -283,6 +283,10 @@ The server sends each current notification once to each enabled channel. Decisio
 
 A channel is one destination: a Telegram chat or a webhook URL. The owner manages channels with `/api/delivery` ([API](api.md#delivery)). The bot token, chat id, webhook URL and signing secret are sealed in `notification_channels.config_ciphertext` under the master key, bound to the row, the same way as provider credentials. No GET route returns them. A webhook secret is shown once, when the channel is created or its secret rotated.
 
+### Setup flow
+
+The web UI tests a channel before it saves it. For Telegram: verify the bot token (`/telegram/bot`), find the chat (`/telegram/chats`), send a test (`/verify`), then save. For a webhook: enter the URL, let the browser generate the signing secret so the owner can store it in the receiver, send a signed test (`/verify`), then save with that secret. `/verify` stores nothing and records no delivery.
+
 ### When it runs
 
 After every scheduler tick the dispatcher reads the overview, derives the events with the owner's settings (time style forced to `countdown`), adds `links.dashboard` when `HEADROOM_PUBLIC_URL` is set, and sends. It does nothing when no channel is enabled. A new channel receives the notices that are active at the next pass. The dedupe record keeps each one to a single send.
