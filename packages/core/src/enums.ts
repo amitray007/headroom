@@ -209,3 +209,26 @@ export const notificationAmountUnits = [
 ] as const;
 export const notificationAmountUnitSchema = z.enum(notificationAmountUnits);
 export type NotificationAmountUnit = z.infer<typeof notificationAmountUnitSchema>;
+
+/** Where a server-side notification goes. See docs/architecture/notifications.md, Delivery. */
+export const notificationChannelTypes = ["telegram", "webhook"] as const;
+export const notificationChannelTypeSchema = z.enum(notificationChannelTypes);
+export type NotificationChannelType = z.infer<typeof notificationChannelTypeSchema>;
+
+/** `failed` means Headroom gave up after the last retry. */
+export const notificationDeliveryStatuses = ["delivered", "retrying", "failed"] as const;
+export const notificationDeliveryStatusSchema = z.enum(notificationDeliveryStatuses);
+export type NotificationDeliveryStatus = z.infer<typeof notificationDeliveryStatusSchema>;
+
+/** Why one send attempt failed. A class only: no response body or credential is ever kept. */
+export const notificationDeliveryFailures = [
+  "timeout",
+  "network",
+  "unauthorized",
+  "not_found",
+  "rate_limited",
+  "rejected",
+  "server_error",
+] as const;
+export const notificationDeliveryFailureSchema = z.enum(notificationDeliveryFailures);
+export type NotificationDeliveryFailure = z.infer<typeof notificationDeliveryFailureSchema>;

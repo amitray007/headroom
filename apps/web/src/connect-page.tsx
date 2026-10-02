@@ -10,7 +10,7 @@ import { CardsSkeleton } from "./connect/skeletons.tsx";
 import type { DisplayOrder } from "./lib/reorder.ts";
 import { useLoad } from "./lib/load.ts";
 import { BrandMark, PlugIcon } from "./icons.tsx";
-import { providerName } from "./lib/labels.ts";
+import { providerName } from "@headroom/view-model/labels";
 import { useSettings } from "./lib/settings.tsx";
 import { cx } from "./ui/cx.ts";
 import { EmptyState } from "./ui/empty-state.tsx";

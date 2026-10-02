@@ -1,4 +1,4 @@
-import { formatNumber } from "../../lib/present.ts";
+import { formatNumber } from "@headroom/view-model/present";
 import { InfoTip } from "../../ui/info-tip.tsx";
 import { VerifiedSeal } from "../../ui/verified-seal.tsx";
 import { driversOf, type Pick, type Row } from "./compare-model.ts";

@@ -1,6 +1,6 @@
 import type { AuthMethod, ConnectionScope, Provider } from "@headroom/core/contracts";
 
-import type { OverviewConnection } from "../api.ts";
+import type { OverviewConnection } from "./overview.ts";
 
 /** Default display order, as in the approved mockup. The owner's own order takes precedence. */
 const defaultOrder: readonly Provider[] = [

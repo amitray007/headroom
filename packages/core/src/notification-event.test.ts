@@ -40,6 +40,15 @@ describe("notification event", () => {
     ).toBe(false);
   });
 
+  test("identity is optional, non-empty, and absent by default", () => {
+    expect(notificationEventSchema.safeParse(event()).success).toBe(true);
+    const base = event().connection;
+    const withIdentity = event({ connection: { ...base, identity: "owner@example.com" } });
+    expect(notificationEventSchema.safeParse(withIdentity).success).toBe(true);
+    const empty = event({ connection: { ...base, identity: "" } });
+    expect(notificationEventSchema.safeParse(empty).success).toBe(false);
+  });
+
   test("figures may be empty, because an unknown figure is left out", () => {
     expect(notificationEventSchema.safeParse(event({ figures: {} })).success).toBe(true);
   });
@@ -49,7 +58,7 @@ describe("notification event", () => {
     expect(notificationEventSchema.safeParse({ ...event(), kind: "mystery" }).success).toBe(false);
   });
 
-  test("no personal identifier field exists anywhere in the shape", () => {
+  test("the only identifier field is the optional connection.identity", () => {
     const withEmail = { ...event(), connection: { ...event().connection, email: "a@example.com" } };
     expect(notificationEventSchema.safeParse(withEmail).success).toBe(false);
     expect(
@@ -58,7 +67,9 @@ describe("notification event", () => {
     const names = Object.keys(notificationEventSchema.shape).concat(
       Object.keys(notificationEventSchema.shape.connection.shape),
     );
-    expect(names.filter((name) => /mail|login|identity|user|token|secret/i.test(name))).toEqual([]);
+    expect(names.filter((name) => /mail|login|identity|user|token|secret/i.test(name))).toEqual([
+      "identity",
+    ]);
   });
 
   test("the dashboard link must be a URL", () => {

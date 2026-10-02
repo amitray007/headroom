@@ -35,6 +35,34 @@ function setup() {
 }
 
 describe("Scheduler", () => {
+  test("afterTick runs after each tick, and its failure never breaks the scheduler", async () => {
+    const { ctx, scheduler: _unused, connection, advance } = setup();
+    const seen: number[] = [];
+    let fail = false;
+    const logs: string[] = [];
+    const scheduler = new Scheduler({
+      connections: ctx.connections,
+      attempts: ctx.attempts,
+      snapshots: ctx.snapshots,
+      collection: ctx.collection,
+      intervalMs: 900_000,
+      now: ctx.now,
+      afterTick: (now) => {
+        seen.push(now);
+        if (fail) throw new Error("boom with https://example.com/secret");
+      },
+      log: (_level, message) => logs.push(message),
+    });
+    expect(await scheduler.tick()).toEqual([connection.id]);
+    expect(seen).toHaveLength(1);
+    fail = true;
+    advance(1);
+    expect(await scheduler.tick()).toEqual([]);
+    expect(seen).toHaveLength(2);
+    expect(logs.join("\n")).toContain("after-tick hook failed: Error");
+    expect(logs.join("\n")).not.toContain("secret");
+  });
+
   test("collects a connection with no run, then waits for the interval", async () => {
     const { connector, connection, scheduler, advance } = setup();
     expect(await scheduler.tick()).toEqual([connection.id]);

@@ -1,8 +1,8 @@
 import type { Provider } from "@headroom/core/contracts";
 
 import type { OverviewConnection, Settings } from "../../api.ts";
-import { isInactive, urgencyRank } from "../../lib/accounts.ts";
-import { groupByProvider } from "../../lib/labels.ts";
+import { isInactive, urgencyRank } from "@headroom/view-model/accounts";
+import { groupByProvider } from "@headroom/view-model/labels";
 import type { ProviderFilter } from "../../ui/provider-chips.tsx";
 
 export type DetailedOrder = Settings["detailedOrder"];

@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { BrandMark } from "../../icons.tsx";
 import { AddAccountLink, LoadFailed, NoAccounts } from "../../dashboard/states.tsx";
-import { providerName } from "../../lib/labels.ts";
+import { providerName } from "@headroom/view-model/labels";
 import { useSettings } from "../../lib/settings.tsx";
 import { cx } from "../../ui/cx.ts";
 import { Fold } from "../../ui/fold.tsx";

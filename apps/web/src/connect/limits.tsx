@@ -1,7 +1,7 @@
 import type { OverviewConnection } from "../api.ts";
-import { formatNumber, formatUsd, presentPanel } from "../lib/present.ts";
+import { formatNumber, formatUsd, presentPanel } from "@headroom/view-model/present";
 import { useSettings } from "../lib/settings.tsx";
-import { displayMeter } from "../lib/tone.ts";
+import { displayMeter } from "@headroom/view-model/tone";
 import { ResetCaption } from "../lib/reset-caption.tsx";
 import { When } from "../lib/when.tsx";
 import { Bar } from "../ui/bar.tsx";

@@ -1,0 +1,105 @@
+/* Delivery tab: setup forms, the signing secret, and the chat list. */
+.dl-intro {
+  border-top: 0;
+}
+.dl-lead {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+.dl-status.good {
+  color: var(--success);
+}
+.dl-status.warn {
+  color: var(--warning);
+}
+.dl-status.bad {
+  color: var(--danger);
+}
+.dl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 0 4px;
+}
+/* Quiet buttons keep their padding; pull the row back so the first label lines up with the text above. */
+.dl-actions > .btn.quiet:first-child {
+  margin-inline-start: -14px;
+}
+.dl-problem {
+  margin: 0;
+}
+.dl-form {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) 0 var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.dl-form .field {
+  max-width: none;
+}
+.dl-label {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.dl-note {
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+.dl-chat {
+  display: grid;
+  gap: var(--space-2);
+}
+.dl-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dl-chats {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+.dl-chat-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 9px 14px;
+  font-size: var(--text-base);
+  cursor: pointer;
+}
+.dl-chat-row + .dl-chat-row {
+  border-top: 1px solid var(--border-subtle);
+}
+.dl-chat-row .muted {
+  margin-left: auto;
+  font-size: var(--text-xs);
+}
+.dl-chat-row input {
+  accent-color: var(--accent);
+}
+.dl-secret {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--warning) 8%, var(--surface));
+}
+.dl-secret-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.dl-secret-value {
+  flex: 1;
+  min-width: 0;
+  font: 400 var(--text-sm) / 1.4 var(--mono);
+  overflow-wrap: anywhere;
+  user-select: all;
+}

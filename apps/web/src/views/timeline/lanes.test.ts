@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { connection, credit, metric, percent } from "../../lib/test-fixtures.ts";
+import { connection, credit, metric, percent } from "@headroom/view-model/test-fixtures";
 import {
   laneGroups,
   laneOf,

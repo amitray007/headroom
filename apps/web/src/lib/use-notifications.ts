@@ -10,7 +10,7 @@ import {
   pruneRead,
   saveRead,
   type AppNotification,
-} from "./notifications.ts";
+} from "@headroom/view-model/notifications";
 import { useNow } from "./now.ts";
 import { useSettings } from "./settings.tsx";
 

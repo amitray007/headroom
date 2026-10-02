@@ -18,6 +18,8 @@ export interface SchedulerOptions {
   /** A getter lets a settings change apply at the next tick without a restart. */
   readonly intervalMs: number | (() => number);
   readonly tickMs?: number;
+  /** Runs after each tick that did its work, for example to deliver notifications. Its failure never stops the scheduler. */
+  readonly afterTick?: (now: number) => Promise<void> | void;
   readonly now?: () => Date;
   readonly log?: (level: "debug" | "info" | "warn" | "error", message: string) => void;
 }
@@ -63,7 +65,21 @@ export class Scheduler {
     } finally {
       this.running = false;
     }
+    await this.runAfterTick();
     return collected;
+  }
+
+  private async runAfterTick(): Promise<void> {
+    if (!this.deps.afterTick) return;
+    try {
+      await this.deps.afterTick(this.now().getTime());
+    } catch (error) {
+      // The class only: the message could carry a URL with a secret in it.
+      this.deps.log?.(
+        "error",
+        `after-tick hook failed: ${error instanceof Error ? error.name : "unknown"}`,
+      );
+    }
   }
 
   isDue(connectionId: string): boolean {

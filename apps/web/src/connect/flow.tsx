@@ -4,7 +4,7 @@ import type { AuthMethod, Provider } from "@headroom/core/contracts";
 
 import { api, type Attempt, type OverviewConnection } from "../api.ts";
 import { AlertIcon, BrandMark, CheckIcon } from "../icons.tsx";
-import { accountName, authMethodWords, planLabel, providerName } from "../lib/labels.ts";
+import { accountName, authMethodWords, planLabel, providerName } from "@headroom/view-model/labels";
 import { Button, ButtonLink } from "../ui/button.tsx";
 import { cx } from "../ui/cx.ts";
 import { messageOf } from "../lib/load.ts";

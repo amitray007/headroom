@@ -30,7 +30,7 @@ Each dossier describes metrics, connection steps, tools, limitations and sources
 ## Shared references
 
 - [HTTP API](architecture/api.md): overview, display name, settings, and the account-actions gate.
-- [Notifications](architecture/notifications.md): what raises a notification, the event schema, and planned delivery.
+- [Notifications](architecture/notifications.md): what raises a notification, the event schema, and server-side delivery to Telegram and webhooks.
 - [Connector contract](architecture/connector-contract.md): the Go interface every provider package implements.
 - [Deployment and credential storage](architecture/deployment.md): single binary, SQLite, master key and backups.
 - [Evidence register](research/evidence.md): proof levels and earlier observations.

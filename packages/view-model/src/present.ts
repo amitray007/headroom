@@ -1,4 +1,4 @@
-import type { Metric, OverviewConnection, ResetCredit } from "../api.ts";
+import type { Metric, OverviewConnection, ResetCredit } from "./overview.ts";
 import { shortDate } from "./time.ts";
 
 /**

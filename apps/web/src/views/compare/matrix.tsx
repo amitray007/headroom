@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 
 import { AlertIcon, PauseIcon } from "../../icons.tsx";
-import { formatNumber } from "../../lib/present.ts";
+import { formatNumber } from "@headroom/view-model/present";
 import { When } from "../../lib/when.tsx";
 import { Bar } from "../../ui/bar.tsx";
 import { cx } from "../../ui/cx.ts";

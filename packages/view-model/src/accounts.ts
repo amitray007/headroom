@@ -1,4 +1,4 @@
-import type { Metric, OverviewConnection } from "../api.ts";
+import type { Metric, OverviewConnection } from "./overview.ts";
 import { presentPanel, type Cell } from "./present.ts";
 import { toneOf, type Tone } from "./tone.ts";
 

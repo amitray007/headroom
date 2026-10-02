@@ -1,8 +1,8 @@
 # Notifications
 
-Headroom tells the owner when an account needs attention. Today the browser builds each notification from the latest overview and the owner's settings, then shows it in the bell. The server stores nothing and sends nothing. Every notification is a `NotificationEvent`, so the server can later build identical events and deliver them.
+Headroom tells the owner when an account needs attention. The browser builds each notification from the latest overview and the owner's settings, then shows it in the bell. The server builds the same events after each collection pass and delivers them to Telegram chats and webhooks the owner set up. Every notification is a `NotificationEvent`; read state stays in the browser.
 
-Code: `apps/web/src/lib/notifications.ts` (detection), `packages/core/src/notification-event.ts` (event schema), `packages/core/src/settings.ts` (settings). Enumerations are in `packages/core/src/enums.ts` and [the data model](data-model.md).
+Code: `packages/view-model/src/notifications.ts` (detection, shared by the web app and the server), `packages/core/src/notification-event.ts` (event schema), `packages/core/src/settings.ts` (settings). Enumerations are in `packages/core/src/enums.ts` and [the data model](data-model.md).
 
 ## What is detected
 
@@ -70,14 +70,14 @@ Settings, Notifications tab: "Types" holds the five switches and the reset lead,
 | `occurredAt` | integer | When the situation was seen |
 | `observedAt` | integer | When Headroom last read the account |
 | `provider` | provider name | |
-| `connection` | `{ id, name, plan }` | Internal id, the owner's name for the account or its scope word, plan or null. No email, login or other identifier |
+| `connection` | `{ id, name, plan, identity? }` | Internal id, the owner's name for the account or its scope word, plan or null. `identity` is the account's email or login. It is present only for a destination whose owner chose to include it, see [Identity](#identity) |
 | `subject` | `{ metricKey, label, window }` | Each a string or null |
 | `figures` | object, all optional | `percentUsed`, `percentLeft`, `resetsAt`, `amount { value, unit }`, `cap { value, unit }`, `expiresAt`. `amount` is spend, a balance or a count. `cap` is what it counts against: the spending cap, or the total granted for a balance. `unit` is `notification.amount.unit` |
 | `title` | string | Title Case headline |
 | `message` | string | One short plain sentence or two |
 | `links` | `{ dashboard? }` | Absolute URL of the dashboard, when the server knows it |
 
-The `title` and `message` the browser builds follow the owner's display settings (used or left, countdown or exact time). Server delivery will use fixed wording.
+The `title` and `message` the browser builds follow the owner's display settings (used or left, countdown or exact time). Server delivery uses the same derivation with the time style forced to countdown, because the server has no browser time zone.
 
 ### Examples
 
@@ -277,17 +277,94 @@ Disconnected:
 }
 ```
 
-## Delivery (planned)
+## Delivery
 
-Not built. Nothing below exists in code. The browser bell is the only delivery today.
+The server sends each current notification once to each enabled channel. Decision: D25 in [the decision register](../decisions/README.md).
 
-- **Server-side evaluation.** The server builds events after each collection with the same rules, so delivery works when no browser is open. The detection code moves to `packages/core` and the browser keeps using it for the bell.
-- **Telegram.** The owner enters a bot token and a chat id in the Notifications tab. The server stores them encrypted, the same way as provider credentials. It sends the event `title` and `message`.
-- **Webhook.** The owner sets an `https` URL. The server POSTs `application/json`, the event itself, with these headers:
-  - `X-Headroom-Signature`: HMAC-SHA256 over the raw request body, using a per-webhook secret shown once.
-  - `X-Headroom-Event`: the event `kind`.
-- **Retries.** Failed deliveries retry with backoff, then stop and show as failed in the log.
-- **Idempotency.** The event `id` is the dedupe key. A receiver can drop a repeat, and the server never sends the same id twice to one destination while it is recorded as delivered.
-- **Delivery log.** The server records each attempt per destination: event id, time, status, and the failure class, without credentials or response bodies.
+A channel is one destination: a Telegram chat or a webhook URL. The owner manages channels with `/api/delivery` ([API](api.md#delivery)). The bot token, chat id, webhook URL and signing secret are sealed in `notification_channels.config_ciphertext` under the master key, bound to the row, the same way as provider credentials. No GET route returns them. A webhook secret is shown once, when the channel is created or its secret rotated.
 
-These choices need an ADR in `docs/decisions/` when they are built.
+### When it runs
+
+After every scheduler tick the dispatcher reads the overview, derives the events with the owner's settings (time style forced to `countdown`), adds `links.dashboard` when `HEADROOM_PUBLIC_URL` is set, and sends. It does nothing when no channel is enabled. A new channel receives the notices that are active at the next pass. The dedupe record keeps each one to a single send.
+
+- Sends are sequential, at most 20 per pass. The rest wait for the next pass.
+- Each event is validated against `notificationEventSchema` before it is sent. An invalid event is dropped and logged at warn level.
+- An event that is no longer derived is never sent again, so a notice that cleared stops retrying.
+- The server does not send a read or cleared message. A repeat in the next period has a new id and sends again.
+
+### Retries and the delivery record
+
+`notification_deliveries` holds one row per channel and event id: status, attempt count, failure class, and the next attempt time. A `delivered` or `failed` event is skipped. A `retrying` event is resent once its next attempt time has passed.
+
+| Failed attempt | Wait before the next |
+| --- | --- |
+| 1 | 1 minute |
+| 2 | 5 minutes |
+| 3 | 15 minutes |
+| 4 | 60 minutes |
+| 5 | Stop: status `failed` |
+
+A Telegram 429 uses `retry_after` when it is longer than the wait above. Rows older than 60 days are deleted once per pass. Deleting a channel deletes its rows. Test sends are not recorded.
+
+Failure classes (`notification.delivery.failure`): `timeout` (10 seconds), `network`, `unauthorized` (401, 403), `not_found` (404; for Telegram also chat not found and bot blocked), `rate_limited` (429), `rejected` (other 4xx and every 3xx), `server_error` (5xx). Requests never follow a redirect.
+
+### Telegram
+
+`POST https://api.telegram.org/bot<token>/sendMessage` with `parse_mode: "HTML"` and link previews off. Text, with `&`, `<` and `>` escaped:
+
+```
+<b>{title}</b>
+{message}
+{Provider} · {connection name} · {plan as words, when known} · {identity, when included}
+<a href="{dashboard}">Open Headroom</a>   (only when HEADROOM_PUBLIC_URL is set)
+```
+
+The server reads only `ok`, `error_code`, `parameters.retry_after` and, for `getMe` and `getUpdates`, the result. The `description` field can echo request data, so it only picks a failure class. It is never stored or logged. `getMe` checks a token when a channel is created or its token changes. `getUpdates` finds the chats that wrote to the bot in the last 24 hours, so the owner can pick a chat id.
+
+### Webhook
+
+`POST` to the owner's URL. Only `http:` and `https:` are accepted, and a URL with `user:pass@` is refused. `http:` is allowed because receivers on a LAN often have no certificate. Body:
+
+```json
+{ "type": "notification", "timestamp": "2026-10-03T12:00:00.000Z", "data": { "...": "the NotificationEvent" } }
+```
+
+The test message has `"type": "test"` and `"data": { "message": "Notifications will arrive at this URL." }`. A response with status 200 to 299 is a delivery. The response body is never read.
+
+Headers follow [Standard Webhooks](https://www.standardwebhooks.com/):
+
+| Header | Value |
+| --- | --- |
+| `webhook-id` | `msg_` plus a hash of channel id and event id. The same across retries, so a receiver can drop a repeat |
+| `webhook-timestamp` | Unix seconds when the attempt was sent |
+| `webhook-signature` | `v1,` plus base64 HMAC-SHA256 of `{webhook-id}.{webhook-timestamp}.{raw body}`, keyed with the base64-decoded part of the secret after `whsec_` |
+| `x-headroom-event` | The event `kind`, or `test` |
+| `user-agent` | `Headroom/<version>` |
+
+Verify a request on the receiver. Use the raw body text, not a parsed copy:
+
+```ts
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+function verify(secret: string, headers: Headers, rawBody: string): boolean {
+  const id = headers.get("webhook-id") ?? "";
+  const timestamp = headers.get("webhook-timestamp") ?? "";
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false; // replay window
+  const key = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
+  const expected = createHmac("sha256", key).update(`${id}.${timestamp}.${rawBody}`).digest();
+  return (headers.get("webhook-signature") ?? "").split(" ").some((part) => {
+    const [version, signature] = part.split(",");
+    const given = Buffer.from(signature ?? "", "base64");
+    return version === "v1" && given.length === expected.length && timingSafeEqual(given, expected);
+  });
+}
+```
+
+### Identity
+
+A channel has `includeIdentity`, off by default. When it is on, the server adds `connection.identity` (the account's email or login, from the stored account label) to each event for that channel, and Telegram shows it in the account line. A channel without it receives events with no personal identifier.
+
+### What is logged
+
+One line per attempt: channel id, event kind, status and failure class. The log never holds a token, chat id, URL, secret, response body or error message from the network library.
+

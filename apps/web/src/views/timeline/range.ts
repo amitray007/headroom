@@ -1,4 +1,4 @@
-import type { Clock } from "../../lib/time.ts";
+import type { Clock } from "@headroom/view-model/time";
 import type { TimelineKind } from "./lanes.ts";
 
 /**

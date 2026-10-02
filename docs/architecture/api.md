@@ -17,6 +17,7 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 | `GET /api/providers`, `/api/attempts/...` | Connect flow, see [the connection lifecycle](connections.md) |
 | `GET /api/settings`, `PUT /api/settings` | Owner preferences |
 | `PUT /api/order` | Owner-defined order of providers and of accounts within a provider |
+| `/api/delivery/...` | Notification channels (Telegram, webhook), tests and Telegram chat discovery, see [Delivery](#delivery) |
 
 ## Overview
 
@@ -61,3 +62,35 @@ The scheduler reads `refreshIntervalMinutes` on every tick, so a change applies 
 ## Account actions gate
 
 Account actions are off by default and run only after the owner switches on "Allow Account Actions" in Settings (`accountActions`) and confirms each action. With the setting off, the action route answers `403 actions_disabled`. The confirm literal, connection state and usable-credit checks still apply. See [the data model](data-model.md#actions).
+
+## Delivery
+
+Server-side notification channels; behavior in [notifications](notifications.md#delivery). All routes need a session, and writes pass the cross-site guard. No response carries a bot token, chat id, webhook URL or signing secret, except the webhook secret returned once by create and rotate. Errors are `{ "error": "<code>" }`, `invalid_body` (400) for a body that fails validation and `not_found` (404) for an unknown channel.
+
+`ChannelView`:
+
+```json
+{
+  "id": "…",
+  "type": "telegram",
+  "enabled": true,
+  "includeIdentity": false,
+  "label": "@my_bot · Ops",
+  "createdAt": 1790000000000,
+  "lastDelivery": { "status": "delivered", "at": 1790000000000, "failure": null }
+}
+```
+
+`label` is a display summary: `@botusername` and the chat title when known for Telegram, the URL host only for a webhook. `lastDelivery` is the latest attempt on the channel or null. `status` is `notification.delivery.status`, `failure` is `notification.delivery.failure` or null.
+
+| Route | Body | Response |
+| --- | --- | --- |
+| `GET /api/delivery/channels` | | `{ channels: ChannelView[] }` |
+| `POST /api/delivery/channels` | `{ type: "telegram", botToken, chatId, chatTitle?, includeIdentity? }` or `{ type: "webhook", url, includeIdentity? }` | `201 { channel }`; a webhook adds `secret`, shown once |
+| `PATCH /api/delivery/channels/:id` | Any of `enabled`, `includeIdentity`, and for Telegram `botToken`, `chatId`, `chatTitle`, for a webhook `url` | `{ channel }` |
+| `DELETE /api/delivery/channels/:id` | | `204`, deletes the channel and its delivery records |
+| `POST /api/delivery/channels/:id/test` | | `{ ok: true }`, or `502 { error: <failure class> }`. Not recorded as a delivery |
+| `POST /api/delivery/channels/:id/secret` | | `{ secret }`; webhook only (`400 unsupported_channel` otherwise). The old secret stops working |
+| `POST /api/delivery/telegram/chats` | `{ botToken }` or `{ channelId }` | `{ bot: { username }, chats: [{ id, title, type }] }` |
+
+Validation: a Telegram `botToken` matches `^\d{5,}:[A-Za-z0-9_-]{30,}$`, a `chatId` is a number or `@name`, `chatTitle` is at most 128 characters, a webhook `url` is `http:` or `https:` without credentials. Creating a channel, changing its token and discovering chats call Telegram `getMe`. A token Telegram refuses is `400 telegram_token_rejected`. A timeout, network error, rate limit or Telegram server error is `502` with the failure class. Chat discovery shows chats that wrote to the bot in the last 24 hours.

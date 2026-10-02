@@ -16,7 +16,7 @@ import { ComparePage } from "./views/compare/page.tsx";
 import { DetailedPage } from "./views/detailed/page.tsx";
 import { TimelinePage } from "./views/timeline/page.tsx";
 import { SettingsProvider } from "./lib/settings.tsx";
-import { groupByProvider } from "./lib/labels.ts";
+import { groupByProvider } from "@headroom/view-model/labels";
 import { useNotifications } from "./lib/use-notifications.ts";
 import { useRoute, viewOf } from "./router.ts";
 import { BootFrame } from "./shell/boot.tsx";

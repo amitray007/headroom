@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
 import { BrandMark } from "../../icons.tsx";
-import { providerName, statusOf } from "../../lib/labels.ts";
-import { formatNumber } from "../../lib/present.ts";
+import { providerName, statusOf } from "@headroom/view-model/labels";
+import { formatNumber } from "@headroom/view-model/present";
 import { Bar } from "../../ui/bar.tsx";
 import { cx } from "../../ui/cx.ts";
 import { StatusPill, statusKindOf } from "../../ui/pill.tsx";

@@ -17,6 +17,8 @@ This is a logical schema for implementation planning. No database or migrations 
 | `reset_credits` | snapshot_id, provider_credit_id, eligible, usable, expires_at, cooldown_until, raw_label | Per-credit rows of a reset inventory |
 | `display_order` | id (always `owner`), providers_json, updated_at | The owner's provider order as a JSON array of provider names. It has its own row so saving settings never overwrites it. Providers missing from it follow in default order |
 | `settings` | id (always `owner`), json, updated_at | The owner's preferences as one JSON document: limits view, low threshold, refresh interval, time style, clock, density, account actions, notifications. The schema in `packages/core/src/settings.ts` is the list of keys; unknown stored keys are dropped on read and missing ones take defaults |
+| `notification_channels` | id, type, enabled, include_identity, config_ciphertext, config_nonce, key_version, label, created_at, updated_at | A server-side notification destination. The config (Telegram bot token and chat id, or webhook URL and signing secret) is sealed under the master key with aad `notification_channel:<id>`. `label` is a display summary with no secret: `@botusername` and chat title, or the URL host. `include_identity` adds the account's email or login to events for this channel |
+| `notification_deliveries` | channel_id, event_id, kind, status, attempts, failure, first_attempt_at, last_attempt_at, next_attempt_at, delivered_at | One row per channel and event id (unique): the dedupe record and retry state. Cascade-deleted with the channel, pruned after 60 days. No credential or response body |
 | `account_actions` | id, connection_id, action, idempotency_key, state, requested_at, completed_at, provider_reference, resulting_snapshot_id, sanitized_error | Later reset or purchase operations |
 
 `value_text` holds the exact provider value as a decimal string. `value_num` is a derived float for charts and never the source of truth. Money uses `value_text` plus an ISO currency unit.
@@ -38,6 +40,9 @@ This is a logical schema for implementation planning. No database or migrations 
 | `sync_runs.outcome` | `succeeded`, `partial`, `rate_limited`, `provider_unavailable`, `authentication_failed`, `invalid_response`, `interrupted` |
 | `account_actions.state` | `requested`, `submitted`, `succeeded`, `failed`, `uncertain` |
 | `account_actions.action` | `consume_reset_credit` |
+| `notification_channels.type` | `telegram`, `webhook` |
+| `notification_deliveries.status` | `delivered`, `retrying`, `failed` (gave up) |
+| `notification_deliveries.failure` | `timeout`, `network`, `unauthorized`, `not_found`, `rate_limited`, `rejected`, `server_error`, none |
 | `notification.kind` | `almost_out`, `running_low`, `reset_expiring`, `balance_low`, `spend_near_cap`, `spend_cap_reached`, `extra_usage_started`, `refresh_failed`, `disconnected` |
 | `notification.tone` | `bad`, `warn`, `info` |
 | `notification.amount.unit` | `USD`, `codex_credits`, `grok_credits`, `gateway_credits`, `credits` |

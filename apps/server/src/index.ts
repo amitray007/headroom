@@ -52,6 +52,7 @@ const scheduler = new Scheduler({
   snapshots: ctx.snapshots,
   collection: ctx.collection,
   intervalMs: () => ctx.settings.get().refreshIntervalMinutes * 60_000,
+  afterTick: (now) => ctx.dispatcher.dispatch(now).then(() => undefined),
   log: ctx.log,
 });
 scheduler.start();

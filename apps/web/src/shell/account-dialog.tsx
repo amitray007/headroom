@@ -4,7 +4,7 @@ import { api } from "../api.ts";
 import { authClient } from "../auth.ts";
 import { FingerprintIcon, PlusIcon } from "../icons.tsx";
 import { useLoad } from "../lib/load.ts";
-import { shortDate } from "../lib/time.ts";
+import { shortDate } from "@headroom/view-model/time";
 import { Button } from "../ui/button.tsx";
 import { Dialog } from "../ui/dialog.tsx";
 import { EmptyState } from "../ui/empty-state.tsx";

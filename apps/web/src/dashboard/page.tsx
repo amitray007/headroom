@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { groupByProvider } from "../lib/labels.ts";
+import { groupByProvider } from "@headroom/view-model/labels";
 import { useSettings } from "../lib/settings.tsx";
 import { ProviderSection } from "./provider-section.tsx";
 import { DashboardSkeleton } from "./skeletons.tsx";

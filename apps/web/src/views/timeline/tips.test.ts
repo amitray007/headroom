@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { connection, percent } from "../../lib/test-fixtures.ts";
+import { connection, percent } from "@headroom/view-model/test-fixtures";
 import { laneOf } from "./lanes.ts";
 import { laneTips, tipLabel, usedText, windowTip, type TipContext } from "./tips.ts";
 

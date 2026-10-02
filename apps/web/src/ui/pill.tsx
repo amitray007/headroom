@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import { AlertIcon, ClockIcon, PartialIcon, PauseIcon, RetryIcon } from "../icons.tsx";
-import type { StatusView } from "../lib/labels.ts";
+import type { StatusView } from "@headroom/view-model/labels";
 import { cx } from "./cx.ts";
 import { Fade } from "./fade.tsx";
 

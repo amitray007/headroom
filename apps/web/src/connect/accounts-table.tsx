@@ -4,7 +4,13 @@ import type { Provider } from "@headroom/core/contracts";
 
 import { api, type OverviewConnection } from "../api.ts";
 import { BrandMark, UserIcon } from "../icons.tsx";
-import { accountName, groupByProvider, planLabel, providerName, statusOf } from "../lib/labels.ts";
+import {
+  accountName,
+  groupByProvider,
+  planLabel,
+  providerName,
+  statusOf,
+} from "@headroom/view-model/labels";
 import { messageOf } from "../lib/load.ts";
 import {
   applyOrder,

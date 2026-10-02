@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 
 import { resetVerb } from "../../lib/reset-caption.tsx";
-import { countdown, exactFull } from "../../lib/time.ts";
+import { countdown, exactFull } from "@headroom/view-model/time";
 import { cx } from "../../ui/cx.ts";
 import { LaneBars, type Tips } from "./lane-bars.tsx";
 import { GroupHeader, rowStyle, WhoCell } from "./lane-who.tsx";

@@ -7,9 +7,9 @@ import {
   type MeterRef,
   type MeterWindow,
   type Room,
-} from "../../lib/accounts.ts";
-import { accountName, planLabel } from "../../lib/labels.ts";
-import { presentPanel } from "../../lib/present.ts";
+} from "@headroom/view-model/accounts";
+import { accountName, planLabel } from "@headroom/view-model/labels";
+import { presentPanel } from "@headroom/view-model/present";
 
 /**
  * The facts the Compare view needs, as pure functions: one row per account, the columns a provider's accounts

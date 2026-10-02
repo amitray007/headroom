@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { connection } from "./test-fixtures.ts";
+import { connection } from "@headroom/view-model/test-fixtures";
 import {
   applyOrder,
   clampShift,

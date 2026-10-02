@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import type { Tone } from "../lib/tone.ts";
+import type { Tone } from "@headroom/view-model/tone";
 import { keepInView } from "./floating.ts";
 import "./hover-popover.css";
 

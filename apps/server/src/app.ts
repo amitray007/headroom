@@ -15,9 +15,11 @@ import {
 } from "@headroom/core";
 
 import type { AppContext } from "./bootstrap.ts";
+import { version } from "./version.ts";
 import { type Env, rejectCrossSite, requireSession } from "./middleware/session.ts";
 import { attemptRoutes } from "./routes/attempts.ts";
 import { connectionRoutes } from "./routes/connections.ts";
+import { deliveryRoutes } from "./routes/delivery.ts";
 import { orderRoutes } from "./routes/order.ts";
 import { overviewRoutes } from "./routes/overview.ts";
 import { providerRoutes } from "./routes/providers.ts";
@@ -33,7 +35,7 @@ const brandFiles = [
   "manifest.webmanifest",
 ];
 
-export const version = "0.0.0";
+export { version };
 
 export function createApp(ctx: AppContext): Hono {
   const app = new Hono();
@@ -107,6 +109,7 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/overview", overviewRoutes(ctx));
   api.route("/order", orderRoutes(ctx));
   api.route("/settings", settingsRoutes(ctx));
+  api.route("/delivery", deliveryRoutes(ctx));
 
   app.route("/api", api);
 

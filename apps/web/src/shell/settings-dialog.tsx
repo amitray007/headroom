@@ -1,10 +1,9 @@
-import { createContext, useContext, useId, useState, type ReactNode } from "react";
+import { useContext, useId, useState } from "react";
 
 import type { Provider } from "@headroom/core/contracts";
 
 import type { Settings } from "../api.ts";
-import { BrandMark } from "../icons.tsx";
-import { providerName } from "../lib/labels.ts";
+import { providerName } from "@headroom/view-model/labels";
 import { useSettings } from "../lib/settings.tsx";
 import type { SettingsPatch } from "../lib/settings-store.ts";
 import { Dialog } from "../ui/dialog.tsx";
@@ -12,41 +11,9 @@ import { ErrorNotice } from "../ui/error-notice.tsx";
 import { Segmented } from "../ui/segmented.tsx";
 import { Sk } from "../ui/skeleton.tsx";
 import { SlideSwap, type SwapDirection } from "../ui/slide-swap.tsx";
-import { Switch } from "../ui/switch.tsx";
 import { Tabs } from "../ui/tabs.tsx";
-
-/** True while the settings load: each row keeps its words and shows a placeholder where the control goes. */
-const WaitingContext = createContext(false);
-
-function Section(props: { readonly title?: string; readonly children: ReactNode }) {
-  return (
-    <section className="dsec">
-      {props.title === undefined ? null : (
-        <div className="dsec-head">
-          <h3>{props.title}</h3>
-        </div>
-      )}
-      {props.children}
-    </section>
-  );
-}
-
-function Body(props: {
-  readonly title: string;
-  readonly note: string;
-  /** A provider whose brand mark leads the title. */
-  readonly mark?: Provider | undefined;
-}) {
-  return (
-    <span className="sbody">
-      <b>
-        {props.mark === undefined ? null : <BrandMark provider={props.mark} />}
-        {props.title}
-      </b>
-      {props.note === "" ? null : <span className="muted">{props.note}</span>}
-    </span>
-  );
-}
+import { DeliveryTab } from "./delivery/tab.tsx";
+import { Body, Section, SwitchRow, WaitingContext } from "./settings-rows.tsx";
 
 function ChoiceRow<T extends string>(props: {
   readonly title: string;
@@ -105,42 +72,13 @@ function NumberRow<T extends number>(props: {
   );
 }
 
-function SwitchRow(props: {
-  readonly title: string;
-  readonly note: string;
-  readonly mark?: Provider | undefined;
-  readonly checked: boolean;
-  readonly disabled?: boolean;
-  readonly onChange: (checked: boolean) => void;
-}) {
-  const waiting = useContext(WaitingContext);
-  if (waiting) {
-    return (
-      <div className="srow">
-        <Body title={props.title} note={props.note} mark={props.mark} />
-        <Sk width={42} height={24} className="sk-pill sk-control" />
-      </div>
-    );
-  }
-  return (
-    // oxlint-disable-next-line jsx-a11y/label-has-associated-control -- the Switch component renders the input
-    <label className="srow">
-      <Body title={props.title} note={props.note} mark={props.mark} />
-      <Switch
-        checked={props.checked}
-        disabled={props.disabled === true}
-        onChange={props.onChange}
-      />
-    </label>
-  );
-}
-
 const thresholds = [30, 20, 15] as const;
 const intervals = [5, 10, 15, 30] as const;
 
 const tabs = [
   { value: "general", label: "General" },
   { value: "notifications", label: "Notifications" },
+  { value: "delivery", label: "Delivery" },
 ] as const;
 
 /** The tabs of the dialog. */
@@ -384,6 +322,7 @@ export function SettingsDialog(props: {
               {tab === "notifications" ? (
                 <Notifications change={change} providers={props.providers} />
               ) : null}
+              {tab === "delivery" ? <DeliveryTab /> : null}
             </SlideSwap>
           </div>
         </WaitingContext>

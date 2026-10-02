@@ -1,6 +1,6 @@
 import type { NotificationAmountUnit, NotificationEvent, Provider } from "@headroom/core/contracts";
 
-import type { Metric, OverviewConnection, Settings } from "../api.ts";
+import type { Metric, OverviewConnection } from "./overview.ts";
 import { meterWindows, type MeterWindow } from "./accounts.ts";
 import { accountName, providerName, refreshFailed } from "./labels.ts";
 import { formatNumber, formatUsd } from "./present.ts";
@@ -18,7 +18,7 @@ type NotificationTone = AppNotification["tone"];
 
 const day = 86_400_000;
 
-const everything: Settings["notifications"] = {
+const everything: NotificationPreferences = {
   runningLow: true,
   expiringResets: true,
   refreshFailures: true,
@@ -29,10 +29,29 @@ const everything: Settings["notifications"] = {
   mutedProviders: [],
 };
 
-type NotificationSettings = Pick<
-  Settings,
-  "limitsView" | "lowThresholdPercent" | "timeStyle" | "clock"
-> & { notifications: Settings["notifications"] };
+/** The preferences that choose which events fire. */
+export type NotificationPreferences = {
+  readonly runningLow: boolean;
+  readonly expiringResets: boolean;
+  readonly refreshFailures: boolean;
+  readonly balances: boolean;
+  readonly spend: boolean;
+  readonly includeSessions: boolean;
+  readonly resetLeadDays: 1 | 3 | 7;
+  readonly mutedProviders: readonly Provider[];
+};
+
+/**
+ * The part of the owner's settings the derivation reads. The web `Settings` and the server's core
+ * `Settings` both fit this shape.
+ */
+export type NotificationSettings = {
+  readonly limitsView: "used" | "left";
+  readonly lowThresholdPercent: 30 | 20 | 15;
+  readonly timeStyle: "countdown" | "exact";
+  readonly clock: "24h" | "12h";
+  readonly notifications: NotificationPreferences;
+};
 
 function base(
   connection: OverviewConnection,
@@ -47,7 +66,7 @@ function base(
   };
 }
 
-function shareText(used: number, view: Settings["limitsView"]): string {
+function shareText(used: number, view: NotificationSettings["limitsView"]): string {
   const shown = Math.round(view === "left" ? Math.max(0, 100 - used) : used);
   return `${shown}${view === "left" ? "% left" : "% used"}.`;
 }
@@ -436,7 +455,7 @@ export function currentIds(
 
 export const readKey = "headroom.notifications.read";
 
-export function loadRead(storage: Pick<Storage, "getItem">): Set<string> {
+export function loadRead(storage: { getItem(key: string): string | null }): Set<string> {
   try {
     const parsed: unknown = JSON.parse(storage.getItem(readKey) ?? "[]");
     return new Set(Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string") : []);
@@ -445,7 +464,10 @@ export function loadRead(storage: Pick<Storage, "getItem">): Set<string> {
   }
 }
 
-export function saveRead(storage: Pick<Storage, "setItem">, read: ReadonlySet<string>): void {
+export function saveRead(
+  storage: { setItem(key: string, value: string): void },
+  read: ReadonlySet<string>,
+): void {
   storage.setItem(readKey, JSON.stringify([...read].toSorted()));
 }
 

@@ -9,6 +9,7 @@ describe("openDatabase", () => {
       "0000_init",
       "0001_names_and_settings",
       "0002_display_order",
+      "0003_notification_delivery",
     ]);
     const tables = sqlite
       .query<{ name: string }, []>(

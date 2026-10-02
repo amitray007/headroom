@@ -133,3 +133,22 @@ describe("api client", () => {
     expect(await failure(api.settings())).toContain("unexpected response");
   });
 });
+
+describe("delivery api", () => {
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+  test("a 204 delete resolves", async () => {
+    globalThis.fetch = Object.assign(() => Promise.resolve(new Response(null, { status: 204 })), {
+      preconnect: realFetch.preconnect,
+    });
+    expect(await api.deleteChannel("c1")).toBeUndefined();
+  });
+  test("a failed call keeps the error word", async () => {
+    stub({ error: "telegram_token_rejected" }, 400);
+    const cause = await api
+      .createChannel({ type: "webhook", url: "https://x.test", includeIdentity: false })
+      .catch((e: unknown) => e);
+    expect(cause).toMatchObject({ status: 400, code: "telegram_token_rejected" });
+  });
+});

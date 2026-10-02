@@ -5,7 +5,7 @@ import { renderToString } from "react-dom/server";
 import { useDevicePrefs } from "./device-prefs.ts";
 import { defaultSettings } from "./settings-store.ts";
 import { SettingsContext, type SettingsValue } from "./settings.tsx";
-import { connection, percent } from "./test-fixtures.ts";
+import { connection, percent } from "@headroom/view-model/test-fixtures";
 import { useNotifications } from "./use-notifications.ts";
 
 function Prefs() {

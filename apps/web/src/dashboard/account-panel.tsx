@@ -2,9 +2,15 @@ import { useId, type ReactNode } from "react";
 
 import { api, type OverviewConnection } from "../api.ts";
 import { AlertIcon, ClockIcon, PauseIcon, PlayIcon, RetryIcon } from "../icons.tsx";
-import { accountName, planLabel, providerName, refreshFailed, statusOf } from "../lib/labels.ts";
+import {
+  accountName,
+  planLabel,
+  providerName,
+  refreshFailed,
+  statusOf,
+} from "@headroom/view-model/labels";
 import { useNow } from "../lib/now.ts";
-import { presentPanel } from "../lib/present.ts";
+import { presentPanel } from "@headroom/view-model/present";
 import { useSettings } from "../lib/settings.tsx";
 import { When } from "../lib/when.tsx";
 import { ActionButton } from "../ui/action-button.tsx";

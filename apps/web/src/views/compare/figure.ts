@@ -1,7 +1,7 @@
 import type { Provider } from "@headroom/core/contracts";
 
-import type { MeterWindow } from "../../lib/accounts.ts";
-import { displayMeter, type Caption, type LimitsView, type Tone } from "../../lib/tone.ts";
+import type { MeterWindow } from "@headroom/view-model/accounts";
+import { displayMeter, type Caption, type LimitsView, type Tone } from "@headroom/view-model/tone";
 
 /** How the owner reads limits: used or left, and where "running low" starts. */
 export interface Look {

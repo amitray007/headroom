@@ -1,4 +1,4 @@
-import type { Metric, OverviewConnection, ResetCredit } from "../api.ts";
+import type { Metric, OverviewConnection, ResetCredit } from "./overview.ts";
 
 /** Synthetic data shaped like design/research/data-inventory.md. No real accounts. */
 

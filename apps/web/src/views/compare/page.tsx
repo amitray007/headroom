@@ -4,7 +4,7 @@ import type { Provider } from "@headroom/core/contracts";
 import { useId, useState } from "react";
 
 import { LoadFailed, NoAccounts } from "../../dashboard/states.tsx";
-import { groupByProvider, providerName } from "../../lib/labels.ts";
+import { groupByProvider, providerName } from "@headroom/view-model/labels";
 import { useSettings } from "../../lib/settings.tsx";
 import { ProviderTabs } from "../../ui/provider-tabs.tsx";
 import { Segmented } from "../../ui/segmented.tsx";

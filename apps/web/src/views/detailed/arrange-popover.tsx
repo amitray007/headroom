@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 
 import { api } from "../../api.ts";
 import { BrandMark, ReorderIcon } from "../../icons.tsx";
-import { groupByProvider, providerName } from "../../lib/labels.ts";
+import { groupByProvider, providerName } from "@headroom/view-model/labels";
 import { moveProvider, orderBody, orderOf } from "../../lib/reorder.ts";
 import { buttonClass } from "../../ui/button.tsx";
 import { Popover } from "../../ui/menu.tsx";

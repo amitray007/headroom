@@ -5,6 +5,7 @@ import { notificationEventSchema } from "@headroom/core/contracts";
 import {
   currentIds,
   deriveNotifications,
+  type NotificationSettings,
   loadRead,
   markAllRead,
   markRead,
@@ -12,9 +13,25 @@ import {
   readKey,
   saveRead,
 } from "./notifications.ts";
-import { defaultSettings } from "./settings-store.ts";
-import type { Metric } from "../api.ts";
+import type { Metric } from "./overview.ts";
 import { connection, credit, metric, percent } from "./test-fixtures.ts";
+
+const defaultSettings: NotificationSettings = {
+  limitsView: "used",
+  lowThresholdPercent: 30,
+  timeStyle: "countdown",
+  clock: "24h",
+  notifications: {
+    runningLow: true,
+    expiringResets: true,
+    refreshFailures: true,
+    balances: true,
+    spend: true,
+    includeSessions: true,
+    resetLeadDays: 3,
+    mutedProviders: [],
+  },
+};
 
 const now = new Date(2025, 9, 2, 14, 14).getTime();
 const reset = new Date(2025, 9, 2, 15, 6).getTime();
@@ -240,10 +257,10 @@ describe("read state", () => {
   });
 });
 
-type NotificationSettings = typeof defaultSettings.notifications;
+type Preferences = typeof defaultSettings.notifications;
 
 const withNotifications = (
-  over: Partial<NotificationSettings>,
+  over: Partial<Preferences>,
   rest: Partial<typeof defaultSettings> = {},
 ) => ({
   ...defaultSettings,

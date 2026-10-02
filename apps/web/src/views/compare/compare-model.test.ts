@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { OverviewConnection } from "../../api.ts";
-import { connection, metric, percent } from "../../lib/test-fixtures.ts";
+import { connection, metric, percent } from "@headroom/view-model/test-fixtures";
 import {
   balanceKey,
   columnLeft,

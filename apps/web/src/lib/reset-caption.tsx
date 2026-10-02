@@ -1,4 +1,4 @@
-import type { Cell } from "./present.ts";
+import type { Cell } from "@headroom/view-model/present";
 import { When } from "./when.tsx";
 
 type ResetWords = Extract<Cell, { kind: "meter" }>["resetWords"];

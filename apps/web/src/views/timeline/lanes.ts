@@ -1,10 +1,15 @@
 import type { Provider } from "@headroom/core/contracts";
 
 import type { OverviewConnection } from "../../api.ts";
-import { isInactive, meterWindows, type MeterWindow, type WindowKind } from "../../lib/accounts.ts";
-import { groupByProvider } from "../../lib/labels.ts";
-import { presentPanel } from "../../lib/present.ts";
-import { captionOf, toneOf, type Caption, type Tone } from "../../lib/tone.ts";
+import {
+  isInactive,
+  meterWindows,
+  type MeterWindow,
+  type WindowKind,
+} from "@headroom/view-model/accounts";
+import { groupByProvider } from "@headroom/view-model/labels";
+import { presentPanel } from "@headroom/view-model/present";
+import { captionOf, toneOf, type Caption, type Tone } from "@headroom/view-model/tone";
 
 /**
  * The accounts as lanes of the Timeline: for one window kind, each account that has such a window gets its

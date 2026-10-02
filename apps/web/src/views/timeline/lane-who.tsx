@@ -1,9 +1,9 @@
 import type { CSSProperties } from "react";
 
 import { BrandMark } from "../../icons.tsx";
-import { meterWindows } from "../../lib/accounts.ts";
-import { accountName, planLabel, providerName, statusOf } from "../../lib/labels.ts";
-import { displayMeter } from "../../lib/tone.ts";
+import { meterWindows } from "@headroom/view-model/accounts";
+import { accountName, planLabel, providerName, statusOf } from "@headroom/view-model/labels";
+import { displayMeter } from "@headroom/view-model/tone";
 import { cx } from "../../ui/cx.ts";
 import { StatusPill, statusKindOf } from "../../ui/pill.tsx";
 import { limitName, type Lane, type LaneGroup } from "./lanes.ts";

@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 
 import type { OverviewConnection } from "../../api.ts";
 import { CellView } from "../../dashboard/cells.tsx";
-import { providerName } from "../../lib/labels.ts";
-import { presentPanel } from "../../lib/present.ts";
+import { providerName } from "@headroom/view-model/labels";
+import { presentPanel } from "@headroom/view-model/present";
 import { useNow } from "../../lib/now.ts";
 import { href } from "../../router.ts";
 import { BankedResets } from "../../ui/banked-resets.tsx";

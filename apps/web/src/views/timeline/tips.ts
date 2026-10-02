@@ -1,8 +1,8 @@
 import type { OverviewConnection } from "../../api.ts";
-import { accountName, providerName } from "../../lib/labels.ts";
+import { accountName, providerName } from "@headroom/view-model/labels";
 import { resetVerb } from "../../lib/reset-caption.tsx";
-import { age, countdown, exactFull, type Clock } from "../../lib/time.ts";
-import { displayMeter, toneOf, type LimitsView } from "../../lib/tone.ts";
+import { age, countdown, exactFull, type Clock } from "@headroom/view-model/time";
+import { displayMeter, toneOf, type LimitsView } from "@headroom/view-model/tone";
 import type { PopoverContent } from "../../ui/hover-popover.tsx";
 import { timelineKinds, type Bank, type Lane } from "./lanes.ts";
 

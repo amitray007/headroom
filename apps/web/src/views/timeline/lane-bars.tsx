@@ -1,4 +1,4 @@
-import { displayMeter, type Tone } from "../../lib/tone.ts";
+import { displayMeter, type Tone } from "@headroom/view-model/tone";
 import { cx } from "../../ui/cx.ts";
 import type { PopoverContent } from "../../ui/hover-popover.tsx";
 import type { Lane } from "./lanes.ts";

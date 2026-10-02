@@ -69,3 +69,21 @@ export {
   type CliLoginSpec,
   type CliLoginStatus,
 } from "./cli-runner.ts";
+export {
+  ChannelStore,
+  generateWebhookSecret,
+  telegramConfigSchema,
+  webhookConfigSchema,
+  type ChannelConfig,
+  type ChannelOptions,
+  type ChannelRow,
+  type ChannelUpdate,
+  type TelegramConfig,
+  type WebhookConfig,
+} from "./notifications/channels.ts";
+export {
+  DeliveryStore,
+  type AttemptRecord,
+  type DeliveryRow,
+  type LastDelivery,
+} from "./notifications/deliveries.ts";

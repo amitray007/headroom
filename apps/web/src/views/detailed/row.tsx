@@ -2,10 +2,10 @@ import { useId, useState } from "react";
 
 import type { OverviewConnection } from "../../api.ts";
 import { BrandMark, ChevronDownIcon } from "../../icons.tsx";
-import { isInactive } from "../../lib/accounts.ts";
-import { accountName, planLabel, providerName, statusOf } from "../../lib/labels.ts";
+import { isInactive } from "@headroom/view-model/accounts";
+import { accountName, planLabel, providerName, statusOf } from "@headroom/view-model/labels";
 import { useNow } from "../../lib/now.ts";
-import { presentPanel } from "../../lib/present.ts";
+import { presentPanel } from "@headroom/view-model/present";
 import { When } from "../../lib/when.tsx";
 import { cx } from "../../ui/cx.ts";
 import { Fold } from "../../ui/fold.tsx";

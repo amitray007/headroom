@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { OverviewConnection } from "../../api.ts";
-import { connection, percent } from "../../lib/test-fixtures.ts";
+import { connection, percent } from "@headroom/view-model/test-fixtures";
 import { arrange, matches, providerCounts, type ArrangeOptions } from "./arrange.ts";
 
 const options: ArrangeOptions = {

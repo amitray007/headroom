@@ -2,8 +2,8 @@ import { useId, useState, type ReactNode } from "react";
 
 import type { OverviewConnection } from "../../api.ts";
 import { BrandMark } from "../../icons.tsx";
-import { countdown, exactFull, type TimeStyle } from "../../lib/time.ts";
-import { displayMeter } from "../../lib/tone.ts";
+import { countdown, exactFull, type TimeStyle } from "@headroom/view-model/time";
+import { displayMeter } from "@headroom/view-model/tone";
 import { cx } from "../../ui/cx.ts";
 import {
   expiresSoonMs,

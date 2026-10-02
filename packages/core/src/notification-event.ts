@@ -9,9 +9,9 @@ import {
 
 /**
  * One notification as a self-contained event: what the browser renders today and what a server-side
- * delivery (Telegram, webhook) will send later. The shape is versioned and strict. It holds no email,
+ * delivery (Telegram, webhook) sends. The shape is versioned and strict. By default it holds no email,
  * login or other personal identifier: the connection is named by its internal id and the owner's own
- * label. A figure that is unknown is left out, never zero. See docs/architecture/notifications.md.
+ * label. `connection.identity` is added only for a destination whose owner chose to include it. A figure that is unknown is left out, never zero. See docs/architecture/notifications.md.
  */
 
 const amountSchema = z.strictObject({
@@ -37,6 +37,8 @@ export const notificationEventSchema = z.strictObject({
     /** The owner's name for the account, or its default scope word. */
     name: z.string().min(1),
     plan: z.string().nullable(),
+    /** The account's email or login. Present only when the destination is set to include it. */
+    identity: z.string().min(1).optional(),
   }),
   subject: z.strictObject({
     metricKey: z.string().nullable(),

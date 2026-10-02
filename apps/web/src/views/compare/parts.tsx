@@ -1,4 +1,4 @@
-import type { MeterWindow } from "../../lib/accounts.ts";
+import type { MeterWindow } from "@headroom/view-model/accounts";
 import { ResetCaption } from "../../lib/reset-caption.tsx";
 
 /** The word that marks the window an account is limited by. The same word everywhere. */

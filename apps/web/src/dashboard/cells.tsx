@@ -1,8 +1,8 @@
-import type { Cell } from "../lib/present.ts";
-import { formatNumber } from "../lib/present.ts";
+import type { Cell } from "@headroom/view-model/present";
+import { formatNumber } from "@headroom/view-model/present";
 import { useSettings } from "../lib/settings.tsx";
-import { exactFull } from "../lib/time.ts";
-import { displayMeter, toneOf } from "../lib/tone.ts";
+import { exactFull } from "@headroom/view-model/time";
+import { displayMeter, toneOf } from "@headroom/view-model/tone";
 import { useNow } from "../lib/now.ts";
 import { ResetCaption } from "../lib/reset-caption.tsx";
 import { When } from "../lib/when.tsx";
