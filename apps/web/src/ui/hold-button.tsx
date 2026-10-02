@@ -24,7 +24,7 @@ export type HoldPhase = "idle" | "holding" | "requesting" | "ok" | "failed";
  * and reports whether the provider accepted it. `off` shows the dashed, disabled look with an explanation.
  */
 export function HoldButton(props: {
-  /** Idle label, for example "Hold to Reset Weekly Limit". */
+  /** Idle label, for example "Hold to Reset Limits". */
   readonly label: string;
   readonly onConfirm: () => Promise<"ok" | "failed">;
   readonly requestingLabel?: string;
@@ -43,7 +43,7 @@ export function HoldButton(props: {
     label,
     onConfirm,
     requestingLabel = "Resetting",
-    okLabel = "Weekly Limit Reset",
+    okLabel = "Limits Reset",
     failedLabel = "Reset Failed · Hold to Try Again",
     icon = <ResetIcon />,
     size = "md",

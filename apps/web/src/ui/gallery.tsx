@@ -327,7 +327,7 @@ export function Gallery() {
           </div>
           <div className="facts">
             <span className="lead">
-              <HoldButton size="sm" label="Hold to Reset Weekly Limit" onConfirm={succeed("ok")} />
+              <HoldButton size="sm" label="Hold to Reset Limits" onConfirm={succeed("ok")} />
             </span>
             <span className="acts">
               <Button variant="quiet" size="sm" icon={<icons.PauseIcon />}>
@@ -518,21 +518,21 @@ export function Gallery() {
 
       <Section title="Hold to Confirm">
         <Row>
-          <HoldButton label="Hold to Reset Weekly Limit" onConfirm={succeed("ok")} />
-          <HoldButton label="Hold to Reset Weekly Limit" onConfirm={succeed("failed")} />
-          <HoldButton label="Hold to Reset Weekly Limit" off onConfirm={succeed("ok")} />
+          <HoldButton label="Hold to Reset Limits" onConfirm={succeed("ok")} />
+          <HoldButton label="Hold to Reset Limits" onConfirm={succeed("failed")} />
+          <HoldButton label="Hold to Reset Limits" off onConfirm={succeed("ok")} />
         </Row>
         <Row>
           {holdPhases.map((phase) => (
             <HoldButton
               key={phase}
-              label="Hold to Reset Weekly Limit"
+              label="Hold to Reset Limits"
               preview={{ phase, progress: phase === "holding" ? 42 : undefined }}
               onConfirm={succeed("ok")}
             />
           ))}
           <HoldButton
-            label="Hold to Reset Weekly Limit"
+            label="Hold to Reset Limits"
             off
             preview={{ phase: "idle" }}
             onConfirm={succeed("ok")}

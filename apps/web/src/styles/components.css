@@ -574,9 +574,10 @@ time.when {
   position: relative;
   overflow: hidden;
   --p: 0%;
-  border-color: color-mix(in oklab, var(--danger) 32%, var(--border));
+  /* Neutral at rest: resetting a limit is a deliberate choice, not a destructive one. Only a failure turns red. */
+  border-color: var(--border);
   border-radius: 18px;
-  color: var(--danger);
+  color: var(--foreground);
   transition:
     --p 1200ms linear,
     scale var(--dur-spring) var(--ease-spring),
@@ -602,7 +603,7 @@ time.when {
   align-items: center;
   gap: 8px;
   padding: 0 12px;
-  background: var(--danger);
+  background: var(--foreground);
   color: var(--background);
   clip-path: inset(0 calc(100% - var(--p)) 0 0);
 }

@@ -188,7 +188,7 @@ export function AccountPanel(props: {
                 {hold === null ? null : (
                   <HoldButton
                     size="sm"
-                    label="Hold to Reset Weekly Limit"
+                    label="Hold to Reset Limits"
                     // Follows the Settings switch directly; the server refuses the action whenever the saved setting is off.
                     off={!actionsEnabled}
                     onConfirm={async () => {
