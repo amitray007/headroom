@@ -48,9 +48,9 @@ function SignedIn(props: { readonly name: string }) {
   }, [view]);
   return (
     <Shell view={view} name={props.name} notifications={notifications} providers={providers}>
-      {route.page === "connect" ? <ConnectPage onOrdered={overview.applyOrder} /> : null}
+      {route.page === "connect" ? <ConnectPage overview={overview} /> : null}
       {route.page === "reconnect" ? (
-        <ConnectPage key={route.id} reconnectId={route.id} onOrdered={overview.applyOrder} />
+        <ConnectPage key={route.id} reconnectId={route.id} overview={overview} />
       ) : null}
       {route.page === "overview" ? <DashboardPage overview={overview} /> : null}
       {route.page === "detailed" ? <DetailedPage overview={overview} /> : null}

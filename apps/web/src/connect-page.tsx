@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Provider } from "@headroom/core/contracts";
 
@@ -7,7 +7,6 @@ import { AccountsTable } from "./connect/accounts-table.tsx";
 import "./connect/connect.css";
 import { ConnectFlow } from "./connect/flow.tsx";
 import { CardsSkeleton } from "./connect/skeletons.tsx";
-import type { DisplayOrder } from "./lib/reorder.ts";
 import { useLoad } from "./lib/load.ts";
 import { BrandMark, PlugIcon } from "./icons.tsx";
 import { providerName } from "@headroom/view-model/labels";
@@ -17,6 +16,7 @@ import { EmptyState } from "./ui/empty-state.tsx";
 import { ErrorNotice } from "./ui/error-notice.tsx";
 import { prefersReducedMotion } from "./ui/motion.ts";
 import { Sk } from "./ui/skeleton.tsx";
+import type { ViewProps } from "./views/props.ts";
 
 /** Card order, as in the approved mockup. */
 const cardOrder: readonly Provider[] = [
@@ -34,14 +34,13 @@ function orderOf(provider: Provider): number {
 }
 
 /** Pick a provider and sign in, then see every connected account. With `reconnectId`, signs an existing account in again. */
-export function ConnectPage(props: {
-  readonly reconnectId?: string;
-  /** The owner reordered accounts: the dashboard store takes the new order at once. */
-  readonly onOrdered: (order: DisplayOrder) => void;
-}) {
-  const { reconnectId, onOrdered } = props;
+export function ConnectPage(
+  props: ViewProps & {
+    readonly reconnectId?: string;
+  },
+) {
+  const { reconnectId, overview } = props;
   const providers = useLoad(() => api.providers(), "providers");
-  const overview = useLoad(() => api.overview(), "overview");
   const existing = useLoad(
     () => (reconnectId === undefined ? Promise.resolve(null) : api.connection(reconnectId)),
     `reconnect:${reconnectId ?? ""}`,
@@ -51,8 +50,18 @@ export function ConnectPage(props: {
   const [run, setRun] = useState(0);
   const flowRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
-  const { reload } = overview;
+  // The one overview the dashboard views share, so an account added or changed here shows everywhere at once.
+  const { reload, applyOrder } = overview;
+  const [retrying, setRetrying] = useState(false);
   const { loaded: settingsLoaded } = useSettings();
+  // Opening the page brings the list up to date instead of waiting for the next poll.
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+  const retry = useCallback(() => {
+    setRetrying(true);
+    void reload().finally(() => setRetrying(false));
+  }, [reload]);
 
   const entries = (providers.data?.providers ?? []).toSorted(
     (a, b) => orderOf(a.provider) - orderOf(b.provider),
@@ -74,9 +83,9 @@ export function ConnectPage(props: {
   };
 
   const connected = useCallback(() => {
-    reload();
+    void reload();
     // The first refresh runs a moment after the sign-in; load again to catch its limits.
-    setTimeout(reload, 2500);
+    setTimeout(() => void reload(), 2500);
   }, [reload]);
 
   const close = useCallback(() => {
@@ -160,27 +169,27 @@ export function ConnectPage(props: {
             provider={active}
             methods={methods}
             reconnectId={reconnectId}
-            connections={overview.data?.connections ?? []}
+            connections={overview.connections ?? []}
             onClose={close}
             onConnected={connected}
           />
         ) : null}
       </div>
       <AccountsTable
-        connections={overview.data?.connections ?? []}
-        providerOrder={overview.data?.providerOrder ?? []}
-        onOrdered={onOrdered}
+        connections={overview.connections ?? []}
+        providerOrder={overview.providerOrder}
+        onOrdered={applyOrder}
         status={
-          overview.data === null
-            ? overview.error === null
-              ? "loading"
-              : "failed"
+          overview.connections === null
+            ? overview.failed
+              ? "failed"
+              : "loading"
             : settingsLoaded
               ? "ready"
               : "loading"
         }
-        retrying={overview.pending}
-        reload={reload}
+        retrying={retrying}
+        reload={retry}
       />
     </div>
   );
