@@ -39,7 +39,7 @@ const cycleUnit: Record<Cycle, string> = { monthly: "mo", annual: "yr" };
 function CostForm(props: {
   readonly account: WalletAccount;
   readonly defaultCurrency: Currency;
-  readonly onSave: (cost: Cost | null) => void;
+  readonly onSave: (cost: Cost | null) => Promise<void>;
   readonly onCancel: () => void;
 }) {
   const { account } = props;
@@ -58,6 +58,19 @@ function CostForm(props: {
     current?.kind === "included" ? current.includedWith : "",
   );
   const [error, setError] = useState<string | null>(null);
+  /** Which save is on its way to the server, and whether the last one failed. */
+  const [pending, setPending] = useState<"save" | "clear" | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  const save = (cost: Cost | null): void => {
+    if (pending !== null) return;
+    setPending(cost === null ? "clear" : "save");
+    setFailed(false);
+    props.onSave(cost).catch(() => {
+      setPending(null);
+      setFailed(true);
+    });
+  };
 
   const suggestions = kind === "paid" ? suggestPrices(provider, plan) : [];
   const quick = includedWith[provider] ?? [];
@@ -65,15 +78,15 @@ function CostForm(props: {
   const submit = (event: FormEvent): void => {
     event.preventDefault();
     if (kind === "free") {
-      props.onSave({ kind: "free" });
+      save({ kind: "free" });
     } else if (kind === "included") {
       const words = included.trim();
       if (words === "") setError("Say what this account comes with.");
-      else props.onSave({ kind: "included", includedWith: words });
+      else save({ kind: "included", includedWith: words });
     } else {
       if (price.minor === null || price.minor <= 0) setError("Enter an amount above zero.");
       else {
-        props.onSave({
+        save({
           kind: "paid",
           price: { minor: price.minor, currency: price.currency },
           cycle,
@@ -188,14 +201,27 @@ function CostForm(props: {
           )}
         </div>
       ) : null}
+      {failed ? (
+        <p className="w-save-error" role="alert">
+          Could not save. Nothing was changed.
+        </p>
+      ) : null}
       <div className="w-foot">
         {current === null ? null : (
-          <Button variant="quiet-danger" className="w-clear" onClick={() => props.onSave(null)}>
+          <Button
+            variant="quiet-danger"
+            className="w-clear"
+            busy={pending === "clear"}
+            disabled={pending === "save"}
+            onClick={() => save(null)}
+          >
             Clear Cost
           </Button>
         )}
-        <Button onClick={props.onCancel}>Cancel</Button>
-        <Button variant="primary" type="submit">
+        <Button disabled={pending !== null} onClick={props.onCancel}>
+          Cancel
+        </Button>
+        <Button variant="primary" type="submit" busy={pending === "save"} busyLabel="Saving">
           Save Cost
         </Button>
       </div>
@@ -212,7 +238,7 @@ export function CostDialog(props: {
   /** The display currency, the starting choice for a new paid cost. */
   readonly defaultCurrency: Currency;
   /** Null clears the cost back to Not set. */
-  readonly onSave: (connectionId: string, cost: Cost | null) => void;
+  readonly onSave: (connectionId: string, cost: Cost | null) => Promise<void>;
   readonly onClose: () => void;
 }) {
   const { account, onClose } = props;
@@ -227,10 +253,7 @@ export function CostDialog(props: {
           key={account.connection.id}
           account={account}
           defaultCurrency={props.defaultCurrency}
-          onSave={(cost) => {
-            props.onSave(account.connection.id, cost);
-            onClose();
-          }}
+          onSave={(cost) => props.onSave(account.connection.id, cost).then(onClose)}
           onCancel={onClose}
         />
       )}

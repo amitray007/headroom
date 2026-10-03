@@ -9,7 +9,7 @@ This is the documentation entry point for contributors building the first applic
 3. [Provider matrix](providers/README.md): which integrations are candidates and what blocks them.
 4. [Architecture overview](architecture/README.md): ownership and the single-binary shape.
 5. [Connection lifecycle](architecture/connections.md): the browser Connect flow, attempt and connection states.
-6. [Data model](architecture/data-model.md): identities, enumerations, metrics, credentials and history.
+6. [Data model](architecture/data-model.md): identities, enumerations, metrics, credentials, history and the Wallet.
 7. [Validation plan](validation.md): evidence required before calling a connector supported.
 8. [Roadmap](roadmap.md): the complete milestone plan with completion criteria.
 
@@ -29,7 +29,7 @@ Each dossier describes metrics, connection steps, tools, limitations and sources
 
 ## Shared references
 
-- [HTTP API](architecture/api.md): overview, display name, settings, and the account-actions gate.
+- [HTTP API](architecture/api.md): overview, display name, settings, the Wallet, and the account-actions gate.
 - [Notifications](architecture/notifications.md): what raises a notification, the event schema, and server-side delivery to Telegram and webhooks.
 - [Connector contract](architecture/connector-contract.md): the Go interface every provider package implements.
 - [Deployment and credential storage](architecture/deployment.md): single binary, SQLite, master key and backups.

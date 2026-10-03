@@ -15,8 +15,10 @@ import {
   attemptStates,
   authMethods,
   availabilities,
+  billingCycles,
   connectionScopes,
   connectionStates,
+  currencies,
   evidenceLevels,
   interfaceLabels,
   metricKinds,
@@ -28,6 +30,8 @@ import {
   reconnectReasons,
   refreshStates,
   syncRunOutcomes,
+  topUpKinds,
+  walletCostKinds,
 } from "../enums.ts";
 
 /**
@@ -282,4 +286,40 @@ export const notificationDeliveries = sqliteTable(
     uniqueIndex("notification_deliveries_event").on(t.channelId, t.eventId),
     index("notification_deliveries_recent").on(t.channelId, t.lastAttemptAt),
   ],
+);
+
+/** What the owner pays for one account. No row means "Not set"; a cost is never stored as zero. */
+export const walletCosts = sqliteTable("wallet_costs", {
+  connectionId: text("connection_id")
+    .primaryKey()
+    .references(() => connections.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: walletCostKinds }).notNull(),
+  priceMinor: integer("price_minor"),
+  priceCurrency: text("price_currency", { enum: currencies }),
+  cycle: text("cycle", { enum: billingCycles }),
+  /** `YYYY-MM-DD`. */
+  renewsOn: text("renews_on"),
+  includedWith: text("included_with"),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+
+/**
+ * Credits the owner topped up. `connection_id` has no foreign key on purpose: the history outlives
+ * a removed account.
+ */
+export const walletTopUps = sqliteTable(
+  "wallet_top_ups",
+  {
+    id: text("id").primaryKey(),
+    connectionId: text("connection_id").notNull(),
+    /** `YYYY-MM-DD`. */
+    date: text("date").notNull(),
+    kind: text("kind", { enum: topUpKinds }).notNull(),
+    priceMinor: integer("price_minor"),
+    priceCurrency: text("price_currency", { enum: currencies }),
+    credits: real("credits"),
+    note: text("note"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  },
+  (t) => [index("wallet_top_ups_date").on(t.date)],
 );

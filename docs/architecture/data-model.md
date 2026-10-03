@@ -16,9 +16,11 @@ This is a logical schema for implementation planning. No database or migrations 
 | `metrics` | snapshot_id, provider_metric_key, kind, scope, value_text, value_num, unit, window_start, window_end, resets_at, availability, interface | Individual measurements |
 | `reset_credits` | snapshot_id, provider_credit_id, eligible, usable, expires_at, cooldown_until, raw_label | Per-credit rows of a reset inventory |
 | `display_order` | id (always `owner`), providers_json, updated_at | The owner's provider order as a JSON array of provider names. It has its own row so saving settings never overwrites it. Providers missing from it follow in default order |
-| `settings` | id (always `owner`), json, updated_at | The owner's preferences as one JSON document: limits view, low threshold, refresh interval, time style, clock, density, account actions, notifications. The schema in `packages/core/src/settings.ts` is the list of keys; unknown stored keys are dropped on read and missing ones take defaults |
+| `settings` | id (always `owner`), json, updated_at | The owner's preferences as one JSON document: limits view, low threshold, refresh interval, time style, clock, density, account actions, notifications, Wallet display currency. The schema in `packages/core/src/settings.ts` is the list of keys; unknown stored keys are dropped on read and missing ones take defaults |
 | `notification_channels` | id, type, enabled, include_identity, config_ciphertext, config_nonce, key_version, label, created_at, updated_at | A server-side notification destination. The config (Telegram bot token and chat id, or webhook URL and signing secret) is sealed under the master key with aad `notification_channel:<id>`. `label` is a display summary with no secret: `@botusername` and chat title, or the URL host. `include_identity` adds the account's email or login to events for this channel |
 | `notification_deliveries` | channel_id, event_id, kind, status, attempts, failure, first_attempt_at, last_attempt_at, next_attempt_at, delivered_at | One row per channel and event id (unique): the dedupe record and retry state. Cascade-deleted with the channel, pruned after 60 days. No credential or response body |
+| `wallet_costs` | connection_id, kind, price_minor, price_currency, cycle, renews_on, included_with, updated_at | What the owner pays for one connection, entered by the owner. One row per connection, cascade-deleted with it. No row means Not set |
+| `wallet_top_ups` | id, connection_id, date, kind, price_minor, price_currency, credits, note, created_at | Credits the owner added outside a subscription. `connection_id` has no foreign key, so the record stays when the account is removed |
 | `account_actions` | id, connection_id, action, idempotency_key, state, requested_at, completed_at, provider_reference, resulting_snapshot_id, sanitized_error | Later reset or purchase operations |
 
 `value_text` holds the exact provider value as a decimal string. `value_num` is a derived float for charts and never the source of truth. Money uses `value_text` plus an ISO currency unit.
@@ -45,6 +47,10 @@ This is a logical schema for implementation planning. No database or migrations 
 | `notification_deliveries.failure` | `timeout`, `network`, `unauthorized`, `not_found`, `rate_limited`, `rejected`, `server_error`, none |
 | `notification.kind` | `almost_out`, `running_low`, `reset_expiring`, `balance_low`, `spend_near_cap`, `spend_cap_reached`, `extra_usage_started`, `refresh_failed`, `disconnected` |
 | `notification.tone` | `bad`, `warn`, `info` |
+| `wallet_costs.kind` | `paid`, `free`, `included`; no row is Not set |
+| `wallet_costs.cycle` | `monthly`, `annual` |
+| `wallet_top_ups.kind` | `paid`, `free` |
+| `*.price_currency`, `settings.walletCurrency` | `USD`, `EUR`, `GBP`, `INR`, `CAD`, `AUD`, `JPY`, `SGD`, `CHF`, `BRL` |
 | `notification.amount.unit` | `USD`, `codex_credits`, `grok_credits`, `gateway_credits`, `credits` |
 
 ## Identity
@@ -89,6 +95,14 @@ Store normalized observations only. Raw responses can contain personal data or t
 Read capabilities and action capabilities are separate. Redemption consumes inventory and never runs inside a refresh. Use provider idempotency keys. If a response is lost, reconcile before any retry and record `uncertain` explicitly.
 
 Implemented on 2026-10-02 for `consume_reset_credit` (Codex). Two gates sit in front of every action: the owner's `accountActions` setting ("Allow Account Actions" in Settings), off by default, which the server reads at call time so a change needs no restart; and a literal `confirm: true` the browser sends only after the owner confirmed the named credit and its expiry. The action row is created before the provider call and its id is the idempotency key; the call runs under the connection lease; a thrown request or a 5xx is `uncertain`; a success is followed by one ordinary collection whose snapshot id lands on the row. Nothing retries an action, and the scheduler never calls the action service. The first real consume is the owner's to run; agents validate the route only against fakes.
+
+## Wallet
+
+The Wallet holds what the owner entered. Providers do not report what an account costs, so Headroom never infers a price. A connection without a `wallet_costs` row is Not set: it is unknown, and no total counts it as zero. `paid` needs an amount, a currency and a cycle; the renewal date is optional. `free` and `included` count as zero; `included` names the subscription it comes with, such as X Premium.
+
+Amounts are integers in the currency's minor unit (cents, paise, whole yen), each with its own currency. A top-up is `paid` with an amount or `free` without one, and may record the credits added in the provider's own unit. Credits never convert to money.
+
+Totals convert to the display currency through USD with the European Central Bank's daily reference rates (D27). An amount whose currency has no rate stays out of the total and is counted as left out. Provider-reported money, such as Claude extra usage or Cursor on-demand spend, is usage spend: it comes from snapshots, not from the Wallet tables, and stays a separate figure.
 
 ## Open schema decisions
 

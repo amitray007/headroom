@@ -22,6 +22,8 @@ import {
   resetCreditSchema,
   type OverviewConnection,
 } from "@headroom/view-model/overview";
+import type { Cost, TopUp, WalletBook } from "@headroom/view-model/wallet";
+import { currencies } from "@headroom/view-model/wallet-money";
 import { z } from "zod";
 
 import { devicePrefs } from "./lib/device-prefs.ts";
@@ -187,6 +189,8 @@ const settingsSchema = z.object({
   detailedOrder: z.enum(["urgency", "provider", "custom"]),
   keepInactiveLast: z.boolean(),
   accountActions: z.boolean(),
+  /** The Wallet display currency; null follows the browser locale. */
+  walletCurrency: z.enum(currencies).nullable().default(null),
   notifications: z.object({
     runningLow: z.boolean(),
     expiringResets: z.boolean(),
@@ -203,6 +207,37 @@ const settingsEnvelopeSchema = z.object({
   settings: settingsSchema,
 });
 export type SettingsEnvelope = z.infer<typeof settingsEnvelopeSchema>;
+
+const currencySchema = z.enum(currencies);
+const moneySchema = z.object({ minor: z.number().int().positive(), currency: currencySchema });
+const dayText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const costSchema: z.ZodType<Cost> = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("paid"),
+    price: moneySchema,
+    cycle: z.enum(["monthly", "annual"]),
+    renewsOn: dayText.nullable(),
+  }),
+  z.object({ kind: z.literal("free") }),
+  z.object({ kind: z.literal("included"), includedWith: z.string() }),
+]);
+const topUpSchema = z.object({
+  id: z.string(),
+  connectionId: z.string(),
+  date: dayText,
+  kind: z.enum(["paid", "free"]),
+  price: moneySchema.nullable(),
+  credits: z.number().nullable(),
+  note: z.string().nullable(),
+});
+/** What the owner entered in the Wallet. The display currency lives in the settings. */
+export type ServerWallet = Pick<WalletBook, "costs" | "topUps">;
+const walletSchema: z.ZodType<ServerWallet> = z.object({
+  costs: z.record(z.string(), costSchema),
+  topUps: z.array(topUpSchema),
+});
+/** A top-up the owner is adding; the server assigns the id. */
+export type TopUpInput = Omit<TopUp, "id">;
 
 const actionOutcomeSchema = z.object({
   action: z.object({
@@ -348,7 +383,19 @@ export const api = {
   ),
   // Reading rates and asking the server to fetch them again touch no account, so Demo Mode allows both.
   exchangeRates: () => request("GET", "/api/exchange-rates", exchangeRatesSchema),
-  refreshExchangeRates: () => request("POST", "/api/exchange-rates/refresh", exchangeRatesSchema),
+  wallet: () => request("GET", "/api/wallet", walletSchema),
+  setCost: changesAccount((connectionId: string, cost: Cost) =>
+    request("PUT", `/api/wallet/costs/${encodeURIComponent(connectionId)}`, walletSchema, cost),
+  ),
+  clearCost: changesAccount((connectionId: string) =>
+    request("DELETE", `/api/wallet/costs/${encodeURIComponent(connectionId)}`, walletSchema),
+  ),
+  addTopUp: changesAccount((input: TopUpInput) =>
+    request("POST", "/api/wallet/top-ups", walletSchema, input),
+  ),
+  removeTopUp: changesAccount((id: string) =>
+    request("DELETE", `/api/wallet/top-ups/${encodeURIComponent(id)}`, walletSchema),
+  ),
   settings: () => request("GET", "/api/settings", settingsEnvelopeSchema),
   saveSettings: (settings: Settings) =>
     request("PUT", "/api/settings", settingsEnvelopeSchema, settings),

@@ -37,15 +37,10 @@ function harness(fail = false) {
 }
 
 describe("exchange rate routes", () => {
-  test("both routes need a signed-in owner", async () => {
+  test("GET needs a signed-in owner", async () => {
     const h = harness();
     const get = await h.app.request(url(h.ctx, "/api/exchange-rates"));
     expect(get.status).toBe(401);
-    const post = await h.app.request(
-      url(h.ctx, "/api/exchange-rates/refresh"),
-      jsonPost(h.ctx, {}),
-    );
-    expect(post.status).toBe(401);
     expect(h.calls()).toBe(0);
   });
 
@@ -65,18 +60,6 @@ describe("exchange rate routes", () => {
     expect(h.calls()).toBe(1);
   });
 
-  test("POST refresh returns the same shape, and a second press inside 60 seconds does not fetch", async () => {
-    const h = harness();
-    const cookie = await signedIn(h.ctx, h.app);
-    const send = () =>
-      h.app.request(url(h.ctx, "/api/exchange-rates/refresh"), jsonPost(h.ctx, {}, { cookie }));
-    const first = await send();
-    expect(first.status).toBe(200);
-    expect(await first.json()).toMatchObject({ perUsd: { INR: 96.32 } });
-    await send();
-    expect(h.calls()).toBe(1);
-  });
-
   test("a failed fetch answers 200 with null rates and the error", async () => {
     const h = harness(true);
     const cookie = await signedIn(h.ctx, h.app);
@@ -93,14 +76,14 @@ describe("exchange rate routes", () => {
     });
   });
 
-  test("a cross-site POST is refused", async () => {
+  test("the owner has no refresh route", async () => {
     const h = harness();
     const cookie = await signedIn(h.ctx, h.app);
     const response = await h.app.request(
       url(h.ctx, "/api/exchange-rates/refresh"),
-      jsonPost(h.ctx, {}, { cookie, origin: "https://evil.example" }),
+      jsonPost(h.ctx, {}, { cookie }),
     );
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
     expect(h.calls()).toBe(0);
   });
 });

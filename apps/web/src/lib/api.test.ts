@@ -170,15 +170,45 @@ describe("demo mode guard", () => {
       api.reconnect("demo-1", "cli_login"),
       api.beginAttempt("claude", "cli_login"),
       api.connection("demo-1"),
+      api.setCost("demo-1", { kind: "free" }),
+      api.clearCost("demo-1"),
+      api.addTopUp({
+        connectionId: "demo-1",
+        date: "2026-10-01",
+        kind: "free",
+        price: null,
+        credits: null,
+        note: null,
+      }),
+      api.removeTopUp("t1"),
     ];
     const causes = await Promise.all(refused.map((call) => call.catch((error: unknown) => error)));
-    expect(causes).toHaveLength(8);
+    expect(causes).toHaveLength(12);
     for (const cause of causes) {
       expect(cause).toMatchObject({ status: 409, code: "demo_mode", message: demoRefusal });
       expect(isDemoRefusal(cause)).toBe(true);
     }
     expect(demoRefusal).toBe("Turn off Demo Mode to change accounts.");
     expect(calls).toEqual([]);
+  });
+  test("wallet calls reach the server with Demo Mode off", async () => {
+    const book = { costs: { c1: { kind: "free" as const } }, topUps: [] };
+    const calls = stub(book);
+    expect(await api.wallet()).toEqual(book);
+    await api.setCost("c1", { kind: "included", includedWith: "X Premium" });
+    await api.clearCost("c1");
+    await api.removeTopUp("t1");
+    expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual([
+      "GET /api/wallet",
+      "PUT /api/wallet/costs/c1",
+      "DELETE /api/wallet/costs/c1",
+      "DELETE /api/wallet/top-ups/t1",
+    ]);
+    expect(calls[1]?.body).toEqual({ kind: "included", includedWith: "X Premium" });
+  });
+  test("a wallet response that does not fit the contract is refused", async () => {
+    stub({ costs: { c1: { kind: "paid", price: { minor: 0, currency: "USD" } } }, topUps: [] });
+    expect(await failure(api.wallet())).toBe("The server sent an unexpected response");
   });
   test("saving the order resolves with its body and makes no request", async () => {
     devicePrefs().setDemo(true);

@@ -52,6 +52,7 @@ describe("defaults", () => {
       detailedOrder: "urgency",
       keepInactiveLast: true,
       accountActions: false,
+      walletCurrency: null,
       notifications: {
         runningLow: true,
         expiringResets: true,

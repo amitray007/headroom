@@ -3,19 +3,9 @@
  * formatting. Minor-unit digits come from Intl (JPY has none, most have two), never a fixed 2.
  */
 
-export const currencies = [
-  "USD",
-  "EUR",
-  "GBP",
-  "INR",
-  "CAD",
-  "AUD",
-  "JPY",
-  "SGD",
-  "CHF",
-  "BRL",
-] as const;
-export type Currency = (typeof currencies)[number];
+import { type Currency, currencies } from "@headroom/core/contracts";
+
+export { type Currency, currencies };
 
 /** An amount in minor units (cents, paise, whole yen) with its currency. Never mixed with credits or percentages. */
 export interface Money {

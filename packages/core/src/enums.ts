@@ -232,3 +232,32 @@ export const notificationDeliveryFailures = [
 ] as const;
 export const notificationDeliveryFailureSchema = z.enum(notificationDeliveryFailures);
 export type NotificationDeliveryFailure = z.infer<typeof notificationDeliveryFailureSchema>;
+
+/** Currencies the Wallet records and converts. Exchange rates are fetched for exactly this list. */
+export const currencies = [
+  "USD",
+  "EUR",
+  "GBP",
+  "INR",
+  "CAD",
+  "AUD",
+  "JPY",
+  "SGD",
+  "CHF",
+  "BRL",
+] as const;
+export const currencySchema = z.enum(currencies);
+export type Currency = z.infer<typeof currencySchema>;
+
+/** What the owner pays for a linked account. "Not set" is the absence of a row, never a stored value. */
+export const walletCostKinds = ["paid", "free", "included"] as const;
+export const walletCostKindSchema = z.enum(walletCostKinds);
+export type WalletCostKind = z.infer<typeof walletCostKindSchema>;
+
+export const billingCycles = ["monthly", "annual"] as const;
+export const billingCycleSchema = z.enum(billingCycles);
+export type BillingCycle = z.infer<typeof billingCycleSchema>;
+
+export const topUpKinds = ["paid", "free"] as const;
+export const topUpKindSchema = z.enum(topUpKinds);
+export type TopUpKind = z.infer<typeof topUpKindSchema>;

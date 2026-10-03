@@ -20,6 +20,7 @@ describe("settings", () => {
       density: "comfortable",
       detailedOrder: "urgency",
       keepInactiveLast: true,
+      walletCurrency: null,
       accountActions: false,
       notifications: {
         runningLow: true,
@@ -36,6 +37,14 @@ describe("settings", () => {
     expect(nearestRefreshMinutes(600)).toBe(10);
     expect(nearestRefreshMinutes(1500)).toBe(30);
     expect(nearestRefreshMinutes(86_400)).toBe(30);
+  });
+
+  test("walletCurrency is null when missing or invalid and kept when valid", () => {
+    const defaults = defaultSettings(900);
+    expect(mergeSettings({}, defaults).walletCurrency).toBeNull();
+    expect(mergeSettings({ walletCurrency: "XXX" }, defaults).walletCurrency).toBeNull();
+    expect(mergeSettings({ walletCurrency: "EUR" }, defaults).walletCurrency).toBe("EUR");
+    expect(settingsSchema.safeParse({ ...defaults, walletCurrency: "INR" }).success).toBe(true);
   });
 
   test("unknown stored keys are dropped, missing and invalid ones take defaults", () => {

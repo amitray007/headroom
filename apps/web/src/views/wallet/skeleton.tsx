@@ -33,8 +33,7 @@ export function WalletSkeleton() {
         <h1 className="w-title">Wallet</h1>
         <div className="w-segs" aria-hidden="true">
           <Sk width={92} height={30} className="sk-pill" />
-          <Sk width={120} height={30} className="sk-pill" />
-          <Sk width={104} height={36} className="sk-pill" />
+          <Sk width={104} height={30} className="sk-pill" />
         </div>
       </div>
       <div className="w-band" aria-hidden="true">
@@ -45,6 +44,34 @@ export function WalletSkeleton() {
             <Sk width="70%" />
           </div>
         ))}
+      </div>
+      <div className="w-glance" aria-hidden="true">
+        <section className="provider">
+          <header className="sk-head">
+            <Sk kind="title" width={150} />
+          </header>
+          <div className="w-card w-sk-spend">
+            <Sk width={160} height={160} className="sk-pill" />
+            <div className="w-sk-table">
+              {Array.from({ length: 4 }, (_, index) => (
+                <Sk key={index} />
+              ))}
+            </div>
+          </div>
+        </section>
+        <div className="w-side">
+          {["Top-Ups", "Upcoming Renewals"].map((title) => (
+            <section key={title} className="provider">
+              <header className="sk-head">
+                <Sk kind="title" width={title.length * 8} />
+              </header>
+              <div className="w-card w-sk-pair">
+                <Sk kind="big" width="45%" />
+                <Sk width="80%" />
+              </div>
+            </section>
+          ))}
+        </div>
       </div>
       <section className="provider" aria-hidden="true">
         <header className="sk-head">

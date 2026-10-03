@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { type Db, schema } from "./db/index.ts";
-import { providerSchema } from "./enums.ts";
+import { currencySchema, providerSchema } from "./enums.ts";
 
 /**
  * Owner preferences kept on the server so every browser agrees. One row, because Headroom has
@@ -28,6 +28,8 @@ export const settingsSchema = z.object({
   detailedOrder: z.enum(["urgency", "provider", "custom"]),
   /** The Detailed view keeps paused and disconnected accounts at the bottom. */
   keepInactiveLast: z.boolean(),
+  /** Currency the Wallet totals in. Null until the owner picks one. */
+  walletCurrency: currencySchema.nullable(),
   /** The owner's half of the account-actions gate; the server flag is the other half. */
   accountActions: z.boolean(),
   notifications: z.object({
@@ -70,6 +72,7 @@ export function defaultSettings(refreshIntervalSeconds: number): Settings {
     density: "comfortable",
     detailedOrder: "urgency",
     keepInactiveLast: true,
+    walletCurrency: null,
     accountActions: false,
     notifications: {
       runningLow: true,
@@ -113,6 +116,7 @@ export function mergeSettings(stored: unknown, defaults: Settings): Settings {
     density: valid(shape.density, source["density"], defaults.density),
     detailedOrder: valid(shape.detailedOrder, source["detailedOrder"], defaults.detailedOrder),
     keepInactiveLast: valid(flag, source["keepInactiveLast"], defaults.keepInactiveLast),
+    walletCurrency: valid(shape.walletCurrency, source["walletCurrency"], defaults.walletCurrency),
     accountActions: valid(flag, source["accountActions"], defaults.accountActions),
     notifications: {
       runningLow: valid(flag, saved["runningLow"], defaults.notifications.runningLow),

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 
+import type { TopUpInput } from "../../api.ts";
 import type { Provider } from "@headroom/core/contracts";
 import { accountName, groupByProvider, planLabel, providerName } from "@headroom/view-model/labels";
 import type { OverviewConnection } from "@headroom/view-model/overview";
@@ -14,7 +15,6 @@ import { Dialog } from "../../ui/dialog.tsx";
 import { MoneyInput } from "../../ui/money-input.tsx";
 import { RadioCards, type RadioCard } from "../../ui/radio-cards.tsx";
 import { Select, type SelectOption } from "../../ui/select.tsx";
-import { newId } from "./book.ts";
 
 const kinds: readonly RadioCard<TopUp["kind"]>[] = [
   { value: "paid", label: "Paid", description: "You bought these credits." },
@@ -47,7 +47,7 @@ function TopUpForm(props: {
   readonly connectionId: string | null;
   readonly defaultCurrency: Currency;
   readonly today: string;
-  readonly onAdd: (topUp: TopUp) => void;
+  readonly onAdd: (topUp: TopUpInput) => Promise<void>;
   readonly onCancel: () => void;
 }) {
   const options = accountOptions(props.connections, props.providerOrder);
@@ -60,6 +60,8 @@ function TopUpForm(props: {
   });
   const [credits, setCredits] = useState("");
   const [note, setNote] = useState("");
+  const [pending, setPending] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [errors, setErrors] = useState<{
     readonly amount?: string;
     readonly credits?: string;
@@ -81,18 +83,25 @@ function TopUpForm(props: {
     if (date === null) next.date = "Pick a date.";
     setErrors(next);
     if (Object.keys(next).length > 0 || connectionId === "" || date === null) return;
-    props.onAdd({
-      id: newId(),
-      connectionId,
-      date,
-      kind,
-      price:
-        kind === "paid" && price.minor !== null
-          ? { minor: price.minor, currency: price.currency }
-          : null,
-      credits: added,
-      note: note.trim() === "" ? null : note.trim(),
-    });
+    if (pending) return;
+    setPending(true);
+    setFailed(false);
+    props
+      .onAdd({
+        connectionId,
+        date,
+        kind,
+        price:
+          kind === "paid" && price.minor !== null
+            ? { minor: price.minor, currency: price.currency }
+            : null,
+        credits: added,
+        note: note.trim() === "" ? null : note.trim(),
+      })
+      .catch(() => {
+        setPending(false);
+        setFailed(true);
+      });
   };
 
   return (
@@ -152,9 +161,16 @@ function TopUpForm(props: {
         />
         <TextField label="Note (Optional)" value={note} onChange={setNote} />
       </div>
+      {failed ? (
+        <p className="w-save-error" role="alert">
+          Could not save. Nothing was changed.
+        </p>
+      ) : null}
       <div className="w-foot">
-        <Button onClick={props.onCancel}>Cancel</Button>
-        <Button variant="primary" type="submit">
+        <Button disabled={pending} onClick={props.onCancel}>
+          Cancel
+        </Button>
+        <Button variant="primary" type="submit" busy={pending} busyLabel="Adding">
           Add Top-Up
         </Button>
       </div>
@@ -176,7 +192,7 @@ export function TopUpDialog(props: {
   readonly defaultCurrency: Currency;
   /** Today as `YYYY-MM-DD`, the starting date. */
   readonly today: string;
-  readonly onAdd: (topUp: TopUp) => void;
+  readonly onAdd: (topUp: TopUpInput) => Promise<void>;
   readonly onClose: () => void;
 }) {
   const { onClose } = props;
@@ -189,10 +205,7 @@ export function TopUpDialog(props: {
           connectionId={props.connectionId}
           defaultCurrency={props.defaultCurrency}
           today={props.today}
-          onAdd={(topUp) => {
-            props.onAdd(topUp);
-            onClose();
-          }}
+          onAdd={(topUp) => props.onAdd(topUp).then(onClose)}
           onCancel={onClose}
         />
       ) : null}

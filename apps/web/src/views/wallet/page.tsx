@@ -5,7 +5,7 @@ import { PlusIcon } from "../../icons.tsx";
 import { useDevicePrefs } from "../../lib/device-prefs.ts";
 import { useExchangeRates } from "../../lib/exchange-rates.ts";
 import { useNow } from "../../lib/now.ts";
-import { useWalletBook } from "../../lib/wallet-store.ts";
+import { useWallet } from "../../lib/wallet-store.ts";
 import { localDay } from "@headroom/view-model/wallet-dates";
 import {
   currencies,
@@ -14,15 +14,13 @@ import {
   type Currency,
 } from "@headroom/view-model/wallet-money";
 import { demoWallet } from "@headroom/view-model/wallet-demo";
-import { rateCurrencies, summarize, type Cost, type TopUp } from "@headroom/view-model/wallet";
+import { summarize } from "@headroom/view-model/wallet";
 import { Button } from "../../ui/button.tsx";
 import { Select, type SelectOption } from "../../ui/select.tsx";
 import type { ViewProps } from "../props.ts";
 import { AccountsTable } from "./accounts.tsx";
-import { withCost, withDisplay, withTopUp, withoutTopUp } from "./book.ts";
 import { CostDialog } from "./cost-dialog.tsx";
 import { RenewalsCard, TopUpsCard } from "./glance.tsx";
-import { RatesPopover } from "./rates-popover.tsx";
 import { WalletSkeleton } from "./skeleton.tsx";
 import { SpendByProvider } from "./spend.tsx";
 import { SummaryBand } from "./summary.tsx";
@@ -38,10 +36,10 @@ const currencyOptions: readonly SelectOption<Currency>[] = currencies.map((curre
 }));
 
 /**
- * Wallet: what the owner pays for each account, in money. Subscription costs and top-ups are entered by the
- * owner and kept in this browser; usage spend comes from the provider's own figures, and exchange rates come from
- * the server. An account with no cost
- * is Not set, never zero.
+ * Wallet: what the owner pays for each account, in money. Subscription costs, top-ups and the display currency
+ * are entered by the owner and saved on the server, so every browser shows the same Wallet; usage spend comes
+ * from the provider's own figures, and exchange rates come from the server. An account with no cost is Not set,
+ * never zero.
  */
 export function WalletPage(props: ViewProps) {
   const { connections, providerOrder, failed, stale, reload } = props.overview;
@@ -54,7 +52,7 @@ export function WalletPage(props: ViewProps) {
   const [topUpFor, setTopUpFor] = useState<{ readonly connectionId: string | null } | null>(null);
 
   // Demo Mode keeps its own book in memory, so its edits never reach the saved one.
-  const [book, setBook] = useWalletBook(
+  const wallet = useWallet(
     prefs.demo && connections !== null
       ? {
           key: `${prefs.demoSeed}:${prefs.demoAnchor}`,
@@ -62,10 +60,11 @@ export function WalletPage(props: ViewProps) {
         }
       : null,
   );
+  const { book } = wallet;
 
   const retry = (): void => {
     setRetrying(true);
-    void reload().finally(() => setRetrying(false));
+    void Promise.all([reload(), wallet.reload()]).finally(() => setRetrying(false));
   };
 
   if (connections === null) {
@@ -75,6 +74,8 @@ export function WalletPage(props: ViewProps) {
       <WalletSkeleton />
     );
   }
+  if (wallet.loadFailed) return <LoadFailed stale={false} busy={retrying} onRetry={retry} />;
+  if (!wallet.loaded) return <WalletSkeleton />;
   if (connections.length === 0) {
     return (
       <div className="reveal">
@@ -95,14 +96,9 @@ export function WalletPage(props: ViewProps) {
     typeof navigator === "undefined" ? "en-US" : navigator.language,
   );
   const display = summary.currency;
-  const ordered = rateCurrencies(book, display);
   const editing = summary.providers
     .flatMap((group) => group.accounts)
     .find((account) => account.connection.id === costFor);
-
-  const saveCost = (connectionId: string, cost: Cost | null): void =>
-    setBook(withCost(book, connectionId, cost));
-  const addTopUp = (topUp: TopUp): void => setBook(withTopUp(book, topUp));
 
   return (
     <div className="reveal w-page">
@@ -116,9 +112,8 @@ export function WalletPage(props: ViewProps) {
             size="sm"
             value={display}
             options={currencyOptions}
-            onChange={(next) => setBook(withDisplay(book, next))}
+            onChange={(next) => void wallet.setDisplayCurrency(next)}
           />
-          <RatesPopover rates={rates} currencies={ordered} />
           <Button
             variant="primary"
             size="sm"
@@ -145,12 +140,12 @@ export function WalletPage(props: ViewProps) {
       <TopUpsSection
         topUps={summary.topUps}
         connections={connections}
-        onRemove={(id) => setBook(withoutTopUp(book, id))}
+        onRemove={wallet.removeTopUp}
       />
       <CostDialog
         account={editing ?? null}
         defaultCurrency={display}
-        onSave={saveCost}
+        onSave={wallet.setCost}
         onClose={() => setCostFor(null)}
       />
       <TopUpDialog
@@ -160,7 +155,7 @@ export function WalletPage(props: ViewProps) {
         connectionId={topUpFor?.connectionId ?? null}
         defaultCurrency={display}
         today={today}
-        onAdd={addTopUp}
+        onAdd={wallet.addTopUp}
         onClose={() => setTopUpFor(null)}
       />
     </div>

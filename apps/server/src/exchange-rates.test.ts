@@ -155,17 +155,6 @@ describe("exchange rate service", () => {
     expect((await service.get()).error).toBe("The rate service did not answer in time.");
   });
 
-  test("forced refresh runs once per 60 seconds and a press inside that returns the current view", async () => {
-    const h = setup([ok(), ok({ ...good, date: "2026-10-03" })]);
-    await h.service.refresh();
-    h.advance(59_999);
-    expect((await h.service.refresh()).date).toBe("2026-10-02");
-    expect(h.calls).toHaveLength(1);
-    h.advance(1);
-    expect((await h.service.refresh()).date).toBe("2026-10-03");
-    expect(h.calls).toHaveLength(2);
-  });
-
   test("callers that arrive during a fetch share it", async () => {
     const gate = deferred<Response>();
     const calls: number[] = [];
@@ -176,7 +165,7 @@ describe("exchange rate service", () => {
       },
       now: () => new Date(0),
     });
-    const both = Promise.all([service.get(), service.refresh()]);
+    const both = Promise.all([service.get(), service.get()]);
     gate.resolve(Response.json(good));
     const [a, b] = await both;
     expect(calls).toHaveLength(1);

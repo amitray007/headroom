@@ -64,12 +64,36 @@ function leftOut(total: Total): ReactNode {
   return missing === 0 ? null : <Line warn>{missing} without rate</Line>;
 }
 
-/** Scroll to the first account with no cost and focus its Set Cost button. */
+const attentionMs = 2500;
+let attentionTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Scroll to the first account with no cost, highlight every such row for a moment and focus the first Set Cost
+ * button. Pressing again restarts the highlight.
+ */
 function showFirstUnpriced(): void {
-  const button = document.querySelector<HTMLElement>("[data-set-cost]");
-  if (button === null) return;
-  button.scrollIntoView({ block: "center", behavior: prefersReducedMotion() ? "auto" : "smooth" });
-  button.focus({ preventScroll: true });
+  const buttons = [...document.querySelectorAll<HTMLElement>("[data-set-cost]")];
+  const [first] = buttons;
+  if (first === undefined) return;
+  const rows = buttons.flatMap((button) => {
+    const row = button.closest<HTMLElement>("li.w-row");
+    return row === null ? [] : [row];
+  });
+  clearTimeout(attentionTimer);
+  for (const row of document.querySelectorAll("[data-attention]")) {
+    row.removeAttribute("data-attention");
+  }
+  // Reading layout restarts the CSS animation when a row gets the attribute again.
+  void document.body.offsetWidth;
+  for (const row of rows) row.setAttribute("data-attention", "");
+  attentionTimer = setTimeout(() => {
+    for (const row of rows) row.removeAttribute("data-attention");
+  }, attentionMs);
+  (rows[0] ?? first).scrollIntoView({
+    block: "center",
+    behavior: prefersReducedMotion() ? "auto" : "smooth",
+  });
+  first.focus({ preventScroll: true });
 }
 
 /** One top-up: provider and account, date and credits, then the amount with what was billed beneath it. */

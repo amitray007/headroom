@@ -26,6 +26,7 @@ import {
   OrderStore,
   SettingsStore,
   SnapshotStore,
+  WalletStore,
 } from "@headroom/core";
 
 import { ExchangeRateService } from "./exchange-rates.ts";
@@ -51,6 +52,7 @@ export interface AppContext {
   readonly snapshots: SnapshotStore;
   readonly settings: SettingsStore;
   readonly order: OrderStore;
+  readonly wallet: WalletStore;
   readonly registry: ConnectorRegistry;
   readonly runner: CliLoginRunner;
   readonly connect: ConnectService;
@@ -118,6 +120,7 @@ export function bootstrap(options: BootstrapOptions): AppContext {
   const connections = new ConnectionStore(db, now);
   const snapshots = new SnapshotStore(db, now);
   const order = new OrderStore(db, now);
+  const wallet = new WalletStore(db, now);
   const settings = new SettingsStore(db, config.refreshIntervalSeconds, now);
   const runner = new CliLoginRunner({ attemptsDir: join(config.dataDir, "attempts") });
   if (databasePath !== ":memory:") runner.sweep();
@@ -168,6 +171,7 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     snapshots,
     settings,
     order,
+    wallet,
     registry,
     runner,
     connect: new ConnectService({ registry, attempts, connections, credentials, snapshots, now }),

@@ -21,9 +21,9 @@ import {
 export interface SettingsValue extends SettingsState {
   /** The owner switched account actions on in Settings. */
   readonly actionsEnabled: boolean;
-  update(patch: SettingsPatch): Promise<void>;
+  readonly update: (patch: SettingsPatch) => Promise<void>;
   /** Load the settings again, after a failed first load. */
-  reload(): Promise<void>;
+  readonly reload: () => Promise<void>;
 }
 
 const fallback: SettingsValue = {

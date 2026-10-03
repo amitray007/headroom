@@ -6,7 +6,7 @@ import { api, type ExchangeRatesPayload } from "../api.ts";
 
 /**
  * Exchange rates the server fetches from the European Central Bank's daily reference rates (via Frankfurter) and
- * refreshes every 24 hours. Read-only for the owner; Refresh asks the server to fetch again now.
+ * refreshes every 24 hours. The browser only reads them.
  */
 export interface ExchangeRates {
   /** Units of each currency per 1 USD; USD is always 1. Null until the first load, or when none could be fetched. */
@@ -18,8 +18,6 @@ export interface ExchangeRates {
   readonly status: "loading" | "ready" | "refreshing" | "failed";
   /** The last fetch failed; older rates may still be in use. */
   readonly error: string | null;
-  /** Ask the server to fetch now. Resolves when the new rates are in, or the fetch failed. */
-  refresh(): Promise<void>;
 }
 
 /** A page that comes back to the foreground after more than this reads the rates again. */
@@ -29,7 +27,6 @@ const unreachable = "Could not reach the server.";
 
 interface RatesClient {
   exchangeRates: () => Promise<ExchangeRatesPayload>;
-  refreshExchangeRates: () => Promise<ExchangeRatesPayload>;
 }
 
 /** The slice of `document` the store watches: tests pass a fake, a server render passes none. */
@@ -72,18 +69,11 @@ export function createExchangeRatesStore(
         : document
       : options.visibility;
   const listeners = new Set<() => void>();
-  let refreshing: Promise<void> | null = null;
   let reading: Promise<void> | null = null;
   let lastReadAt: number | null = null;
 
-  const refresh = (): Promise<void> => {
-    refreshing ??= run(client.refreshExchangeRates).finally(() => {
-      refreshing = null;
-    });
-    return refreshing;
-  };
   const read = (): void => {
-    if (reading !== null || refreshing !== null) return;
+    if (reading !== null) return;
     reading = run(client.exchangeRates).finally(() => {
       reading = null;
     });
@@ -94,7 +84,6 @@ export function createExchangeRatesStore(
     fetchedAt: null,
     status: "loading",
     error: null,
-    refresh,
   };
   const set = (next: Partial<ExchangeRates>): void => {
     state = { ...state, ...next };

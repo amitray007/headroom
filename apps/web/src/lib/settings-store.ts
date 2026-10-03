@@ -11,6 +11,7 @@ export const defaultSettings: Settings = {
   detailedOrder: "urgency",
   keepInactiveLast: true,
   accountActions: false,
+  walletCurrency: null,
   notifications: {
     runningLow: true,
     expiringResets: true,

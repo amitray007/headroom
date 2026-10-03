@@ -9,14 +9,12 @@ import {
   displayCurrencyOf,
   emptyBook,
   monthlyOf,
-  rateCurrencies,
   providerSpend,
   suggestPrices,
   summarize,
   topUpMonths,
   upcomingRenewals,
   usageSpendOf,
-  usedCurrencies,
   type Cost,
   type TopUp,
   type WalletBook,
@@ -533,38 +531,6 @@ describe("display currency", () => {
       now,
     );
     expect(summary.monthly).toEqual({ money: { minor: 3000, currency: "JPY" }, missing: 0 });
-  });
-});
-
-describe("currencies in use", () => {
-  test("lists the ones the entries use, in the usual order", () => {
-    expect(usedCurrencies(emptyBook)).toEqual([]);
-    const used = book({
-      costs: { a: paid(inr(1999)), b: paid(usd(20)), c: { kind: "free" } },
-      topUps: [
-        topUp("t", { price: { minor: 500, currency: "EUR" } }),
-        topUp("u", { kind: "free", price: null }),
-      ],
-    });
-    expect(usedCurrencies(used)).toEqual(["USD", "EUR", "INR"]);
-  });
-
-  test("every currency but USD can take a rate: the ones in use first, the rest alphabetical", () => {
-    expect(rateCurrencies(emptyBook, "USD")).toEqual([
-      "AUD",
-      "BRL",
-      "CAD",
-      "CHF",
-      "EUR",
-      "GBP",
-      "INR",
-      "JPY",
-      "SGD",
-    ]);
-    expect(rateCurrencies(emptyBook, "INR")[0]).toBe("INR");
-    expect(rateCurrencies(book({ costs: { a: paid(inr(1999)), b: paid(usd(5)) } }), "JPY")).toEqual(
-      ["INR", "JPY", "AUD", "BRL", "CAD", "CHF", "EUR", "GBP", "SGD"],
-    );
   });
 });
 

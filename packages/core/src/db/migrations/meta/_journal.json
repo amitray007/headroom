@@ -29,6 +29,13 @@
       "when": 1790980535879,
       "tag": "0003_notification_delivery",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791064434683,
+      "tag": "0004_wallet",
+      "breakpoints": true
     }
   ]
 }

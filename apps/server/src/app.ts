@@ -25,6 +25,7 @@ import { orderRoutes } from "./routes/order.ts";
 import { overviewRoutes } from "./routes/overview.ts";
 import { providerRoutes } from "./routes/providers.ts";
 import { settingsRoutes } from "./routes/settings.ts";
+import { walletRoutes } from "./routes/wallet.ts";
 
 const brandFiles = [
   "favicon.ico",
@@ -112,6 +113,7 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/settings", settingsRoutes(ctx));
   api.route("/delivery", deliveryRoutes(ctx));
   api.route("/exchange-rates", exchangeRateRoutes(ctx));
+  api.route("/wallet", walletRoutes(ctx));
 
   app.route("/api", api);
 

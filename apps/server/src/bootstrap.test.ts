@@ -51,6 +51,7 @@ describe("bootstrap", () => {
         "0001_names_and_settings",
         "0002_display_order",
         "0003_notification_delivery",
+        "0004_wallet",
       ]);
       expect(statSync(join(dir, "data", "headroom.db")).isFile()).toBe(true);
       expect(statSync(join(dir, "auth")).mode & 0o777).toBe(0o600);

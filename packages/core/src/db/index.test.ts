@@ -10,6 +10,7 @@ describe("openDatabase", () => {
       "0001_names_and_settings",
       "0002_display_order",
       "0003_notification_delivery",
+      "0004_wallet",
     ]);
     const tables = sqlite
       .query<{ name: string }, []>(
@@ -35,6 +36,8 @@ describe("openDatabase", () => {
         "account_actions",
         "leases",
         "settings",
+        "wallet_costs",
+        "wallet_top_ups",
         "headroom_migrations",
       ]),
     );

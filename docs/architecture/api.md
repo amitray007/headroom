@@ -17,6 +17,10 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 | `GET /api/providers`, `/api/attempts/...` | Connect flow, see [the connection lifecycle](connections.md) |
 | `GET /api/settings`, `PUT /api/settings` | Owner preferences |
 | `PUT /api/order` | Owner-defined order of providers and of accounts within a provider |
+| `GET /api/wallet` | The owner's Wallet entries: costs and top-ups, see [Wallet](#wallet) |
+| `PUT /api/wallet/costs/:connectionId`, `DELETE /api/wallet/costs/:connectionId` | Set the cost of one connection, or clear it back to Not set |
+| `POST /api/wallet/top-ups`, `DELETE /api/wallet/top-ups/:id` | Record a top-up, or remove one |
+| `GET /api/exchange-rates` | The daily reference rates the Wallet converts with (read only) |
 | `/api/delivery/...` | Notification channels (Telegram, webhook), tests and Telegram chat discovery, see [Delivery](#delivery) |
 
 ## Overview
@@ -52,12 +56,22 @@ The response carries no provider account id or workspace id. The detail route is
 | `keepInactiveLast` | boolean (the Detailed view keeps paused and disconnected accounts at the bottom) | true |
 | `accountActions` | boolean | false |
 | `notifications` | An object, see below | see below |
+| `walletCurrency` | One of the Wallet currencies, or null (follow the browser's locale) | null |
 
 `notifications` keys: `runningLow`, `expiringResets`, `refreshFailures`, `balances`, `spend` and `includeSessions` are boolean and default true. `resetLeadDays` is 1, 3 or 7 and defaults to 3 (how many days before a banked reset expires the notice appears). `mutedProviders` is a list of provider names and defaults to empty; it silences every notice for those providers except a broken sign-in. An invalid or missing key takes its default. See [Notifications](notifications.md).
 
 `PUT /api/order` takes `{ providers, accounts }`: `providers` is a list of provider names and `accounts` maps a provider to a list of connection ids. It needs a session and returns `400 invalid_body` for a duplicate or unknown provider, or a connection id that is duplicated, unknown or on another provider. Partial input is allowed: providers not listed follow the listed ones in default order, and connections not listed follow the listed ones within their provider. All writes happen in one transaction, so a rejected request changes nothing. The response is the full effective order, `{ providers, accounts }`, with `accounts` holding every provider that has connections. A new connection has no position and lands last in its provider; reconnect and disconnect leave the other positions alone.
 
 The scheduler reads `refreshIntervalMinutes` on every tick, so a change applies without a restart. The overview reports it as `refreshIntervalMs`.
+
+## Wallet
+
+Every Wallet route needs a session; the mutating ones also pass the cross-site guard. Each one returns the whole Wallet, `{ costs, topUps }`. `costs` maps a connection id to its cost; a connection missing from it is Not set. `topUps` lists every top-up, newest date first.
+
+- A cost is `{ kind: "paid", price, cycle, renewsOn }`, `{ kind: "free" }` or `{ kind: "included", includedWith }`. `price` is `{ minor, currency }` with a positive integer `minor`. `cycle` is `monthly` or `annual`. `renewsOn` is a `YYYY-MM-DD` day or null. `includedWith` is 1 to 80 characters.
+- A top-up is `{ id, connectionId, date, kind, price, credits, note }`. A `paid` top-up needs `price`; a `free` one has `price: null`. `credits` is a positive number or null. `note` is at most 200 characters or null. The server assigns `id`.
+
+`PUT /api/wallet/costs/:connectionId` and `POST /api/wallet/top-ups` return `400 invalid_body` for a value outside these rules and `404 unknown_connection` for a connection that does not exist. The two `DELETE` routes succeed when the entry is already gone. The display currency is the `walletCurrency` setting. Demo Mode never calls these routes: its Wallet lives in the browser's memory.
 
 ## Account actions gate
 

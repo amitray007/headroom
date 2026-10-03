@@ -174,17 +174,10 @@
   .w-stat .w-cap {
     grid-area: caption;
   }
-  /* The currency picker takes the first row; the two actions split the second. */
+  /* The currency picker and Add Top-Up share one row; the picker stretches. */
   .w-segs {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
-  }
-  .w-segs > .field {
-    grid-column: 1 / -1;
-  }
-  .w-segs > .menu-anchor > .btn,
-  .w-segs > .btn {
+    grid-template-columns: minmax(0, 1fr) auto;
     width: 100%;
   }
 }
@@ -277,6 +270,8 @@
 }
 .w-renewals {
   display: grid;
+  /* A short list reads from the top of a card stretched to its neighbour's height. */
+  align-content: start;
   gap: var(--space-3);
   margin: 0;
   padding: 0;
@@ -618,62 +613,12 @@ html[data-density="compact"] .w-row {
   }
 }
 
-/* ---------- Popovers: exchange rates and this month's top-ups ---------- */
-.notif.w-rates-pop,
+/* ---------- Popover: this month's top-ups ---------- */
 .notif.w-topups-pop {
   display: grid;
   gap: var(--space-3);
   padding: 16px;
   border-radius: var(--radius-panel);
-}
-.notif.w-rates-pop {
-  width: min(340px, calc(100vw - 24px));
-  max-height: min(70vh, 480px);
-  overflow-y: auto;
-}
-.w-rates-lead {
-  margin: 0 0 calc(var(--space-1) * -1);
-  font-size: var(--text-xs);
-}
-/* Two columns of compact rows: the code and symbol on the left, the rate as text on the right. */
-.w-rates-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2) var(--space-4);
-  margin: 0;
-}
-.w-rate {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-}
-.w-rate dt {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-1);
-}
-.w-rate-code {
-  font-weight: 500;
-}
-.w-rate dd {
-  margin: 0;
-  font-variant-numeric: tabular-nums;
-}
-.w-rates-note {
-  margin: 0;
-  font-size: var(--text-xs);
-}
-.w-rates-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  font-size: var(--text-xs);
-}
-.w-rates-foot p {
-  margin: 0;
 }
 .notif.w-topups-pop {
   width: min(320px, calc(100vw - 24px));
@@ -828,4 +773,53 @@ html[data-density="compact"] .w-row {
 .w-foot .w-clear {
   margin-right: auto;
   margin-left: -12px;
+}
+
+/* ---------- "Set N missing costs": every Not-set row is tinted for a moment, then fades back ---------- */
+.w-row[data-attention] {
+  background: color-mix(in oklab, var(--warning) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--warning) 40%, transparent);
+  animation: w-attention 2500ms var(--ease-standard) forwards;
+}
+.w-row[data-attention] [data-set-cost] {
+  border-color: color-mix(in oklab, var(--warning) 55%, transparent);
+}
+@keyframes w-attention {
+  0%,
+  60% {
+    background: color-mix(in oklab, var(--warning) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--warning) 40%, transparent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .w-row[data-attention] {
+    animation: none;
+  }
+}
+
+.w-save-error {
+  margin: 0 0 var(--space-3);
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+/* Skeleton: the spend ring beside its table, and the small top-up and renewal cards. */
+.w-sk-spend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-5);
+}
+.w-sk-table {
+  display: grid;
+  flex: 1;
+  gap: var(--space-3);
+}
+.w-sk-pair {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
 }

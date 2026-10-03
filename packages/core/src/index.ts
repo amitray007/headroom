@@ -29,6 +29,20 @@ export {
 } from "./order.ts";
 export { SettingsStore, defaultSettings, settingsSchema, type Settings } from "./settings.ts";
 export {
+  WalletStore,
+  UnknownConnectionError,
+  calendarDaySchema,
+  costSchema,
+  moneySchema,
+  topUpInputSchema,
+  topUpSchema,
+  type Cost,
+  type TopUp,
+  type TopUpInput,
+  type WalletBook,
+  type WalletMoney,
+} from "./wallet.ts";
+export {
   AttemptStore,
   ConnectionStore,
   InvalidTransitionError,

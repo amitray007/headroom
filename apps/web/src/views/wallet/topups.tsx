@@ -15,8 +15,9 @@ import { figureText, originalNote } from "./amount.ts";
 const askMs = 6000;
 
 /** Remove one top-up. The first press asks in place, as Disconnect does; the question lapses after a few seconds. */
-function RemoveTopUp(props: { readonly label: string; readonly onRemove: () => void }) {
+function RemoveTopUp(props: { readonly label: string; readonly onRemove: () => Promise<void> }) {
   const [asking, setAsking] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const cancel = useRef<HTMLButtonElement>(null);
   const root = useRef<HTMLSpanElement>(null);
   useEffect(() => {
@@ -43,8 +44,23 @@ function RemoveTopUp(props: { readonly label: string; readonly onRemove: () => v
           <button ref={cancel} className="btn sm" type="button" onClick={close}>
             Cancel
           </button>
-          <button className="btn sm primary" type="button" onClick={props.onRemove}>
-            Remove
+          <button
+            className="btn sm primary"
+            type="button"
+            aria-disabled={removing}
+            onClick={() => {
+              if (removing) return;
+              setRemoving(true);
+              props.onRemove().then(
+                () => setRemoving(false),
+                () => {
+                  setRemoving(false);
+                  setAsking(false);
+                },
+              );
+            }}
+          >
+            {removing ? "Removing" : "Remove"}
           </button>
         </fieldset>
       ) : (
@@ -59,7 +75,7 @@ function RemoveTopUp(props: { readonly label: string; readonly onRemove: () => v
 function TopUpRow(props: {
   readonly topUp: WalletTopUp;
   readonly connection: OverviewConnection | undefined;
-  readonly onRemove: () => void;
+  readonly onRemove: () => Promise<void>;
 }) {
   const { topUp, connection } = props;
   const note = topUp.amount === null ? null : originalNote(topUp.amount);
@@ -106,14 +122,20 @@ function TopUpRow(props: {
 export function TopUpsSection(props: {
   readonly topUps: readonly WalletTopUp[];
   readonly connections: readonly OverviewConnection[];
-  readonly onRemove: (id: string) => void;
+  readonly onRemove: (id: string) => Promise<void>;
 }) {
+  const [failed, setFailed] = useState(false);
   const byId = new Map(props.connections.map((connection) => [connection.id, connection]));
   return (
     <section className="provider w-topups" aria-labelledby="w-topups-title">
       <header>
         <h2 id="w-topups-title">Top-Ups</h2>
       </header>
+      {failed ? (
+        <p className="w-save-error" role="alert">
+          Could not remove the top-up. Nothing was changed.
+        </p>
+      ) : null}
       {props.topUps.length === 0 ? (
         <div className="w-card">
           <EmptyState compact icon={<PlusIcon />} title="No Top-Ups Yet">
@@ -136,7 +158,15 @@ export function TopUpsSection(props: {
                 key={topUp.id}
                 topUp={topUp}
                 connection={byId.get(topUp.connectionId)}
-                onRemove={() => props.onRemove(topUp.id)}
+                onRemove={() =>
+                  props.onRemove(topUp.id).then(
+                    () => setFailed(false),
+                    (cause: unknown) => {
+                      setFailed(true);
+                      throw cause;
+                    },
+                  )
+                }
               />
             ))}
           </ul>

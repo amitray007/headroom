@@ -5,7 +5,6 @@ import type { OverviewConnection } from "./overview.ts";
 import { addDays, isoDate, rollForward, shiftMonth, type Cycle } from "./wallet-dates.ts";
 import {
   convert,
-  currencies,
   defaultCurrency,
   missingRate,
   toMinor,
@@ -67,31 +66,6 @@ export const emptyBook: WalletBook = {
 /** The currency every figure shows in: the owner's choice, else the one the browser locale suggests. */
 export function displayCurrencyOf(book: WalletBook, locale: string): Currency {
   return book.displayCurrency ?? defaultCurrency(locale);
-}
-
-/** The currencies the owner's entries use, in the usual order. */
-export function usedCurrencies(book: WalletBook): readonly Currency[] {
-  const used = new Set<Currency>();
-  for (const cost of Object.values(book.costs)) {
-    if (cost.kind === "paid") used.add(cost.price.currency);
-  }
-  for (const topUp of book.topUps) {
-    if (topUp.price !== null) used.add(topUp.price.currency);
-  }
-  return currencies.filter((currency) => used.has(currency));
-}
-
-/**
- * Every currency that can take a rate against USD, which is every supported one except USD itself. The ones the book
- * uses and the display currency come first, in the usual order; the rest follow alphabetically.
- */
-export function rateCurrencies(book: WalletBook, display: Currency): readonly Currency[] {
-  const needed = new Set<Currency>([...usedCurrencies(book), display]);
-  const others = currencies.filter((currency) => currency !== "USD");
-  return [
-    ...others.filter((currency) => needed.has(currency)),
-    ...others.filter((currency) => !needed.has(currency)).toSorted(),
-  ];
 }
 
 /**

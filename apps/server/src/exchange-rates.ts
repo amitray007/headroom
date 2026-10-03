@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { currencies } from "@headroom/view-model/wallet-money";
+import { currencies } from "@headroom/core/contracts";
 
 import type { Fetch } from "./notify/http.ts";
 import { version } from "./version.ts";
@@ -38,7 +38,7 @@ export interface ExchangeRateOptions {
   /** How long rates stay fresh. Default 24 hours. */
   readonly maxAgeMs?: number;
   readonly timeoutMs?: number;
-  /** The least time between two fetches that the owner or a read asks for. Default 60 seconds. */
+  /** The least time between two fetches that reads ask for. Default 60 seconds. */
   readonly cooldownMs?: number;
 }
 
@@ -96,12 +96,6 @@ export class ExchangeRateService {
     const at = this.now();
     const stale = this.good === null || at - this.good.at >= this.maxAgeMs;
     if (stale && (this.inFlight !== null || this.cooledDown(at))) await this.fetchNow();
-    return this.view();
-  }
-
-  /** The owner pressed Refresh. At most one fetch every 60 seconds; a press inside that returns the current view. */
-  async refresh(): Promise<ExchangeRatesView> {
-    if (this.inFlight !== null || this.cooledDown(this.now())) await this.fetchNow();
     return this.view();
   }
 
