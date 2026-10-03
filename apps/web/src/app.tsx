@@ -1,9 +1,12 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { Fragment, lazy, Suspense, useEffect, useState } from "react";
 
 import { AuthSkeleton, SignedOutPage, Unreachable } from "./auth-pages.tsx";
+import { isDemoId } from "./api.ts";
 import { authClient } from "./auth.ts";
 import { ConnectPage } from "./connect-page.tsx";
 import { DashboardPage } from "./dashboard/page.tsx";
+import { useDemoOverview } from "./dashboard/use-demo-overview.ts";
+import { demoOwnerName } from "@headroom/view-model/demo";
 import { useOverview } from "./dashboard/use-overview.ts";
 import {
   browserStorage,
@@ -11,6 +14,7 @@ import {
   saveSessionHint,
   saveUsername,
   saveView,
+  useDevicePrefs,
 } from "./lib/device-prefs.ts";
 import { ComparePage } from "./views/compare/page.tsx";
 import { DetailedPage } from "./views/detailed/page.tsx";
@@ -18,7 +22,7 @@ import { TimelinePage } from "./views/timeline/page.tsx";
 import { SettingsProvider } from "./lib/settings.tsx";
 import { groupByProvider } from "@headroom/view-model/labels";
 import { useNotifications } from "./lib/use-notifications.ts";
-import { useRoute, viewOf } from "./router.ts";
+import { href, useRoute, viewOf, type Route } from "./router.ts";
 import { BootFrame } from "./shell/boot.tsx";
 import { Shell } from "./shell/shell.tsx";
 
@@ -34,28 +38,53 @@ function SignedIn(props: { readonly name: string }) {
     const storage = browserStorage();
     if (storage !== null) saveUsername(storage, props.name);
   }, [props.name]);
-  const route = useRoute();
-  const overview = useOverview();
-  const notifications = useNotifications(overview.connections, overview.failed);
+  const prefs = useDevicePrefs();
+  const requested = useRoute();
+  // The real overview always runs and keeps polling, so it is ready the moment Demo Mode turns off.
+  const realOverview = useOverview();
+  const demoView = useDemoOverview(prefs.demo, prefs.demoSeed, prefs.demoAnchor);
+  const overview = demoView ?? realOverview;
+  const notifications = useNotifications(
+    overview.connections,
+    overview.failed,
+    prefs.demo ? prefs.demoSeed : null,
+  );
+  // A reconnect page for a demo account has no real account behind it once Demo Mode is off.
+  const strandedInDemo = !prefs.demo && requested.page === "reconnect" && isDemoId(requested.id);
+  const route: Route = strandedInDemo ? { page: "connect" } : requested;
+  useEffect(() => {
+    if (strandedInDemo) window.location.replace(href({ page: "connect" }));
+  }, [strandedInDemo]);
   const view = viewOf(route);
-  const providers = groupByProvider(overview.connections ?? [], overview.providerOrder).map(
+  // Settings are real, so the provider list comes from the real overview even in Demo Mode.
+  const providers = groupByProvider(realOverview.connections ?? [], realOverview.providerOrder).map(
     (group) => group.provider,
   );
+  // Each mode mounts its own pages, so the entrance plays again and no editor or confirm carries over.
+  const mode = prefs.demo ? "demo" : "real";
   // This device reopens on the view it used last.
   useEffect(() => {
     const storage = browserStorage();
     if (storage !== null && view !== null) saveView(storage, view);
   }, [view]);
   return (
-    <Shell view={view} name={props.name} notifications={notifications} providers={providers}>
-      {route.page === "connect" ? <ConnectPage overview={overview} /> : null}
-      {route.page === "reconnect" ? (
-        <ConnectPage key={route.id} reconnectId={route.id} overview={overview} />
-      ) : null}
-      {route.page === "overview" ? <DashboardPage overview={overview} /> : null}
-      {route.page === "detailed" ? <DetailedPage overview={overview} /> : null}
-      {route.page === "compare" ? <ComparePage overview={overview} /> : null}
-      {route.page === "timeline" ? <TimelinePage overview={overview} /> : null}
+    <Shell
+      view={view}
+      // The made-up accounts come with a made-up owner, so the real username stays off screen.
+      name={prefs.demo ? demoOwnerName(prefs.demoSeed) : props.name}
+      notifications={notifications}
+      providers={providers}
+    >
+      <Fragment key={mode}>
+        {route.page === "connect" ? <ConnectPage overview={overview} /> : null}
+        {route.page === "reconnect" ? (
+          <ConnectPage key={route.id} reconnectId={route.id} overview={overview} />
+        ) : null}
+        {route.page === "overview" ? <DashboardPage overview={overview} /> : null}
+        {route.page === "detailed" ? <DetailedPage overview={overview} /> : null}
+        {route.page === "compare" ? <ComparePage overview={overview} /> : null}
+        {route.page === "timeline" ? <TimelinePage overview={overview} /> : null}
+      </Fragment>
     </Shell>
   );
 }

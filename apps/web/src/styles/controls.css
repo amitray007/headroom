@@ -100,7 +100,7 @@
   font-weight: 500;
   font-size: var(--text-base);
 }
-/* Hide Details blurs the name until it is hovered or focused, as it does elsewhere. */
+/* Privacy Mode blurs the name until it is hovered or focused, as it does elsewhere. */
 .menu-who b {
   transition: filter var(--dur-standard) var(--ease-standard);
 }

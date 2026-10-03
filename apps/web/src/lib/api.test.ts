@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { api, type OrderBody } from "../api.ts";
+import { api, demoRefusal, isDemoId, isDemoRefusal, type OrderBody } from "../api.ts";
+import { devicePrefs } from "./device-prefs.ts";
 import { defaultSettings } from "./settings-store.ts";
 
 const realFetch = globalThis.fetch;
@@ -150,5 +151,60 @@ describe("delivery api", () => {
       .createChannel({ type: "webhook", url: "https://x.test", includeIdentity: false })
       .catch((e: unknown) => e);
     expect(cause).toMatchObject({ status: 400, code: "telegram_token_rejected" });
+  });
+});
+
+describe("demo mode guard", () => {
+  afterEach(() => {
+    devicePrefs().setDemo(false);
+  });
+  test("account changes are refused without a request", async () => {
+    devicePrefs().setDemo(true);
+    const calls = stub({});
+    const refused = [
+      api.rename("demo-1", "Work"),
+      api.pause("demo-1", true),
+      api.refresh("demo-1"),
+      api.disconnect("demo-1"),
+      api.consumeResetCredit("demo-1", "credit"),
+      api.reconnect("demo-1", "cli_login"),
+      api.beginAttempt("claude", "cli_login"),
+      api.connection("demo-1"),
+    ];
+    const causes = await Promise.all(refused.map((call) => call.catch((error: unknown) => error)));
+    expect(causes).toHaveLength(8);
+    for (const cause of causes) {
+      expect(cause).toMatchObject({ status: 409, code: "demo_mode", message: demoRefusal });
+      expect(isDemoRefusal(cause)).toBe(true);
+    }
+    expect(demoRefusal).toBe("Turn off Demo Mode to change accounts.");
+    expect(calls).toEqual([]);
+  });
+  test("saving the order resolves with its body and makes no request", async () => {
+    devicePrefs().setDemo(true);
+    const calls = stub({});
+    const order: OrderBody = { providers: ["codex", "claude"], accounts: { codex: ["demo-a"] } };
+    expect(await api.saveOrder(order)).toEqual(order);
+    expect(calls).toEqual([]);
+  });
+  test("reads and real settings stay real, and real ids still load", async () => {
+    devicePrefs().setDemo(true);
+    const calls = stub({ settings: defaultSettings });
+    await api.settings();
+    await api.saveSettings(defaultSettings);
+    stub({ error: "not_found" }, 404);
+    expect(await failure(api.connection("real-1"))).toBe("Request failed (404)");
+    expect(calls.map((call) => call.path)).toEqual(["/api/settings", "/api/settings"]);
+  });
+  test("with Demo Mode off the calls go to the server", async () => {
+    const calls = stub({ state: "paused" });
+    await api.pause("c1", true);
+    expect(calls[0]).toEqual({
+      method: "POST",
+      path: "/api/connections/c1/pause",
+      body: { paused: true },
+    });
+    expect(isDemoId("demo-1")).toBe(true);
+    expect(isDemoId("c1")).toBe(false);
   });
 });

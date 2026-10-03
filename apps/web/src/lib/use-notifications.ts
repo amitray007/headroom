@@ -35,13 +35,18 @@ function storage(): Storage | null {
   }
 }
 
+const noneRead: ReadonlySet<string> = new Set();
+
 /**
  * Notifications for the current overview. Pass null until the overview has loaded, and `failed` when it could
  * not load. Nothing is derived before the settings are in either, so the badge never changes after it shows.
+ * Pass `demoSeed` while Demo Mode is on: the read state then lives in memory for that seed alone, and the saved
+ * read set is neither read nor changed.
  */
 export function useNotifications(
   connections: readonly OverviewConnection[] | null,
   failed = false,
+  demoSeed: number | null = null,
 ): NotificationsView {
   const { settings, loaded } = useSettings();
   const ready = connections !== null && loaded;
@@ -50,21 +55,31 @@ export function useNotifications(
     const store = storage();
     return store === null ? new Set() : loadRead(store);
   });
+  const [demoRead, setDemoRead] = useState<{
+    readonly seed: number;
+    readonly read: ReadonlySet<string>;
+  } | null>(null);
+  const demo = demoSeed !== null;
+  const kept = demo ? (demoRead?.seed === demoSeed ? demoRead.read : noneRead) : stored;
   const derived = useMemo(
     () => (ready ? deriveNotifications(connections, settings, now) : []),
     [ready, connections, settings, now],
   );
   // Ids that no longer exist drop out of the read set; the stored copy catches up in an effect.
   const read = useMemo(
-    () => (ready ? pruneRead(stored, currentIds(connections, settings, now)) : stored),
-    [ready, connections, settings, now, stored],
+    () => (ready ? pruneRead(kept, currentIds(connections, settings, now)) : kept),
+    [ready, connections, settings, now, kept],
   );
   useEffect(() => {
-    if (read.size === stored.size) return;
+    if (demo || read.size === stored.size) return;
     const store = storage();
     if (store !== null) saveRead(store, read);
-  }, [read, stored]);
+  }, [demo, read, stored]);
   const update = (next: ReadonlySet<string>) => {
+    if (demoSeed !== null) {
+      setDemoRead({ seed: demoSeed, read: next });
+      return;
+    }
     setStored(next);
     const store = storage();
     if (store !== null) saveRead(store, next);

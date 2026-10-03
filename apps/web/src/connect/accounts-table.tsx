@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 
 
 import type { Provider } from "@headroom/core/contracts";
 
-import { api, type OverviewConnection } from "../api.ts";
+import { api, isDemoRefusal, type OverviewConnection } from "../api.ts";
 import { BrandMark, UserIcon } from "../icons.tsx";
 import {
   accountName,
@@ -307,6 +307,8 @@ export function AccountsTable(props: {
       return true;
     } catch (cause) {
       setError(messageOf(cause));
+      // The table note shows the refusal, so the confirm does not sit open over it.
+      if (isDemoRefusal(cause)) setConfirming(null);
       return false;
     } finally {
       setBusyId(null);

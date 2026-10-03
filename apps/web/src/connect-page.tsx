@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Provider } from "@headroom/core/contracts";
 
-import { api } from "./api.ts";
+import { api, demoRefusal } from "./api.ts";
 import { AccountsTable } from "./connect/accounts-table.tsx";
 import "./connect/connect.css";
 import { ConnectFlow } from "./connect/flow.tsx";
@@ -121,9 +121,13 @@ export function ConnectPage(
       </div>
       {existing.error === null ? null : (
         <div className="cards-note">
-          <ErrorNotice busy={existing.pending} onRetry={existing.reload}>
-            Headroom could not load this account. Check that it is running and try again.
-          </ErrorNotice>
+          {existing.error === demoRefusal ? (
+            <ErrorNotice>{demoRefusal}</ErrorNotice>
+          ) : (
+            <ErrorNotice busy={existing.pending} onRetry={existing.reload}>
+              Headroom could not load this account. Check that it is running and try again.
+            </ErrorNotice>
+          )}
         </div>
       )}
       {providers.data === null && providers.error !== null ? (

@@ -10,6 +10,7 @@ import {
   refreshFailed,
   statusOf,
 } from "@headroom/view-model/labels";
+import { useDevicePrefs } from "../lib/device-prefs.ts";
 import { useNow } from "../lib/now.ts";
 import { presentPanel } from "@headroom/view-model/present";
 import { useSettings } from "../lib/settings.tsx";
@@ -63,6 +64,8 @@ export function AccountPanel(props: {
   const { connection, onChanged } = props;
   const headingId = useId();
   const { actionsEnabled } = useSettings();
+  // In Demo Mode every change is refused, so the failed faces say why.
+  const { demo } = useDevicePrefs();
   const status = statusOf(connection);
   const now = useNow();
   const model = presentPanel(connection, now);
@@ -111,7 +114,7 @@ export function AccountPanel(props: {
             label="Resume"
             pendingLabel="Resuming"
             successLabel="Resumed"
-            failedLabel="Failed"
+            failedLabel={demo ? "Demo Mode" : "Failed"}
             onAction={resume}
           />
         }
@@ -190,6 +193,7 @@ export function AccountPanel(props: {
                     label="Hold to Reset Limits"
                     // Follows the Settings switch directly; the server refuses the action whenever the saved setting is off.
                     off={!actionsEnabled}
+                    {...(demo ? { failedLabel: "Turn Off Demo Mode to Reset" } : {})}
                     onConfirm={async () => {
                       try {
                         const outcome = await api.consumeResetCredit(connection.id, hold.creditId);

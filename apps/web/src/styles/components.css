@@ -245,6 +245,9 @@ html[data-privacy] .who:focus-visible {
   width: 12px;
   height: 12px;
 }
+.saved.refused {
+  color: var(--warning);
+}
 
 /* Status: plain text while healthy; a toned pill when something needs attention. */
 .status {
@@ -318,6 +321,19 @@ html[data-privacy] .who:focus-visible {
   height: 7px;
   border-radius: 50%;
   background: var(--success);
+}
+/* The top bar's Demo pill is a button: it turns Demo Mode off. */
+.demo-pill {
+  font-family: inherit;
+  cursor: pointer;
+}
+.demo-pill svg:last-child {
+  width: 12px;
+  height: 12px;
+  color: var(--text-muted);
+}
+.demo-pill:hover {
+  color: var(--foreground);
 }
 .chip {
   display: inline-flex;

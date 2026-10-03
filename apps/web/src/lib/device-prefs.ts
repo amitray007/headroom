@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 import { views, type ViewId } from "../router.ts";
 
@@ -8,6 +8,7 @@ export type Appearance = "system" | "light" | "dark";
 
 export const appearanceKey = "headroom.appearance";
 export const privacyKey = "headroom.privacy";
+export const demoKey = "headroom.demo";
 export const densityKey = "headroom.density";
 export const sessionKey = "headroom.session";
 export const usernameKey = "headroom.username";
@@ -32,9 +33,19 @@ export function readAppearance(storage: ReadableStorage): Appearance {
   return value === "light" || value === "dark" ? value : "system";
 }
 
-/** Hide Details is on unless the owner switched it off. */
+/** Privacy Mode is on unless the owner switched it off. */
 export function readPrivacy(storage: ReadableStorage): boolean {
   return storage.getItem(privacyKey) !== "0";
+}
+
+/** Demo Mode is off unless the owner switched it on. */
+export function readDemo(storage: ReadableStorage): boolean {
+  return storage.getItem(demoKey) === "1";
+}
+
+/** Demo identities are made up, so they show plainly: blur applies only with Privacy Mode on and Demo Mode off. */
+export function effectivePrivacy(privacy: boolean, demo: boolean): boolean {
+  return privacy && !demo;
 }
 
 export function applyAppearance(root: PrefsRoot, appearance: Appearance): void {
@@ -43,6 +54,10 @@ export function applyAppearance(root: PrefsRoot, appearance: Appearance): void {
 
 export function applyPrivacy(root: PrefsRoot, hidden: boolean): void {
   root.toggleAttribute("data-privacy", hidden);
+}
+
+export function applyDemo(root: PrefsRoot, on: boolean): void {
+  root.toggleAttribute("data-demo", on);
 }
 
 export function readDensity(storage: ReadableStorage): Density | null {
@@ -95,6 +110,10 @@ export function savePrivacy(storage: WritableStorage, hidden: boolean): void {
   storage.setItem(privacyKey, hidden ? "1" : "0");
 }
 
+export function saveDemo(storage: WritableStorage, on: boolean): void {
+  storage.setItem(demoKey, on ? "1" : "0");
+}
+
 export function browserStorage(): Storage | null {
   try {
     return typeof localStorage === "undefined" ? null : localStorage;
@@ -110,48 +129,117 @@ export function applyStoredPrefs(
 ): void {
   if (storage === null) {
     applyPrivacy(root, true);
+    applyDemo(root, false);
     return;
   }
+  const demo = readDemo(storage);
   applyAppearance(root, readAppearance(storage));
-  applyPrivacy(root, readPrivacy(storage));
+  applyPrivacy(root, effectivePrivacy(readPrivacy(storage), demo));
+  applyDemo(root, demo);
   const density = readDensity(storage);
   if (density !== null) applyDensity(root, density);
 }
 
-interface DevicePrefs {
+export interface DevicePrefsState {
   readonly appearance: Appearance;
+  /** The owner's Privacy Mode switch. The blur itself also needs Demo Mode off; see `effectivePrivacy`. */
   readonly privacy: boolean;
-  setAppearance(appearance: Appearance): void;
-  setPrivacy(hidden: boolean): void;
+  readonly demo: boolean;
+  /** Not saved: a new value on every page load and every time Demo Mode turns on. */
+  readonly demoSeed: number;
+  /** When this demo session began, so the made-up times stay put while the page re-renders. */
+  readonly demoAnchor: number;
 }
 
-export function useDevicePrefs(): DevicePrefs {
-  const [appearance, setAppearanceState] = useState<Appearance>(() => {
-    const storage = browserStorage();
-    return storage === null ? "system" : readAppearance(storage);
-  });
-  const [privacy, setPrivacyState] = useState<boolean>(() => {
-    const storage = browserStorage();
-    return storage === null ? true : readPrivacy(storage);
-  });
-  useEffect(() => {
-    applyAppearance(document.documentElement, appearance);
-  }, [appearance]);
-  useEffect(() => {
-    applyPrivacy(document.documentElement, privacy);
-  }, [privacy]);
+interface DevicePrefsActions {
+  setAppearance: (appearance: Appearance) => void;
+  setPrivacy: (on: boolean) => void;
+  setDemo: (on: boolean) => void;
+}
+
+export interface DevicePrefsStore extends DevicePrefsActions {
+  getSnapshot: () => DevicePrefsState;
+  subscribe: (listener: () => void) => () => void;
+}
+
+interface DevicePrefsEnv {
+  readonly storage: (ReadableStorage & WritableStorage) | null;
+  readonly root: PrefsRoot | null;
+  readonly now: () => number;
+  readonly random: () => number;
+}
+
+/**
+ * The device preferences outside React. Every reader sees the same values, each change is saved and applied to
+ * the page root at once, and Demo Mode starts a new seed and anchor each time it turns on.
+ */
+export function createDevicePrefsStore(env: DevicePrefsEnv): DevicePrefsStore {
+  const { storage, root } = env;
+  const newSeed = (): number => Math.floor(env.random() * 0x1_0000_0000);
+  const demo = storage !== null && readDemo(storage);
+  let state: DevicePrefsState = {
+    appearance: storage === null ? "system" : readAppearance(storage),
+    privacy: storage === null ? true : readPrivacy(storage),
+    demo,
+    demoSeed: newSeed(),
+    demoAnchor: env.now(),
+  };
+  const listeners = new Set<() => void>();
+  const commit = (next: DevicePrefsState): void => {
+    state = next;
+    if (root !== null) {
+      applyAppearance(root, next.appearance);
+      applyPrivacy(root, effectivePrivacy(next.privacy, next.demo));
+      applyDemo(root, next.demo);
+    }
+    for (const listener of listeners) listener();
+  };
   return {
-    appearance,
-    privacy,
-    setAppearance(next) {
-      setAppearanceState(next);
-      const storage = browserStorage();
-      if (storage !== null) saveAppearance(storage, next);
+    getSnapshot: () => state,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
     },
-    setPrivacy(next) {
-      setPrivacyState(next);
-      const storage = browserStorage();
-      if (storage !== null) savePrivacy(storage, next);
+    setAppearance(appearance) {
+      if (storage !== null) saveAppearance(storage, appearance);
+      commit({ ...state, appearance });
     },
+    setPrivacy(on) {
+      if (storage !== null) savePrivacy(storage, on);
+      commit({ ...state, privacy: on });
+    },
+    setDemo(on) {
+      if (on === state.demo) return;
+      if (storage !== null) saveDemo(storage, on);
+      commit(
+        on
+          ? { ...state, demo: true, demoSeed: newSeed(), demoAnchor: env.now() }
+          : { ...state, demo: false },
+      );
+    },
+  };
+}
+
+let shared: DevicePrefsStore | null = null;
+
+/** The one store for this page, created on first use from the browser's storage and root element. */
+export function devicePrefs(): DevicePrefsStore {
+  shared ??= createDevicePrefsStore({
+    storage: browserStorage(),
+    root: typeof document === "undefined" ? null : document.documentElement,
+    now: Date.now,
+    random: Math.random,
+  });
+  return shared;
+}
+
+export function useDevicePrefs(): DevicePrefsState & DevicePrefsActions {
+  const store = devicePrefs();
+  const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  return {
+    ...state,
+    setAppearance: store.setAppearance,
+    setPrivacy: store.setPrivacy,
+    setDemo: store.setDemo,
   };
 }

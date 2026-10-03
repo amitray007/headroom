@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { api } from "../api.ts";
 import { CheckIcon, PauseIcon, PlayIcon, RetryIcon } from "../icons.tsx";
+import { useDevicePrefs } from "../lib/device-prefs.ts";
 import { ActionButton } from "../ui/action-button.tsx";
 import { Button } from "../ui/button.tsx";
 import { Spinner } from "../ui/spinner.tsx";
@@ -28,6 +29,9 @@ export function PanelActions(props: {
   readonly onDisconnected: () => void;
 }) {
   const { id, paused, signedIn, onChanged, onDisconnected } = props;
+  // In Demo Mode the server is never asked, and every change is refused; the failed faces say why.
+  const { demo } = useDevicePrefs();
+  const failedWord = demo ? "Demo Mode" : "Failed";
   const [disconnect, setDisconnect] = useState<DisconnectPhase>("closed");
   const root = useRef<HTMLSpanElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
@@ -105,7 +109,7 @@ export function PanelActions(props: {
             label={paused ? "Resume" : "Pause"}
             pendingLabel={paused ? "Resuming" : "Pausing"}
             successLabel={paused ? "Paused" : "Resumed"}
-            failedLabel="Failed"
+            failedLabel={failedWord}
             onAction={runPause}
           />
           <ActionButton
@@ -115,7 +119,7 @@ export function PanelActions(props: {
             label="Refresh"
             pendingLabel="Refreshing"
             successLabel="Refreshed"
-            failedLabel="Failed"
+            failedLabel={failedWord}
             onAction={runRefresh}
           />
         </>
@@ -152,6 +156,8 @@ export function PanelActions(props: {
                 <>
                   <CheckIcon /> Disconnected
                 </>
+              ) : demo ? (
+                "Turn Off Demo Mode"
               ) : (
                 "Could Not Disconnect"
               )}

@@ -3,6 +3,7 @@ import { useContext, useId, useState } from "react";
 import type { Provider } from "@headroom/core/contracts";
 
 import type { Settings } from "../api.ts";
+import { useDevicePrefs } from "../lib/device-prefs.ts";
 import { useSettings } from "../lib/settings.tsx";
 import type { SettingsPatch } from "../lib/settings-store.ts";
 import { Dialog } from "../ui/dialog.tsx";
@@ -86,6 +87,7 @@ export type SettingsTab = (typeof tabs)[number]["value"];
 
 function General(props: { readonly change: (patch: SettingsPatch) => void }) {
   const { settings } = useSettings();
+  const prefs = useDevicePrefs();
   const { change } = props;
   return (
     <>
@@ -147,6 +149,22 @@ function General(props: { readonly change: (patch: SettingsPatch) => void }) {
           note="Paused and disconnected stay at the bottom."
           checked={settings.keepInactiveLast}
           onChange={(keepInactiveLast) => change({ keepInactiveLast })}
+        />
+      </Section>
+      <Section title="Privacy">
+        <SwitchRow
+          device
+          title="Privacy Mode"
+          note="Blur emails and usernames until you hover them. Saved on this device."
+          checked={prefs.privacy}
+          onChange={prefs.setPrivacy}
+        />
+        <SwitchRow
+          device
+          title="Demo Mode"
+          note="Show made-up accounts, figures and notifications, for screenshots and screen sharing. Saved on this device."
+          checked={prefs.demo}
+          onChange={prefs.setDemo}
         />
       </Section>
       <AccountActions change={change} />

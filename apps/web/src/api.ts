@@ -24,6 +24,8 @@ import {
 } from "@headroom/view-model/overview";
 import { z } from "zod";
 
+import { devicePrefs } from "./lib/device-prefs.ts";
+
 export class ApiError extends Error {
   readonly status: number;
   /** The `error` word the server sent in its body, when it sent one. */
@@ -34,6 +36,31 @@ export class ApiError extends Error {
     this.status = status;
     this.code = code;
   }
+}
+
+/** What a refused account change says. Callers that show `message` show this. */
+export const demoRefusal = "Turn off Demo Mode to change accounts.";
+
+/** Every id the demo generator makes starts with this. */
+export function isDemoId(id: string): boolean {
+  return id.startsWith("demo-");
+}
+
+export function isDemoRefusal(cause: unknown): boolean {
+  return cause instanceof ApiError && cause.code === "demo_mode";
+}
+
+const demoOn = (): boolean => devicePrefs().getSnapshot().demo;
+
+function refuseInDemo<T>(): Promise<T> {
+  return Promise.reject(new ApiError(409, demoRefusal, "demo_mode"));
+}
+
+/** An account change: refused without a request while Demo Mode is on. */
+function changesAccount<A extends unknown[], T>(
+  call: (...args: A) => Promise<T>,
+): (...args: A) => Promise<T> {
+  return (...args) => (demoOn() ? refuseInDemo() : call(...args));
 }
 
 const setupSchema = z.object({
@@ -294,31 +321,45 @@ export const api = {
   setup: () => request("GET", "/api/setup", setupSchema),
   me: () => request("GET", "/api/me", meSchema),
   providers: () => request("GET", "/api/providers", providersSchema),
-  beginAttempt: (provider: string, method: string) =>
+  beginAttempt: changesAccount((provider: string, method: string) =>
     request("POST", "/api/attempts", attemptEnvelope, { provider, method }),
+  ),
   attempt: (id: string) => request("GET", `/api/attempts/${id}`, attemptEnvelope),
   submitInput: (id: string, input: SubmitInput) =>
     request("POST", `/api/attempts/${id}/input`, attemptEnvelope, { input }),
   cancelAttempt: (id: string) => request("POST", `/api/attempts/${id}/cancel`, attemptEnvelope),
   connections: () => request("GET", "/api/connections", connectionListSchema),
   overview: () => request("GET", "/api/overview", overviewSchema),
-  saveOrder: (order: OrderBody) => request("PUT", "/api/order", orderSchema, order),
-  rename: (id: string, name: string | null) =>
+  // Demo accounts have no server order; the page keeps the new order itself.
+  saveOrder: (order: OrderBody) =>
+    demoOn() ? Promise.resolve(order) : request("PUT", "/api/order", orderSchema, order),
+  rename: changesAccount((id: string, name: string | null) =>
     request("PATCH", `/api/connections/${id}`, renameSchema, { name }),
+  ),
   settings: () => request("GET", "/api/settings", settingsEnvelopeSchema),
   saveSettings: (settings: Settings) =>
     request("PUT", "/api/settings", settingsEnvelopeSchema, settings),
-  connection: (id: string) => request("GET", `/api/connections/${id}`, connectionDetailSchema),
-  reconnect: (id: string, method: string) =>
+  connection: (id: string) =>
+    demoOn() && isDemoId(id)
+      ? refuseInDemo<z.infer<typeof connectionDetailSchema>>()
+      : request("GET", `/api/connections/${id}`, connectionDetailSchema),
+  reconnect: changesAccount((id: string, method: string) =>
     request("POST", `/api/connections/${id}/reconnect`, attemptEnvelope, { method }),
-  pause: (id: string, paused: boolean) =>
+  ),
+  pause: changesAccount((id: string, paused: boolean) =>
     request("POST", `/api/connections/${id}/pause`, pauseSchema, { paused }),
-  refresh: (id: string) => request("POST", `/api/connections/${id}/refresh`, refreshSchema),
-  disconnect: (id: string) => request("DELETE", `/api/connections/${id}`, revocationSchema),
-  consumeResetCredit: (id: string, creditId: string) =>
+  ),
+  refresh: changesAccount((id: string) =>
+    request("POST", `/api/connections/${id}/refresh`, refreshSchema),
+  ),
+  disconnect: changesAccount((id: string) =>
+    request("DELETE", `/api/connections/${id}`, revocationSchema),
+  ),
+  consumeResetCredit: changesAccount((id: string, creditId: string) =>
     request("POST", `/api/connections/${id}/actions`, actionOutcomeSchema, {
       action: "consume_reset_credit",
       creditId,
       confirm: true,
     }),
+  ),
 };

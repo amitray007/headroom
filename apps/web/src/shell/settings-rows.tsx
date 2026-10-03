@@ -33,9 +33,11 @@ export function SwitchRow(props: {
   readonly note: string;
   readonly checked: boolean;
   readonly disabled?: boolean;
+  /** Saved on this device, not in the server settings, so it never waits for them to load. */
+  readonly device?: boolean;
   readonly onChange: (checked: boolean) => void;
 }) {
-  const waiting = useContext(WaitingContext);
+  const waiting = useContext(WaitingContext) && props.device !== true;
   if (waiting) {
     return (
       <div className="srow">

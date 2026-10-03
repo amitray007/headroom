@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
-import { api } from "../api.ts";
-import { CheckIcon, PencilIcon } from "../icons.tsx";
+import { api, isDemoRefusal } from "../api.ts";
+import { AlertIcon, CheckIcon, PencilIcon } from "../icons.tsx";
 
 const maxName = 40;
 const savedMs = 1600;
@@ -25,6 +25,8 @@ export function AccountTitle(props: {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [saved, setSaved] = useState(false);
+  // Demo Mode refuses a rename; the title says so for a moment.
+  const [refused, setRefused] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const finished = useRef(false);
   const live = useRef(true);
@@ -42,10 +44,13 @@ export function AccountTitle(props: {
     }
   }, [editing]);
   useEffect(() => {
-    if (!saved) return;
-    const timer = setTimeout(() => setSaved(false), savedMs);
+    if (!saved && !refused) return;
+    const timer = setTimeout(() => {
+      setSaved(false);
+      setRefused(false);
+    }, savedMs);
     return () => clearTimeout(timer);
-  }, [saved]);
+  }, [saved, refused]);
 
   const start = (): void => {
     finished.current = false;
@@ -63,8 +68,9 @@ export function AccountTitle(props: {
       await api.rename(id, next === "" ? null : next);
       await onRenamed();
       if (alive()) setSaved(true);
-    } catch {
+    } catch (cause) {
       // The name stays as it was; the next load shows the truth.
+      if (alive() && isDemoRefusal(cause)) setRefused(true);
     }
   };
 
@@ -105,6 +111,11 @@ export function AccountTitle(props: {
         {saved ? (
           <output className="saved">
             <CheckIcon /> Saved
+          </output>
+        ) : null}
+        {refused ? (
+          <output className="saved refused" title="Turn off Demo Mode to change accounts.">
+            <AlertIcon /> Demo Mode
           </output>
         ) : null}
       </h3>

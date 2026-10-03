@@ -16,7 +16,7 @@ import "./styles/states.css";
 import "./styles/buttons.css";
 import "./styles/controls.css";
 
-// Appearance, Hide Details and density are on the page before the first render, so nothing flashes.
+// Appearance, Privacy Mode, Demo Mode and density are on the page before the first render, so nothing flashes.
 const storage = browserStorage();
 applyStoredPrefs(document.documentElement, storage);
 // The bare root opens on the view this device used last.

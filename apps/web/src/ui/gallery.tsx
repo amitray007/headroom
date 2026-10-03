@@ -56,6 +56,7 @@ const iconList = [
   ["CloseIcon", icons.CloseIcon],
   ["PencilIcon", icons.PencilIcon],
   ["EyeIcon", icons.EyeIcon],
+  ["DemoIcon", icons.DemoIcon],
   ["FingerprintIcon", icons.FingerprintIcon],
   ["TrashIcon", icons.TrashIcon],
   ["UserIcon", icons.UserIcon],
@@ -137,7 +138,7 @@ function AccountMenu(props: {
         />
       </MenuBlock>
       <MenuSwitch icon={<icons.EyeIcon />} checked={props.hide} onChange={props.onHide}>
-        Hide Details
+        Privacy Mode
       </MenuSwitch>
       <MenuItem icon={<icons.GearIcon />} onSelect={props.onSettings}>
         Settings
