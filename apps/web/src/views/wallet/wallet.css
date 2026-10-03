@@ -131,12 +131,13 @@
   outline-offset: 2px;
   border-radius: 4px;
 }
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .w-band {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-@media (max-width: 420px) {
+/* Two half-width stats cannot hold a caption such as "6 paid · Set 1 missing cost"; phones get one column. */
+@media (max-width: 520px) {
   .w-band {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -298,6 +299,16 @@
 .w-row {
   min-height: 64px;
 }
+/* The Used cell reuses the Detailed row's limit; here its window label takes its own line rather than an ellipsis. */
+.w-c-used .d-limit-top {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+.w-c-used .d-limit-top .window {
+  flex-basis: 100%;
+  overflow: visible;
+  white-space: normal;
+}
 .w-row + .w-row {
   border-top: 1px solid var(--border-subtle);
 }
@@ -309,14 +320,13 @@ html[data-density="compact"] .w-row {
   display: grid;
   min-width: 0;
 }
+/* Names wrap rather than lose their end: "Personal · SuperGrok Heavy" must read whole. */
 .w-name {
   min-width: 0;
   font-size: var(--text-md);
   font-weight: 500;
   letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .w-name .plan {
   color: var(--text-secondary);
@@ -425,7 +435,8 @@ html[data-density="compact"] .w-row {
   margin-top: -16px;
 }
 
-@media (max-width: 720px) {
+/* Six columns need about 900px; below that each row stacks and its cells name themselves. */
+@media (max-width: 900px) {
   .w-colhead {
     display: none;
   }

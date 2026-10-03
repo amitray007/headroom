@@ -559,6 +559,13 @@ time.when {
   .top > .view-switch {
     grid-column: 1 / -1;
     grid-row: 2;
+    display: flex;
+  }
+  /* Five views share the phone's width evenly instead of scrolling a few pixels. */
+  .top > .view-switch a {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 0 8px;
   }
   .panel {
     padding: var(--space-4);

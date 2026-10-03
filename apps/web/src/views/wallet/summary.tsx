@@ -215,7 +215,8 @@ export function SummaryBand(props: {
               title="Go to the first account with no cost"
               onClick={showFirstUnpriced}
             >
-              {counts.notSet} not priced
+              {/* Worded as the fix, in the same terms as the Set Cost button it leads to. */}
+              Set {plural(counts.notSet, "missing cost", "missing costs")}
             </button>
           )}
           {leftOut(summary.monthly)}
