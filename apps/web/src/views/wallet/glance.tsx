@@ -70,7 +70,7 @@ export function TopUpsCard(props: { readonly summary: WalletSummary }) {
     .join(" · ");
   return (
     <GlanceCard title="Top-Ups" note={note} footer={footer}>
-      <SparkBars label={`Paid top-ups per month, ${note.toLowerCase()}`} bars={bars} height={64} />
+      <SparkBars label={`Paid top-ups per month, ${note.toLowerCase()}`} bars={bars} height={120} />
     </GlanceCard>
   );
 }

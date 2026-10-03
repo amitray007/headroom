@@ -38,6 +38,52 @@ function leftOut(total: Total): string | undefined {
     : `${total.missing} ${total.missing === 1 ? "amount" : "amounts"} left out, no rate`;
 }
 
+interface Fact {
+  readonly label: string;
+  readonly value: string;
+  readonly sub?: string;
+}
+
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+/** The three figures beside the chart: what the dataset adds up to over time, per item, and what it leaves out. */
+function factsOf(summary: WalletSummary, dataset: Dataset): readonly Fact[] {
+  const { monthly, usageSpend, counts, currency } = summary;
+  const money = (minor: number): string => formatMoney({ minor: Math.round(minor), currency });
+  if (dataset === "monthly") {
+    return [
+      { label: "Per year", value: money(monthly.money.minor * 12), sub: "At today's prices" },
+      {
+        label: "Per paid plan",
+        value: counts.paid === 0 ? "—" : money(monthly.money.minor / counts.paid),
+        sub: plural(counts.paid, "paid plan", "paid plans"),
+      },
+      {
+        label: "Free or included",
+        value: plural(counts.free + counts.included, "account", "accounts"),
+        sub: "Counted as nothing",
+      },
+    ];
+  }
+  const allIn = monthly.money.minor + usageSpend.money.minor;
+  const top = providerShares(summary.providers, "usageSpend")[0];
+  return [
+    { label: "All-in this month", value: money(allIn), sub: "Subscriptions and usage" },
+    {
+      label: "Largest",
+      value: top === undefined ? "—" : money(top.minor),
+      ...(top === undefined ? {} : { sub: providerName(top.provider) }),
+    },
+    {
+      label: "Share of all-in",
+      value: allIn === 0 ? "—" : `${Math.round((usageSpend.money.minor / allIn) * 100)}%`,
+      sub: "Spent on usage",
+    },
+  ];
+}
+
 /** Spend by provider: one card with a switch between subscriptions and usage spend, and a donut of the split. */
 export function SpendByProvider(props: { readonly summary: WalletSummary }) {
   const { summary } = props;
@@ -65,7 +111,7 @@ export function SpendByProvider(props: { readonly summary: WalletSummary }) {
             onChange={setDataset}
           />
         </header>
-        <div className="w-card-body">
+        <div className="w-card-body w-spend-body">
           {segments.length === 0 ? (
             <p className="w-spend-empty muted">{datasets[dataset].empty}</p>
           ) : (
@@ -77,6 +123,15 @@ export function SpendByProvider(props: { readonly summary: WalletSummary }) {
               {...(note === undefined ? {} : { centerMeta: note })}
             />
           )}
+          <dl className="w-spend-facts">
+            {factsOf(summary, dataset).map((fact) => (
+              <div key={fact.label}>
+                <dt>{fact.label}</dt>
+                <dd>{fact.value}</dd>
+                {fact.sub === undefined ? null : <dd className="w-fact-sub">{fact.sub}</dd>}
+              </div>
+            ))}
+          </dl>
         </div>
       </div>
     </section>

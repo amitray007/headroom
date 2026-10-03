@@ -143,31 +143,70 @@
   }
 }
 
-/* ---------- Under the band: spend by provider (two thirds) beside top-ups and renewals (one third) ---------- */
+/* ---------- Under the band: spend by provider across the full width, then top-ups and renewals side by side.
+   Each card takes its own content's height, so none is stretched hollow to match a taller neighbour. ---------- */
 .w-glance {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin: 0 0 var(--space-6);
 }
-.w-spend {
-  grid-column: span 2;
+.w-spend,
+.w-side,
+.w-glance-card {
   min-width: 0;
 }
 .w-side {
   display: grid;
-  align-content: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-  min-width: 0;
 }
-.w-glance-card {
-  min-width: 0;
-}
-/* The card matches the taller side column; the chart sits in the middle of the space below the header. */
-.w-spend > .w-card {
+/* Side by side, the two cards share a height; the body takes the slack so footers line up at the bottom. */
+.w-glance-card > .w-card {
   display: flex;
   flex-direction: column;
   height: 100%;
+}
+.w-glance-card .w-card-body {
+  flex: 1;
+}
+/* Bars stand on the footer; a list (renewals) keeps reading from the top. */
+.w-glance-card .w-card-body:has(> .spark) {
+  align-content: end;
+}
+/* Ring and legend on the left, the dataset's three figures in a hairline-split column on the right. */
+.w-spend-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  align-items: center;
+  gap: var(--space-6);
+}
+.w-spend-facts {
+  display: grid;
+  margin: 0;
+  border-left: 1px solid var(--border-subtle);
+}
+.w-spend-facts > div {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3) 0 var(--space-3) var(--space-5);
+}
+.w-spend-facts > div + div {
+  border-top: 1px solid var(--border-subtle);
+}
+.w-spend-facts dt {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.w-spend-facts dd {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.w-spend-facts .w-fact-sub {
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--text-muted);
 }
 .w-card-head {
   display: flex;
@@ -193,8 +232,6 @@
   padding: var(--space-4);
 }
 .w-spend .w-card-body {
-  flex: 1;
-  align-content: center;
   padding: var(--space-5);
 }
 /* The legend stays near the ring: values sit by their labels, not at the far edge of a wide card. */
@@ -273,20 +310,29 @@
   color: var(--text-secondary);
 }
 @media (max-width: 900px) {
-  .w-glance {
+  /* The figures move under the chart and lay out in a row. */
+  .w-spend-body {
     grid-template-columns: minmax(0, 1fr);
   }
-  .w-spend {
-    grid-column: auto;
+  .w-spend-facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-left: 0;
+    border-top: 1px solid var(--border-subtle);
   }
-  .w-side {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
+  .w-spend-facts > div {
+    padding: var(--space-3) var(--space-3) 0 0;
+  }
+  .w-spend-facts > div + div {
+    border-top: 0;
   }
 }
 @media (max-width: 560px) {
-  .w-side {
+  .w-side,
+  .w-spend-facts {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .w-spend-facts > div + div {
+    border-top: 1px solid var(--border-subtle);
   }
 }
 

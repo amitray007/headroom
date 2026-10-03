@@ -560,6 +560,8 @@ time.when {
     grid-column: 1 / -1;
     grid-row: 2;
     display: flex;
+    /* The tabs always fit here, so nothing scrolls; the active pill's subpixel edge stays inside. */
+    overflow-x: clip;
   }
   /* Five views share the phone's width evenly instead of scrolling a few pixels. */
   .top > .view-switch a {

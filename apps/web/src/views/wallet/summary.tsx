@@ -172,6 +172,73 @@ function TopUpsPopover(props: {
   );
 }
 
+/** Usage spend by account in a popover, like the top-ups one: who, what the provider reports, how much, then the total. */
+function UsageSpendPopover(props: { readonly summary: WalletSummary; readonly caption: string }) {
+  const accounts = props.summary.providers
+    .flatMap((provider) => provider.accounts)
+    .flatMap((account) =>
+      // A reported zero adds nothing to the breakdown; an amount with no rate still shows, marked.
+      account.usageSpend === null || account.usageSpend.shown?.minor === 0
+        ? []
+        : [{ connection: account.connection, spend: account.usageSpend }],
+    )
+    .toSorted((a, b) => (b.spend.shown?.minor ?? 0) - (a.spend.shown?.minor ?? 0));
+  const { usageSpend } = props.summary;
+  return (
+    <Popover
+      label={`Usage spend: ${props.caption}`}
+      panelLabel="Usage spend by account"
+      panelClassName="notif w-topups-pop"
+      triggerClassName="w-cap-trigger"
+      align="start"
+      trigger={
+        <>
+          {props.caption}
+          <ChevronDownIcon />
+        </>
+      }
+      openOnHover
+    >
+      <p className="w-pop-head">
+        <span>Reported by the provider</span>
+        <span>{plural(accounts.length, "account", "accounts")}</span>
+      </p>
+      <ul className="w-pop-list">
+        {accounts.map(({ connection, spend }) => {
+          const who = accountName(connection);
+          const note = originalNote(spend, "");
+          return (
+            <li key={connection.id}>
+              <BrandMark provider={connection.provider} />
+              <span className="w-pop-text">
+                <span className="w-pop-name">
+                  {providerName(connection.provider)}
+                  {" · "}
+                  <span className={who.includes("@") ? "who" : undefined}>{who}</span>
+                </span>
+                <span className="w-pop-sub">{spend.label}</span>
+              </span>
+              <span className="w-pop-amount num">
+                <span className="w-pop-name">{figureText(spend)}</span>
+                {note === null ? null : <span className="w-pop-sub">{note}</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="w-pop-total">
+        <span>Total</span>
+        <span className="num">{formatMoney(usageSpend.money)}</span>
+      </p>
+      {usageSpend.missing === 0 ? null : (
+        <p className="w-pop-note">
+          {plural(usageSpend.missing, "amount has", "amounts have")} no rate.
+        </p>
+      )}
+    </Popover>
+  );
+}
+
 /** The four stats in one bordered group, split by hairlines. */
 export function SummaryBand(props: {
   readonly summary: WalletSummary;
@@ -232,7 +299,10 @@ export function SummaryBand(props: {
         </Stat>
       ) : (
         <Stat label="Usage Spend" value={formatMoney(summary.usageSpend.money)}>
-          <Line>From {plural(spenders, "provider", "providers")}</Line>
+          <UsageSpendPopover
+            summary={summary}
+            caption={`From ${plural(spenders, "provider", "providers")}`}
+          />
           {leftOut(summary.usageSpend)}
         </Stat>
       )}
