@@ -12,6 +12,8 @@ services:
     restart: unless-stopped
     environment:
       HEADROOM_PUBLIC_URL: ${HEADROOM_PUBLIC_URL:?set HEADROOM_PUBLIC_URL to https://<TS_HOSTNAME>.<tailnet>.ts.net}
+      # Other sites that may embed Headroom in a frame or call its API, comma separated origins.
+      HEADROOM_TRUSTED_ORIGINS: ${HEADROOM_TRUSTED_ORIGINS:-}
       HEADROOM_ENABLED_PROVIDERS: ${HEADROOM_ENABLED_PROVIDERS:-codex,claude,grok,antigravity,copilot,cursor,vercel_ai_gateway}
       HEADROOM_LOG_LEVEL: ${HEADROOM_LOG_LEVEL:-info}
       HEADROOM_REFRESH_INTERVAL_SECONDS: ${HEADROOM_REFRESH_INTERVAL_SECONDS:-900}

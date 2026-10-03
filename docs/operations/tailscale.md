@@ -18,6 +18,7 @@ Files: [`deploy/compose.yaml`](../../deploy/compose.yaml), [`deploy/ts/serve.jso
 | `TS_HOSTNAME` | No, default `headroom` | The node name. It becomes the first part of the address. |
 | `TS_EXTRA_ARGS` | No | Extra `tailscale up` flags, for example `--advertise-tags=tag:server`. |
 | `HEADROOM_PUBLIC_URL` | Yes | Exactly `https://<TS_HOSTNAME>.<tailnet>.ts.net`, no trailing slash. Passkeys, secure cookies, origin checks and the "Open Headroom" link in notifications use it. Find the tailnet name on the admin console DNS page. |
+| `HEADROOM_TRUSTED_ORIGINS` | No | Sites allowed to embed Headroom in a frame, as comma separated origins, for example `https://homebase.<tailnet>.ts.net`. Without it, only Headroom itself may frame it. |
 | `HEADROOM_ENABLED_PROVIDERS` | No, default all seven | Comma list of `codex`, `claude`, `grok`, `antigravity`, `copilot`, `cursor`, `vercel_ai_gateway`. |
 | `HEADROOM_LOG_LEVEL` | No, default `info` | `debug`, `info`, `warn` or `error`. |
 | `HEADROOM_REFRESH_INTERVAL_SECONDS` | No, default `900` | The first value of the Refresh Every setting. The setting wins after that. |
@@ -43,6 +44,14 @@ docker compose exec tailscale tailscale serve status
 ```
 
 The first start creates the master key and the auth secret in the `headroom-secrets` volume. Open the address and create the owner account.
+
+## Embed in another page
+
+Set `HEADROOM_TRUSTED_ORIGINS` to the embedding site's origin and redeploy. Hosts on one tailnet, such as `homebase.<tailnet>.ts.net` and `headroom.<tailnet>.ts.net`, count as the same site, so the sign-in cookie works inside the frame. For passkeys inside the frame, the embedding page needs `allow="publickey-credentials-get; publickey-credentials-create"` on the `<iframe>`.
+
+```html
+<iframe src="https://headroom.<tailnet>.ts.net" allow="publickey-credentials-get; publickey-credentials-create"></iframe>
+```
 
 ## Move an existing instance
 
