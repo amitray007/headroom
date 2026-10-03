@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { providers, type Provider } from "@headroom/core/contracts";
+import { providerName } from "@headroom/view-model/labels";
 
 import * as icons from "../icons.tsx";
 import { Avatar, BrandMark } from "../icons.tsx";
@@ -9,7 +10,10 @@ import { useNow } from "../lib/now.ts";
 import { Bar, type BarTone } from "./bar.tsx";
 import { Button, ButtonLink } from "./button.tsx";
 import { CountUp } from "./count-up.tsx";
+import { addDays, todayIso } from "./calendar.ts";
 import { DatePicker } from "./date-picker.tsx";
+import { DayStrip } from "./day-strip.tsx";
+import { DonutChart, type DonutSegment } from "./donut-chart.tsx";
 import { Dialog } from "./dialog.tsx";
 import { HoldButton, type HoldPhase } from "./hold-button.tsx";
 import { InfoTip } from "./info-tip.tsx";
@@ -21,6 +25,7 @@ import { RadioCards, type RadioCard } from "./radio-cards.tsx";
 import { Segmented } from "./segmented.tsx";
 import { Select, type SelectOption } from "./select.tsx";
 import { Spinner } from "./spinner.tsx";
+import { SparkBars, type SparkBar } from "./spark-bars.tsx";
 import { Switch } from "./switch.tsx";
 
 type Scheme = "system" | "light" | "dark";
@@ -68,6 +73,61 @@ const iconList = [
   ["DotsIcon", icons.DotsIcon],
   ["SparkleIcon", icons.SparkleIcon],
 ] as const;
+
+/** Monthly cost per provider in cents, two datasets with the same keys so the donut can morph between them. */
+const donutData: readonly (readonly (readonly [Provider, number])[])[] = [
+  [
+    ["claude", 20000],
+    ["codex", 10000],
+    ["cursor", 6000],
+    ["copilot", 3900],
+    ["grok", 3000],
+    ["antigravity", 2000],
+    ["vercel_ai_gateway", 468],
+  ],
+  [
+    ["claude", 20000],
+    ["codex", 20000],
+    ["cursor", 2000],
+    ["copilot", 3900],
+    ["grok", 0],
+    ["antigravity", 5000],
+    ["vercel_ai_gateway", 468],
+  ],
+];
+
+const dollars = (cents: number): string =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+  }).format(cents / 100);
+
+function donutSegments(dataset: number): DonutSegment[] {
+  return (donutData[dataset] ?? []).map(([provider, cents]) => ({
+    key: provider,
+    label: providerName(provider),
+    value: cents,
+    display: dollars(cents),
+    icon: <BrandMark provider={provider} />,
+  }));
+}
+
+/** Six months of top-ups in dollars, with gaps. */
+const topUps: readonly SparkBar[] = [
+  ["May", 0],
+  ["Jun", 20],
+  ["Jul", 0],
+  ["Aug", 50],
+  ["Sep", 30],
+  ["Oct", 30],
+].map(([label, value], index, all) => ({
+  key: String(label),
+  label: String(label),
+  value: Number(value),
+  display: dollars(Number(value) * 100),
+  active: index === all.length - 1,
+}));
 
 const succeed = (outcome: "ok" | "failed") => () =>
   new Promise<"ok" | "failed">((resolve) => setTimeout(() => resolve(outcome), 1200));
@@ -557,6 +617,9 @@ export function Gallery() {
   }, [density]);
 
   const status = statusKinds[statusIndex] ?? "active";
+  const [donut, setDonut] = useState(0);
+  const donutTotal = (donutData[donut] ?? []).reduce((sum, [, cents]) => sum + cents, 0);
+  const today = todayIso();
 
   return (
     <div className="page">
@@ -736,6 +799,76 @@ export function Gallery() {
             <div className="label">Zero</div>
             <Bar percent={0} tone="good" label="Nothing used" />
           </div>
+        </div>
+      </Section>
+
+      <Section title="Donut Chart">
+        <div style={{ maxWidth: 560 }}>
+          <DonutChart
+            label="Monthly cost by provider"
+            segments={donutSegments(donut)}
+            centerLabel="Per month"
+            centerValue={dollars(donutTotal)}
+            centerMeta="7 accounts"
+          />
+        </div>
+        <div style={{ maxWidth: 320 }}>
+          <DonutChart
+            label="Monthly cost by provider, narrow"
+            segments={donutSegments(donut)}
+            centerLabel="Per month"
+            centerValue={dollars(donutTotal)}
+          />
+        </div>
+        <Row>
+          <Button size="sm" onClick={() => setDonut((donut + 1) % donutData.length)}>
+            Switch the Dataset
+          </Button>
+        </Row>
+      </Section>
+
+      <Section title="Spark Bars">
+        <div style={{ maxWidth: 360 }}>
+          <SparkBars label="Top-ups over the last 6 months" bars={topUps} />
+        </div>
+        <div style={{ maxWidth: 360 }}>
+          <SparkBars label="Top-ups, tall" bars={topUps} height={88} />
+        </div>
+      </Section>
+
+      <Section title="Day Strip">
+        <div style={{ maxWidth: 560 }}>
+          <DayStrip
+            label="Renewals in the next 30 days"
+            start={today}
+            days={30}
+            marks={[
+              {
+                key: "claude",
+                date: addDays(today, 3),
+                label: "Claude Pro · $21.01",
+                icon: <BrandMark provider="claude" />,
+                emphasis: true,
+              },
+              {
+                key: "codex",
+                date: addDays(today, 9),
+                label: "Codex · $100",
+                icon: <BrandMark provider="codex" />,
+              },
+              {
+                key: "cursor",
+                date: addDays(today, 9),
+                label: "Cursor Pro · $20",
+                icon: <BrandMark provider="cursor" />,
+              },
+              {
+                key: "copilot",
+                date: addDays(today, 22),
+                label: "Copilot · $10",
+              },
+            ]}
+          />
         </div>
       </Section>
 

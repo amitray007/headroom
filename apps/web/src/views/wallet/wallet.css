@@ -1,4 +1,4 @@
-/* Wallet view: a toolbar, a four-stat band, one bordered group of account rows per provider, then the top-ups. */
+/* Wallet view: a toolbar, a four-stat band, spend by provider, one bordered group of account rows per provider, then the top-ups. */
 .w-page {
   display: block;
   min-width: 0;
@@ -38,7 +38,9 @@
 }
 .w-stat {
   display: grid;
-  align-content: start;
+  /* The last row takes the spare height, so a chart at the foot lines up with its neighbours. */
+  grid-template-rows: auto auto auto 1fr;
+  align-content: stretch;
   gap: var(--space-2);
   min-width: 0;
   padding: var(--space-5);
@@ -75,11 +77,20 @@
   color: var(--text-muted);
   font-weight: 400;
 }
+/* One line, always: the parts sit side by side, split by a middle dot, and a long last part is cut with an ellipsis. */
 .w-cap {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  align-items: baseline;
+  min-height: 1.35em;
   font-size: var(--text-sm);
   color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.w-cap > .w-sep {
+  flex: none;
+  margin-inline: 6px;
+  color: var(--text-muted);
 }
 .w-cap > * {
   min-width: 0;
@@ -131,6 +142,119 @@
   }
 }
 
+/* ---------- Under the band: spend by provider (two thirds) beside top-ups and renewals (one third) ---------- */
+.w-glance {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0 0 var(--space-6);
+}
+.w-spend {
+  grid-column: span 2;
+  min-width: 0;
+}
+.w-side {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+}
+.w-glance-card {
+  min-width: 0;
+}
+/* The card matches the taller side column; the chart sits in the middle of the space below the header. */
+.w-spend > .w-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.w-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  min-height: 48px;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.w-card-head h2 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.w-card-head .muted {
+  font-size: var(--text-sm);
+}
+.w-card-body {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+.w-spend .w-card-body {
+  flex: 1;
+  align-content: center;
+  padding: var(--space-5);
+}
+/* The legend stays near the ring: values sit by their labels, not at the far edge of a wide card. */
+.w-spend .donut-legend {
+  max-width: 360px;
+}
+.w-card-foot {
+  margin: 0;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.w-spend-empty {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.w-renewals {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.w-renewals li {
+  display: grid;
+  grid-template-columns: 44px 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.w-renewal-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.w-renewals-more {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+@media (max-width: 900px) {
+  .w-glance {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .w-spend {
+    grid-column: auto;
+  }
+  .w-side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+@media (max-width: 560px) {
+  .w-side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* ---------- Provider sections: the dashboard's header, a subtotal on the right ---------- */
 .w-provider .w-subtotal {
   margin: 0 var(--space-1) 0 auto;
@@ -142,7 +266,8 @@
   font-weight: 500;
 }
 .w-card {
-  --w-cols: minmax(0, 1.5fr) minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 0.9fr) 112px;
+  --w-cols: minmax(0, 1.5fr) minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 0.8fr) minmax(0, 0.8fr)
+    112px;
   margin: 0;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -155,7 +280,7 @@
   padding: 0;
 }
 
-/* ---------- Column header row (Arc's data-table header) and rows: who | cost | renewal | usage spend | action ---------- */
+/* ---------- Column header row (Arc's data-table header) and rows: who | cost | used | renewal | usage spend | action ---------- */
 .w-colhead,
 .w-row {
   display: grid;
@@ -213,6 +338,13 @@ html[data-density="compact"] .w-row {
   justify-items: start;
   min-width: 0;
   font-size: var(--text-sm);
+}
+/* The limit bar fills its column; the window name beside the figure may shrink, and the caution word is the Detailed view's. */
+.w-col.w-c-used {
+  justify-items: stretch;
+}
+.w-c-used .d-limit-top .tone {
+  display: none;
 }
 .w-cost {
   display: grid;
@@ -302,6 +434,7 @@ html[data-density="compact"] .w-row {
     grid-template-areas:
       "who act"
       "cost cost"
+      "used used"
       "renew renew"
       "spend spend";
     gap: var(--space-2) var(--space-3);
@@ -312,6 +445,9 @@ html[data-density="compact"] .w-row {
   }
   .w-c-cost {
     grid-area: cost;
+  }
+  .w-c-used {
+    grid-area: used;
   }
   .w-c-renew {
     grid-area: renew;
@@ -380,10 +516,9 @@ html[data-density="compact"] .w-row {
   width: min(300px, calc(100vw - 24px));
 }
 .notif.w-topups-pop {
-  width: min(400px, calc(100vw - 24px));
+  width: min(320px, calc(100vw - 24px));
 }
-.w-pop-head h2,
-.w-pop-title {
+.w-pop-head h2 {
   margin: 0;
   font-size: var(--text-base);
   font-weight: 500;
@@ -391,6 +526,15 @@ html[data-density="compact"] .w-row {
 .w-pop-head p {
   margin: 2px 0 0;
   font-size: var(--text-xs);
+}
+/* Top-ups popover header: the month on the left, the count on the right. */
+.w-topups-pop .w-pop-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
 }
 .w-pop-list {
   display: grid;
@@ -401,23 +545,35 @@ html[data-density="compact"] .w-row {
 }
 .w-pop-list li {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) auto auto;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
+  gap: var(--space-3);
+}
+.w-pop-text,
+.w-pop-amount {
+  display: grid;
+  min-width: 0;
+}
+.w-pop-amount {
+  justify-items: end;
+  text-align: right;
+  white-space: nowrap;
 }
 .w-pop-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--text-base);
+  font-weight: 500;
 }
-.w-pop-paid {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-width: 64px;
+.w-pop-sub {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
 }
 .w-pop-total {
   display: flex;
@@ -426,11 +582,16 @@ html[data-density="compact"] .w-row {
   padding-top: var(--space-3);
   border-top: 1px solid var(--border-subtle);
   font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.w-pop-total .num {
   font-weight: 500;
+  color: var(--foreground);
 }
 .w-pop-note {
-  margin: 0;
+  margin: calc(var(--space-2) * -1) 0 0;
   font-size: var(--text-xs);
+  color: var(--text-muted);
 }
 
 /* ---------- Cost and top-up dialogs ---------- */

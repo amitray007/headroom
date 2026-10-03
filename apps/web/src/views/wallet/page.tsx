@@ -20,8 +20,10 @@ import type { ViewProps } from "../props.ts";
 import { ProviderBlock } from "./accounts.tsx";
 import { withCost, withDisplay, withRate, withTopUp, withoutTopUp } from "./book.ts";
 import { CostDialog } from "./cost-dialog.tsx";
+import { RenewalsCard, TopUpsCard } from "./glance.tsx";
 import { RatesPopover } from "./rates-popover.tsx";
 import { WalletSkeleton } from "./skeleton.tsx";
+import { SpendByProvider } from "./spend.tsx";
 import { SummaryBand } from "./summary.tsx";
 import { TopUpDialog } from "./topup-dialog.tsx";
 import { TopUpsSection } from "./topups.tsx";
@@ -130,6 +132,13 @@ export function WalletPage(props: ViewProps) {
         </div>
       </div>
       <SummaryBand summary={summary} connections={connections} />
+      <div className="w-glance">
+        <SpendByProvider summary={summary} />
+        <div className="w-side">
+          <TopUpsCard summary={summary} />
+          <RenewalsCard summary={summary} connections={connections} />
+        </div>
+      </div>
       {summary.providers.map((group) => (
         <ProviderBlock
           key={group.provider}

@@ -7,8 +7,11 @@ import {
   emptyBook,
   monthlyOf,
   rateCurrencies,
+  providerShares,
   suggestPrices,
   summarize,
+  topUpMonths,
+  upcomingRenewals,
   usageSpendOf,
   usedCurrencies,
   type Cost,
@@ -516,5 +519,186 @@ describe("currencies in use", () => {
     expect(rateCurrencies(book({ costs: { a: paid(inr(1999)), b: paid(usd(5)) } }), "EUR")).toEqual(
       ["EUR", "INR"],
     );
+  });
+});
+
+const months = (over: Partial<WalletBook>) =>
+  summarize(all, [], book({ displayCurrency: "USD", ...over }), now).topUpMonths;
+const renewals = (costs: Record<string, Cost>) =>
+  summarize(all, [], book({ costs, displayCurrency: "USD" }), now).renewals;
+
+describe("topUpMonths", () => {
+  test("covers the last six months, oldest first, the current month last", () => {
+    expect(months({}).map((entry) => entry.month)).toEqual([
+      "2026-05",
+      "2026-06",
+      "2026-07",
+      "2026-08",
+      "2026-09",
+      "2026-10",
+    ]);
+    expect(months({})[0]?.paid).toEqual({ money: usd(0), missing: 0 });
+  });
+
+  test("totals paid top-ups per month, skips free ones and anything older", () => {
+    const result = months({
+      topUps: [
+        topUp("a", { date: "2026-10-01", price: usd(10) }),
+        topUp("b", { date: "2026-10-02", price: usd(5.5) }),
+        topUp("c", { date: "2026-09-30", price: usd(20) }),
+        topUp("d", { date: "2026-10-02", kind: "free", price: null }),
+        topUp("e", { date: "2026-04-30", price: usd(99) }),
+      ],
+    });
+    expect(result.map((entry) => entry.paid.money.minor)).toEqual([0, 0, 0, 0, 2000, 1550]);
+  });
+
+  test("converts to the display currency and leaves out a price with no rate", () => {
+    const result = months({
+      perUsd: { USD: 1, INR: 100 },
+      topUps: [
+        topUp("a", { price: inr(500) }),
+        topUp("b", { price: { minor: 900, currency: "EUR" } }),
+      ],
+    });
+    expect(result[5]?.paid).toEqual({ money: usd(5), missing: 1 });
+  });
+
+  test("a window that crosses a year end labels each month", () => {
+    const early = topUpMonths([], "2026-02-10", 6, "USD");
+    expect(early.map((entry) => entry.month)).toEqual([
+      "2025-09",
+      "2025-10",
+      "2025-11",
+      "2025-12",
+      "2026-01",
+      "2026-02",
+    ]);
+  });
+});
+
+describe("upcomingRenewals", () => {
+  test("lists paid accounts renewing in the next 30 days, soonest first", () => {
+    const result = renewals({
+      c1: paid(usd(100), "2026-10-20"),
+      x1: paid(usd(20), "2026-10-05"),
+      c2: paid(usd(30), "2026-11-02"),
+    });
+    expect(result.map((item) => [item.connectionId, item.date])).toEqual([
+      ["x1", "2026-10-05"],
+      ["c1", "2026-10-20"],
+    ]);
+    expect(result[0]?.price.shown).toEqual(usd(20));
+  });
+
+  test("includes today and the thirtieth day, not the thirty-first", () => {
+    const result = renewals({
+      c1: paid(usd(1), "2026-10-03"),
+      x1: paid(usd(2), "2026-11-01"),
+      c2: paid(usd(3), "2026-11-02"),
+    });
+    expect(result.map((item) => item.connectionId)).toEqual(["c1", "x1"]);
+  });
+
+  test("leaves out free, included, undated and Not set accounts", () => {
+    expect(
+      renewals({
+        c1: { kind: "free" },
+        x1: paid(usd(20)),
+        g1: { kind: "included", includedWith: "X Premium" },
+      }),
+    ).toEqual([]);
+  });
+
+  test("rolls a past date forward into the window and keeps the billed price", () => {
+    const result = upcomingRenewals(
+      summarize(
+        [claude],
+        [],
+        book({ costs: { c1: paid(usd(200), "2026-01-15", "annual") }, displayCurrency: "USD" }),
+        now,
+      ).providers,
+      "2027-01-10",
+      30,
+    );
+    expect(result[0]?.date).toBe("2027-01-15");
+    expect(result[0]?.price.shown).toEqual(usd(200));
+  });
+
+  test("a renewal with no rate stays listed with its original amount", () => {
+    const result = renewals({ c1: paid(inr(1900), "2026-10-10") });
+    expect(result[0]?.price.shown).toBeNull();
+    expect(result[0]?.price.original).toEqual(inr(1900));
+  });
+});
+
+describe("providerShares", () => {
+  const connections = [
+    connection("claude", { id: "c1", metrics: [spend("extra_usage.used", "12.5")] }),
+    connection("claude", { id: "c2", metrics: [spend("extra_usage.used", "7.5")] }),
+    codex,
+    connection("cursor", { id: "u1", metrics: [spend("on_demand.used", "3")] }),
+  ];
+
+  test("splits subscriptions and usage spend by provider, leaving out zero", () => {
+    const summary = summarize(
+      connections,
+      [],
+      book({
+        costs: { c1: paid(usd(100)), c2: paid(usd(20)), x1: { kind: "free" }, u1: paid(usd(60)) },
+        displayCurrency: "USD",
+      }),
+      now,
+    );
+    expect(providerShares(summary.providers, "monthly")).toEqual([
+      { provider: "claude", minor: 12_000 },
+      { provider: "cursor", minor: 6000 },
+    ]);
+    expect(providerShares(summary.providers, "usageSpend")).toEqual([
+      { provider: "claude", minor: 2000 },
+      { provider: "cursor", minor: 300 },
+    ]);
+    const claudeGroup = summary.providers.find((group) => group.provider === "claude");
+    expect(claudeGroup?.usageSpend).toEqual({ money: usd(20), missing: 0 });
+  });
+
+  test("lists the largest part first whatever the provider order", () => {
+    const summary = summarize(
+      connections,
+      ["cursor", "claude"],
+      book({ costs: { c1: paid(usd(100)), u1: paid(usd(300)) }, displayCurrency: "USD" }),
+      now,
+    );
+    expect(providerShares(summary.providers, "monthly").map((share) => share.provider)).toEqual([
+      "cursor",
+      "claude",
+    ]);
+    const swapped = summarize(
+      connections,
+      ["claude", "cursor"],
+      book({ costs: { c1: paid(usd(100)), u1: paid(usd(300)) }, displayCurrency: "USD" }),
+      now,
+    );
+    expect(providerShares(swapped.providers, "monthly").map((share) => share.provider)).toEqual([
+      "cursor",
+      "claude",
+    ]);
+  });
+
+  test("leaves out an amount with no rate", () => {
+    const summary = summarize(
+      connections,
+      [],
+      book({ costs: { c1: paid(inr(1900)), u1: paid(usd(60)) }, displayCurrency: "USD" }),
+      now,
+    );
+    expect(providerShares(summary.providers, "monthly")).toEqual([
+      { provider: "cursor", minor: 6000 },
+    ]);
+  });
+
+  test("Not set accounts give no share", () => {
+    const summary = summarize(connections, [], book({ displayCurrency: "USD" }), now);
+    expect(providerShares(summary.providers, "monthly")).toEqual([]);
   });
 });

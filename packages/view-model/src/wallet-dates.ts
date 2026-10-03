@@ -71,3 +71,35 @@ export function monthLabel(text: string): string {
     timeZone: "UTC",
   }).format(new Date(Date.UTC(Number(at[1]), Number(at[2]) - 1, 1)));
 }
+
+/** The day `days` after (or before, when negative) a `YYYY-MM-DD` day; null when the text is not a day. */
+export function addDays(text: string, days: number): string | null {
+  const at = parseDay(text);
+  if (at === null) return null;
+  return new Date(Date.UTC(at.year, at.month - 1, at.day + days)).toISOString().slice(0, 10);
+}
+
+/** The `YYYY-MM` month `delta` months after (or before, when negative) the given one; the text itself when it is not a month. */
+export function shiftMonth(text: string, delta: number): string {
+  const at = /^(\d{4})-(\d{2})$/.exec(text);
+  if (at === null) return text;
+  return new Date(Date.UTC(Number(at[1]), Number(at[2]) - 1 + delta, 1)).toISOString().slice(0, 7);
+}
+
+/** "Oct" for `2026-10`; the text itself when it is not a month. */
+export function monthName(text: string): string {
+  const at = /^(\d{4})-(\d{2})$/.exec(text);
+  if (at === null) return text;
+  return new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(
+    new Date(Date.UTC(Number(at[1]), Number(at[2]) - 1, 1)),
+  );
+}
+
+/** "October" for `2026-10`; the text itself when it is not a month. */
+export function monthLong(text: string): string {
+  const at = /^(\d{4})-(\d{2})$/.exec(text);
+  if (at === null) return text;
+  return new Intl.DateTimeFormat("en-US", { month: "long", timeZone: "UTC" }).format(
+    new Date(Date.UTC(Number(at[1]), Number(at[2]) - 1, 1)),
+  );
+}

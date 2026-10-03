@@ -1,3 +1,5 @@
+import { accountName, planLabel, providerName } from "@headroom/view-model/labels";
+import type { OverviewConnection } from "@headroom/view-model/overview";
 import { formatMoney } from "@headroom/view-model/wallet-money";
 import type { Amount } from "@headroom/view-model/wallet";
 
@@ -14,4 +16,9 @@ export function figureText(amount: Amount): string {
 export function originalNote(amount: Amount, suffix = ""): string | null {
   if (amount.shown === null) return amount.noRate === null ? null : `No rate for ${amount.noRate}`;
   return amount.original === null ? null : `${formatMoney(amount.original)}${suffix}`;
+}
+
+/** "Claude Max 20x": the provider and its plan, or its account name when no plan is reported. */
+export function renewalName(connection: OverviewConnection): string {
+  return `${providerName(connection.provider)} ${planLabel(connection.plan) ?? accountName(connection)}`;
 }

@@ -1,6 +1,17 @@
 import { describe, expect, test } from "bun:test";
 
-import { dayLabel, isoDate, localDay, monthLabel, parseDay, rollForward } from "./wallet-dates.ts";
+import {
+  addDays,
+  dayLabel,
+  isoDate,
+  localDay,
+  monthLabel,
+  monthLong,
+  monthName,
+  parseDay,
+  rollForward,
+  shiftMonth,
+} from "./wallet-dates.ts";
 
 describe("days", () => {
   test("parses real dates only", () => {
@@ -39,5 +50,29 @@ describe("rollForward", () => {
     expect(rollForward("2024-02-29", "annual", "2026-03-01")).toBe("2027-02-28");
     expect(rollForward("2026-12-31", "annual", "2026-10-03")).toBe("2026-12-31");
     expect(rollForward("nope", "monthly", "2026-10-03")).toBeNull();
+  });
+});
+
+describe("day and month steps", () => {
+  test("adds days across month and year ends", () => {
+    expect(addDays("2026-10-03", 29)).toBe("2026-11-01");
+    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
+    expect(addDays("soon", 1)).toBeNull();
+  });
+
+  test("shifts months across year ends", () => {
+    expect(shiftMonth("2026-10", -5)).toBe("2026-05");
+    expect(shiftMonth("2026-02", -5)).toBe("2025-09");
+    expect(shiftMonth("2026-11", 2)).toBe("2027-01");
+    expect(shiftMonth("later", 1)).toBe("later");
+  });
+
+  test("a month reads as its short name", () => {
+    expect(monthName("2026-05")).toBe("May");
+    expect(monthName("2026-10")).toBe("Oct");
+    expect(monthName("later")).toBe("later");
+    expect(monthLong("2026-10")).toBe("October");
+    expect(monthLong("later")).toBe("later");
   });
 });

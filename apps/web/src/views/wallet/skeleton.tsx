@@ -10,6 +10,9 @@ function SkeletonRow() {
       <div className="w-col w-c-cost">
         <Sk width={90} height={20} />
       </div>
+      <div className="w-col w-c-used">
+        <Sk width={110} />
+      </div>
       <div className="w-col w-c-renew">
         <Sk width={100} />
       </div>
@@ -52,6 +55,7 @@ export function WalletSkeleton() {
           <div className="w-colhead">
             <Sk width={60} />
             <Sk width={80} />
+            <Sk width={40} />
             <Sk width={50} />
             <Sk width={80} />
             <span />

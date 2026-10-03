@@ -1,0 +1,218 @@
+/* Donut chart (Arc "donut-chart"): the ring sits beside its legend when there is room, and above it below 460px. */
+.donut {
+  position: relative;
+  container-type: inline-size;
+  min-width: 0;
+  margin: 0;
+}
+.donut-body {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.donut-body > * {
+  min-width: 0;
+}
+@container (min-width: 460px) {
+  .donut-body {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-6);
+  }
+}
+
+.donut-ring {
+  position: relative;
+  width: 208px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  justify-self: center;
+}
+.donut-ring svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+}
+.donut-ring svg[data-hover] {
+  cursor: pointer;
+}
+/* The track shows only before the first sweep and when there is nothing to draw. */
+.donut-track {
+  fill: none;
+  stroke: var(--surface-muted);
+  opacity: 0;
+  transition: opacity var(--dur-considered) var(--ease-standard);
+}
+.donut-track[data-idle] {
+  opacity: 1;
+}
+/* Shapes are written every frame from script; only colour and dimming ease here. */
+.donut-arc {
+  fill: var(--slice);
+  shape-rendering: geometricPrecision;
+  transition:
+    fill var(--dur-standard) var(--ease-standard),
+    opacity var(--dur-standard) var(--ease-standard);
+}
+.donut-arc[data-dim] {
+  opacity: 0.45;
+}
+
+/* The centre reads the active part, or the total at rest. Every readout shares one grid cell, so a swap never
+   moves or resizes anything; the old one rolls out and the new one in, like a drum. */
+.donut-centre {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: calc(var(--inner) - 16px);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.donut-readout {
+  grid-area: 1 / 1;
+  display: grid;
+  min-width: 0;
+  justify-items: center;
+  gap: 2px;
+  text-align: center;
+  opacity: 0;
+  translate: 0 calc(var(--place) * 0.45em);
+  transition:
+    opacity var(--dur-fast) var(--ease-standard),
+    translate var(--dur-fast) var(--ease-standard);
+}
+.donut-readout[data-on] {
+  opacity: 1;
+  transition-duration: var(--dur-standard);
+  transition-timing-function: var(--ease-enter);
+}
+.donut-readout-label,
+.donut-readout-meta {
+  display: block;
+  width: 100%;
+  min-height: 1.45em;
+  overflow: hidden;
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.donut-readout-label {
+  color: var(--text-secondary);
+}
+.donut-readout-meta {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.donut-readout-value {
+  display: block;
+  max-width: 100%;
+  min-height: 1.1em;
+  overflow: hidden;
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Legend rows mirror the arcs: hovering or focusing either lights both. */
+.donut-legend {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.donut-row {
+  display: grid;
+  width: 100%;
+  min-height: 40px;
+  grid-template-columns: 10px minmax(0, 1fr) auto 3.25em;
+  align-items: center;
+  column-gap: 10px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-base);
+  line-height: 1.45;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    transform var(--dur-instant) var(--ease-standard);
+}
+.donut-legend[data-icons] .donut-row {
+  grid-template-columns: 10px 20px minmax(0, 1fr) auto 3.25em;
+}
+.donut-row:active {
+  transform: scale(0.985);
+}
+.donut-row[data-on],
+.donut-row[data-pinned] {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+.donut-row:focus-visible {
+  border-radius: 12px;
+  outline-offset: -2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .donut-row:hover {
+    background: color-mix(in oklab, var(--foreground) 5%, transparent);
+  }
+}
+.donut-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--slice);
+}
+.donut-icon {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+}
+.donut-name {
+  display: grid;
+  min-width: 0;
+}
+.donut-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.donut-sub {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.donut-value {
+  justify-self: end;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.donut-share {
+  justify-self: end;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .donut-track,
+  .donut-arc,
+  .donut-readout,
+  .donut-row {
+    transition: none;
+  }
+}

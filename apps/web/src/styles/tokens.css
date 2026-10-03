@@ -28,6 +28,16 @@
   --warning: light-dark(oklch(60% 0.17 72), oklch(83% 0.16 80));
   --danger: light-dark(oklch(54% 0.21 25), oklch(75% 0.19 25));
 
+  /* Chart series (Arc's static set, checked for colour-vision difference). Parts 5 and up step through the foreground. */
+  --series-1: light-dark(#1f7dcf, #55adff);
+  --series-2: light-dark(#7128a5, #9c37be);
+  --series-3: light-dark(#e58f00, #e66e00);
+  --series-4: light-dark(#009e84, #00a861);
+  --series-5: color-mix(in oklab, var(--foreground) 56%, var(--surface));
+  --series-6: color-mix(in oklab, var(--foreground) 42%, var(--surface));
+  --series-7: color-mix(in oklab, var(--foreground) 32%, var(--surface));
+  --series-other: color-mix(in oklab, var(--foreground) 26%, var(--surface));
+
   /* Scales. Spacing 4 8 12 16 24 32 48. Type 12 13 14 16 30. */
   --space-1: 4px;
   --space-2: 8px;

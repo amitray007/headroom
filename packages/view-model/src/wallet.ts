@@ -2,7 +2,7 @@ import type { Provider } from "@headroom/core/contracts";
 
 import { groupByProvider } from "./labels.ts";
 import type { OverviewConnection } from "./overview.ts";
-import { isoDate, rollForward, type Cycle } from "./wallet-dates.ts";
+import { addDays, isoDate, rollForward, shiftMonth, type Cycle } from "./wallet-dates.ts";
 import {
   convert,
   currencies,
@@ -169,11 +169,30 @@ export interface WalletProvider {
   readonly accounts: readonly WalletAccount[];
   /** Paid subscriptions per month in the display currency. */
   readonly monthly: Total;
+  /** Provider-reported usage spend across the provider's accounts, in the display currency. */
+  readonly usageSpend: Total;
+}
+
+/** Paid top-ups dated in one calendar month, in the display currency. */
+export interface MonthTotal {
+  /** `YYYY-MM`. */
+  readonly month: string;
+  readonly paid: Total;
+}
+
+/** A paid account's next renewal inside a window of days. `price` is what the renewal bills, per its cycle. */
+export interface Renewal {
+  readonly connectionId: string;
+  /** `YYYY-MM-DD`. */
+  readonly date: string;
+  readonly price: Amount;
 }
 
 export interface WalletSummary {
   /** The display currency every figure is in. */
   readonly currency: Currency;
+  /** The day the summary was made for, `YYYY-MM-DD`. */
+  readonly today: string;
   readonly providers: readonly WalletProvider[];
   /** Every paid subscription per month, in the display currency. */
   readonly monthly: Total;
@@ -194,6 +213,10 @@ export interface WalletSummary {
     readonly freeCount: number;
     readonly items: readonly WalletTopUp[];
   };
+  /** Paid top-ups per calendar month for the last `topUpMonthCount` months, oldest first, the current month last. */
+  readonly topUpMonths: readonly MonthTotal[];
+  /** Renewals in the next `renewalWindowDays` days from today, soonest first. */
+  readonly renewals: readonly Renewal[];
   /** The soonest renewal across paid accounts. */
   readonly nextRenewal: {
     readonly connectionId: string;
@@ -350,6 +373,83 @@ class Sum {
   }
 }
 
+/** Months in `WalletSummary.topUpMonths`, the current one included. */
+export const topUpMonthCount = 6;
+/** Days in `WalletSummary.renewals`, today included. */
+export const renewalWindowDays = 30;
+
+/**
+ * Paid top-ups per calendar month for the `count` months ending with the month of `today`, oldest first, in the
+ * display currency. A month with none totals zero; a price with no rate is left out and counted in `missing`.
+ */
+export function topUpMonths(
+  topUps: readonly WalletTopUp[],
+  today: string,
+  count: number,
+  currency: Currency,
+): readonly MonthTotal[] {
+  const current = today.slice(0, 7);
+  return Array.from({ length: count }, (_, index) => {
+    const month = shiftMonth(current, index - (count - 1));
+    const sum = new Sum(currency);
+    for (const topUp of topUps) {
+      if (topUp.kind === "paid" && topUp.date.startsWith(month)) sum.add(topUp.amount);
+    }
+    return { month, paid: sum.total() };
+  });
+}
+
+/**
+ * The next renewal of every paid account that falls in the `days` days starting today (today included), soonest
+ * first. An account with no renewal date is left out.
+ */
+export function upcomingRenewals(
+  providers: readonly WalletProvider[],
+  today: string,
+  days: number,
+): readonly Renewal[] {
+  const last = addDays(today, days - 1);
+  if (last === null) return [];
+  return providers
+    .flatMap((group) => group.accounts)
+    .flatMap((account): Renewal[] =>
+      account.nextRenewal !== null &&
+      account.billed !== null &&
+      account.nextRenewal >= today &&
+      account.nextRenewal <= last
+        ? [
+            {
+              connectionId: account.connection.id,
+              date: account.nextRenewal,
+              price: account.billed,
+            },
+          ]
+        : [],
+    )
+    .toSorted((a, b) => a.date.localeCompare(b.date));
+}
+
+/** One provider's share of a spend dataset, in display-currency minor units. */
+export interface ProviderShare {
+  readonly provider: Provider;
+  readonly minor: number;
+}
+
+/**
+ * Each provider's part of the monthly subscription total or of usage spend, in display-currency minor units, largest
+ * first (equal parts keep provider order). A provider with nothing above zero is left out; amounts with no rate are
+ * already outside the totals.
+ */
+export function providerShares(
+  providers: readonly WalletProvider[],
+  dataset: "monthly" | "usageSpend",
+): readonly ProviderShare[] {
+  return providers
+    .map((group) => ({ provider: group.provider, minor: group[dataset].money.minor }))
+    .filter((share) => share.minor > 0)
+    .toSorted((a, b) => b.minor - a.minor);
+}
+
 /**
  * Everything the Wallet view shows, in the saved provider order, every figure in the display currency. `now` is
  * epoch milliseconds; `locale` picks the display currency when the owner has not.
@@ -373,6 +473,7 @@ export function summarize(
 
   const providers = groupByProvider(connections, providerOrder).map((group) => {
     const providerMonthly = new Sum(currency);
+    const providerSpend = new Sum(currency);
     const accounts = group.connections.map((connection): WalletAccount => {
       const cost = book.costs[connection.id] ?? null;
       const spend = usageSpendOf(connection);
@@ -394,7 +495,10 @@ export function summarize(
           soonest.value = { connectionId: connection.id, date: renewal, price: billed };
         }
       }
-      if (shownSpend !== null) usageSpend.add(shownSpend);
+      if (shownSpend !== null) {
+        usageSpend.add(shownSpend);
+        providerSpend.add(shownSpend);
+      }
       return {
         connection,
         cost,
@@ -404,7 +508,12 @@ export function summarize(
         usageSpend: shownSpend,
       };
     });
-    return { provider: group.provider, accounts, monthly: providerMonthly.total() };
+    return {
+      provider: group.provider,
+      accounts,
+      monthly: providerMonthly.total(),
+      usageSpend: providerSpend.total(),
+    };
   });
 
   const topUps = book.topUps
@@ -427,6 +536,7 @@ export function summarize(
 
   return {
     currency,
+    today,
     providers,
     monthly: monthly.total(),
     counts,
@@ -438,6 +548,8 @@ export function summarize(
       freeCount: thisMonth.length - paidCount,
       items: thisMonth,
     },
+    topUpMonths: topUpMonths(topUps, today, topUpMonthCount, currency),
+    renewals: upcomingRenewals(providers, today, renewalWindowDays),
     nextRenewal: soonest.value,
   };
 }

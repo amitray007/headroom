@@ -1,15 +1,16 @@
-import type { ReactNode } from "react";
+import { Children, isValidElement, type ReactNode } from "react";
 
 import { BrandMark, ChevronDownIcon } from "../../icons.tsx";
-import { accountName, planLabel, providerName } from "@headroom/view-model/labels";
+import { accountName, providerName } from "@headroom/view-model/labels";
 import type { OverviewConnection } from "@headroom/view-model/overview";
-import { dayLabel } from "@headroom/view-model/wallet-dates";
+import { dayLabel, monthLong } from "@headroom/view-model/wallet-dates";
 import { formatMoney } from "@headroom/view-model/wallet-money";
-import type { Total, WalletSummary } from "@headroom/view-model/wallet";
+import type { Total, WalletSummary, WalletTopUp } from "@headroom/view-model/wallet";
 
+import { prefersReducedMotion } from "../../ui/motion.ts";
 import { Pill } from "../../ui/pill.tsx";
 import { Popover } from "../../ui/menu.tsx";
-import { figureText, originalNote } from "./amount.ts";
+import { figureText, originalNote, renewalName } from "./amount.ts";
 
 /** One caption line. `warn` is the quiet amber line for something that needs the owner. */
 function Line(props: { readonly warn?: boolean; readonly children: ReactNode }) {
@@ -23,10 +24,22 @@ function Stat(props: {
   /** What shows in place of a missing figure. */
   readonly empty?: string;
   readonly unit?: string;
-  /** Short lines under the figure; each stays on one line. */
+  /** Short parts of the one caption line under the figure; a dot splits them. */
   readonly children: ReactNode;
 }) {
   const { value } = props;
+  // `Children.toArray` drops null parts, so a part that renders nothing never leaves a dot behind.
+  const caption: ReactNode[] = Children.toArray(props.children).flatMap<ReactNode>((part, index) =>
+    index === 0 || !isValidElement(part)
+      ? [part]
+      : [
+          // `Children.toArray` gave the part a stable key; the dot before it borrows it.
+          <span key={`sep-${part.key}`} className="w-sep" aria-hidden="true">
+            ·
+          </span>,
+          part,
+        ],
+  );
   return (
     <div className="w-stat">
       <dt>{props.label}</dt>
@@ -36,7 +49,7 @@ function Stat(props: {
           <span className="unit">{props.unit}</span>
         )}
       </dd>
-      <dd className="w-cap">{props.children}</dd>
+      <dd className="w-cap">{caption}</dd>
     </div>
   );
 }
@@ -45,21 +58,74 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-/** The warning line for amounts a missing rate kept out of a total, or nothing. */
-function LeftOut(props: { readonly total: Total }) {
-  const { missing } = props.total;
-  return missing === 0 ? null : (
-    <Line warn>{plural(missing, "amount has", "amounts have")} no rate</Line>
+/** The caption part for amounts a missing rate kept out of a total, or nothing. */
+function leftOut(total: Total): ReactNode {
+  const { missing } = total;
+  return missing === 0 ? null : <Line warn>{missing} without rate</Line>;
+}
+
+/** Scroll to the first account with no cost and focus its Set Cost button. */
+function showFirstUnpriced(): void {
+  const button = document.querySelector<HTMLElement>("[data-set-cost]");
+  if (button === null) return;
+  button.scrollIntoView({ block: "center", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  button.focus({ preventScroll: true });
+}
+
+/** One top-up: provider and account, date and credits, then the amount with what was billed beneath it. */
+function TopUpRow(props: {
+  readonly topUp: WalletTopUp;
+  readonly connection: OverviewConnection | undefined;
+}) {
+  const { topUp, connection } = props;
+  const note = topUp.amount === null ? null : originalNote(topUp.amount, " billed");
+  const detail = [
+    dayLabel(topUp.date),
+    topUp.credits === null ? null : `${topUp.credits.toLocaleString("en-US")} credits`,
+  ]
+    .filter((part) => part !== null)
+    .join(" · ");
+  const who = connection === undefined ? null : accountName(connection);
+  return (
+    <li>
+      {connection === undefined ? <span /> : <BrandMark provider={connection.provider} />}
+      <span className="w-pop-text">
+        <span className="w-pop-name">
+          {connection === undefined ? (
+            "Removed account"
+          ) : (
+            <>
+              {providerName(connection.provider)}
+              {who === null ? null : (
+                <>
+                  {" · "}
+                  <span className={who.includes("@") ? "who" : undefined}>{who}</span>
+                </>
+              )}
+            </>
+          )}
+        </span>
+        <span className="w-pop-sub">{detail}</span>
+      </span>
+      <span className="w-pop-amount num">
+        {topUp.amount === null ? (
+          <Pill tone="quiet">Free</Pill>
+        ) : (
+          <span className="w-pop-name">{figureText(topUp.amount)}</span>
+        )}
+        {note === null ? null : <span className="w-pop-sub">{note}</span>}
+      </span>
+    </li>
   );
 }
 
-/** This month's top-ups in a popover: who, when, and what it cost, then the paid total. */
+/** This month's top-ups in a popover: the month and a count, a row per top-up, then the paid total. */
 function TopUpsPopover(props: {
   readonly summary: WalletSummary;
   readonly connections: ReadonlyMap<string, OverviewConnection>;
   readonly caption: string;
 }) {
-  const { items, paid } = props.summary.topUpsThisMonth;
+  const { items, paid, paidCount } = props.summary.topUpsThisMonth;
   return (
     <Popover
       label={`Top-ups this month: ${props.caption}`}
@@ -76,43 +142,31 @@ function TopUpsPopover(props: {
       }
       openOnHover
     >
-      <h2 className="w-pop-title">Top-Ups This Month</h2>
+      <p className="w-pop-head">
+        <span>{monthLong(props.summary.today.slice(0, 7))}</span>
+        <span>{plural(items.length, "top-up", "top-ups")}</span>
+      </p>
       <ul className="w-pop-list">
-        {items.map((topUp) => {
-          const connection = props.connections.get(topUp.connectionId);
-          const note = topUp.amount === null ? null : originalNote(topUp.amount);
-          return (
-            <li key={topUp.id}>
-              {connection === undefined ? <span /> : <BrandMark provider={connection.provider} />}
-              <span className="w-pop-name">
-                {connection === undefined
-                  ? "Removed account"
-                  : `${providerName(connection.provider)} · ${accountName(connection)}`}
-              </span>
-              <span className="muted num">{dayLabel(topUp.date)}</span>
-              <span className="w-pop-paid num">
-                {topUp.amount === null ? (
-                  <Pill tone="quiet">Free</Pill>
-                ) : (
-                  <>
-                    <span className="muted">Paid </span>
-                    {figureText(topUp.amount)}
-                  </>
-                )}
-                {note === null ? null : <span className="muted"> · {note}</span>}
-              </span>
-            </li>
-          );
-        })}
+        {items.map((topUp) => (
+          <TopUpRow
+            key={topUp.id}
+            topUp={topUp}
+            connection={props.connections.get(topUp.connectionId)}
+          />
+        ))}
       </ul>
       <p className="w-pop-total">
-        <span>Paid total</span>
-        <span className="num">{formatMoney(paid.money)}</span>
+        {paidCount === 0 ? (
+          <span>No paid top-ups</span>
+        ) : (
+          <>
+            <span>Total paid</span>
+            <span className="num">{formatMoney(paid.money)}</span>
+          </>
+        )}
       </p>
       {paid.missing === 0 ? null : (
-        <p className="w-pop-note muted">
-          {plural(paid.missing, "amount has", "amounts have")} no rate.
-        </p>
+        <p className="w-pop-note">{plural(paid.missing, "amount has", "amounts have")} no rate.</p>
       )}
     </Popover>
   );
@@ -146,25 +200,25 @@ export function SummaryBand(props: {
     next === null
       ? undefined
       : accounts.find((account) => account.connection.id === next.connectionId);
-  const renewingName =
-    renewing === undefined
-      ? null
-      : `${providerName(renewing.connection.provider)} ${planLabel(renewing.connection.plan) ?? accountName(renewing.connection)}`;
+  const renewingName = renewing === undefined ? null : renewalName(renewing.connection);
   const nextPrice = next === null ? null : figureText(next.price);
 
   return (
     <dl className="w-band">
       {priced ? (
         <Stat label="Subscriptions" value={formatMoney(summary.monthly.money)} unit="/ month">
-          <Line>
-            {counts.paid === 0
-              ? "No paid subscriptions"
-              : plural(counts.paid, "paid subscription", "paid subscriptions")}
-          </Line>
+          <Line>{counts.paid === 0 ? "None paid" : `${counts.paid} paid`}</Line>
           {counts.notSet === 0 ? null : (
-            <Line warn>{plural(counts.notSet, "account", "accounts")} not priced</Line>
+            <button
+              type="button"
+              className="w-cap-trigger warn"
+              title="Go to the first account with no cost"
+              onClick={showFirstUnpriced}
+            >
+              {counts.notSet} not priced
+            </button>
           )}
-          <LeftOut total={summary.monthly} />
+          {leftOut(summary.monthly)}
         </Stat>
       ) : (
         <Stat label="Subscriptions" value={null} empty="Not Set">
@@ -178,7 +232,7 @@ export function SummaryBand(props: {
       ) : (
         <Stat label="Usage Spend" value={formatMoney(summary.usageSpend.money)}>
           <Line>From {plural(spenders, "provider", "providers")}</Line>
-          <LeftOut total={summary.usageSpend} />
+          {leftOut(summary.usageSpend)}
         </Stat>
       )}
       <Stat label="Top-Ups This Month" value={formatMoney(topUps.paid.money)}>
@@ -187,7 +241,7 @@ export function SummaryBand(props: {
         ) : (
           <TopUpsPopover summary={summary} connections={byId} caption={topUpCaption} />
         )}
-        <LeftOut total={topUps.paid} />
+        {leftOut(topUps.paid)}
       </Stat>
       <Stat label="Next Renewal" value={next === null ? null : dayLabel(next.date)}>
         <Line>
