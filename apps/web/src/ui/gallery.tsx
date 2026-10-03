@@ -56,7 +56,6 @@ const iconList = [
   ["CloseIcon", icons.CloseIcon],
   ["PencilIcon", icons.PencilIcon],
   ["EyeIcon", icons.EyeIcon],
-  ["DemoIcon", icons.DemoIcon],
   ["FingerprintIcon", icons.FingerprintIcon],
   ["TrashIcon", icons.TrashIcon],
   ["UserIcon", icons.UserIcon],

@@ -80,6 +80,7 @@ const tabs = [
   { value: "general", label: "General" },
   { value: "notifications", label: "Notifications" },
   { value: "channels", label: "Channels" },
+  { value: "privacy", label: "Privacy" },
 ] as const;
 
 /** The tabs of the dialog. */
@@ -87,7 +88,6 @@ export type SettingsTab = (typeof tabs)[number]["value"];
 
 function General(props: { readonly change: (patch: SettingsPatch) => void }) {
   const { settings } = useSettings();
-  const prefs = useDevicePrefs();
   const { change } = props;
   return (
     <>
@@ -151,24 +151,31 @@ function General(props: { readonly change: (patch: SettingsPatch) => void }) {
           onChange={(keepInactiveLast) => change({ keepInactiveLast })}
         />
       </Section>
-      <Section title="Privacy">
-        <SwitchRow
-          device
-          title="Privacy Mode"
-          note="Blur emails and usernames until you hover them. Saved on this device."
-          checked={prefs.privacy}
-          onChange={prefs.setPrivacy}
-        />
-        <SwitchRow
-          device
-          title="Demo Mode"
-          note="Show made-up accounts, figures and notifications, for screenshots and screen sharing. Saved on this device."
-          checked={prefs.demo}
-          onChange={prefs.setDemo}
-        />
-      </Section>
       <AccountActions change={change} />
     </>
+  );
+}
+
+/** Device preferences, so they never wait for the server settings. */
+function Privacy() {
+  const prefs = useDevicePrefs();
+  return (
+    <Section>
+      <SwitchRow
+        device
+        title="Privacy Mode"
+        note="Blur emails and usernames until you hover them. Saved on this device."
+        checked={prefs.privacy}
+        onChange={prefs.setPrivacy}
+      />
+      <SwitchRow
+        device
+        title="Demo Mode"
+        note="Show made-up accounts, figures and notifications, for screenshots and screen sharing. Saved on this device."
+        checked={prefs.demo}
+        onChange={prefs.setDemo}
+      />
+    </Section>
   );
 }
 
@@ -335,6 +342,7 @@ export function SettingsDialog(props: {
                 <Notifications change={change} providers={props.providers} />
               ) : null}
               {tab === "channels" ? <ChannelsTab /> : null}
+              {tab === "privacy" ? <Privacy /> : null}
             </SlideSwap>
           </div>
         </WaitingContext>

@@ -126,12 +126,6 @@ export const EyeIcon = stroke(
     <circle cx="12" cy="12" r="3" />
   </>,
 );
-export const DemoIcon = stroke(
-  <>
-    <rect x="3" y="4" width="18" height="12" rx="2" />
-    <path d="M8 20h8M12 16v4M10.5 8.2v3.6l3-1.8z" />
-  </>,
-);
 export const FingerprintIcon = stroke(
   <>
     <path d="M12 10a2 2 0 0 0-2 2c0 1.5-.5 3.5-1.5 5" />
