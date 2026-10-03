@@ -147,6 +147,16 @@ const connectionDetailSchema = z.object({
   actions: z.object({ enabled: z.boolean(), supported: z.array(accountActionKindSchema) }),
 });
 
+/** The server's exchange rates: units of each currency per 1 USD, fetched from the ECB. Null until a fetch works. */
+const exchangeRatesSchema = z.object({
+  base: z.literal("USD"),
+  date: z.string().nullable(),
+  fetchedAt: z.number().nullable(),
+  perUsd: z.record(z.string(), z.number()).nullable(),
+  error: z.string().nullable(),
+});
+export type ExchangeRatesPayload = z.infer<typeof exchangeRatesSchema>;
+
 const overviewSchema = z.object({
   connections: z.array(overviewConnectionSchema),
   /** The effective order of every provider, including those with no accounts. */
@@ -336,6 +346,9 @@ export const api = {
   rename: changesAccount((id: string, name: string | null) =>
     request("PATCH", `/api/connections/${id}`, renameSchema, { name }),
   ),
+  // Reading rates and asking the server to fetch them again touch no account, so Demo Mode allows both.
+  exchangeRates: () => request("GET", "/api/exchange-rates", exchangeRatesSchema),
+  refreshExchangeRates: () => request("POST", "/api/exchange-rates/refresh", exchangeRatesSchema),
   settings: () => request("GET", "/api/settings", settingsEnvelopeSchema),
   saveSettings: (settings: Settings) =>
     request("PUT", "/api/settings", settingsEnvelopeSchema, settings),

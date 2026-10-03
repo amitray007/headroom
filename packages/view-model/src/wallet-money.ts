@@ -1,5 +1,5 @@
 /**
- * Money for the Wallet: the supported currencies, minor units, conversion through the owner's rates and
+ * Money for the Wallet: the supported currencies, minor units, conversion through exchange rates and
  * formatting. Minor-unit digits come from Intl (JPY has none, most have two), never a fixed 2.
  */
 
@@ -23,7 +23,7 @@ export interface Money {
   readonly currency: Currency;
 }
 
-/** Owner-set rates: units of each currency per 1 USD. USD is always 1. A missing rate leaves that currency out. */
+/** Exchange rates: units of each currency per 1 USD. USD is always 1. A missing rate leaves that currency out. */
 export type Rates = Readonly<Partial<Record<Currency, number>>>;
 
 const names: Record<Currency, string> = {
@@ -140,7 +140,7 @@ export function missingRate(from: Currency, to: Currency, rates: Rates): Currenc
   return rateOf(to, rates) === null ? to : null;
 }
 
-/** Convert through USD with the owner's rates; null when either rate is missing. */
+/** Convert through USD with the given rates; null when either rate is missing. */
 export function convert(money: Money, to: Currency, rates: Rates): Money | null {
   if (money.currency === to) return money;
   const from = rateOf(money.currency, rates);

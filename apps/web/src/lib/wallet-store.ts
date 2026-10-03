@@ -1,12 +1,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 
 import { emptyBook, type Cost, type TopUp, type WalletBook } from "@headroom/view-model/wallet";
-import {
-  currencies,
-  type Currency,
-  type Money,
-  type Rates,
-} from "@headroom/view-model/wallet-money";
+import { currencies, type Currency, type Money } from "@headroom/view-model/wallet-money";
 
 import { browserStorage } from "./device-prefs.ts";
 
@@ -80,7 +75,10 @@ function readTopUp(value: unknown): TopUp | null {
   };
 }
 
-/** Read saved JSON loosely: entries that do not fit are dropped, and a value that is not a book is an empty one. */
+/**
+ * Read saved JSON loosely: entries that do not fit are dropped, and a value that is not a book is an empty one.
+ * Rates saved by an older version (`perUsd`, `ratesChangedOn`) are ignored: the server supplies them now.
+ */
 export function parseBook(text: string | null): WalletBook {
   if (text === null) return emptyBook;
   let parsed: unknown;
@@ -103,22 +101,10 @@ export function parseBook(text: string | null): WalletBook {
         return topUp === null ? [] : [topUp];
       })
     : [];
-  const perUsd: { -readonly [C in keyof Rates]: number } = { USD: 1 };
-  if (isRecord(parsed["perUsd"])) {
-    for (const currency of currencies) {
-      const rate = parsed["perUsd"][currency];
-      if (currency !== "USD" && typeof rate === "number" && Number.isFinite(rate) && rate > 0) {
-        perUsd[currency] = rate;
-      }
-    }
-  }
-  const changed = parsed["ratesChangedOn"];
   return {
     costs,
     topUps,
     displayCurrency: readCurrency(parsed["displayCurrency"]),
-    perUsd,
-    ratesChangedOn: typeof changed === "string" && dayPattern.test(changed) ? changed : null,
   };
 }
 

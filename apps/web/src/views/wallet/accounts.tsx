@@ -5,7 +5,12 @@ import { accountName, planLabel, providerName } from "@headroom/view-model/label
 import { dayLabel } from "@headroom/view-model/wallet-dates";
 import { presentPanel } from "@headroom/view-model/present";
 import { formatMoney } from "@headroom/view-model/wallet-money";
-import type { WalletAccount, WalletProvider } from "@headroom/view-model/wallet";
+import {
+  bankedText,
+  creditBalanceText,
+  type WalletAccount,
+  type WalletProvider,
+} from "@headroom/view-model/wallet";
 
 import { useNow } from "../../lib/now.ts";
 import { useSettings } from "../../lib/settings.tsx";
@@ -61,11 +66,35 @@ function SpendCell(props: { readonly account: WalletAccount }) {
   );
 }
 
-/** The account's tightest current limit, as the Detailed view shows it. Unknown shows a dash, never zero. */
+/**
+ * The provider credits the account holds, in the provider's own unit and never converted to money: the balance,
+ * then banked resets beneath it. A dash when the provider reports none.
+ */
+function CreditsCell(props: { readonly account: WalletAccount }) {
+  const { credits } = props.account;
+  if (credits === null) return <span className="muted">—</span>;
+  const { balance, resets } = credits;
+  return (
+    <span className="w-cost">
+      {balance === null ? null : <span className="w-figure num">{creditBalanceText(balance)}</span>}
+      {resets === null ? null : (
+        <span className={balance === null ? "w-figure num" : "muted num"}>
+          {bankedText(resets)}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * The account's tightest current limit, as the Detailed view shows it. Unknown shows a dash, never zero. A credit
+ * balance is not repeated here: it has its own Credits column.
+ */
 function UsedCell(props: { readonly account: WalletAccount }) {
   const { connection } = props.account;
   const now = useNow();
   const headline = headlineOf(connection, presentPanel(connection, now).cells);
+  if (headline.kind === "balance") return <span className="muted">—</span>;
   return <RowLimit headline={headline} />;
 }
 
@@ -112,6 +141,9 @@ function AccountRow(props: {
       </div>
       <div className="w-col w-c-spend" data-label="Usage Spend">
         <SpendCell account={account} />
+      </div>
+      <div className="w-col w-c-credits" data-label="Credits">
+        <CreditsCell account={account} />
       </div>
       <div className="w-act">
         {account.cost === null ? (
@@ -198,6 +230,7 @@ export function AccountsTable(props: {
           <span>{usedLabel}</span>
           <span>Renews</span>
           <span>Usage Spend</span>
+          <span>Credits</span>
           <span />
         </div>
         <ul className="w-rows">

@@ -28,6 +28,7 @@ import {
   SnapshotStore,
 } from "@headroom/core";
 
+import { ExchangeRateService } from "./exchange-rates.ts";
 import { type DeriveNotifications, NotificationDispatcher } from "./notify/dispatcher.ts";
 import type { Fetch } from "./notify/http.ts";
 import { overviewConnections } from "./overview-model.ts";
@@ -58,7 +59,9 @@ export interface AppContext {
   readonly channels: ChannelStore;
   readonly deliveries: DeliveryStore;
   readonly dispatcher: NotificationDispatcher;
-  /** Outgoing HTTP for notification senders. */
+  /** The Wallet's exchange rates, fetched from the ECB via Frankfurter. Started in index.ts, like the scheduler. */
+  readonly exchangeRates: ExchangeRateService;
+  /** Outgoing HTTP for notification senders and exchange rates. */
   readonly fetch: Fetch;
   /** Origins allowed for CORS, Better Auth and frame-ancestors. Always includes the base URL. */
   readonly trustedOrigins: readonly string[];
@@ -78,7 +81,7 @@ export interface BootstrapOptions {
   readonly rateLimit?: boolean;
   /** Every connector the build knows about; the config decides which are enabled. Receives the runner. */
   readonly connectors?: readonly Connector[] | ((runner: CliLoginRunner) => readonly Connector[]);
-  /** Outgoing HTTP for notification senders; tests pass a fake so no network is used. */
+  /** Outgoing HTTP for notification senders and exchange rates; tests pass a fake so no network is used. */
   readonly fetch?: Fetch;
   /** Builds notification events from the overview. */
   readonly derive?: DeriveNotifications;
@@ -145,7 +148,7 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     leases,
     collection,
   });
-  const context: Omit<AppContext, "dispatcher"> = {
+  const context: Omit<AppContext, "dispatcher" | "exchangeRates"> = {
     config,
     db,
     sqlite,
@@ -187,7 +190,8 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     fetch: fetchFn,
     log,
   });
-  return { ...context, dispatcher };
+  const exchangeRates = new ExchangeRateService({ fetch: fetchFn, now, log });
+  return { ...context, dispatcher, exchangeRates };
 }
 
 /** Read a one-line secret file, or create it with mode 0600 and a warning to back it up. */

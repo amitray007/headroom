@@ -4,7 +4,7 @@ import type { Provider } from "@headroom/core/contracts";
 import { accountName, groupByProvider, planLabel, providerName } from "@headroom/view-model/labels";
 import type { OverviewConnection } from "@headroom/view-model/overview";
 import { currencies, parsePositive, type Currency } from "@headroom/view-model/wallet-money";
-import type { TopUp } from "@headroom/view-model/wallet";
+import { creditBalanceText, creditsOf, type TopUp } from "@headroom/view-model/wallet";
 
 import { BrandMark } from "../../icons.tsx";
 import { TextField } from "../../shell/delivery/form-parts.tsx";
@@ -66,6 +66,10 @@ function TopUpForm(props: {
     readonly date?: string;
   }>({});
 
+  // A top-up adds to the balance the account holds, so show it. Unknown stays unsaid, never zero.
+  const chosen = props.connections.find((connection) => connection.id === connectionId);
+  const balance = chosen === undefined ? null : (creditsOf(chosen)?.balance ?? null);
+
   const submit = (event: FormEvent): void => {
     event.preventDefault();
     const added = credits.trim() === "" ? null : parsePositive(credits);
@@ -100,6 +104,9 @@ function TopUpForm(props: {
           options={options}
           onChange={setConnectionId}
         />
+        {balance === null ? null : (
+          <p className="w-balance muted">Balance: {creditBalanceText(balance)}</p>
+        )}
         <DatePicker
           label="Date"
           value={date}

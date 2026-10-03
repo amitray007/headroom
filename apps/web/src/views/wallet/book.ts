@@ -19,24 +19,6 @@ export function withoutTopUp(book: WalletBook, id: string): WalletBook {
   return { ...book, topUps: book.topUps.filter((topUp) => topUp.id !== id) };
 }
 
-/** Set the units of a currency per 1 USD, or clear the rate with null, and note `today` as the change day. USD stays 1. */
-export function withRate(
-  book: WalletBook,
-  currency: Currency,
-  rate: number | null,
-  today: string,
-): WalletBook {
-  if (currency === "USD") return book;
-  const perUsd = Object.fromEntries(
-    Object.entries(book.perUsd).filter(([key]) => key !== currency),
-  );
-  return {
-    ...book,
-    perUsd: rate === null ? perUsd : { ...perUsd, [currency]: rate },
-    ratesChangedOn: today,
-  };
-}
-
 export function withDisplay(book: WalletBook, displayCurrency: Currency): WalletBook {
   return { ...book, displayCurrency };
 }

@@ -306,7 +306,7 @@ export function SummaryBand(props: {
         {leftOut(topUps.paid)}
       </Stat>
       <Stat label="All-In This Month" value={formatMoney(summary.allIn.money)}>
-        <Line>Subscriptions, usage and top-ups</Line>
+        <Line>Plans, usage and top-ups</Line>
         {leftOut(summary.allIn)}
       </Stat>
     </dl>

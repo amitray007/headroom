@@ -1,11 +1,12 @@
 import { useId, useState } from "react";
 
+import "./spend.css";
+
 import { BrandMark } from "../../icons.tsx";
 import { providerName } from "@headroom/view-model/labels";
 import { providerShares, type Total, type WalletSummary } from "@headroom/view-model/wallet";
 import { formatMoney, type Currency } from "@headroom/view-model/wallet-money";
 
-import { DonutChart, type DonutSegment } from "../../ui/donut-chart.tsx";
 import { Segmented } from "../../ui/segmented.tsx";
 
 type Dataset = "monthly" | "usageSpend";
@@ -91,19 +92,28 @@ function factsOf(summary: WalletSummary, dataset: Dataset): readonly Fact[] {
   ];
 }
 
-/** Spend by provider: one card with a switch between subscriptions and usage spend, and a donut of the split. */
+const shareFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+
+/**
+ * Spend by provider: one card with a switch between subscriptions and usage spend. The total and its three figures
+ * on one line, then one bar split by provider, then a legend grid; a few parts fill the width instead of leaving a
+ * ring in empty space.
+ */
 export function SpendByProvider(props: { readonly summary: WalletSummary }) {
   const { summary } = props;
   const [dataset, setDataset] = useState<Dataset>("monthly");
+  const [active, setActive] = useState<string | null>(null);
   const headingId = useId();
   const currency: Currency = summary.currency;
   const total = dataset === "monthly" ? summary.monthly : summary.usageSpend;
-  const segments = providerShares(summary.providers, dataset).map((share): DonutSegment => ({
-    key: share.provider,
+  const shares = providerShares(summary.providers, dataset);
+  const sum = shares.reduce((acc, share) => acc + share.minor, 0);
+  const parts = shares.map((share, index) => ({
+    provider: share.provider,
     label: providerName(share.provider),
-    value: share.minor,
     display: formatMoney({ minor: share.minor, currency }),
-    icon: <BrandMark provider={share.provider} />,
+    share: sum === 0 ? 0 : share.minor / sum,
+    color: `var(--series-${String(Math.min(index + 1, 7))})`,
   }));
   const note = leftOut(total);
   return (
@@ -115,30 +125,70 @@ export function SpendByProvider(props: { readonly summary: WalletSummary }) {
             label="Spend to show"
             value={dataset}
             options={options}
-            onChange={setDataset}
+            onChange={(next) => {
+              setDataset(next);
+              setActive(null);
+            }}
           />
         </header>
-        <div className="w-card-body w-spend-body">
-          {segments.length === 0 ? (
+        <div className="sp-body">
+          <div className="sp-top">
+            <div className="sp-total">
+              <span className="sp-total-label">{datasets[dataset].center}</span>
+              <span className="sp-total-value num">{formatMoney(total.money)}</span>
+              {note === undefined ? null : <span className="sp-total-note">{note}</span>}
+            </div>
+            <dl className="sp-facts">
+              {factsOf(summary, dataset).map((fact) => (
+                <div key={fact.label}>
+                  <dt>{fact.label}</dt>
+                  <dd className="num">{fact.value}</dd>
+                  {fact.sub === undefined ? null : <dd className="sp-fact-sub">{fact.sub}</dd>}
+                </div>
+              ))}
+            </dl>
+          </div>
+          {parts.length === 0 ? (
             <p className="w-spend-empty muted">{datasets[dataset].empty}</p>
           ) : (
-            <DonutChart
-              label={datasets[dataset].chart}
-              segments={segments}
-              centerLabel={datasets[dataset].center}
-              centerValue={formatMoney(total.money)}
-              {...(note === undefined ? {} : { centerMeta: note })}
-            />
-          )}
-          <dl className="w-spend-facts">
-            {factsOf(summary, dataset).map((fact) => (
-              <div key={fact.label}>
-                <dt>{fact.label}</dt>
-                <dd>{fact.value}</dd>
-                {fact.sub === undefined ? null : <dd className="w-fact-sub">{fact.sub}</dd>}
+            <>
+              {/* The legend carries every value for assistive tech; the bar is its picture. */}
+              <div className="sp-bar" aria-hidden="true" data-active={active ?? undefined}>
+                {parts.map((part) => (
+                  <span
+                    key={part.provider}
+                    className="sp-seg"
+                    data-on={active === part.provider ? "" : undefined}
+                    style={{ flexGrow: part.share, background: part.color }}
+                    title={`${part.label} · ${part.display}`}
+                    onPointerEnter={() => setActive(part.provider)}
+                    onPointerLeave={() => setActive(null)}
+                  />
+                ))}
               </div>
-            ))}
-          </dl>
+              <ul className="sp-legend" aria-label={datasets[dataset].chart}>
+                {parts.map((part) => (
+                  <li
+                    key={part.provider}
+                    data-on={active === part.provider ? "" : undefined}
+                    data-dim={active !== null && active !== part.provider ? "" : undefined}
+                    onPointerEnter={() => setActive(part.provider)}
+                    onPointerLeave={() => setActive(null)}
+                  >
+                    <span
+                      className="sp-dot"
+                      style={{ background: part.color }}
+                      aria-hidden="true"
+                    />
+                    <BrandMark provider={part.provider} />
+                    <span className="sp-name">{part.label}</span>
+                    <span className="sp-amount num">{part.display}</span>
+                    <span className="sp-share num">{shareFormat.format(part.share * 100)}%</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       </div>
     </section>

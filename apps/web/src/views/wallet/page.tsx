@@ -3,6 +3,7 @@ import { useState } from "react";
 import { LoadFailed, NoAccounts } from "../../dashboard/states.tsx";
 import { PlusIcon } from "../../icons.tsx";
 import { useDevicePrefs } from "../../lib/device-prefs.ts";
+import { useExchangeRates } from "../../lib/exchange-rates.ts";
 import { useNow } from "../../lib/now.ts";
 import { useWalletBook } from "../../lib/wallet-store.ts";
 import { localDay } from "@headroom/view-model/wallet-dates";
@@ -18,7 +19,7 @@ import { Button } from "../../ui/button.tsx";
 import { Select, type SelectOption } from "../../ui/select.tsx";
 import type { ViewProps } from "../props.ts";
 import { AccountsTable } from "./accounts.tsx";
-import { withCost, withDisplay, withRate, withTopUp, withoutTopUp } from "./book.ts";
+import { withCost, withDisplay, withTopUp, withoutTopUp } from "./book.ts";
 import { CostDialog } from "./cost-dialog.tsx";
 import { RenewalsCard, TopUpsCard } from "./glance.tsx";
 import { RatesPopover } from "./rates-popover.tsx";
@@ -38,13 +39,15 @@ const currencyOptions: readonly SelectOption<Currency>[] = currencies.map((curre
 
 /**
  * Wallet: what the owner pays for each account, in money. Subscription costs and top-ups are entered by the
- * owner and kept in this browser; usage spend comes from the provider's own figures. An account with no cost
+ * owner and kept in this browser; usage spend comes from the provider's own figures, and exchange rates come from
+ * the server. An account with no cost
  * is Not set, never zero.
  */
 export function WalletPage(props: ViewProps) {
   const { connections, providerOrder, failed, stale, reload } = props.overview;
   const prefs = useDevicePrefs();
   const now = useNow();
+  const rates = useExchangeRates();
   const [retrying, setRetrying] = useState(false);
   const [costFor, setCostFor] = useState<string | null>(null);
   /** The top-up dialog: closed (null), or open on an account (its id) or on the first one (null id). */
@@ -85,13 +88,14 @@ export function WalletPage(props: ViewProps) {
     connections,
     providerOrder,
     book,
+    rates.perUsd,
     // `summarize` reads its day in UTC; midnight UTC of the owner's local day makes "today" and "this month" match
     // the dates the dialogs fill in.
     Date.parse(`${today}T00:00:00Z`),
     typeof navigator === "undefined" ? "en-US" : navigator.language,
   );
   const display = summary.currency;
-  const rated = rateCurrencies(book, display);
+  const ordered = rateCurrencies(book, display);
   const editing = summary.providers
     .flatMap((group) => group.accounts)
     .find((account) => account.connection.id === costFor);
@@ -114,11 +118,7 @@ export function WalletPage(props: ViewProps) {
             options={currencyOptions}
             onChange={(next) => setBook(withDisplay(book, next))}
           />
-          <RatesPopover
-            book={book}
-            currencies={rated}
-            onRate={(currency, rate) => setBook(withRate(book, currency, rate, today))}
-          />
+          <RatesPopover rates={rates} currencies={ordered} />
           <Button
             variant="primary"
             size="sm"

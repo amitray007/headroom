@@ -8,6 +8,7 @@ import { currencies } from "./wallet-money.ts";
 const anchor = Date.UTC(2026, 9, 3, 12, 0, 0);
 const seeds = [1, 2, 7, 42, 99, 1234, 20_261_003];
 const day = 86_400_000;
+const rates = { USD: 1, EUR: 0.88, GBP: 0.75, INR: 95.16, JPY: 149.2 };
 
 const build = (seed: number) => {
   const overview = demoOverview(seed, anchor);
@@ -33,7 +34,7 @@ describe("demoWallet", () => {
   test("shows every kind, one paid-looking account Not set, and one account billed in rupees", () => {
     for (const seed of seeds) {
       const { overview, book } = build(seed);
-      const summary = summarize(overview.connections, overview.providerOrder, book, anchor);
+      const summary = summarize(overview.connections, overview.providerOrder, book, rates, anchor);
       expect(summary.counts.paid).toBeGreaterThan(1);
       expect(summary.counts.free).toBeGreaterThan(0);
       expect(summary.counts.included).toBeGreaterThan(0);
@@ -81,16 +82,16 @@ describe("demoWallet", () => {
     }
   });
 
-  test("has a rate for every currency, so any display currency totals without gaps", () => {
+  test("with a rate for every currency, any display currency totals without gaps", () => {
     const { overview, book } = build(1);
     expect(book.displayCurrency).toBeNull();
-    expect(book.ratesChangedOn).toBe("2026-10-03");
+    const all = Object.fromEntries(currencies.map((currency) => [currency, 2]));
     for (const currency of currencies) {
-      expect(book.perUsd[currency]).toBeGreaterThan(0);
       const summary = summarize(
         overview.connections,
         overview.providerOrder,
         { ...book, displayCurrency: currency },
+        all,
         anchor,
       );
       expect(summary.currency).toBe(currency);
@@ -103,7 +104,7 @@ describe("demoWallet", () => {
   test("without a choice the browser locale decides the display currency", () => {
     const { overview, book } = build(1);
     const at = (locale: string) =>
-      summarize(overview.connections, overview.providerOrder, book, anchor, locale).currency;
+      summarize(overview.connections, overview.providerOrder, book, null, anchor, locale).currency;
     expect(at("en-IN")).toBe("INR");
     expect(at("en-US")).toBe("USD");
   });

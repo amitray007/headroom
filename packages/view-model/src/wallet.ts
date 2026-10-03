@@ -56,18 +56,12 @@ export interface WalletBook {
   readonly topUps: readonly TopUp[];
   /** Every figure is shown in this currency. Null until the owner picks one; the browser locale decides then. */
   readonly displayCurrency: Currency | null;
-  /** Owner-set rates: units of each currency per 1 USD. USD is always 1. A missing rate leaves that currency out of converted totals. */
-  readonly perUsd: Rates;
-  /** The day (`YYYY-MM-DD`) the owner last changed a rate, or null when none was ever set. */
-  readonly ratesChangedOn: string | null;
 }
 
 export const emptyBook: WalletBook = {
   costs: {},
   topUps: [],
   displayCurrency: null,
-  perUsd: { USD: 1 },
-  ratesChangedOn: null,
 };
 
 /** The currency every figure shows in: the owner's choice, else the one the browser locale suggests. */
@@ -155,6 +149,21 @@ export interface PriceSuggestion {
   readonly asOf: string;
 }
 
+/**
+ * What an account holds in provider credits. Never money: `balance` counts the provider's own credits and is not
+ * converted, and `resets` counts banked full resets.
+ */
+export interface AccountCredits {
+  /** Null when the provider reports no balance. A null `value` with `unlimited` false is not possible. */
+  readonly balance: {
+    /** Null when the balance is unlimited. */
+    readonly value: number | null;
+    readonly unlimited: boolean;
+  } | null;
+  /** Banked full resets above zero, or null when none are reported or none are banked. */
+  readonly resets: number | null;
+}
+
 export interface WalletAccount {
   readonly connection: OverviewConnection;
   /** Null when Not set. */
@@ -166,6 +175,8 @@ export interface WalletAccount {
   /** The next renewal on or after `now` as `YYYY-MM-DD`, or null. */
   readonly nextRenewal: string | null;
   readonly usageSpend: ShownSpend | null;
+  /** Provider credits and banked resets, in the provider's own units; null when the provider reports none. */
+  readonly credits: AccountCredits | null;
 }
 
 export interface WalletProvider {
@@ -265,6 +276,75 @@ export function usageSpendOf(connection: OverviewConnection): UsageSpend | null 
     return null;
   }
   return { money: usd(found.valueNum), label: wanted.label };
+}
+
+const creditBalanceKeys: Partial<Record<Provider, string>> = {
+  codex: "credits.balance",
+  grok: "prepaid_balance",
+  vercel_ai_gateway: "credits.balance",
+};
+
+const resetKeys: Partial<Record<Provider, string>> = {
+  codex: "reset_credits.available_count",
+  claude: "reset_grants.available",
+};
+
+/**
+ * The provider credits an account holds: Codex credit balance and banked resets, Claude reset grants, Grok
+ * prepaid balance, Vercel AI Gateway credit balance. Null when the provider reports none. An unreported figure is
+ * left out, never zero.
+ */
+export function creditsOf(connection: OverviewConnection): AccountCredits | null {
+  const metrics = connection.snapshot?.metrics ?? [];
+  const balanceKey = creditBalanceKeys[connection.provider];
+  const found =
+    balanceKey === undefined
+      ? undefined
+      : metrics.find((metric) => metric.providerMetricKey === balanceKey);
+  let balance: AccountCredits["balance"] = null;
+  if (found !== undefined && found.kind === "credits" && found.availability === "available") {
+    if (found.unlimited === true) balance = { value: null, unlimited: true };
+    else if (found.valueNum !== null && Number.isFinite(found.valueNum)) {
+      balance = { value: found.valueNum, unlimited: false };
+    }
+  }
+  const resetKey = resetKeys[connection.provider];
+  const reported =
+    resetKey === undefined
+      ? undefined
+      : metrics.find((metric) => metric.providerMetricKey === resetKey);
+  const stored = connection.snapshot?.resetCredits ?? [];
+  let count: number | null = null;
+  if (reported !== undefined) {
+    if (
+      reported.kind === "reset_inventory" &&
+      reported.availability === "available" &&
+      reported.valueNum !== null &&
+      Number.isFinite(reported.valueNum)
+    ) {
+      count = reported.valueNum;
+    }
+  } else if (resetKey !== undefined && stored.length > 0) {
+    count = stored.filter((credit) => credit.usable).length;
+  }
+  const resets = count !== null && count > 0 ? count : null;
+  return balance === null && resets === null ? null : { balance, resets };
+}
+
+/** "1,128 credits", "1 credit", "40.45 credits", "Unlimited credits". Two decimals only when the balance has a fraction. */
+export function creditBalanceText(balance: NonNullable<AccountCredits["balance"]>): string {
+  if (balance.value === null) return "Unlimited credits";
+  const decimals = Number.isInteger(balance.value) ? 0 : 2;
+  const number = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(balance.value);
+  return `${number} ${balance.value === 1 ? "credit" : "credits"}`;
+}
+
+/** "2 resets banked", "1 reset banked". */
+export function bankedText(resets: number): string {
+  return `${resets} ${resets === 1 ? "reset" : "resets"} banked`;
 }
 
 // ---------- list prices ----------
@@ -457,18 +537,21 @@ export function providerShares(
 }
 
 /**
- * Everything the Wallet view shows, in the saved provider order, every figure in the display currency. `now` is
+ * Everything the Wallet view shows, in the saved provider order, every figure in the display currency. `rates` are
+ * the server's units per 1 USD (null when none are known, so other-currency amounts count as missing). `now` is
  * epoch milliseconds; `locale` picks the display currency when the owner has not.
  */
 export function summarize(
   connections: readonly OverviewConnection[],
   providerOrder: readonly Provider[],
   book: WalletBook,
+  rates: Rates | null,
   now: number,
   locale = "en-US",
 ): WalletSummary {
   const currency = displayCurrencyOf(book, locale);
-  const rates = book.perUsd;
+  // No rates at all: only USD converts, and only to itself, so every other-currency amount counts as missing.
+  const rate: Rates = rates ?? {};
   const today = isoDate(now);
   const month = today.slice(0, 7);
   const zero: Amount = { shown: { minor: 0, currency }, original: null, noRate: null };
@@ -484,7 +567,7 @@ export function summarize(
       const cost = book.costs[connection.id] ?? null;
       const spend = usageSpendOf(connection);
       const shownSpend =
-        spend === null ? null : { ...amountOf(spend.money, currency, rates), label: spend.label };
+        spend === null ? null : { ...amountOf(spend.money, currency, rate), label: spend.label };
       if (cost === null) counts.notSet += 1;
       else counts[cost.kind] += 1;
       let accountMonthly: Amount | null = cost === null ? null : zero;
@@ -492,8 +575,8 @@ export function summarize(
       let renewal: string | null = null;
       if (cost?.kind === "paid") {
         const own = monthlyOf(cost);
-        accountMonthly = own === null ? null : amountOf(own, currency, rates);
-        billed = amountOf(cost.price, currency, rates);
+        accountMonthly = own === null ? null : amountOf(own, currency, rate);
+        billed = amountOf(cost.price, currency, rate);
         providerMonthly.add(accountMonthly);
         monthly.add(accountMonthly);
         renewal = cost.renewsOn === null ? null : rollForward(cost.renewsOn, cost.cycle, today);
@@ -512,6 +595,7 @@ export function summarize(
         billed,
         nextRenewal: renewal,
         usageSpend: shownSpend,
+        credits: creditsOf(connection),
       };
     });
     return {
@@ -527,7 +611,7 @@ export function summarize(
       ...topUp,
       amount:
         topUp.kind === "paid" && topUp.price !== null
-          ? amountOf(topUp.price, currency, rates)
+          ? amountOf(topUp.price, currency, rate)
           : null,
     }))
     .toSorted((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));

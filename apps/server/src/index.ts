@@ -56,9 +56,12 @@ const scheduler = new Scheduler({
   log: ctx.log,
 });
 scheduler.start();
+// Fetches the Wallet's exchange rates now and every 24 hours.
+ctx.exchangeRates.start();
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
     scheduler.stop();
+    ctx.exchangeRates.stop();
     ctx.log("info", `received ${signal}, shutting down`);
     process.exit(0);
   });

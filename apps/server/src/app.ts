@@ -20,6 +20,7 @@ import { type Env, rejectCrossSite, requireSession } from "./middleware/session.
 import { attemptRoutes } from "./routes/attempts.ts";
 import { connectionRoutes } from "./routes/connections.ts";
 import { deliveryRoutes } from "./routes/delivery.ts";
+import { exchangeRateRoutes } from "./routes/exchange-rates.ts";
 import { orderRoutes } from "./routes/order.ts";
 import { overviewRoutes } from "./routes/overview.ts";
 import { providerRoutes } from "./routes/providers.ts";
@@ -110,6 +111,7 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/order", orderRoutes(ctx));
   api.route("/settings", settingsRoutes(ctx));
   api.route("/delivery", deliveryRoutes(ctx));
+  api.route("/exchange-rates", exchangeRateRoutes(ctx));
 
   app.route("/api", api);
 

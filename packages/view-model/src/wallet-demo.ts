@@ -154,19 +154,5 @@ export function demoWallet(
     topUps,
     // Left unset, so Demo Mode follows the browser locale like a new book does.
     displayCurrency: null,
-    // Mid-market rates, early October 2026.
-    perUsd: {
-      USD: 1,
-      EUR: 0.88,
-      GBP: 0.75,
-      INR: 95.16,
-      CAD: 1.39,
-      AUD: 1.54,
-      JPY: 149.2,
-      SGD: 1.29,
-      CHF: 0.8,
-      BRL: 5.41,
-    },
-    ratesChangedOn: isoDate(anchor),
   };
 }

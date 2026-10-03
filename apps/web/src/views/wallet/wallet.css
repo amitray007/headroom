@@ -173,41 +173,6 @@
 .w-glance-card .w-card-body:has(> .spark) {
   align-content: end;
 }
-/* Ring and legend on the left, the dataset's three figures in a hairline-split column on the right. */
-.w-spend-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 220px;
-  align-items: center;
-  gap: var(--space-6);
-}
-.w-spend-facts {
-  display: grid;
-  margin: 0;
-  border-left: 1px solid var(--border-subtle);
-}
-.w-spend-facts > div {
-  display: grid;
-  gap: 2px;
-  padding: var(--space-3) 0 var(--space-3) var(--space-5);
-}
-.w-spend-facts > div + div {
-  border-top: 1px solid var(--border-subtle);
-}
-.w-spend-facts dt {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-.w-spend-facts dd {
-  margin: 0;
-  font-size: var(--text-md);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-.w-spend-facts .w-fact-sub {
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--text-muted);
-}
 .w-card-head {
   display: flex;
   flex-wrap: wrap;
@@ -231,13 +196,6 @@
   gap: var(--space-3);
   padding: var(--space-4);
 }
-.w-spend .w-card-body {
-  padding: var(--space-5);
-}
-/* The legend stays near the ring: values sit by their labels, not at the far edge of a wide card. */
-.w-spend .donut-legend {
-  max-width: 360px;
-}
 .w-card-foot {
   margin: 0;
   padding: var(--space-2) var(--space-4) var(--space-3);
@@ -246,6 +204,26 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* A footer with a left part and a right-aligned figure; the figure sits in the amount column above. */
+.w-card-foot.split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.w-card-foot.split > .menu-anchor {
+  min-width: 0;
+  overflow: visible; /* the trigger's focus ring; the panel itself sits in the top layer */
+}
+.w-card-foot.split > .num {
+  flex: none;
+  font-size: var(--text-sm);
+}
+.notif.w-renewals-pop {
+  width: min(340px, calc(100vw - 24px));
+  padding: var(--space-4);
+  border-radius: var(--radius-panel);
 }
 .w-spend-empty {
   margin: 0;
@@ -309,30 +287,9 @@
 .w-renewals li.soon .w-renewal-when {
   color: var(--text-secondary);
 }
-@media (max-width: 900px) {
-  /* The figures move under the chart and lay out in a row. */
-  .w-spend-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .w-spend-facts {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    border-left: 0;
-    border-top: 1px solid var(--border-subtle);
-  }
-  .w-spend-facts > div {
-    padding: var(--space-3) var(--space-3) 0 0;
-  }
-  .w-spend-facts > div + div {
-    border-top: 0;
-  }
-}
 @media (max-width: 560px) {
-  .w-side,
-  .w-spend-facts {
+  .w-side {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .w-spend-facts > div + div {
-    border-top: 1px solid var(--border-subtle);
   }
 }
 
@@ -363,8 +320,8 @@
   font-weight: 500;
 }
 .w-card {
-  --w-cols: minmax(0, 1.5fr) minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 0.8fr) minmax(0, 0.8fr)
-    112px;
+  --w-cols: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 0.7fr) minmax(0, 0.75fr)
+    minmax(0, 0.95fr) 112px;
   margin: 0;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -377,7 +334,7 @@
   padding: 0;
 }
 
-/* ---------- Column header row (Arc's data-table header) and rows: who | cost | used | renewal | usage spend | action ---------- */
+/* ---------- Column header row (Arc's data-table header) and rows: who | cost | used | renewal | usage spend | credits | action ---------- */
 .w-colhead,
 .w-row {
   display: grid;
@@ -431,12 +388,11 @@ html[data-density="compact"] .w-row {
 .w-name .sep {
   margin: 0 4px;
 }
+/* Emails wrap at any character rather than lose their end in a narrow Account column. */
 .w-sub {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 /* Cells size to their content: a pill never stretches across the column. */
 .w-col {
@@ -531,7 +487,7 @@ html[data-density="compact"] .w-row {
   margin-top: -16px;
 }
 
-/* Six columns need about 900px; below that each row stacks and its cells name themselves. */
+/* Seven columns need about 900px; below that each row stacks and its cells name themselves. */
 @media (max-width: 900px) {
   .w-colhead {
     display: none;
@@ -543,7 +499,8 @@ html[data-density="compact"] .w-row {
       "cost cost"
       "used used"
       "renew renew"
-      "spend spend";
+      "spend spend"
+      "credits credits";
     gap: var(--space-2) var(--space-3);
     padding: var(--space-3);
   }
@@ -561,6 +518,9 @@ html[data-density="compact"] .w-row {
   }
   .w-c-spend {
     grid-area: spend;
+  }
+  .w-c-credits {
+    grid-area: credits;
   }
   /* Stacked, the column header is gone, so a cell names itself. */
   .w-col[data-label],
@@ -628,49 +588,45 @@ html[data-density="compact"] .w-row {
   margin: 0 0 calc(var(--space-1) * -1);
   font-size: var(--text-xs);
 }
-/* Two columns of compact rows: the code and symbol on the left, a small field on the right. */
+/* Two columns of compact rows: the code and symbol on the left, the rate as text on the right. */
 .w-rates-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2) var(--space-4);
+  margin: 0;
 }
 .w-rate {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 84px;
-  align-items: center;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: var(--space-2);
+  font-size: var(--text-sm);
 }
-.w-rate label {
+.w-rate dt {
   display: flex;
   align-items: baseline;
   gap: var(--space-1);
-  font-size: var(--text-sm);
 }
 .w-rate-code {
   font-weight: 500;
 }
-.w-rate input {
-  min-width: 0;
-  height: 30px;
-  padding: 0 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: 14px;
-  background: var(--surface);
-  color: var(--foreground);
-  font: 400 var(--text-sm) / 1.4 var(--font);
+.w-rate dd {
+  margin: 0;
   font-variant-numeric: tabular-nums;
 }
-.w-rate input:focus {
-  outline: 2px solid var(--border-strong);
-  outline-offset: 2px;
-}
-.w-rate input[aria-invalid="true"] {
-  border-color: var(--danger);
-}
-.w-rate .dl-note {
-  grid-column: 1 / -1;
+.w-rates-note {
   margin: 0;
   font-size: var(--text-xs);
+}
+.w-rates-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+}
+.w-rates-foot p {
+  margin: 0;
 }
 .notif.w-topups-pop {
   width: min(320px, calc(100vw - 24px));
@@ -763,6 +719,12 @@ html[data-density="compact"] .w-row {
 }
 .dsec .field {
   max-width: none;
+}
+/* The account's credit balance under the picker, tucked close to it. */
+.dsec .w-balance {
+  margin: calc(var(--space-2) * -1) 0 0;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
 }
 .w-suggest {
   display: grid;

@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import { connection, metric } from "./test-fixtures.ts";
+import { connection, credit, metric } from "./test-fixtures.ts";
 import {
   amountOf,
+  bankedText,
+  creditBalanceText,
+  creditsOf,
   displayCurrencyOf,
   emptyBook,
   monthlyOf,
@@ -18,7 +21,7 @@ import {
   type TopUp,
   type WalletBook,
 } from "./wallet.ts";
-import type { Money } from "./wallet-money.ts";
+import type { Money, Rates } from "./wallet-money.ts";
 
 const usd = (dollars: number): Money => ({ minor: Math.round(dollars * 100), currency: "USD" });
 const inr = (rupees: number): Money => ({ minor: rupees * 100, currency: "INR" });
@@ -179,8 +182,8 @@ const topUp = (id: string, over: Partial<TopUp>): TopUp => ({
   ...over,
 });
 const rolled = (renewsOn: string, cycle: "monthly" | "annual", at = now) =>
-  summarize([claude], [], book({ costs: { c1: paid(usd(20), renewsOn, cycle) } }), at).providers[0]
-    ?.accounts[0]?.nextRenewal;
+  summarize([claude], [], book({ costs: { c1: paid(usd(20), renewsOn, cycle) } }), null, at)
+    .providers[0]?.accounts[0]?.nextRenewal;
 
 describe("summarize", () => {
   test("groups by the saved provider order and counts every kind", () => {
@@ -195,6 +198,7 @@ describe("summarize", () => {
           v1: { kind: "free" },
         },
       }),
+      null,
       now,
     );
     expect(summary.providers.map((group) => group.provider)).toEqual([
@@ -226,8 +230,8 @@ describe("summarize", () => {
           topUp("c", { kind: "free", price: null }),
           topUp("d", { price: { minor: 100, currency: "GBP" } }),
         ],
-        perUsd: { USD: 1, INR: 95 },
       }),
+      { USD: 1, INR: 95 },
       now,
     );
     // 100 + 20 subscriptions, 12.50 usage, 25 top-up; the GBP top-up has no rate.
@@ -235,7 +239,7 @@ describe("summarize", () => {
   });
 
   test("Not set is not counted as zero in totals", () => {
-    const summary = summarize([claude2], [], book({}), now);
+    const summary = summarize([claude2], [], book({}), null, now);
     expect(summary.counts.notSet).toBe(1);
     expect(summary.monthly).toEqual({ money: usd(0), missing: 0 });
   });
@@ -249,7 +253,8 @@ describe("summarize", () => {
     const summary = summarize(
       all,
       [],
-      book({ costs, displayCurrency: "USD", perUsd: { USD: 1, INR: 95 } }),
+      book({ costs, displayCurrency: "USD" }),
+      { USD: 1, INR: 95 },
       now,
     );
     expect(summary.monthly).toEqual({ money: usd(120), missing: 1 });
@@ -266,7 +271,8 @@ describe("summarize", () => {
     const inInr = summarize(
       all,
       [],
-      book({ costs, displayCurrency: "INR", perUsd: { USD: 1, INR: 95 } }),
+      book({ costs, displayCurrency: "INR" }),
+      { USD: 1, INR: 95 },
       now,
     );
     expect(inInr.monthly).toEqual({ money: inr(11_400), missing: 1 });
@@ -277,6 +283,7 @@ describe("summarize", () => {
       [claude],
       [],
       book({ costs: { c1: paid(usd(200), null, "annual") } }),
+      null,
       now,
     );
     expect(summary.monthly.money).toEqual({ minor: 1667, currency: "USD" });
@@ -307,6 +314,7 @@ describe("summarize", () => {
           g1: { kind: "free" },
         },
       }),
+      null,
       now,
     );
     expect(summary.nextRenewal).toEqual({
@@ -314,7 +322,7 @@ describe("summarize", () => {
       date: "2026-10-07",
       price: { shown: usd(20), original: null, noRate: null },
     });
-    expect(summarize(all, [], book({}), now).nextRenewal).toBeNull();
+    expect(summarize(all, [], book({}), null, now).nextRenewal).toBeNull();
   });
 
   test("usage spend is totalled in the display currency", () => {
@@ -326,10 +334,10 @@ describe("summarize", () => {
       id: "u1",
       metrics: [spend("on_demand.used", "7.5")],
     });
-    const summary = summarize([withSpend, cursor], [], emptyBook, now);
+    const summary = summarize([withSpend, cursor], [], emptyBook, null, now);
     expect(summary.usageSpend).toEqual({ money: usd(20), missing: 0 });
     expect(summary.providers[0]?.accounts[0]?.usageSpend?.label).toBe("Extra usage this month");
-    const noRate = summarize([withSpend], [], book({ displayCurrency: "INR" }), now);
+    const noRate = summarize([withSpend], [], book({ displayCurrency: "INR" }), null, now);
     expect(noRate.usageSpend).toEqual({ money: inr(0), missing: 1 });
   });
 
@@ -343,7 +351,7 @@ describe("summarize", () => {
       topUp("f", { date: "2026-10-15", kind: "free", price: null }),
       topUp("g", { date: "2026-10-10", price: { minor: 100, currency: "GBP" } }),
     ];
-    const summary = summarize([codex], [], book({ topUps, perUsd: { USD: 1, INR: 95 } }), now);
+    const summary = summarize([codex], [], book({ topUps }), { USD: 1, INR: 95 }, now);
     expect(summary.topUps.map((item) => item.id)).toEqual(["e", "d", "f", "g", "c", "b", "a"]);
     expect(summary.topUpsThisMonth.paid).toEqual({ money: usd(35), missing: 1 });
     expect(summary.topUpsThisMonth.paidCount).toBe(3);
@@ -357,6 +365,7 @@ describe("summarize", () => {
       [codex],
       [],
       book({ topUps: [topUp("a", { date: "2026-10-31" }), topUp("b", { date: "2026-11-01" })] }),
+      null,
       late,
     );
     expect(summary.topUpsThisMonth.paid.money).toEqual(usd(10));
@@ -370,11 +379,11 @@ describe("display currency", () => {
     expect(displayCurrencyOf(book({ displayCurrency: "GBP" }), "en-IN")).toBe("GBP");
     expect(displayCurrencyOf(emptyBook, "en-IN")).toBe("INR");
     expect(displayCurrencyOf(emptyBook, "en-US")).toBe("USD");
-    expect(summarize([claude], [], emptyBook, now, "en-IN").currency).toBe("INR");
-    expect(summarize([claude], [], emptyBook, now).currency).toBe("USD");
-    expect(summarize([claude], [], book({ displayCurrency: "EUR" }), now, "en-IN").currency).toBe(
-      "EUR",
-    );
+    expect(summarize([claude], [], emptyBook, null, now, "en-IN").currency).toBe("INR");
+    expect(summarize([claude], [], emptyBook, null, now).currency).toBe("USD");
+    expect(
+      summarize([claude], [], book({ displayCurrency: "EUR" }), null, now, "en-IN").currency,
+    ).toBe("EUR");
   });
 
   test("an amount in the display currency has no original", () => {
@@ -421,7 +430,8 @@ describe("display currency", () => {
     const summary = summarize(
       all,
       [],
-      book({ costs, displayCurrency: "INR", perUsd: { USD: 1, INR: 95 } }),
+      book({ costs, displayCurrency: "INR" }),
+      { USD: 1, INR: 95 },
       now,
     );
     const accounts = summary.providers.flatMap((group) => group.accounts);
@@ -448,8 +458,8 @@ describe("display currency", () => {
       book({
         costs: { c1: paid(usd(200), null, "annual") },
         displayCurrency: "INR",
-        perUsd: { USD: 1, INR: 95 },
       }),
+      { USD: 1, INR: 95 },
       now,
     );
     const account = summary.providers[0]?.accounts[0];
@@ -466,7 +476,8 @@ describe("display currency", () => {
     const inInr = summarize(
       [withSpend],
       [],
-      book({ displayCurrency: "INR", perUsd: { USD: 1, INR: 90 } }),
+      book({ displayCurrency: "INR" }),
+      { USD: 1, INR: 90 },
       now,
     );
     expect(inInr.providers[0]?.accounts[0]?.usageSpend).toEqual({
@@ -476,7 +487,7 @@ describe("display currency", () => {
       label: "Extra usage this month",
     });
     expect(inInr.usageSpend).toEqual({ money: inr(1125), missing: 0 });
-    const unrated = summarize([withSpend], [], book({ displayCurrency: "INR" }), now);
+    const unrated = summarize([withSpend], [], book({ displayCurrency: "INR" }), null, now);
     expect(unrated.providers[0]?.accounts[0]?.usageSpend).toEqual({
       shown: null,
       original: usd(12.5),
@@ -492,7 +503,6 @@ describe("display currency", () => {
       [],
       book({
         displayCurrency: "USD",
-        perUsd: { USD: 1, INR: 95 },
         topUps: [
           topUp("a", { price: inr(950) }),
           topUp("b", { price: usd(5) }),
@@ -500,6 +510,7 @@ describe("display currency", () => {
           topUp("d", { price: { minor: 100, currency: "GBP" } }),
         ],
       }),
+      { USD: 1, INR: 95 },
       now,
     );
     const byId = (id: string) => summary.topUps.find((item) => item.id === id)?.amount;
@@ -517,7 +528,8 @@ describe("display currency", () => {
     const summary = summarize(
       [claude],
       [],
-      book({ costs: { c1: paid(usd(20)) }, displayCurrency: "JPY", perUsd: { USD: 1, JPY: 150 } }),
+      book({ costs: { c1: paid(usd(20)) }, displayCurrency: "JPY" }),
+      { USD: 1, JPY: 150 },
       now,
     );
     expect(summary.monthly).toEqual({ money: { minor: 3000, currency: "JPY" }, missing: 0 });
@@ -556,10 +568,10 @@ describe("currencies in use", () => {
   });
 });
 
-const months = (over: Partial<WalletBook>) =>
-  summarize(all, [], book({ displayCurrency: "USD", ...over }), now).topUpMonths;
+const months = (over: Partial<WalletBook>, rates: Rates | null = null) =>
+  summarize(all, [], book({ displayCurrency: "USD", ...over }), rates, now).topUpMonths;
 const renewals = (costs: Record<string, Cost>) =>
-  summarize(all, [], book({ costs, displayCurrency: "USD" }), now).renewals;
+  summarize(all, [], book({ costs, displayCurrency: "USD" }), null, now).renewals;
 
 describe("topUpMonths", () => {
   test("covers the last six months, oldest first, the current month last", () => {
@@ -588,13 +600,15 @@ describe("topUpMonths", () => {
   });
 
   test("converts to the display currency and leaves out a price with no rate", () => {
-    const result = months({
-      perUsd: { USD: 1, INR: 100 },
-      topUps: [
-        topUp("a", { price: inr(500) }),
-        topUp("b", { price: { minor: 900, currency: "EUR" } }),
-      ],
-    });
+    const result = months(
+      {
+        topUps: [
+          topUp("a", { price: inr(500) }),
+          topUp("b", { price: { minor: 900, currency: "EUR" } }),
+        ],
+      },
+      { USD: 1, INR: 100 },
+    );
     expect(result[5]?.paid).toEqual({ money: usd(5), missing: 1 });
   });
 
@@ -650,6 +664,7 @@ describe("upcomingRenewals", () => {
         [claude],
         [],
         book({ costs: { c1: paid(usd(200), "2026-01-15", "annual") }, displayCurrency: "USD" }),
+        null,
         now,
       ).providers,
       "2027-01-10",
@@ -682,6 +697,7 @@ describe("providerShares", () => {
         costs: { c1: paid(usd(100)), c2: paid(usd(20)), x1: { kind: "free" }, u1: paid(usd(60)) },
         displayCurrency: "USD",
       }),
+      null,
       now,
     );
     expect(providerShares(summary.providers, "monthly")).toEqual([
@@ -701,6 +717,7 @@ describe("providerShares", () => {
       connections,
       ["cursor", "claude"],
       book({ costs: { c1: paid(usd(100)), u1: paid(usd(300)) }, displayCurrency: "USD" }),
+      null,
       now,
     );
     expect(providerShares(summary.providers, "monthly").map((share) => share.provider)).toEqual([
@@ -711,6 +728,7 @@ describe("providerShares", () => {
       connections,
       ["claude", "cursor"],
       book({ costs: { c1: paid(usd(100)), u1: paid(usd(300)) }, displayCurrency: "USD" }),
+      null,
       now,
     );
     expect(providerShares(swapped.providers, "monthly").map((share) => share.provider)).toEqual([
@@ -724,6 +742,7 @@ describe("providerShares", () => {
       connections,
       [],
       book({ costs: { c1: paid(inr(1900)), u1: paid(usd(60)) }, displayCurrency: "USD" }),
+      null,
       now,
     );
     expect(providerShares(summary.providers, "monthly")).toEqual([
@@ -732,7 +751,97 @@ describe("providerShares", () => {
   });
 
   test("Not set accounts give no share", () => {
-    const summary = summarize(connections, [], book({ displayCurrency: "USD" }), now);
+    const summary = summarize(connections, [], book({ displayCurrency: "USD" }), null, now);
     expect(providerShares(summary.providers, "monthly")).toEqual([]);
+  });
+});
+
+const credits = (key: string, value: number | null, over = {}) =>
+  metric(key, {
+    kind: "credits",
+    scope: "account",
+    valueText: value === null ? null : String(value),
+    valueNum: value,
+    unit: "credits",
+    availability: value === null ? "unknown" : "available",
+    ...over,
+  });
+const resets = (key: string, count: number) =>
+  metric(key, {
+    kind: "reset_inventory",
+    scope: "account",
+    valueText: String(count),
+    valueNum: count,
+    unit: "resets",
+  });
+
+describe("creditsOf", () => {
+  test("Codex: the credit balance and banked full resets", () => {
+    const account = connection("codex", {
+      metrics: [credits("credits.balance", 1128), resets("reset_credits.available_count", 2)],
+    });
+    expect(creditsOf(account)).toEqual({ balance: { value: 1128, unlimited: false }, resets: 2 });
+  });
+
+  test("Codex counts usable stored resets when the count metric is missing", () => {
+    const account = connection("codex", {
+      resetCredits: [credit("a"), credit("b", { usable: false })],
+    });
+    expect(creditsOf(account)).toEqual({ balance: null, resets: 1 });
+  });
+
+  test("Claude: reset grants only, no balance", () => {
+    const account = connection("claude", { metrics: [resets("reset_grants.available", 3)] });
+    expect(creditsOf(account)).toEqual({ balance: null, resets: 3 });
+  });
+
+  test("Grok: the prepaid balance; Vercel AI Gateway: the credit balance, not the credits used", () => {
+    const prepaid = connection("grok", { metrics: [credits("prepaid_balance", 12.5)] });
+    expect(creditsOf(prepaid)?.balance).toEqual({ value: 12.5, unlimited: false });
+    const gateway = connection("vercel_ai_gateway", {
+      metrics: [credits("credits.balance", 40.45), credits("credits.total_used", 59.55)],
+    });
+    expect(creditsOf(gateway)).toEqual({
+      balance: { value: 40.45, unlimited: false },
+      resets: null,
+    });
+  });
+
+  test("an unreported balance is unknown, not zero", () => {
+    const account = connection("codex", { metrics: [credits("credits.balance", null)] });
+    expect(creditsOf(account)).toBeNull();
+    expect(creditsOf(connection("grok"))).toBeNull();
+  });
+
+  test("a real zero balance stays zero; zero banked resets are not shown", () => {
+    const account = connection("codex", {
+      metrics: [credits("credits.balance", 0), resets("reset_credits.available_count", 0)],
+    });
+    expect(creditsOf(account)).toEqual({ balance: { value: 0, unlimited: false }, resets: null });
+  });
+
+  test("an unlimited balance has no figure", () => {
+    const account = connection("codex", {
+      metrics: [credits("credits.balance", null, { unlimited: true, availability: "available" })],
+    });
+    expect(creditsOf(account)?.balance).toEqual({ value: null, unlimited: true });
+  });
+
+  test("providers with neither report none, and an account carries its credits in the summary", () => {
+    expect(
+      creditsOf(connection("cursor", { metrics: [credits("credits.balance", 5)] })),
+    ).toBeNull();
+    const withBalance = connection("grok", { id: "g2", metrics: [credits("prepaid_balance", 7)] });
+    const summary = summarize([withBalance], [], emptyBook, null, now);
+    expect(summary.providers[0]?.accounts[0]?.credits?.balance?.value).toBe(7);
+  });
+
+  test("formats balance and banked resets", () => {
+    expect(creditBalanceText({ value: 1128, unlimited: false })).toBe("1,128 credits");
+    expect(creditBalanceText({ value: 1, unlimited: false })).toBe("1 credit");
+    expect(creditBalanceText({ value: 40.45, unlimited: false })).toBe("40.45 credits");
+    expect(creditBalanceText({ value: null, unlimited: true })).toBe("Unlimited credits");
+    expect(bankedText(2)).toBe("2 resets banked");
+    expect(bankedText(1)).toBe("1 reset banked");
   });
 });

@@ -1,70 +1,87 @@
-import { useId, useState } from "react";
+import { useEffect, useState } from "react";
 
+import { age } from "@headroom/view-model/time";
 import { dayLabel } from "@headroom/view-model/wallet-dates";
-import { currencySymbol, parsePositive, type Currency } from "@headroom/view-model/wallet-money";
-import type { WalletBook } from "@headroom/view-model/wallet";
+import { currencySymbol, type Currency } from "@headroom/view-model/wallet-money";
 
-import { buttonClass } from "../../ui/button.tsx";
+import type { ExchangeRates } from "../../lib/exchange-rates.ts";
+import { useNow } from "../../lib/now.ts";
+import { Button, buttonClass } from "../../ui/button.tsx";
 import { Popover } from "../../ui/menu.tsx";
 
-function RateRow(props: {
-  readonly currency: Currency;
-  readonly rate: number | undefined;
-  readonly onChange: (rate: number | null) => void;
-}) {
-  const id = useId();
-  const [text, setText] = useState(props.rate === undefined ? "" : String(props.rate));
-  const [touched, setTouched] = useState(false);
-  const invalid = text.trim() !== "" && parsePositive(text) === null;
-  const showError = touched && invalid;
+/** The server fetches at most once a minute when asked, so the button waits as long. */
+const cooldownMs = 60_000;
+
+/** "96.32", "0.89087", "157.67": the five significant digits the ECB publishes, never padded. */
+function formatRate(rate: number): string {
+  return rate.toLocaleString("en-US", { maximumSignificantDigits: 5 });
+}
+
+function RateRow(props: { readonly currency: Currency; readonly rate: number | undefined }) {
   return (
     <div className="w-rate">
-      <label htmlFor={id}>
+      <dt>
         <span className="w-rate-code">{props.currency}</span>
         <span className="muted" aria-hidden="true">
           {currencySymbol(props.currency)}
         </span>
-      </label>
-      <input
-        id={id}
-        value={text}
-        inputMode="decimal"
-        placeholder="Not set"
-        aria-label={`${props.currency} per 1 USD`}
-        aria-invalid={showError ? true : undefined}
-        aria-describedby={showError ? `${id}-note` : undefined}
-        autoComplete="off"
-        autoCapitalize="off"
-        autoCorrect="off"
-        spellCheck={false}
-        onBlur={() => setTouched(true)}
-        onChange={(event) => {
-          const value = event.currentTarget.value;
-          setText(value);
-          const rate = parsePositive(value);
-          if (rate !== null) props.onChange(rate);
-          else if (value.trim() === "") props.onChange(null);
-        }}
-      />
-      {showError ? (
-        <p id={`${id}-note`} className="dl-note bad" role="alert">
-          Enter a number above zero.
-        </p>
-      ) : null}
+      </dt>
+      <dd className={props.rate === undefined ? "muted" : undefined}>
+        {props.rate === undefined ? "Not available" : formatRate(props.rate)}
+      </dd>
     </div>
   );
 }
 
+/** Refresh stays off for a minute after a fetch, whether this press or the server's own timer made it. */
+function RefreshButton(props: { readonly rates: ExchangeRates }) {
+  const { rates } = props;
+  const [pressedUntil, setPressedUntil] = useState(0);
+  const [clock, setClock] = useState(() => Date.now());
+  const until = Math.max(pressedUntil, (rates.fetchedAt ?? 0) + cooldownMs);
+  useEffect(() => {
+    const timer = setTimeout(() => setClock(Date.now()), Math.max(0, until - Date.now()));
+    return () => clearTimeout(timer);
+  }, [until]);
+  const refreshing = rates.status === "refreshing" || rates.status === "loading";
+  const cooling = !refreshing && clock < until;
+  return (
+    <span title={cooling ? "Rates can be refreshed once a minute." : undefined}>
+      <Button
+        variant="quiet"
+        size="sm"
+        busy={refreshing}
+        disabled={cooling}
+        onClick={() => {
+          setPressedUntil(Date.now() + cooldownMs);
+          void rates.refresh();
+        }}
+      >
+        Refresh
+      </Button>
+    </span>
+  );
+}
+
+function updatedText(rates: ExchangeRates, now: number): string {
+  if (rates.status === "refreshing" || rates.status === "loading") return "Updating…";
+  if (rates.fetchedAt === null) return "Not updated yet";
+  const ago = age(rates.fetchedAt, now);
+  return `Updated ${ago === "Just now" ? "just now" : ago}`;
+}
+
 /**
- * The Exchange Rates button and its panel: a compact two-column grid with a field per currency, always against USD
- * ("1 USD equals" 95 INR). A currency with no rate stays out of converted totals.
+ * The Exchange Rates button and its panel: the server's rates, read-only, always against USD ("1 USD equals"
+ * 96.32 INR). A currency with no rate stays out of converted totals; Refresh asks the server to fetch again.
  */
 export function RatesPopover(props: {
-  readonly book: WalletBook;
-  /** The currencies that take a rate, in the order to show them. USD needs none. */
+  readonly rates: ExchangeRates;
+  /** The currencies to list, currencies in use first. USD is the base and needs no row. */
   readonly currencies: readonly Currency[];
-  readonly onRate: (currency: Currency, rate: number | null) => void;
 }) {
+  const { rates } = props;
+  const now = useNow();
+  const unavailable = rates.perUsd === null && rates.status !== "loading";
   return (
     <Popover
       label="Exchange Rates"
@@ -76,22 +93,30 @@ export function RatesPopover(props: {
       <div className="w-pop-head">
         <h2>Exchange Rates</h2>
         <p className="muted">
-          Your own rates.
-          {props.book.ratesChangedOn === null
-            ? ""
-            : ` Last changed ${dayLabel(props.book.ratesChangedOn)}`}
+          European Central Bank reference rates
+          {rates.date === null ? "" : ` · ${dayLabel(rates.date)}`}
         </p>
       </div>
-      <p className="w-rates-lead muted">1 USD equals</p>
-      <div className="w-rates-grid">
-        {props.currencies.map((currency) => (
-          <RateRow
-            key={currency}
-            currency={currency}
-            rate={props.book.perUsd[currency]}
-            onChange={(rate) => props.onRate(currency, rate)}
-          />
-        ))}
+      {unavailable ? (
+        <p className="w-rates-note muted">
+          Rates could not be fetched. Amounts in other currencies stay out of totals.
+        </p>
+      ) : (
+        <>
+          <p className="w-rates-lead muted">1 USD equals</p>
+          <dl className="w-rates-grid">
+            {props.currencies.map((currency) => (
+              <RateRow key={currency} currency={currency} rate={rates.perUsd?.[currency]} />
+            ))}
+          </dl>
+          {rates.error !== null && rates.perUsd !== null ? (
+            <p className="w-rates-note muted">The last refresh failed, so these rates are older.</p>
+          ) : null}
+        </>
+      )}
+      <div className="w-rates-foot">
+        <p className="muted">{unavailable ? "" : updatedText(rates, now)}</p>
+        <RefreshButton rates={rates} />
       </div>
     </Popover>
   );

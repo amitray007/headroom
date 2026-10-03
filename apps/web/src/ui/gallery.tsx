@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { providers, type Provider } from "@headroom/core/contracts";
-import { providerName } from "@headroom/view-model/labels";
 
 import * as icons from "../icons.tsx";
 import { Avatar, BrandMark } from "../icons.tsx";
@@ -11,7 +10,6 @@ import { Bar, type BarTone } from "./bar.tsx";
 import { Button, ButtonLink } from "./button.tsx";
 import { CountUp } from "./count-up.tsx";
 import { DatePicker } from "./date-picker.tsx";
-import { DonutChart, type DonutSegment } from "./donut-chart.tsx";
 import { Dialog } from "./dialog.tsx";
 import { HoldButton, type HoldPhase } from "./hold-button.tsx";
 import { InfoTip } from "./info-tip.tsx";
@@ -72,44 +70,12 @@ const iconList = [
   ["SparkleIcon", icons.SparkleIcon],
 ] as const;
 
-/** Monthly cost per provider in cents, two datasets with the same keys so the donut can morph between them. */
-const donutData: readonly (readonly (readonly [Provider, number])[])[] = [
-  [
-    ["claude", 20000],
-    ["codex", 10000],
-    ["cursor", 6000],
-    ["copilot", 3900],
-    ["grok", 3000],
-    ["antigravity", 2000],
-    ["vercel_ai_gateway", 468],
-  ],
-  [
-    ["claude", 20000],
-    ["codex", 20000],
-    ["cursor", 2000],
-    ["copilot", 3900],
-    ["grok", 0],
-    ["antigravity", 5000],
-    ["vercel_ai_gateway", 468],
-  ],
-];
-
 const dollars = (cents: number): string =>
   new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
   }).format(cents / 100);
-
-function donutSegments(dataset: number): DonutSegment[] {
-  return (donutData[dataset] ?? []).map(([provider, cents]) => ({
-    key: provider,
-    label: providerName(provider),
-    value: cents,
-    display: dollars(cents),
-    icon: <BrandMark provider={provider} />,
-  }));
-}
 
 /** Six months of top-ups in dollars, with gaps. */
 const topUps: readonly SparkBar[] = [
@@ -615,8 +581,6 @@ export function Gallery() {
   }, [density]);
 
   const status = statusKinds[statusIndex] ?? "active";
-  const [donut, setDonut] = useState(0);
-  const donutTotal = (donutData[donut] ?? []).reduce((sum, [, cents]) => sum + cents, 0);
 
   return (
     <div className="page">
@@ -797,31 +761,6 @@ export function Gallery() {
             <Bar percent={0} tone="good" label="Nothing used" />
           </div>
         </div>
-      </Section>
-
-      <Section title="Donut Chart">
-        <div style={{ maxWidth: 560 }}>
-          <DonutChart
-            label="Monthly cost by provider"
-            segments={donutSegments(donut)}
-            centerLabel="Per month"
-            centerValue={dollars(donutTotal)}
-            centerMeta="7 accounts"
-          />
-        </div>
-        <div style={{ maxWidth: 320 }}>
-          <DonutChart
-            label="Monthly cost by provider, narrow"
-            segments={donutSegments(donut)}
-            centerLabel="Per month"
-            centerValue={dollars(donutTotal)}
-          />
-        </div>
-        <Row>
-          <Button size="sm" onClick={() => setDonut((donut + 1) % donutData.length)}>
-            Switch the Dataset
-          </Button>
-        </Row>
       </Section>
 
       <Section title="Spark Bars">
