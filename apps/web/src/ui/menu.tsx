@@ -231,9 +231,13 @@ export function Popover(
     /** Name of the panel for assistive tech. */
     readonly panelLabel: string;
     readonly panelClassName?: string;
+    /** Which trigger edge the panel lines up with. "start" opens rightward from a trigger in running text. */
+    readonly align?: "start" | "end";
   },
 ) {
-  const { layer, triggerRef, panelRef } = useFloatingLayer(popoverGap, props.openOnHover === true);
+  const { layer, triggerRef, panelRef } = useFloatingLayer(popoverGap, props.openOnHover === true, {
+    align: props.align ?? "end",
+  });
   const { open, openedByHover } = layer;
   useEffect(() => {
     if (open && !openedByHover()) panelRef.current?.focus();

@@ -66,6 +66,8 @@ function TopUpsPopover(props: {
       panelLabel="Top-ups this month"
       panelClassName="notif w-topups-pop"
       triggerClassName="w-cap-trigger"
+      // The caption sits at the left of its column, so the panel opens rightward and never covers the next stat.
+      align="start"
       trigger={
         <>
           {props.caption}
