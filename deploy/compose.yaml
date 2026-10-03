@@ -28,14 +28,20 @@ services:
       driver: json-file
       options: { max-size: 10m, max-file: "3" }
     # No ports: only the tailscale service reaches the app, on the private network below.
-    networks: [internal]
+    networks:
+      internal:
+        # The name ts/serve.json proxies to. Distinct from the node name, which the tailscale
+        # container would otherwise resolve to itself.
+        aliases: [headroom-app]
 
   tailscale:
     image: tailscale/tailscale:v1.102.5
-    hostname: ${TS_HOSTNAME:-headroom}
     restart: unless-stopped
     environment:
       TS_AUTHKEY: ${TS_AUTHKEY:?set TS_AUTHKEY in the deployment environment}
+      # The node name. Set here, not as the container hostname: a container resolves its own
+      # hostname to itself, so a hostname equal to the app's name would proxy to nothing.
+      TS_HOSTNAME: ${TS_HOSTNAME:-headroom}
       TS_EXTRA_ARGS: ${TS_EXTRA_ARGS:-}
       TS_STATE_DIR: /var/lib/tailscale
       TS_SERVE_CONFIG: /config/serve.json

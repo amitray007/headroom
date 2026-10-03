@@ -80,8 +80,8 @@ Migrations run at start. Back up first when a release notes a migration.
 ## Check and troubleshoot
 
 - `docker compose ps` shows `headroom` as healthy.
-- `docker compose exec tailscale tailscale status` lists the node; `tailscale serve status` shows the proxy to `http://headroom:8080`.
+- `docker compose exec tailscale tailscale status` lists the node; `tailscale serve status` shows the proxy to `http://headroom-app:8080`.
 - From a device outside the tailnet, the address must not load.
 - Sign-in fails or passkeys refuse: `HEADROOM_PUBLIC_URL` does not match the address in the browser.
-- "502" from Serve: the app is not healthy yet, or the service name or port in `ts/serve.json` changed.
+- "502" from Serve: the app is not healthy yet, or the name or port in `ts/serve.json` changed. Keep the node name in `TS_HOSTNAME`, never as the tailscale container's `hostname:`: a container resolves its own hostname to itself.
 - The node has a new name with `-1` after a restart: the `ts-state` volume was lost, so Tailscale made a new node. Remove the old one in the admin console.
