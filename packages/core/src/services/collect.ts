@@ -22,6 +22,8 @@ export interface CollectionServiceOptions {
   /** Refresh this long before the credential expires. */
   readonly refreshLeadMs?: number;
   readonly leaseTtlMs?: number;
+  /** Re-check this long after the first rejection of a key that worked before. */
+  readonly confirmRejectionMs?: number;
   readonly now?: () => Date;
 }
 
@@ -39,11 +41,13 @@ export type CollectionOutcome =
 export class CollectionService {
   private readonly refreshLeadMs: number;
   private readonly leaseTtlMs: number;
+  private readonly confirmRejectionMs: number;
   private readonly now: () => Date;
 
   constructor(private readonly deps: CollectionServiceOptions) {
     this.refreshLeadMs = deps.refreshLeadMs ?? 5 * 60 * 1000;
     this.leaseTtlMs = deps.leaseTtlMs ?? 2 * 60 * 1000;
+    this.confirmRejectionMs = deps.confirmRejectionMs ?? 2 * 60 * 1000;
     this.now = deps.now ?? (() => new Date());
   }
 
@@ -75,7 +79,10 @@ export class CollectionService {
     const record = this.deps.credentials.get(connection.id);
     if (!record) return { status: "skipped", reason: "no_credentials" };
     let credential = { secret: record.secret, expiresAt: record.expiresAt };
+    const previous = this.deps.snapshots.latestRun(connection.id);
     const run = this.deps.snapshots.startRun(connection.id);
+    const rejected = (error: ClassifiedError) =>
+      this.rejected(connection, previous?.outcome ?? null, run.id, error);
 
     // Proactive refresh when expiry is known and near.
     if (record.refreshState !== "not_refreshable" && credential.expiresAt !== null) {
@@ -110,18 +117,13 @@ export class CollectionService {
           try {
             result = await connector.collect(credential, identity);
           } catch (retryError) {
-            return this.fail(
-              connection.id,
-              run.id,
-              connector.classify(retryError),
-              "token_rejected",
-            );
+            return rejected(connector.classify(retryError));
           }
         } else {
-          return this.fail(connection.id, run.id, classified, "token_rejected");
+          return rejected(classified);
         }
       } else {
-        return this.fail(connection.id, run.id, classified, "token_rejected");
+        return rejected(classified);
       }
     }
 
@@ -175,6 +177,33 @@ export class CollectionService {
       default:
         return assertNever(result);
     }
+  }
+
+  /**
+   * A definitive failure on a connection that has worked before is confirmed once: the first
+   * closes the run as a failure and schedules a short re-check, the same failure again in a row
+   * disconnects. A connection that never worked disconnects on the first.
+   */
+  private rejected(
+    connection: ConnectionRow,
+    previousOutcome: SyncRunOutcome | null,
+    runId: string,
+    error: ClassifiedError,
+  ): CollectionOutcome {
+    const outcome = outcomeFor(error);
+    // The same failure twice in a row confirms it, whatever its kind, so a repeating one never loops on re-checks.
+    const firstStrike =
+      error.class === "definitive" &&
+      connection.lastSuccessAt !== null &&
+      previousOutcome !== outcome;
+    if (!firstStrike) return this.fail(connection.id, runId, error, "token_rejected");
+    const recheck: ClassifiedError = {
+      ...error,
+      class: "transient",
+      retryAfterMs: this.confirmRejectionMs,
+    };
+    this.deps.snapshots.finishRun(runId, outcome, recheck);
+    return { status: "failed", outcome, error: recheck };
   }
 
   /** Close the run; change connection state only for a definitive class. */

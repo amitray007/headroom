@@ -31,8 +31,10 @@ Tone is `bad`, `warn` or `info`. "Left" is the percent of the limit still free. 
 | `spend_near_cap` | Spend is at least (100 - threshold)% of its cap | `warn` | `spend` | `spend_near_cap:<spendKey>:<periodEnd>` |
 | `spend_cap_reached` | Spend is at least 100% of its cap | `bad` | `spend` | `spend_cap_reached:<spendKey>:<periodEnd>` |
 | `extra_usage_started` | Copilot `extra_usage.count` is above 0 | `info` | `spend` | `extra_usage_started:extra_usage.count:<periodEnd>` |
-| `refresh_failed` | The latest run failed, state is not paused | `warn` | `refreshFailures` | `refresh_failed::<lastSuccessAt>` |
+| `refresh_failed` | Two or more refreshes in a row failed (`latestRun.failureStreak`), state is not paused | `warn` | `refreshFailures` | `refresh_failed::<lastSuccessAt>` |
 | `disconnected` | Connection state is `reconnect_required` | `bad` | `refreshFailures` | `disconnected:<reconnectReason>:<lastSuccessAt>` |
+
+A rejected key or sign-in on an account that worked before is re-checked about 2 minutes later before it counts as disconnected. A revoked refresh token stays immediate.
 
 `<resetsAt>`, `<expiresAt>` and `<lastSuccessAt>` are epoch milliseconds. `<periodEnd>` is the period's end when the metric or its anchor reports one (Cursor cycle end, Grok weekly reset, Copilot monthly reset). Without one it is the UTC month of the reading, `YYYY-MM`, as for Claude extra usage. An id stays the same while the situation lasts and changes for the next period, so a repeat appears again as unread.
 

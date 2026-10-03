@@ -40,6 +40,7 @@ export function overviewConnections(source: OverviewSource, now: number) {
             finishedAt: ms(run.finishedAt),
             outcome: run.outcome,
             error: run.sanitizedError,
+            failureStreak: source.snapshots.failureStreak(connection.id),
           }
         : null,
       snapshot: latest

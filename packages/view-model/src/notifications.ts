@@ -394,7 +394,9 @@ function failureNotifications(connection: OverviewConnection, muted: boolean): A
   }
   const run = connection.latestRun;
   // A muted provider still reports a broken sign-in, but not a refresh that will retry.
+  // One failed run is a blip: notify only when the failure repeats.
   if (muted || connection.state === "paused" || run === null || !refreshFailed(run)) return [];
+  if (run.failureStreak < 2) return [];
   return [
     {
       ...shared,

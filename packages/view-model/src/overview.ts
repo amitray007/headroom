@@ -56,6 +56,7 @@ export const overviewConnectionSchema = z.object({
       finishedAt: z.number().nullable(),
       outcome: syncRunOutcomeSchema.nullable(),
       error: z.string().nullable(),
+      failureStreak: z.number().int().nonnegative(),
     })
     .nullable(),
   snapshot: z

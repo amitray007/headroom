@@ -1,3 +1,4 @@
+import { ConnectorError } from "../connector.ts";
 import { describe, expect, test } from "bun:test";
 
 import { CredentialStore } from "../credentials.ts";
@@ -60,6 +61,9 @@ function setup() {
   };
 }
 
+/** A definitive failure other than a rejected credential. */
+const mismatch = () => new ConnectorError("identity_mismatch", "a different account answered");
+
 describe("CollectionService", () => {
   test("a healthy run records a snapshot, marks success and does not refresh early", async () => {
     const { service, connector, connections, snapshots, connection } = setup();
@@ -88,7 +92,10 @@ describe("CollectionService", () => {
     expect(connections.get(connection.id)?.state).toBe("ready");
 
     connector.calls.length = 0;
-    connector.collectQueue.push(authError(), authError());
+    connector.collectQueue.push(authError(), authError(), authError(), authError());
+    // First rejection of a key that worked before is only a strike.
+    expect((await service.run(connection.id)).status).toBe("failed");
+    expect(connections.get(connection.id)?.state).toBe("ready");
     const failed = await service.run(connection.id);
     expect(failed.status).toBe("failed");
     expect(connections.get(connection.id)?.state).toBe("reconnect_required");
@@ -96,6 +103,60 @@ describe("CollectionService", () => {
     expect(snapshots.latestRun(connection.id)?.outcome).toBe("authentication_failed");
     // The earlier snapshot is still the latest one, with its original observation time.
     expect(snapshots.latest(connection.id)?.metrics[0]?.valueText).toBe("7");
+  });
+
+  test("a first rejection on a connection that worked is re-checked, not disconnected", async () => {
+    const { service, connector, connections, connection, snapshots } = setup();
+    await service.run(connection.id);
+    connector.collectQueue.push(authError(), authError());
+    const outcome = await service.run(connection.id);
+    expect(outcome).toMatchObject({
+      status: "failed",
+      outcome: "authentication_failed",
+      error: { class: "transient" },
+    });
+    expect(connections.get(connection.id)?.state).toBe("ready");
+    const run = snapshots.latestRun(connection.id);
+    expect(run?.outcome).toBe("authentication_failed");
+    expect(run?.retryAfter?.getTime()).toBe(1_700_000_000_000 + 2 * 60_000);
+  });
+
+  test("a second consecutive rejection disconnects with token_rejected", async () => {
+    const { service, connector, connections, connection } = setup();
+    await service.run(connection.id);
+    connector.collectQueue.push(authError(), authError(), authError(), authError());
+    await service.run(connection.id);
+    await service.run(connection.id);
+    expect(connections.get(connection.id)?.state).toBe("reconnect_required");
+    expect(connections.get(connection.id)?.reconnectReason).toBe("token_rejected");
+  });
+
+  test("a rejection after an intervening success starts over at strike one", async () => {
+    const { service, connector, connections, connection } = setup();
+    await service.run(connection.id);
+    connector.collectQueue.push(authError(), authError(), okCollect("8"), authError(), authError());
+    await service.run(connection.id);
+    expect((await service.run(connection.id)).status).toBe("collected");
+    await service.run(connection.id);
+    expect(connections.get(connection.id)?.state).toBe("ready");
+  });
+
+  test("any definitive failure that repeats disconnects instead of re-checking forever", async () => {
+    const { service, connector, connections, connection } = setup();
+    await service.run(connection.id);
+    connector.collectQueue.push(mismatch(), mismatch());
+    await service.run(connection.id);
+    expect(connections.get(connection.id)?.state).toBe("ready");
+    await service.run(connection.id);
+    expect(connections.get(connection.id)?.state).toBe("reconnect_required");
+  });
+
+  test("a connection that never succeeded disconnects on the first rejection", async () => {
+    const { service, connector, connections, connection } = setup();
+    connector.collectQueue.push(authError(), authError());
+    await service.run(connection.id);
+    expect(connections.get(connection.id)?.state).toBe("reconnect_required");
+    expect(connections.get(connection.id)?.reconnectReason).toBe("token_rejected");
   });
 
   test("a rejected refresh is definitive with refresh_rejected", async () => {

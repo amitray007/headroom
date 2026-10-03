@@ -55,7 +55,7 @@ const overviewBody = {
       createdAt: 1,
       lastSuccessAt: 2,
       stale: false,
-      latestRun: { startedAt: 2, finishedAt: null, outcome: null, error: null },
+      latestRun: { startedAt: 2, finishedAt: null, outcome: null, error: null, failureStreak: 0 },
       snapshot: {
         observedAt: 2,
         metrics: [

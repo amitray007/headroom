@@ -164,11 +164,12 @@ describe("expiring resets", () => {
   });
 });
 
-const run = (startedAt: number) => ({
+const run = (startedAt: number, failureStreak = 2) => ({
   startedAt,
   finishedAt: startedAt + 10,
   outcome: "provider_unavailable" as const,
   error: "down",
+  failureStreak,
 });
 
 describe("failures", () => {
@@ -209,12 +210,20 @@ describe("failures", () => {
     );
     expect(recovered[0]?.id).not.toBe(first[0]?.id);
   });
+  test("one failed refresh is quiet; a second in a row notifies", () => {
+    const one = connection("grok", { latestRun: run(100, 1) });
+    const two = connection("grok", { latestRun: run(100, 2) });
+    expect(deriveNotifications([one], defaultSettings, now)).toEqual([]);
+    expect(deriveNotifications([two], defaultSettings, now).map((n) => n.kind)).toEqual([
+      "refresh_failed",
+    ]);
+  });
   test("a run still in progress, a partial run and a disabled switch are quiet", () => {
     const inProgress = connection("grok", {
-      latestRun: { startedAt: 1, finishedAt: null, outcome: null, error: null },
+      latestRun: { startedAt: 1, finishedAt: null, outcome: null, error: null, failureStreak: 0 },
     });
     const partial = connection("grok", {
-      latestRun: { startedAt: 1, finishedAt: 2, outcome: "partial", error: null },
+      latestRun: { startedAt: 1, finishedAt: 2, outcome: "partial", error: null, failureStreak: 0 },
     });
     expect(deriveNotifications([inProgress, partial], defaultSettings, now)).toEqual([]);
     const off = {

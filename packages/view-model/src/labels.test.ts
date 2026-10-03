@@ -65,7 +65,13 @@ describe("grouping", () => {
 });
 
 describe("status", () => {
-  const failed = { startedAt: 1, finishedAt: 2, outcome: "rate_limited", error: null } as const;
+  const failed = {
+    startedAt: 1,
+    finishedAt: 2,
+    outcome: "rate_limited",
+    error: null,
+    failureStreak: 1,
+  } as const;
   test("words and tones", () => {
     expect(statusOf(connection("claude"))).toEqual({ word: "Active", tone: "good" });
     expect(statusOf(connection("claude", { state: "partial" })).word).toBe("Active");
@@ -83,9 +89,15 @@ describe("status", () => {
     });
   });
   test("a run in progress is not a failure", () => {
-    expect(refreshFailed({ startedAt: 1, finishedAt: null, outcome: null, error: null })).toBe(
-      false,
-    );
+    expect(
+      refreshFailed({
+        startedAt: 1,
+        finishedAt: null,
+        outcome: null,
+        error: null,
+        failureStreak: 0,
+      }),
+    ).toBe(false);
     expect(refreshFailed(null)).toBe(false);
     expect(refreshFailed({ ...failed, outcome: "partial" })).toBe(false);
   });
@@ -98,6 +110,7 @@ describe("awaitingFirstRefresh", () => {
     finishedAt: 2,
     outcome: "invalid_response",
     error: null,
+    failureStreak: 1,
   } as const;
   test("waits only while nothing has gone wrong", () => {
     expect(awaitingFirstRefresh(fresh)).toBe(true);

@@ -26,7 +26,7 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 - `id`, `provider`, `scope`, `state`, `reconnectReason`, `interface`, `authMethod`, `createdAt`, `lastSuccessAt`, `stale`.
 - `name`: the owner-set display name, or null.
 - `identity` and `plan`: the stored label split by `splitLabel` in `packages/core/src/label.ts`. The identity is the text before a trailing ` (<plan>)`. It is null when empty or when it equals the generic fallback label of the provider (for example `Codex`). The plan is null when absent or when it only repeats the product name, as in the Copilot label `<login> (Copilot)`.
-- `latestRun`: `{ startedAt, finishedAt, outcome, error }` or null. `outcome` is null while a run is in flight.
+- `latestRun`: `{ startedAt, finishedAt, outcome, error, failureStreak }` or null. `outcome` is null while a run is in flight. `failureStreak` counts the most recent finished runs, newest first, that failed in a row (0 to 5; a run in flight is ignored).
 - `snapshot`: `{ observedAt, metrics, resetCredits }` or null. Metrics and reset credits have the same fields as in the detail route.
 - `actions`: `{ enabled, supported }`, where `enabled` is the effective gate.
 

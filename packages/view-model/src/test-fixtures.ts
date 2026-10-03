@@ -60,7 +60,13 @@ export function connection(
     createdAt: 1_000,
     lastSuccessAt: 5_000,
     stale: false,
-    latestRun: { startedAt: 5_000, finishedAt: 5_100, outcome: "succeeded", error: null },
+    latestRun: {
+      startedAt: 5_000,
+      finishedAt: 5_100,
+      outcome: "succeeded",
+      error: null,
+      failureStreak: 0,
+    },
     snapshot: {
       observedAt: observedAt ?? 5_000,
       metrics: metrics ?? [],

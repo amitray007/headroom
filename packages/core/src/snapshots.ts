@@ -59,6 +59,27 @@ export class SnapshotStore {
     );
   }
 
+  /**
+   * How many of the most recent finished runs, newest first, failed in a row. A run still in
+   * progress is ignored. Reads at most `limit` runs.
+   */
+  failureStreak(connectionId: string, limit = 5): number {
+    const runs = this.db
+      .select({ outcome: schema.syncRuns.outcome })
+      .from(schema.syncRuns)
+      .where(eq(schema.syncRuns.connectionId, connectionId))
+      .orderBy(desc(schema.syncRuns.startedAt))
+      .limit(limit)
+      .all();
+    let streak = 0;
+    for (const { outcome } of runs) {
+      if (outcome === null) continue;
+      if (outcome === "succeeded" || outcome === "partial") break;
+      streak += 1;
+    }
+    return streak;
+  }
+
   /** Persist one collection result. Metrics and reset credits are written in the same transaction. */
   record(
     connectionId: string,
