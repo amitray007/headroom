@@ -79,6 +79,23 @@ export function addDays(text: string, days: number): string | null {
   return new Date(Date.UTC(at.year, at.month - 1, at.day + days)).toISOString().slice(0, 10);
 }
 
+/** Whole days from one `YYYY-MM-DD` day to another (negative when `to` is earlier); null when either is not a day. */
+export function daysBetween(from: string, to: string): number | null {
+  const a = parseDay(from);
+  const b = parseDay(to);
+  if (a === null || b === null) return null;
+  return Math.round(
+    (Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / 86_400_000,
+  );
+}
+
+/** How far ahead a day is, in words: "Today", "Tomorrow", "In 5 days". Past days read "Today" too. */
+export function dueIn(days: number): string {
+  if (days <= 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  return `In ${days} days`;
+}
+
 /** The `YYYY-MM` month `delta` months after (or before, when negative) the given one; the text itself when it is not a month. */
 export function shiftMonth(text: string, delta: number): string {
   const at = /^(\d{4})-(\d{2})$/.exec(text);

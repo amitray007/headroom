@@ -2,7 +2,7 @@ import { useId, type ReactNode } from "react";
 
 import { BrandMark } from "../../icons.tsx";
 import type { OverviewConnection } from "@headroom/view-model/overview";
-import { dayLabel, monthName } from "@headroom/view-model/wallet-dates";
+import { daysBetween, dueIn, monthName } from "@headroom/view-model/wallet-dates";
 import { formatMoney } from "@headroom/view-model/wallet-money";
 import {
   renewalWindowDays,
@@ -10,12 +10,11 @@ import {
   type WalletSummary,
 } from "@headroom/view-model/wallet";
 
-import { DayStrip, type DayMark } from "../../ui/day-strip.tsx";
 import { SparkBars, type SparkBar } from "../../ui/spark-bars.tsx";
 import { figureText, renewalName } from "./amount.ts";
 
-/** How many upcoming renewals the card lists under the strip. */
-const listed = 3;
+/** How many upcoming renewals the card lists; the footer counts the rest. */
+const listed = 4;
 
 /** A small card in the Wallet's card style: a header with a muted note, a body, and an optional footer. */
 function GlanceCard(props: {
@@ -76,7 +75,10 @@ export function TopUpsCard(props: { readonly summary: WalletSummary }) {
   );
 }
 
-/** The next 30 days as a strip of dots, then the next few renewals as rows. */
+/**
+ * The renewals due in the next 30 days, soonest first: a calendar tile, the plan, how far away it is, and the
+ * amount. The header totals what falls due in the window; the footer counts the rest.
+ */
 export function RenewalsCard(props: {
   readonly summary: WalletSummary;
   readonly connections: readonly OverviewConnection[];
@@ -87,40 +89,45 @@ export function RenewalsCard(props: {
     const connection = byId.get(renewal.connectionId);
     return connection === undefined ? [] : [{ renewal, connection }];
   });
-  const note = `Next ${renewalWindowDays} days`;
+  const window = `Next ${renewalWindowDays} days`;
   if (items.length === 0) {
     return (
-      <GlanceCard title="Upcoming Renewals" note={note}>
+      <GlanceCard title="Upcoming Renewals" note={window}>
         <p className="w-spend-empty muted">No renewals in the next {renewalWindowDays} days</p>
       </GlanceCard>
     );
   }
-  const marks = items.map(({ renewal, connection }, index): DayMark => ({
-    key: renewal.connectionId,
-    date: renewal.date,
-    label: `${renewalName(connection)} · ${figureText(renewal.price)}`,
-    emphasis: index === 0,
-  }));
-  const more = items.length - listed;
+  const shownTotal = (list: typeof items): string =>
+    formatMoney({
+      minor: list.reduce((sum, { renewal }) => sum + (renewal.price.shown?.minor ?? 0), 0),
+      currency: summary.currency,
+    });
+  const rest = items.slice(listed);
   return (
-    <GlanceCard title="Upcoming Renewals" note={note}>
-      <DayStrip
-        label={`Renewals in the next ${renewalWindowDays} days`}
-        start={summary.today}
-        days={renewalWindowDays}
-        marks={marks}
-      />
+    <GlanceCard
+      title="Upcoming Renewals"
+      note={`${shownTotal(items)} in ${renewalWindowDays} days`}
+      footer={rest.length === 0 ? undefined : `${rest.length} more · ${shownTotal(rest)}`}
+    >
       <ul className="w-renewals">
-        {items.slice(0, listed).map(({ renewal, connection }) => (
-          <li key={renewal.connectionId}>
-            <span className="muted num">{dayLabel(renewal.date)}</span>
-            <BrandMark provider={connection.provider} />
-            <span className="w-renewal-name">{renewalName(connection)}</span>
-            <span className="num">{figureText(renewal.price)}</span>
-          </li>
-        ))}
+        {items.slice(0, listed).map(({ renewal, connection }) => {
+          const days = daysBetween(summary.today, renewal.date) ?? 0;
+          return (
+            <li key={renewal.connectionId} className={days <= 2 ? "soon" : undefined}>
+              <span className="w-day-tile">
+                <b className="num">{Number(renewal.date.slice(8, 10))}</b>
+                <span>{monthName(renewal.date.slice(0, 7))}</span>
+              </span>
+              <BrandMark provider={connection.provider} />
+              <span className="w-renewal-text">
+                <span className="w-renewal-name">{renewalName(connection)}</span>
+                <span className="w-renewal-when">{dueIn(days)}</span>
+              </span>
+              <span className="w-renewal-amount num">{figureText(renewal.price)}</span>
+            </li>
+          );
+        })}
       </ul>
-      {more > 0 ? <p className="w-renewals-more muted">+{more} more</p> : null}
     </GlanceCard>
   );
 }

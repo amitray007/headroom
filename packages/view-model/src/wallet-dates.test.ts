@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  daysBetween,
+  dueIn,
   addDays,
   dayLabel,
   isoDate,
@@ -74,5 +76,22 @@ describe("day and month steps", () => {
     expect(monthName("later")).toBe("later");
     expect(monthLong("2026-10")).toBe("October");
     expect(monthLong("later")).toBe("later");
+  });
+});
+
+describe("days ahead", () => {
+  test("counts whole days across a month and a year", () => {
+    expect(daysBetween("2026-10-04", "2026-10-04")).toBe(0);
+    expect(daysBetween("2026-10-30", "2026-11-02")).toBe(3);
+    expect(daysBetween("2026-12-31", "2027-01-01")).toBe(1);
+    expect(daysBetween("2026-10-04", "2026-10-01")).toBe(-3);
+    expect(daysBetween("not a day", "2026-10-01")).toBeNull();
+  });
+
+  test("words the distance", () => {
+    expect(dueIn(0)).toBe("Today");
+    expect(dueIn(-2)).toBe("Today");
+    expect(dueIn(1)).toBe("Tomorrow");
+    expect(dueIn(12)).toBe("In 12 days");
   });
 });

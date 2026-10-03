@@ -10,9 +10,7 @@ import { useNow } from "../lib/now.ts";
 import { Bar, type BarTone } from "./bar.tsx";
 import { Button, ButtonLink } from "./button.tsx";
 import { CountUp } from "./count-up.tsx";
-import { addDays, todayIso } from "./calendar.ts";
 import { DatePicker } from "./date-picker.tsx";
-import { DayStrip } from "./day-strip.tsx";
 import { DonutChart, type DonutSegment } from "./donut-chart.tsx";
 import { Dialog } from "./dialog.tsx";
 import { HoldButton, type HoldPhase } from "./hold-button.tsx";
@@ -619,7 +617,6 @@ export function Gallery() {
   const status = statusKinds[statusIndex] ?? "active";
   const [donut, setDonut] = useState(0);
   const donutTotal = (donutData[donut] ?? []).reduce((sum, [, cents]) => sum + cents, 0);
-  const today = todayIso();
 
   return (
     <div className="page">
@@ -833,42 +830,6 @@ export function Gallery() {
         </div>
         <div style={{ maxWidth: 360 }}>
           <SparkBars label="Top-ups, tall" bars={topUps} height={88} />
-        </div>
-      </Section>
-
-      <Section title="Day Strip">
-        <div style={{ maxWidth: 560 }}>
-          <DayStrip
-            label="Renewals in the next 30 days"
-            start={today}
-            days={30}
-            marks={[
-              {
-                key: "claude",
-                date: addDays(today, 3),
-                label: "Claude Pro · $21.01",
-                icon: <BrandMark provider="claude" />,
-                emphasis: true,
-              },
-              {
-                key: "codex",
-                date: addDays(today, 9),
-                label: "Codex · $100",
-                icon: <BrandMark provider="codex" />,
-              },
-              {
-                key: "cursor",
-                date: addDays(today, 9),
-                label: "Cursor Pro · $20",
-                icon: <BrandMark provider="cursor" />,
-              },
-              {
-                key: "copilot",
-                date: addDays(today, 22),
-                label: "Copilot · $10",
-              },
-            ]}
-          />
         </div>
       </Section>
 

@@ -216,27 +216,61 @@
 }
 .w-renewals {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .w-renewals li {
   display: grid;
-  grid-template-columns: 44px 20px minmax(0, 1fr) auto;
+  grid-template-columns: 36px 20px minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
+  gap: var(--space-3);
+}
+/* A calendar tile: the day large, the month small beneath. */
+.w-day-tile {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  line-height: 1;
+}
+.w-day-tile b {
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.w-day-tile span {
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.w-renewal-text {
+  display: grid;
+  min-width: 0;
 }
 .w-renewal-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.w-renewals-more {
-  margin: 0;
   font-size: var(--text-sm);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.w-renewal-when {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.w-renewal-amount {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+/* Due within two days: a firmer tile edge and the timing in full contrast, without a warning colour. */
+.w-renewals li.soon .w-day-tile {
+  border-color: var(--border-strong);
+}
+.w-renewals li.soon .w-renewal-when {
+  color: var(--text-secondary);
 }
 @media (max-width: 900px) {
   .w-glance {
