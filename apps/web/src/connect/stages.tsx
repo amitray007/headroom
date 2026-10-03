@@ -5,7 +5,6 @@ import type { AuthMethod, NextStepPayload, SubmitInput } from "@headroom/core/co
 import { ExternalIcon } from "../icons.tsx";
 import { Button, ButtonLink } from "../ui/button.tsx";
 import { CopyButton } from "../ui/copy-button.tsx";
-import { Spinner } from "../ui/spinner.tsx";
 import { acceptsLabel, acceptsPlaceholder, pasteInputKind, type Accepts } from "./steps.ts";
 
 function OpenLink(props: {
@@ -42,22 +41,10 @@ function Lead(props: { readonly children: ReactNode }) {
   );
 }
 
-/** Waiting with nothing to type: a spinner and the time left. */
-function Waiting(props: { readonly words: string; readonly left: string | null }) {
-  return (
-    <output className="waiting">
-      <Spinner />
-      <span>{props.words}</span>
-      {props.left === null ? null : <span className="muted">{props.left} left</span>}
-    </output>
-  );
-}
-
 interface StageProps {
   readonly provider: string;
   readonly method: AuthMethod;
   readonly step: NextStepPayload | null;
-  readonly left: string | null;
   readonly busy: boolean;
   readonly onSubmit: (input: SubmitInput) => void;
   readonly onCancel: () => void;
@@ -245,7 +232,7 @@ export function SignInStage(props: StageProps) {
   if (step === null) {
     return (
       <div className="stage">
-        <Waiting words={`Waiting for ${provider}`} left={props.left} />
+        <Lead>Starting the {provider} sign-in. This page updates on its own.</Lead>
         <div className="row">
           <CancelButton onCancel={props.onCancel} />
         </div>
@@ -257,13 +244,10 @@ export function SignInStage(props: StageProps) {
       return (
         <div className="stage">
           {method === "approval_poll" ? (
-            <>
-              <Lead>
-                Open the {provider} approval page and approve Headroom there. This page updates on
-                its own.
-              </Lead>
-              <Waiting words="Approve in Your Browser" left={props.left} />
-            </>
+            <Lead>
+              Open the {provider} approval page and approve Headroom there. This page updates on its
+              own.
+            </Lead>
           ) : (
             <Lead>
               Open the {provider} sign-in page and finish there. This page updates on its own.
@@ -293,7 +277,6 @@ export function SignInStage(props: StageProps) {
             <OpenLink url={step.verificationUrl}>{`Open ${provider} Sign-In`}</OpenLink>
             <CancelButton onCancel={props.onCancel} />
           </div>
-          <Waiting words="Waiting for Approval" left={props.left} />
         </div>
       );
     case "paste_redirect":

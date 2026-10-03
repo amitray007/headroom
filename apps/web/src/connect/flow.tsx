@@ -290,7 +290,6 @@ export function ConnectFlow(props: FlowProps) {
           provider={name}
           method={attempt.method}
           step={attempt.nextStep}
-          left={left}
           busy={busy}
           onSubmit={(input) => void submit(input)}
           onCancel={cancel}

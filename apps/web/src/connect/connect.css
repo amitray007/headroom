@@ -1,15 +1,4 @@
 /* Connect page additions: pieces the shared stylesheet does not cover. */
-.connect-page .waiting {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-.connect-page .waiting .spin {
-  width: 14px;
-  height: 14px;
-}
 .field textarea {
   font: 400 var(--text-sm) / 1.5 var(--mono);
   padding: 12px 16px;
