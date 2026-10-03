@@ -65,3 +65,10 @@ a {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* A closed popover is never displayed. Panels set their own display (grid, flex) for when they are open; without
+   this, that display overrides the browser's hiding and a closed panel stays on the page invisibly, catching the
+   pointer: it reopens on hover and swallows clicks meant for whatever sits under it. */
+html [popover]:not(:popover-open) {
+  display: none;
+}
