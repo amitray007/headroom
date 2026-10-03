@@ -5,7 +5,7 @@ export function Lockup(props: { readonly href?: string }) {
   return (
     <a className="lockup" href={props.href ?? "#/"}>
       <LogoMark />
-      Headroom
+      <span className="lockup-name">Headroom</span>
     </a>
   );
 }

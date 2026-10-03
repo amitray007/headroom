@@ -282,19 +282,25 @@ div.d-head:active {
     gap: var(--space-3);
     padding: var(--space-3);
   }
-  .d-who {
+  /* A phone has no room for an ellipsis to hide the end of a name or an email; both wrap instead. */
+  .d-name,
+  .d-sub {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .d-head > .d-who {
     grid-area: who;
   }
-  .d-state {
+  .d-head > .d-state {
     grid-area: state;
   }
-  .d-chev {
+  .d-head > .d-chev {
     grid-area: chev;
   }
-  .d-limit {
+  .d-head > .d-limit {
     grid-area: limit;
   }
-  .d-reset {
+  .d-head > .d-reset {
     grid-area: reset;
     margin-top: -4px;
     text-align: left;

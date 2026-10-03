@@ -450,9 +450,16 @@
   background: none;
   z-index: 2;
 }
+/* On a touch screen the invisible target around a tick is 24px wide. */
+@media (pointer: coarse) {
+  .tl-tick {
+    width: 24px;
+    margin-left: -12px;
+  }
+}
 .tl-tick i {
   position: absolute;
-  left: 5px;
+  left: calc(50% - 2px);
   top: 0;
   bottom: 0;
   width: 4px;
@@ -793,6 +800,11 @@
   .tl-pair {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-4);
+  }
+  /* A phone row has no room to cut an account name short; the name wraps instead. */
+  .tl-what b {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   .tl-card {
     padding: var(--space-4) var(--space-4) var(--space-3);

@@ -72,3 +72,12 @@ a {
 html [popover]:not(:popover-open) {
   display: none;
 }
+
+/* Touch keyboards zoom into a field under 16px; on a touch screen every text field is 16px. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"], [type="radio"], [type="range"]),
+  textarea,
+  select {
+    font-size: var(--text-md);
+  }
+}

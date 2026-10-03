@@ -123,6 +123,21 @@ export function SpendByProvider(props: { readonly summary: WalletSummary }) {
                 </span>
               </div>
             </div>
+            {/* Stacked, the mix column is too narrow for its key; the key sits under the ring instead. */}
+            <p className="sp-legend" aria-hidden="true">
+              <span className="sp-key">
+                <i data-kind="plan" />
+                Plan
+              </span>
+              <span className="sp-key">
+                <i data-kind="usage" />
+                Usage
+              </span>
+              <span className="sp-key">
+                <i data-kind="topup" />
+                Top-ups
+              </span>
+            </p>
             <table className="sp-table">
               <caption className="sr">Where this month's money goes, by provider</caption>
               <thead>

@@ -37,7 +37,7 @@ function GlanceCard(props: {
         </header>
         <div className="w-card-body">{props.children}</div>
         {props.footer === undefined ? null : (
-          <div className={props.split === true ? "w-card-foot split muted" : "w-card-foot muted"}>
+          <div className={props.split === true ? "w-card-foot w-split muted" : "w-card-foot muted"}>
             {props.footer}
           </div>
         )}

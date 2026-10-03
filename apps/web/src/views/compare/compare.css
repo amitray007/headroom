@@ -485,6 +485,8 @@
   }
   .cmp-best .acct {
     flex: 1;
+    overflow: visible;
+    white-space: normal;
   }
   .cmp-best-tip {
     margin-left: auto;
@@ -522,10 +524,11 @@
   .cmp-acct .name .plan .sep {
     display: none;
   }
+  /* The narrow account column wraps an email at any character; it never runs into the next column. */
   .cmp-acct .sub .who {
     display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 

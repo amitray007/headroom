@@ -536,10 +536,18 @@ time.when {
     flex: 0 0 100%;
     margin: 0;
   }
+  /* Three actions at their desktop width overflow a phone panel: they spread across the row, and wrap only on the narrowest phones. */
   .facts .acts {
     flex: 0 0 100%;
-    justify-content: flex-end;
-    margin: 0 -10px 0 0;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0;
+    margin: 0 -4px;
+  }
+  /* Quiet buttons have no fill, so a narrow inset still reads as a button; three fit a 360px phone. */
+  .facts .acts .btn {
+    min-width: 0;
+    padding-inline: 4px;
   }
   /* Lockup and the right group share the first row; the switcher takes the second. */
   .top {
@@ -569,6 +577,7 @@ time.when {
     justify-content: center;
     padding: 0 8px;
   }
+
   .panel {
     padding: var(--space-4);
     border-radius: 16px;
@@ -582,8 +591,28 @@ time.when {
   .cell .value {
     font-size: 26px;
   }
+  /* A phone cell has no spare width for an ellipsis to hide the end of a caption; it wraps. */
+  .cell .caption {
+    white-space: normal;
+  }
   .provider {
     margin-bottom: var(--space-6);
+  }
+}
+/* The smallest phones: the mark alone keeps the actions on the logo's row (the name stays for screen readers), and
+   the five views take a smaller type so the last one is not cut. */
+@media (max-width: 360px) {
+  .top .lockup-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .top > .view-switch a {
+    padding: 0 4px;
+    font-size: var(--text-xs);
   }
 }
 
@@ -1314,6 +1343,8 @@ time.when {
   padding: 16px 24px 20px;
   border-top: 1px solid var(--border-subtle);
   display: grid;
+  /* One column no wider than the dialog: a long value inside a field is cut by the field, not by the dialog edge. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .dsec-head {
@@ -1478,6 +1509,17 @@ label.srow {
 .dlg.settings .stab[aria-selected="true"] {
   color: var(--foreground);
 }
+/* A phone fits all four tabs without the sideways scroll that hid the last one. */
+@media (max-width: 520px) {
+  .dlg.settings .stabs {
+    gap: 0;
+    padding: 0 var(--space-2);
+  }
+  .dlg.settings .stab {
+    flex: 1 0 auto;
+    padding: 0 6px;
+  }
+}
 .dlg.settings .stab:active {
   scale: 0.97;
   transition-duration: var(--dur-instant);
@@ -1603,6 +1645,14 @@ label.srow {
 .infobtn svg {
   width: 15px;
   height: 15px;
+}
+/* On a touch screen the button grows to a 28px target; the negative margin keeps the line where it was. */
+@media (pointer: coarse) {
+  .infobtn {
+    width: 28px;
+    height: 28px;
+    margin: -5px;
+  }
 }
 .infobtn:hover,
 .infobtn:focus-visible {
@@ -1783,6 +1833,8 @@ label.srow {
 }
 .field {
   display: grid;
+  /* The column never grows past the field: a long value (an account with its email) is cut inside the trigger. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   max-width: 520px;
 }
@@ -2168,8 +2220,9 @@ label.srow {
 /* Table header tally: status breakdown with tone dots, total after a divider. */
 .tally {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  gap: 6px 14px;
   font-size: var(--text-sm);
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;

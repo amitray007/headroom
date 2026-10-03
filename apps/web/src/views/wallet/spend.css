@@ -96,9 +96,17 @@
   width: 34%;
   text-align: left;
 }
-.sp-keys {
+.sp-keys,
+.sp-legend {
   display: flex;
   gap: var(--space-3);
+}
+/* Beside the ring the table header carries the key; the separate key shows only when the two stack. */
+.sp-legend {
+  display: none;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
 }
 .sp-key {
   display: inline-flex;
@@ -165,6 +173,13 @@
   .sp-table {
     justify-self: stretch;
   }
+  .sp-legend {
+    display: flex;
+    margin-top: calc(var(--space-2) * -1);
+  }
+  .sp-keys {
+    display: none;
+  }
 }
 @media (max-width: 640px) {
   .sp-table .sp-n,
@@ -186,11 +201,7 @@
   }
   .sp-table .sp-mix-head,
   .sp-table .sp-mix {
-    width: auto;
-  }
-  .sp-keys {
-    flex-wrap: wrap;
-    column-gap: var(--space-2);
+    width: 28%;
   }
   /* The footer wraps rather than cutting off a fact. */
   .w-spend .w-card-foot {

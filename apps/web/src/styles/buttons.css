@@ -349,3 +349,11 @@
     transition: none;
   }
 }
+
+/* A finger needs more than a mouse: on a touch screen the small button is as tall as the default one. */
+@media (pointer: coarse) {
+  .btn.sm {
+    height: 36px;
+    border-radius: 18px;
+  }
+}

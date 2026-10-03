@@ -60,12 +60,109 @@
 .tscroll {
   position: relative;
 }
-/* Narrow screens: the fixed columns need room, so the table scrolls inside its card instead of overlapping. */
+/* The fixed columns need room; from 1011px up the card is always this wide, and narrower screens stack the rows. */
 .accounts {
   min-width: 960px;
 }
 .connect-page .thead-row {
   flex-wrap: wrap;
+}
+/* Phones and tablets: a wide table behind a sideways scroll hides each row's status and menu. Each account turns into a
+   block: name and menu on top, its limit across the width, status and last refresh beneath. Dragging still measures
+   rows. */
+@media (max-width: 1010px) {
+  .accounts {
+    display: block;
+    min-width: 0;
+  }
+  .accounts tbody {
+    display: block;
+  }
+  .accounts thead {
+    display: none;
+  }
+  .accounts tr.tgroup-row {
+    display: block;
+  }
+  .accounts tr.tgroup-row > th {
+    display: flex;
+    align-items: center;
+  }
+  .accounts tbody tr:not(.tgroup-row) {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name acts"
+      "room room"
+      "status last";
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3) var(--space-4) var(--space-3) 32px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .accounts tbody tr:not(.tgroup-row):last-child {
+    border-bottom: 0;
+  }
+  .accounts tbody tr:not(.tgroup-row) > td {
+    width: auto;
+    height: auto;
+    padding: 0;
+    border: 0;
+    text-align: left;
+  }
+  /* The grip sits in the row's left gutter, so the row places it rather than the name cell. */
+  .accounts .tname {
+    position: static;
+    grid-area: name;
+    height: auto;
+    padding-left: 0;
+  }
+  .accounts .troom {
+    grid-area: room;
+  }
+  .accounts .tstatus {
+    grid-area: status;
+    justify-self: start;
+  }
+  .accounts .tstatus .status-slot {
+    width: auto;
+    justify-content: flex-start;
+  }
+  .accounts .tname .twho {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .accounts tbody tr:not(.tgroup-row) > .tlast {
+    grid-area: last;
+    text-align: right;
+  }
+  .accounts .tacts {
+    grid-area: acts;
+  }
+  /* Reconnect is a wide split button; beside the name it would squeeze the email, so it takes its own line. */
+  .accounts tbody tr:has(> .tacts .split) {
+    grid-template-areas:
+      "name name"
+      "room room"
+      "status last"
+      "acts acts";
+  }
+  .accounts tbody tr:has(> .tacts .split) > .tacts {
+    justify-self: end;
+  }
+}
+/* A tablet has room for the limit beside the name: name, limit and menu on one line, status and refresh time under
+   the name and the menu. */
+@media (min-width: 601px) and (max-width: 1010px) {
+  .accounts tbody tr:not(.tgroup-row),
+  .accounts tbody tr:has(> .tacts .split) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+    grid-template-areas:
+      "name room acts"
+      "status room last";
+    column-gap: var(--space-5);
+  }
 }
 
 /* Skeleton rows follow the real column alignment: Status and Last Refreshed centred, the menu button right. */
@@ -105,6 +202,13 @@
     opacity var(--dur-fast) var(--ease-standard),
     color var(--dur-fast) var(--ease-standard),
     background-color var(--dur-fast) var(--ease-standard);
+}
+/* On a touch screen the handle is a 24px-wide target, still inside the row's left gutter. */
+@media (pointer: coarse) {
+  .drag-handle {
+    left: 2px;
+    width: 24px;
+  }
 }
 .drag-handle svg {
   width: 20px;
