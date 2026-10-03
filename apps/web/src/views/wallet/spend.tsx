@@ -4,192 +4,215 @@ import "./spend.css";
 
 import { BrandMark } from "../../icons.tsx";
 import { providerName } from "@headroom/view-model/labels";
-import { providerShares, type Total, type WalletSummary } from "@headroom/view-model/wallet";
+import { providerSpend, type ProviderSpend, type WalletSummary } from "@headroom/view-model/wallet";
 import { formatMoney, type Currency } from "@headroom/view-model/wallet-money";
 
-import { Segmented } from "../../ui/segmented.tsx";
-
-type Dataset = "monthly" | "usageSpend";
-
-const datasets: Record<
-  Dataset,
-  { readonly center: string; readonly chart: string; readonly empty: string }
-> = {
-  monthly: {
-    center: "Per month",
-    chart: "Subscriptions per month by provider",
-    empty: "No paid subscriptions to chart.",
-  },
-  usageSpend: {
-    center: "Usage spend",
-    chart: "Usage spend by provider",
-    empty: "No account reports usage spend.",
-  },
-};
-
-const options = [
-  { value: "monthly", label: "Subscriptions" },
-  { value: "usageSpend", label: "Usage Spend" },
-] as const;
-
-/** "2 amounts left out, no rate" for a total that dropped some, or nothing. */
-function leftOut(total: Total): string | undefined {
-  return total.missing === 0
-    ? undefined
-    : `${total.missing} ${total.missing === 1 ? "amount" : "amounts"} left out, no rate`;
-}
-
-interface Fact {
-  readonly label: string;
-  readonly value: string;
-  readonly sub?: string;
-}
+const shareFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-/** The three figures beside the chart: what the dataset adds up to over time, per item, and what it leaves out. */
-function factsOf(summary: WalletSummary, dataset: Dataset): readonly Fact[] {
-  const { monthly, usageSpend, counts, currency } = summary;
-  const money = (minor: number): string => formatMoney({ minor: Math.round(minor), currency });
-  if (dataset === "monthly") {
-    return [
-      { label: "Per year", value: money(monthly.money.minor * 12), sub: "At today's prices" },
-      {
-        label: "Per paid plan",
-        value: counts.paid === 0 ? "—" : money(monthly.money.minor / counts.paid),
-        sub: plural(counts.paid, "paid plan", "paid plans"),
-      },
-      {
-        label: "Free or included",
-        value: plural(counts.free + counts.included, "account", "accounts"),
-        sub: "Counted as nothing",
-      },
-    ];
-  }
-  // The same all-in total the summary band shows, so the share and the band never disagree.
-  const allIn = summary.allIn.money.minor;
-  const accounts = summary.providers.flatMap((provider) => provider.accounts);
-  const reporting = accounts.filter((account) => account.usageSpend !== null).length;
-  const top = providerShares(summary.providers, "usageSpend")[0];
+/** A ring arc from angle `a0` to `a1` (radians, clockwise from the top), `w` thick, inside a circle of radius `r`. */
+function arcPath(c: number, r: number, w: number, a0: number, a1: number): string {
+  const at = (angle: number, radius: number): string =>
+    `${(c + radius * Math.sin(angle)).toFixed(2)},${(c - radius * Math.cos(angle)).toFixed(2)}`;
+  const large = a1 - a0 > Math.PI ? 1 : 0;
   return [
-    {
-      label: "Accounts reporting",
-      value: `${reporting} of ${accounts.length}`,
-      sub: "Report spend in money",
-    },
-    {
-      label: "Largest",
-      value: top === undefined ? "—" : money(top.minor),
-      ...(top === undefined ? {} : { sub: providerName(top.provider) }),
-    },
-    {
-      label: "Share of all-in",
-      value: allIn === 0 ? "—" : `${Math.round((usageSpend.money.minor / allIn) * 100)}%`,
-      sub: "Spent on usage",
-    },
-  ];
+    `M${at(a0, r)}`,
+    `A${r},${r} 0 ${large} 1 ${at(a1, r)}`,
+    `L${at(a1, r - w)}`,
+    `A${r - w},${r - w} 0 ${large} 0 ${at(a0, r - w)}`,
+    "Z",
+  ].join(" ");
 }
 
-const shareFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+/** The share ring: one arc per provider, 2px gaps, the hovered one at full strength and the rest dimmed. */
+function Ring(props: {
+  readonly parts: readonly ProviderSpend[];
+  readonly colors: ReadonlyMap<string, string>;
+  readonly active: string | null;
+  readonly onActive: (provider: string | null) => void;
+}) {
+  const size = 220;
+  const c = size / 2;
+  const total = props.parts.reduce((sum, part) => sum + part.total, 0);
+  const gap = props.parts.length > 1 ? 0.035 : 0;
+  // Each arc starts where the providers before it end.
+  const starts = props.parts.map((_, index) =>
+    props.parts.slice(0, index).reduce((sum, part) => sum + (part.total / total) * Math.PI * 2, 0),
+  );
+  return (
+    <svg className="sp-ring" viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+      {props.parts.map((part, index) => {
+        const start = starts[index] ?? 0;
+        const span = (part.total / total) * Math.PI * 2;
+        const a0 = start + gap / 2;
+        const a1 = Math.max(a0 + 0.001, start + span - gap / 2);
+        return (
+          <path
+            key={part.provider}
+            d={arcPath(c, c, 26, a0, Math.min(a1, a0 + Math.PI * 2 - 0.0001))}
+            fill={props.colors.get(part.provider)}
+            data-dim={props.active !== null && props.active !== part.provider ? "" : undefined}
+            onPointerEnter={() => props.onActive(part.provider)}
+            onPointerLeave={() => props.onActive(null)}
+          />
+        );
+      })}
+    </svg>
+  );
+}
 
 /**
- * Spend by provider: one card with a switch between subscriptions and usage spend. The total and its three figures
- * on one line, then one bar split by provider, then a legend grid; a few parts fill the width instead of leaving a
- * ring in empty space.
+ * Spend by Provider: where this month's all-in money goes. A ring for the share at a glance, and a table that says
+ * what kind of money it is (plans, usage, top-ups) per provider, so nothing hides behind a toggle.
  */
 export function SpendByProvider(props: { readonly summary: WalletSummary }) {
   const { summary } = props;
-  const [dataset, setDataset] = useState<Dataset>("monthly");
   const [active, setActive] = useState<string | null>(null);
   const headingId = useId();
   const currency: Currency = summary.currency;
-  const total = dataset === "monthly" ? summary.monthly : summary.usageSpend;
-  const shares = providerShares(summary.providers, dataset);
-  const sum = shares.reduce((acc, share) => acc + share.minor, 0);
-  const parts = shares.map((share, index) => ({
-    provider: share.provider,
-    label: providerName(share.provider),
-    display: formatMoney({ minor: share.minor, currency }),
-    share: sum === 0 ? 0 : share.minor / sum,
-    color: `var(--series-${String(Math.min(index + 1, 7))})`,
-  }));
-  const note = leftOut(total);
+  const parts = providerSpend(summary);
+  const all = parts.reduce((sum, part) => sum + part.total, 0);
+  const largest = parts.reduce((max, part) => Math.max(max, part.total), 0);
+  const colors = new Map(
+    parts.map((part, index) => [part.provider, `var(--series-${String(Math.min(index + 1, 7))})`]),
+  );
+  const money = (minor: number): string => formatMoney({ minor, currency });
+  const cell = (minor: number) =>
+    minor > 0 ? <td className="num">{money(minor)}</td> : <td className="num muted">—</td>;
+  const focus = parts.find((part) => part.provider === active);
+  const unpaid = summary.counts.free + summary.counts.included;
+  const footer = [
+    all === 0 ? null : `Per year at this rate ${money(Math.round(all * 12))}`,
+    unpaid === 0
+      ? null
+      : `${plural(unpaid, "free or included account", "free or included accounts")} not shown`,
+    summary.allIn.missing === 0
+      ? null
+      : `${plural(summary.allIn.missing, "amount", "amounts")} without a rate left out`,
+  ].filter((part) => part !== null);
+
   return (
     <section className="w-spend" aria-labelledby={headingId}>
       <div className="w-card">
         <header className="w-card-head">
           <h2 id={headingId}>Spend by Provider</h2>
-          <Segmented
-            label="Spend to show"
-            value={dataset}
-            options={options}
-            onChange={(next) => {
-              setDataset(next);
-              setActive(null);
-            }}
-          />
+          <span className="muted">This month · all-in</span>
         </header>
-        <div className="sp-body">
-          <div className="sp-top">
-            <div className="sp-total">
-              <span className="sp-total-label">{datasets[dataset].center}</span>
-              <span className="sp-total-value num">{formatMoney(total.money)}</span>
-              {note === undefined ? null : <span className="sp-total-note">{note}</span>}
-            </div>
-            <dl className="sp-facts">
-              {factsOf(summary, dataset).map((fact) => (
-                <div key={fact.label}>
-                  <dt>{fact.label}</dt>
-                  <dd className="num">{fact.value}</dd>
-                  {fact.sub === undefined ? null : <dd className="sp-fact-sub">{fact.sub}</dd>}
-                </div>
-              ))}
-            </dl>
+        {parts.length === 0 ? (
+          <div className="sp-body">
+            <p className="w-spend-empty muted">Nothing paid this month yet.</p>
           </div>
-          {parts.length === 0 ? (
-            <p className="w-spend-empty muted">{datasets[dataset].empty}</p>
-          ) : (
-            <>
-              {/* The legend carries every value for assistive tech; the bar is its picture. */}
-              <div className="sp-bar" aria-hidden="true" data-active={active ?? undefined}>
-                {parts.map((part) => (
-                  <span
-                    key={part.provider}
-                    className="sp-seg"
-                    data-on={active === part.provider ? "" : undefined}
-                    style={{ flexGrow: part.share, background: part.color }}
-                    title={`${part.label} · ${part.display}`}
-                    onPointerEnter={() => setActive(part.provider)}
-                    onPointerLeave={() => setActive(null)}
-                  />
-                ))}
+        ) : (
+          <div className="sp-body">
+            <div className="sp-chart">
+              <Ring parts={parts} colors={colors} active={active} onActive={setActive} />
+              <div className="sp-center" aria-hidden="true">
+                <span className="sp-center-label">
+                  {focus === undefined ? "All-in this month" : providerName(focus.provider)}
+                </span>
+                <span className="sp-center-value num">
+                  {money(focus === undefined ? all : focus.total)}
+                </span>
+                <span className="sp-center-meta">
+                  {focus === undefined
+                    ? plural(parts.length, "provider paying", "providers paying")
+                    : `${shareFormat.format((focus.total / all) * 100)}% of all-in`}
+                </span>
               </div>
-              <ul className="sp-legend" aria-label={datasets[dataset].chart}>
+            </div>
+            <table className="sp-table">
+              <caption className="sr">Where this month's money goes, by provider</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Provider</th>
+                  <th scope="col" className="sp-mix-head" aria-label="Mix">
+                    <span className="sp-keys">
+                      <span className="sp-key">
+                        <i data-kind="plan" />
+                        Plan
+                      </span>
+                      <span className="sp-key">
+                        <i data-kind="usage" />
+                        Usage
+                      </span>
+                      <span className="sp-key">
+                        <i data-kind="topup" />
+                        Top-ups
+                      </span>
+                    </span>
+                  </th>
+                  <th scope="col" className="sp-n">
+                    Plan
+                  </th>
+                  <th scope="col" className="sp-n">
+                    Usage
+                  </th>
+                  <th scope="col" className="sp-n">
+                    Top-ups
+                  </th>
+                  <th scope="col">Total</th>
+                  <th scope="col">Share</th>
+                </tr>
+              </thead>
+              <tbody>
                 {parts.map((part) => (
-                  <li
+                  <tr
                     key={part.provider}
                     data-on={active === part.provider ? "" : undefined}
                     data-dim={active !== null && active !== part.provider ? "" : undefined}
                     onPointerEnter={() => setActive(part.provider)}
                     onPointerLeave={() => setActive(null)}
                   >
-                    <span
-                      className="sp-dot"
-                      style={{ background: part.color }}
-                      aria-hidden="true"
-                    />
-                    <BrandMark provider={part.provider} />
-                    <span className="sp-name">{part.label}</span>
-                    <span className="sp-amount num">{part.display}</span>
-                    <span className="sp-share num">{shareFormat.format(part.share * 100)}%</span>
-                  </li>
+                    <th scope="row">
+                      <span className="sp-who">
+                        <i className="sp-dot" style={{ background: colors.get(part.provider) }} />
+                        <BrandMark provider={part.provider} />
+                        {providerName(part.provider)}
+                      </span>
+                    </th>
+                    <td className="sp-mix" aria-hidden="true">
+                      {/* Bars share one scale, so a row's length is its total against the largest provider. */}
+                      <span
+                        className="sp-stack"
+                        style={{ width: `${(part.total / largest) * 100}%` }}
+                      >
+                        {part.plan > 0 ? (
+                          <i
+                            data-kind="plan"
+                            style={{ flexGrow: part.plan, color: colors.get(part.provider) }}
+                          />
+                        ) : null}
+                        {part.usage > 0 ? (
+                          <i
+                            data-kind="usage"
+                            style={{ flexGrow: part.usage, color: colors.get(part.provider) }}
+                          />
+                        ) : null}
+                        {part.topUps > 0 ? (
+                          <i
+                            data-kind="topup"
+                            style={{ flexGrow: part.topUps, color: colors.get(part.provider) }}
+                          />
+                        ) : null}
+                      </span>
+                    </td>
+                    {cell(part.plan)}
+                    {cell(part.usage)}
+                    {cell(part.topUps)}
+                    <td className="num sp-total">{money(part.total)}</td>
+                    <td className="num sp-share">
+                      {shareFormat.format((part.total / all) * 100)}%
+                    </td>
+                  </tr>
                 ))}
-              </ul>
-            </>
-          )}
-        </div>
+              </tbody>
+            </table>
+          </div>
+        )}
+        {footer.length === 0 ? null : <p className="w-card-foot muted">{footer.join(" · ")}</p>}
       </div>
     </section>
   );

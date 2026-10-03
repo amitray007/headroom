@@ -515,25 +515,45 @@ export function upcomingRenewals(
     .toSorted((a, b) => a.date.localeCompare(b.date));
 }
 
-/** One provider's share of a spend dataset, in display-currency minor units. */
-export interface ProviderShare {
+/** One provider's money this month, in display-currency minor units, split by kind. */
+export interface ProviderSpend {
   readonly provider: Provider;
-  readonly minor: number;
+  /** Paid subscriptions per month. */
+  readonly plan: number;
+  /** Provider-reported usage spend. */
+  readonly usage: number;
+  /** Paid top-ups dated this month. */
+  readonly topUps: number;
+  readonly total: number;
 }
 
 /**
- * Each provider's part of the monthly subscription total or of usage spend, in display-currency minor units, largest
- * first (equal parts keep provider order). A provider with nothing above zero is left out; amounts with no rate are
- * already outside the totals.
+ * Where this month's all-in money goes: each provider's plans, usage spend and paid top-ups, largest total first
+ * (equal totals keep provider order). A provider with nothing above zero is left out; amounts with no rate are
+ * already outside the totals, so the parts add up to `allIn`.
  */
-export function providerShares(
-  providers: readonly WalletProvider[],
-  dataset: "monthly" | "usageSpend",
-): readonly ProviderShare[] {
-  return providers
-    .map((group) => ({ provider: group.provider, minor: group[dataset].money.minor }))
-    .filter((share) => share.minor > 0)
-    .toSorted((a, b) => b.minor - a.minor);
+export function providerSpend(summary: WalletSummary): readonly ProviderSpend[] {
+  const providerOf = new Map(
+    summary.providers.flatMap((group) =>
+      group.accounts.map((account) => [account.connection.id, group.provider] as const),
+    ),
+  );
+  const topUps = new Map<Provider, number>();
+  for (const item of summary.topUpsThisMonth.items) {
+    const provider = providerOf.get(item.connectionId);
+    const minor = item.amount?.shown?.minor ?? 0;
+    if (provider !== undefined && minor > 0)
+      topUps.set(provider, (topUps.get(provider) ?? 0) + minor);
+  }
+  return summary.providers
+    .map((group) => {
+      const plan = group.monthly.money.minor;
+      const usage = group.usageSpend.money.minor;
+      const topUp = topUps.get(group.provider) ?? 0;
+      return { provider: group.provider, plan, usage, topUps: topUp, total: plan + usage + topUp };
+    })
+    .filter((part) => part.total > 0)
+    .toSorted((a, b) => b.total - a.total);
 }
 
 /**
@@ -562,7 +582,7 @@ export function summarize(
 
   const providers = groupByProvider(connections, providerOrder).map((group) => {
     const providerMonthly = new Sum(currency);
-    const providerSpend = new Sum(currency);
+    const providerUsage = new Sum(currency);
     const accounts = group.connections.map((connection): WalletAccount => {
       const cost = book.costs[connection.id] ?? null;
       const spend = usageSpendOf(connection);
@@ -586,7 +606,7 @@ export function summarize(
       }
       if (shownSpend !== null) {
         usageSpend.add(shownSpend);
-        providerSpend.add(shownSpend);
+        providerUsage.add(shownSpend);
       }
       return {
         connection,
@@ -602,7 +622,7 @@ export function summarize(
       provider: group.provider,
       accounts,
       monthly: providerMonthly.total(),
-      usageSpend: providerSpend.total(),
+      usageSpend: providerUsage.total(),
     };
   });
 

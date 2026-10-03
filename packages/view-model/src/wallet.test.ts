@@ -10,7 +10,7 @@ import {
   emptyBook,
   monthlyOf,
   rateCurrencies,
-  providerShares,
+  providerSpend,
   suggestPrices,
   summarize,
   topUpMonths,
@@ -681,7 +681,7 @@ describe("upcomingRenewals", () => {
   });
 });
 
-describe("providerShares", () => {
+describe("providerSpend", () => {
   const connections = [
     connection("claude", { id: "c1", metrics: [spend("extra_usage.used", "12.5")] }),
     connection("claude", { id: "c2", metrics: [spend("extra_usage.used", "7.5")] }),
@@ -689,70 +689,64 @@ describe("providerShares", () => {
     connection("cursor", { id: "u1", metrics: [spend("on_demand.used", "3")] }),
   ];
 
-  test("splits subscriptions and usage spend by provider, leaving out zero", () => {
+  test("splits each provider into plans, usage and this month's paid top-ups, largest first", () => {
     const summary = summarize(
       connections,
       [],
       book({
         costs: { c1: paid(usd(100)), c2: paid(usd(20)), x1: { kind: "free" }, u1: paid(usd(60)) },
+        topUps: [
+          {
+            id: "t1",
+            connectionId: "u1",
+            date: "2026-10-03",
+            kind: "paid",
+            price: usd(10),
+            credits: null,
+            note: null,
+          },
+          {
+            id: "t2",
+            connectionId: "u1",
+            date: "2026-01-01",
+            kind: "paid",
+            price: usd(99),
+            credits: null,
+            note: null,
+          },
+        ],
         displayCurrency: "USD",
       }),
       null,
       now,
     );
-    expect(providerShares(summary.providers, "monthly")).toEqual([
-      { provider: "claude", minor: 12_000 },
-      { provider: "cursor", minor: 6000 },
-    ]);
-    expect(providerShares(summary.providers, "usageSpend")).toEqual([
-      { provider: "claude", minor: 2000 },
-      { provider: "cursor", minor: 300 },
-    ]);
-    const claudeGroup = summary.providers.find((group) => group.provider === "claude");
-    expect(claudeGroup?.usageSpend).toEqual({ money: usd(20), missing: 0 });
-  });
-
-  test("lists the largest part first whatever the provider order", () => {
-    const summary = summarize(
-      connections,
-      ["cursor", "claude"],
-      book({ costs: { c1: paid(usd(100)), u1: paid(usd(300)) }, displayCurrency: "USD" }),
-      null,
-      now,
-    );
-    expect(providerShares(summary.providers, "monthly").map((share) => share.provider)).toEqual([
-      "cursor",
-      "claude",
-    ]);
-    const swapped = summarize(
-      connections,
-      ["claude", "cursor"],
-      book({ costs: { c1: paid(usd(100)), u1: paid(usd(300)) }, displayCurrency: "USD" }),
-      null,
-      now,
-    );
-    expect(providerShares(swapped.providers, "monthly").map((share) => share.provider)).toEqual([
-      "cursor",
-      "claude",
+    expect(providerSpend(summary)).toEqual([
+      { provider: "claude", plan: 12_000, usage: 2000, topUps: 0, total: 14_000 },
+      { provider: "cursor", plan: 6000, usage: 300, topUps: 1000, total: 7300 },
     ]);
   });
 
-  test("leaves out an amount with no rate", () => {
+  test("the parts add up to the all-in total", () => {
     const summary = summarize(
       connections,
       [],
-      book({ costs: { c1: paid(inr(1900)), u1: paid(usd(60)) }, displayCurrency: "USD" }),
+      book({ costs: { c1: paid(usd(100)), u1: paid(usd(60)) }, displayCurrency: "USD" }),
       null,
       now,
     );
-    expect(providerShares(summary.providers, "monthly")).toEqual([
-      { provider: "cursor", minor: 6000 },
-    ]);
+    const sum = providerSpend(summary).reduce((acc, part) => acc + part.total, 0);
+    expect(sum).toBe(summary.allIn.money.minor);
   });
 
-  test("Not set accounts give no share", () => {
-    const summary = summarize(connections, [], book({ displayCurrency: "USD" }), null, now);
-    expect(providerShares(summary.providers, "monthly")).toEqual([]);
+  test("leaves out an amount with no rate, and a provider with nothing", () => {
+    const summary = summarize(
+      [codex, connection("claude", { id: "c1" })],
+      [],
+      book({ costs: { c1: paid(inr(1900)) }, displayCurrency: "USD" }),
+      null,
+      now,
+    );
+    expect(providerSpend(summary)).toEqual([]);
   });
 });
 
