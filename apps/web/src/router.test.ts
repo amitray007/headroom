@@ -9,6 +9,7 @@ describe("router", () => {
     expect(parseRoute("#/detailed")).toEqual({ page: "detailed" });
     expect(parseRoute("#/compare")).toEqual({ page: "compare" });
     expect(parseRoute("#/timeline")).toEqual({ page: "timeline" });
+    expect(parseRoute("#/wallet")).toEqual({ page: "wallet" });
     expect(parseRoute("#/connect")).toEqual({ page: "connect" });
     expect(parseRoute("#/reconnect/x")).toEqual({ page: "reconnect", id: "x" });
     expect(parseRoute("#/dev/ui")).toEqual({ page: "gallery" });
@@ -28,6 +29,7 @@ describe("router", () => {
       "detailed",
       "compare",
       "timeline",
+      "wallet",
       "connect",
       "gallery",
     ] as const) {
@@ -36,6 +38,7 @@ describe("router", () => {
   });
   test("viewOf names the view pages only", () => {
     expect(viewOf({ page: "compare" })).toBe("compare");
+    expect(viewOf({ page: "wallet" })).toBe("wallet");
     expect(viewOf({ page: "connect" })).toBeNull();
     expect(viewOf({ page: "reconnect", id: "x" })).toBeNull();
   });
@@ -59,6 +62,7 @@ function run(hash: string, remembered: Parameters<typeof restoreView>[2]): strin
 describe("restoreView", () => {
   test("redirects the bare root to the remembered view", () => {
     expect(run("", "timeline")).toEqual(["/?a=1#/timeline"]);
+    expect(run("", "wallet")).toEqual(["/?a=1#/wallet"]);
     expect(run("#/", "detailed")).toEqual(["/?a=1#/detailed"]);
   });
   test("leaves explicit addresses, the Overview and an empty memory alone", () => {

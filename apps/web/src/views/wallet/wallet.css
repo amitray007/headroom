@@ -1,0 +1,476 @@
+/* Wallet view: a toolbar, a four-stat band, one bordered group of account rows per provider, then the top-ups. */
+.w-page {
+  display: block;
+  min-width: 0;
+}
+.w-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.w-caption {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.w-segs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* ---------- Summary band: one bordered group, stats split by hairlines ---------- */
+.w-band {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 var(--space-6);
+  background: var(--border-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+.w-stat {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-5);
+  background: var(--surface);
+}
+.w-stat dt {
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.w-stat dd {
+  margin: 0;
+  min-width: 0;
+}
+.w-num {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 30px;
+  margin-top: var(--space-2);
+  font-size: var(--text-display);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.w-num .unit {
+  font-size: var(--text-base);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+.w-num.unknown {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.w-cap {
+  display: grid;
+  gap: 2px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+@media (max-width: 760px) {
+  .w-band {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 420px) {
+  .w-band {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Provider sections: the dashboard's header, a subtotal on the right ---------- */
+.w-provider .w-subtotal {
+  margin: 0 var(--space-1) 0 auto;
+  font-size: var(--text-base);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.w-subtotal .num {
+  font-weight: 500;
+}
+.w-card {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+/* ---------- Rows: who | cost | renewal | usage spend | action ---------- */
+.w-row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.5fr) minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 0.9fr)
+    88px;
+  align-items: center;
+  gap: var(--space-5);
+  min-height: 64px;
+  padding: var(--space-3) var(--space-4);
+}
+.w-row + .w-row {
+  border-top: 1px solid var(--border-subtle);
+}
+html[data-density="compact"] .w-row {
+  min-height: 52px;
+  padding-block: var(--space-2);
+}
+.w-who {
+  display: grid;
+  min-width: 0;
+}
+.w-name {
+  min-width: 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.w-name .plan {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+.w-name .sep {
+  margin: 0 4px;
+}
+.w-sub {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.w-sub.who {
+  color: var(--text-muted);
+}
+.w-col {
+  display: grid;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+.w-cost,
+.w-renewal,
+.w-spend {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.w-cost .muted,
+.w-included .muted,
+.w-spend .muted,
+.w-renewal .muted {
+  font-size: var(--text-sm);
+}
+.w-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+.w-price .num {
+  font-size: var(--text-md);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.w-price .unit {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.w-unset {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+.w-included {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.w-renewal {
+  color: var(--text-secondary);
+}
+.w-spend .num {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--foreground);
+}
+.w-spend .muted {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.w-act {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---------- Top-ups ---------- */
+.w-topups .w-card .empty {
+  border: 0;
+}
+.w-topup {
+  grid-template-columns:
+    72px minmax(0, 1.3fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 1.3fr)
+    36px;
+  min-height: 56px;
+}
+.w-date {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.w-account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.w-account .w-name {
+  font-size: var(--text-base);
+}
+.w-credits {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.w-paid {
+  font-size: var(--text-base);
+}
+.w-note-text {
+  min-width: 0;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The remove question opens over the cells beside it, so the columns never move. */
+.w-topup .w-act {
+  position: relative;
+}
+.w-topup .w-act .confirm {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  margin-top: -16px;
+}
+
+@media (max-width: 720px) {
+  .w-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "who act"
+      "cost cost"
+      "renew renew"
+      "spend spend";
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3);
+  }
+  .w-who {
+    grid-area: who;
+  }
+  .w-c-cost {
+    grid-area: cost;
+  }
+  .w-c-renew {
+    grid-area: renew;
+  }
+  .w-c-spend {
+    grid-area: spend;
+  }
+  /* Stacked, an empty cell would leave a blank line; in the wide grid it keeps the columns aligned. */
+  .w-col:empty {
+    display: none;
+  }
+  .w-row > .w-act {
+    grid-area: act;
+  }
+  .w-topup {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "account act"
+      "date paid"
+      "credits credits"
+      "note note";
+  }
+  .w-topup .w-account {
+    grid-area: account;
+  }
+  .w-topup .w-date {
+    grid-area: date;
+  }
+  .w-topup .w-credits {
+    grid-area: credits;
+  }
+  .w-topup .w-paid {
+    grid-area: paid;
+    justify-self: end;
+  }
+  .w-topup .w-note-text {
+    grid-area: note;
+  }
+  .w-topup .w-note-text:empty {
+    display: none;
+  }
+}
+
+/* ---------- Exchange rates panel ---------- */
+.notif.w-rates-pop {
+  display: grid;
+  gap: var(--space-3);
+  width: min(300px, calc(100vw - 24px));
+  padding: 16px;
+  border-radius: var(--radius-panel);
+}
+.w-pop-head h2 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.w-pop-head p {
+  margin: 2px 0 0;
+  font-size: var(--text-xs);
+}
+.w-rate {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.w-rate input {
+  min-width: 0;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--foreground);
+  font: 400 var(--text-base) / 1.4 var(--font);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.w-rate input:focus {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
+.w-rate input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+/* ---------- Cost and top-up dialogs ---------- */
+.w-desc {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.w-label {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.w-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+.w-note.bad {
+  color: var(--danger);
+}
+.dsec .field {
+  max-width: none;
+}
+.w-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  align-items: start;
+  gap: var(--space-3);
+}
+.field select {
+  height: 40px;
+  padding: 0 40px 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  background: var(--surface)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8a8a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+    no-repeat right 14px center / 14px;
+  color: var(--foreground);
+  font: 400 var(--text-base) / 1.4 var(--font);
+  appearance: none;
+}
+.field select:focus {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
+.field input[type="date"] {
+  min-width: 0;
+}
+.w-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.w-chip {
+  display: grid;
+  align-content: center;
+  gap: 1px;
+  min-height: 30px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font: 400 var(--text-sm) / 1.35 var(--font);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    scale var(--dur-spring) var(--ease-spring);
+}
+.w-chip .muted {
+  font-size: var(--text-xs);
+}
+.w-chip[aria-pressed="true"] {
+  border-color: var(--border-strong);
+  background: var(--surface);
+  color: var(--foreground);
+}
+.w-chip:active {
+  scale: 0.97;
+  transition-duration: var(--dur-instant);
+}
+@media (hover: hover) and (pointer: fine) {
+  .w-chip:hover {
+    border-color: var(--border-strong);
+  }
+}
+.w-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--border-subtle);
+}
+.w-foot .w-clear {
+  margin-right: auto;
+  margin-left: -12px;
+}
+@media (max-width: 420px) {
+  .w-pair {
+    grid-template-columns: minmax(0, 1fr) 96px;
+  }
+}

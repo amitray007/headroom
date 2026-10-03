@@ -19,6 +19,7 @@ import {
 import { ComparePage } from "./views/compare/page.tsx";
 import { DetailedPage } from "./views/detailed/page.tsx";
 import { TimelinePage } from "./views/timeline/page.tsx";
+import { WalletPage } from "./views/wallet/page.tsx";
 import { SettingsProvider } from "./lib/settings.tsx";
 import { groupByProvider } from "@headroom/view-model/labels";
 import { useNotifications } from "./lib/use-notifications.ts";
@@ -84,6 +85,7 @@ function SignedIn(props: { readonly name: string }) {
         {route.page === "detailed" ? <DetailedPage overview={overview} /> : null}
         {route.page === "compare" ? <ComparePage overview={overview} /> : null}
         {route.page === "timeline" ? <TimelinePage overview={overview} /> : null}
+        {route.page === "wallet" ? <WalletPage overview={overview} /> : null}
       </Fragment>
     </Shell>
   );
