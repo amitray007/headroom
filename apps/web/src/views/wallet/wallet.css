@@ -1,4 +1,4 @@
-/* Wallet view: a toolbar, a four-stat band, spend by provider, one bordered group of account rows per provider, then the top-ups. */
+/* Wallet view: a toolbar, a four-stat band, spend by provider, one accounts table grouped by provider, then the top-ups. */
 .w-page {
   display: block;
   min-width: 0;
@@ -336,12 +336,28 @@
   }
 }
 
-/* ---------- Provider sections: the dashboard's header, a subtotal on the right ---------- */
-.w-provider .w-subtotal {
-  margin: 0 var(--space-1) 0 auto;
+/* ---------- Accounts: one bordered table; a group row per provider carries its subtotal on the right ---------- */
+.w-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  background: color-mix(in srgb, var(--surface-muted) 70%, var(--surface));
   font-size: var(--text-base);
+}
+.w-group h3 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.w-group .muted {
+  font-size: var(--text-sm);
+}
+.w-group .w-subtotal {
+  margin-left: auto;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  text-align: right;
 }
 .w-subtotal .num {
   font-weight: 500;
@@ -389,7 +405,7 @@
   overflow: visible;
   white-space: normal;
 }
-.w-row + .w-row {
+.w-rows > li + li {
   border-top: 1px solid var(--border-subtle);
 }
 html[data-density="compact"] .w-row {
@@ -604,7 +620,57 @@ html[data-density="compact"] .w-row {
   border-radius: var(--radius-panel);
 }
 .notif.w-rates-pop {
-  width: min(300px, calc(100vw - 24px));
+  width: min(340px, calc(100vw - 24px));
+  max-height: min(70vh, 480px);
+  overflow-y: auto;
+}
+.w-rates-lead {
+  margin: 0 0 calc(var(--space-1) * -1);
+  font-size: var(--text-xs);
+}
+/* Two columns of compact rows: the code and symbol on the left, a small field on the right. */
+.w-rates-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
+}
+.w-rate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px;
+  align-items: center;
+  gap: var(--space-2);
+}
+.w-rate label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+.w-rate-code {
+  font-weight: 500;
+}
+.w-rate input {
+  min-width: 0;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--foreground);
+  font: 400 var(--text-sm) / 1.4 var(--font);
+  font-variant-numeric: tabular-nums;
+}
+.w-rate input:focus {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
+.w-rate input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+.w-rate .dl-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--text-xs);
 }
 .notif.w-topups-pop {
   width: min(320px, calc(100vw - 24px));

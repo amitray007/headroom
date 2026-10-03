@@ -10,7 +10,7 @@ import type { Total, WalletSummary, WalletTopUp } from "@headroom/view-model/wal
 import { prefersReducedMotion } from "../../ui/motion.ts";
 import { Pill } from "../../ui/pill.tsx";
 import { Popover } from "../../ui/menu.tsx";
-import { figureText, originalNote, renewalName } from "./amount.ts";
+import { figureText, originalNote } from "./amount.ts";
 
 /** One caption line. `warn` is the quiet amber line for something that needs the owner. */
 function Line(props: { readonly warn?: boolean; readonly children: ReactNode }) {
@@ -246,7 +246,6 @@ export function SummaryBand(props: {
 }) {
   const { summary } = props;
   const byId = new Map(props.connections.map((connection) => [connection.id, connection]));
-  const accounts = summary.providers.flatMap((provider) => provider.accounts);
   const { counts } = summary;
   const priced = counts.paid + counts.free + counts.included > 0;
 
@@ -261,14 +260,6 @@ export function SummaryBand(props: {
   ]
     .filter((part) => part !== null)
     .join(" · ");
-
-  const next = summary.nextRenewal;
-  const renewing =
-    next === null
-      ? undefined
-      : accounts.find((account) => account.connection.id === next.connectionId);
-  const renewingName = renewing === undefined ? null : renewalName(renewing.connection);
-  const nextPrice = next === null ? null : figureText(next.price);
 
   return (
     <dl className="w-band">
@@ -314,14 +305,9 @@ export function SummaryBand(props: {
         )}
         {leftOut(topUps.paid)}
       </Stat>
-      <Stat label="Next Renewal" value={next === null ? null : dayLabel(next.date)}>
-        <Line>
-          {next === null
-            ? "No renewal date set"
-            : renewingName === null
-              ? nextPrice
-              : `${renewingName} · ${nextPrice}`}
-        </Line>
+      <Stat label="All-In This Month" value={formatMoney(summary.allIn.money)}>
+        <Line>Subscriptions, usage and top-ups</Line>
+        {leftOut(summary.allIn)}
       </Stat>
     </dl>
   );

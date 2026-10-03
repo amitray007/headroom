@@ -159,29 +159,37 @@ function Subtotal(props: { readonly group: WalletProvider }) {
   );
 }
 
-/** One provider: its header with the monthly subtotal, a column header row, then a row per account. */
-export function ProviderBlock(props: {
-  readonly group: WalletProvider;
+/** A provider's group row: mark, name, account count and the monthly subtotal. */
+function GroupRow(props: { readonly group: WalletProvider }) {
+  const { group } = props;
+  return (
+    <li className="w-group" data-accent={group.provider}>
+      <BrandMark provider={group.provider} />
+      <h3>{providerName(group.provider)}</h3>
+      {group.accounts.length > 1 ? (
+        <span className="muted">{group.accounts.length} accounts</span>
+      ) : null}
+      <Subtotal group={group} />
+    </li>
+  );
+}
+
+/**
+ * Every account in one bordered table: a column header row once, then per provider a group row with its
+ * subtotal followed by that provider's accounts.
+ */
+export function AccountsTable(props: {
+  readonly groups: readonly WalletProvider[];
   readonly onEdit: (connectionId: string) => void;
   readonly onAddTopUp: (connectionId: string) => void;
 }) {
-  const { group } = props;
   const headingId = useId();
   // The limit shows as used or as left, following the owner's Limits setting; the column says which.
   const usedLabel = useSettings().settings.limitsView === "left" ? "Left" : "Used";
   return (
-    <section
-      className="provider w-provider"
-      data-accent={group.provider}
-      aria-labelledby={headingId}
-    >
+    <section className="provider w-accounts" aria-labelledby={headingId}>
       <header>
-        <BrandMark provider={group.provider} />
-        <h2 id={headingId}>{providerName(group.provider)}</h2>
-        {group.accounts.length > 1 ? (
-          <span className="chip count">{group.accounts.length} Accounts</span>
-        ) : null}
-        <Subtotal group={group} />
+        <h2 id={headingId}>Accounts</h2>
       </header>
       <div className="w-card">
         <div className="w-colhead">
@@ -193,15 +201,18 @@ export function ProviderBlock(props: {
           <span />
         </div>
         <ul className="w-rows">
-          {group.accounts.map((account) => (
-            <AccountRow
-              key={account.connection.id}
-              account={account}
-              usedLabel={usedLabel}
-              onEdit={() => props.onEdit(account.connection.id)}
-              onAddTopUp={() => props.onAddTopUp(account.connection.id)}
-            />
-          ))}
+          {props.groups.flatMap((group) => [
+            <GroupRow key={group.provider} group={group} />,
+            ...group.accounts.map((account) => (
+              <AccountRow
+                key={account.connection.id}
+                account={account}
+                usedLabel={usedLabel}
+                onEdit={() => props.onEdit(account.connection.id)}
+                onAddTopUp={() => props.onAddTopUp(account.connection.id)}
+              />
+            )),
+          ])}
         </ul>
       </div>
     </section>

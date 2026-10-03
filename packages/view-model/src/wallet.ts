@@ -88,12 +88,16 @@ export function usedCurrencies(book: WalletBook): readonly Currency[] {
 }
 
 /**
- * The currencies that need a rate against USD: every one the book uses and the display currency, since provider
- * spend is in USD. USD itself needs none.
+ * Every currency that can take a rate against USD, which is every supported one except USD itself. The ones the book
+ * uses and the display currency come first, in the usual order; the rest follow alphabetically.
  */
 export function rateCurrencies(book: WalletBook, display: Currency): readonly Currency[] {
   const needed = new Set<Currency>([...usedCurrencies(book), display]);
-  return currencies.filter((currency) => currency !== "USD" && needed.has(currency));
+  const others = currencies.filter((currency) => currency !== "USD");
+  return [
+    ...others.filter((currency) => needed.has(currency)),
+    ...others.filter((currency) => !needed.has(currency)).toSorted(),
+  ];
 }
 
 /**
@@ -204,6 +208,8 @@ export interface WalletSummary {
   };
   /** Provider-reported usage spend, in the display currency. */
   readonly usageSpend: Total;
+  /** Subscriptions per month, usage spend and this month's paid top-ups, in the display currency. */
+  readonly allIn: Total;
   /** Every top-up, newest first. */
   readonly topUps: readonly WalletTopUp[];
   /** Top-ups dated in the calendar month of `now`: the paid total in the display currency, and the counts. */
@@ -534,16 +540,27 @@ export function summarize(
     topUpTotal.add(topUp.amount);
   }
 
+  const monthlyTotal = monthly.total();
+  const usageSpendTotal = usageSpend.total();
+  const paidTopUps = topUpTotal.total();
+
   return {
     currency,
     today,
     providers,
-    monthly: monthly.total(),
+    monthly: monthlyTotal,
     counts,
-    usageSpend: usageSpend.total(),
+    usageSpend: usageSpendTotal,
+    allIn: {
+      money: {
+        minor: monthlyTotal.money.minor + usageSpendTotal.money.minor + paidTopUps.money.minor,
+        currency,
+      },
+      missing: monthlyTotal.missing + usageSpendTotal.missing + paidTopUps.missing,
+    },
     topUps,
     topUpsThisMonth: {
-      paid: topUpTotal.total(),
+      paid: paidTopUps,
       paidCount,
       freeCount: thisMonth.length - paidCount,
       items: thisMonth,

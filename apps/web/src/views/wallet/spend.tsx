@@ -67,10 +67,17 @@ function factsOf(summary: WalletSummary, dataset: Dataset): readonly Fact[] {
       },
     ];
   }
-  const allIn = monthly.money.minor + usageSpend.money.minor;
+  // The same all-in total the summary band shows, so the share and the band never disagree.
+  const allIn = summary.allIn.money.minor;
+  const accounts = summary.providers.flatMap((provider) => provider.accounts);
+  const reporting = accounts.filter((account) => account.usageSpend !== null).length;
   const top = providerShares(summary.providers, "usageSpend")[0];
   return [
-    { label: "All-in this month", value: money(allIn), sub: "Subscriptions and usage" },
+    {
+      label: "Accounts reporting",
+      value: `${reporting} of ${accounts.length}`,
+      sub: "Report spend in money",
+    },
     {
       label: "Largest",
       value: top === undefined ? "—" : money(top.minor),

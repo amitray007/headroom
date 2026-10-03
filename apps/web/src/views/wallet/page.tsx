@@ -17,7 +17,7 @@ import { rateCurrencies, summarize, type Cost, type TopUp } from "@headroom/view
 import { Button } from "../../ui/button.tsx";
 import { Select, type SelectOption } from "../../ui/select.tsx";
 import type { ViewProps } from "../props.ts";
-import { ProviderBlock } from "./accounts.tsx";
+import { AccountsTable } from "./accounts.tsx";
 import { withCost, withDisplay, withRate, withTopUp, withoutTopUp } from "./book.ts";
 import { CostDialog } from "./cost-dialog.tsx";
 import { RenewalsCard, TopUpsCard } from "./glance.tsx";
@@ -114,13 +114,11 @@ export function WalletPage(props: ViewProps) {
             options={currencyOptions}
             onChange={(next) => setBook(withDisplay(book, next))}
           />
-          {rated.length === 0 ? null : (
-            <RatesPopover
-              book={book}
-              currencies={rated}
-              onRate={(currency, rate) => setBook(withRate(book, currency, rate, today))}
-            />
-          )}
+          <RatesPopover
+            book={book}
+            currencies={rated}
+            onRate={(currency, rate) => setBook(withRate(book, currency, rate, today))}
+          />
           <Button
             variant="primary"
             size="sm"
@@ -139,14 +137,11 @@ export function WalletPage(props: ViewProps) {
           <RenewalsCard summary={summary} connections={connections} />
         </div>
       </div>
-      {summary.providers.map((group) => (
-        <ProviderBlock
-          key={group.provider}
-          group={group}
-          onEdit={setCostFor}
-          onAddTopUp={(connectionId) => setTopUpFor({ connectionId })}
-        />
-      ))}
+      <AccountsTable
+        groups={summary.providers}
+        onEdit={setCostFor}
+        onAddTopUp={(connectionId) => setTopUpFor({ connectionId })}
+      />
       <TopUpsSection
         topUps={summary.topUps}
         connections={connections}

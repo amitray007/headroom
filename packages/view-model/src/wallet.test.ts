@@ -210,6 +210,30 @@ describe("summarize", () => {
     expect(summary.providers[1]?.accounts[1]?.monthly).toBeNull();
   });
 
+  test("all-in adds subscriptions, usage spend and this month's paid top-ups", () => {
+    const withSpend = connection("claude", {
+      id: "c1",
+      metrics: [spend("extra_usage.used", "12.5")],
+    });
+    const summary = summarize(
+      [withSpend, codex],
+      [],
+      book({
+        costs: { c1: paid(usd(100)), x1: paid(inr(1900)) },
+        topUps: [
+          topUp("a", { date: "2026-10-01", price: usd(25) }),
+          topUp("b", { date: "2026-09-30", price: usd(99) }),
+          topUp("c", { kind: "free", price: null }),
+          topUp("d", { price: { minor: 100, currency: "GBP" } }),
+        ],
+        perUsd: { USD: 1, INR: 95 },
+      }),
+      now,
+    );
+    // 100 + 20 subscriptions, 12.50 usage, 25 top-up; the GBP top-up has no rate.
+    expect(summary.allIn).toEqual({ money: usd(157.5), missing: 1 });
+  });
+
   test("Not set is not counted as zero in totals", () => {
     const summary = summarize([claude2], [], book({}), now);
     expect(summary.counts.notSet).toBe(1);
@@ -513,11 +537,21 @@ describe("currencies in use", () => {
     expect(usedCurrencies(used)).toEqual(["USD", "EUR", "INR"]);
   });
 
-  test("rates are needed for those and the display currency, never USD", () => {
-    expect(rateCurrencies(emptyBook, "USD")).toEqual([]);
-    expect(rateCurrencies(emptyBook, "INR")).toEqual(["INR"]);
-    expect(rateCurrencies(book({ costs: { a: paid(inr(1999)), b: paid(usd(5)) } }), "EUR")).toEqual(
-      ["EUR", "INR"],
+  test("every currency but USD can take a rate: the ones in use first, the rest alphabetical", () => {
+    expect(rateCurrencies(emptyBook, "USD")).toEqual([
+      "AUD",
+      "BRL",
+      "CAD",
+      "CHF",
+      "EUR",
+      "GBP",
+      "INR",
+      "JPY",
+      "SGD",
+    ]);
+    expect(rateCurrencies(emptyBook, "INR")[0]).toBe("INR");
+    expect(rateCurrencies(book({ costs: { a: paid(inr(1999)), b: paid(usd(5)) } }), "JPY")).toEqual(
+      ["INR", "JPY", "AUD", "BRL", "CAD", "CHF", "EUR", "GBP", "SGD"],
     );
   });
 });
