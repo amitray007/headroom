@@ -11,9 +11,12 @@
   gap: var(--space-3);
   margin-bottom: var(--space-4);
 }
-.w-caption {
+.w-title {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: 22px; /* no token between --text-md and --text-display */
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 .w-segs {
   display: flex;
@@ -78,6 +81,45 @@
   font-size: var(--text-sm);
   color: var(--text-secondary);
 }
+.w-cap > * {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.w-cap > .menu-anchor {
+  overflow: visible; /* the trigger's focus ring; the panel itself sits in the top layer */
+}
+.w-cap .warn {
+  color: var(--warning);
+}
+/* The top-ups caption is a button that opens the month's list. */
+.w-cap-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.w-cap-trigger svg {
+  width: 12px;
+  height: 12px;
+  color: var(--text-muted);
+}
+.w-cap-trigger:hover,
+.w-cap-trigger:focus-visible {
+  color: var(--foreground);
+}
+.w-cap-trigger:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 @media (max-width: 760px) {
   .w-band {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -100,25 +142,36 @@
   font-weight: 500;
 }
 .w-card {
-  list-style: none;
+  --w-cols: minmax(0, 1.5fr) minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 0.9fr) 112px;
   margin: 0;
-  padding: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   overflow: hidden;
 }
+.w-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
 
-/* ---------- Rows: who | cost | renewal | usage spend | action ---------- */
+/* ---------- Column header row (Arc's data-table header) and rows: who | cost | renewal | usage spend | action ---------- */
+.w-colhead,
 .w-row {
   display: grid;
-  grid-template-columns:
-    minmax(0, 1.5fr) minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 0.9fr)
-    88px;
+  grid-template-columns: var(--w-cols);
   align-items: center;
   gap: var(--space-5);
-  min-height: 64px;
   padding: var(--space-3) var(--space-4);
+}
+.w-colhead {
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.w-row {
+  min-height: 64px;
 }
 .w-row + .w-row {
   border-top: 1px solid var(--border-subtle);
@@ -154,41 +207,25 @@ html[data-density="compact"] .w-row {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.w-sub.who {
-  color: var(--text-muted);
-}
+/* Cells size to their content: a pill never stretches across the column. */
 .w-col {
   display: grid;
+  justify-items: start;
   min-width: 0;
   font-size: var(--text-sm);
 }
-.w-cost,
-.w-renewal,
-.w-spend {
+.w-cost {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
-.w-cost .muted,
-.w-included .muted,
-.w-spend .muted,
-.w-renewal .muted {
+.w-cost .muted {
   font-size: var(--text-sm);
 }
-.w-price {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  white-space: nowrap;
-}
-.w-price .num {
+.w-figure {
   font-size: var(--text-md);
   font-weight: 500;
   letter-spacing: -0.01em;
-}
-.w-price .unit {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
 }
 .w-unset {
   font-size: var(--text-base);
@@ -200,32 +237,20 @@ html[data-density="compact"] .w-row {
   align-items: center;
   gap: var(--space-2);
 }
-.w-renewal {
-  color: var(--text-secondary);
-}
-.w-spend .num {
-  font-size: var(--text-base);
-  font-weight: 500;
-  color: var(--foreground);
-}
-.w-spend .muted {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .w-act {
   display: flex;
   justify-content: flex-end;
+  gap: 2px;
 }
 
 /* ---------- Top-ups ---------- */
+.w-topups .w-card {
+  --w-cols: 72px minmax(0, 1.3fr) minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 1.3fr) 36px;
+}
 .w-topups .w-card .empty {
   border: 0;
 }
 .w-topup {
-  grid-template-columns:
-    72px minmax(0, 1.3fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 1.3fr)
-    36px;
   min-height: 56px;
 }
 .w-date {
@@ -246,6 +271,8 @@ html[data-density="compact"] .w-row {
   color: var(--text-secondary);
 }
 .w-paid {
+  display: grid;
+  justify-items: start;
   font-size: var(--text-base);
 }
 .w-note-text {
@@ -267,6 +294,9 @@ html[data-density="compact"] .w-row {
 }
 
 @media (max-width: 720px) {
+  .w-colhead {
+    display: none;
+  }
   .w-row {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
@@ -289,7 +319,20 @@ html[data-density="compact"] .w-row {
   .w-c-spend {
     grid-area: spend;
   }
-  /* Stacked, an empty cell would leave a blank line; in the wide grid it keeps the columns aligned. */
+  /* Stacked, the column header is gone, so a cell names itself. */
+  .w-col[data-label],
+  .w-credits[data-label] {
+    grid-template-columns: 96px minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+  .w-col[data-label]::before,
+  .w-credits[data-label]::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+  }
+  /* An empty cell would leave a blank line; in the wide grid it keeps the columns aligned. */
   .w-col:empty {
     display: none;
   }
@@ -325,15 +368,22 @@ html[data-density="compact"] .w-row {
   }
 }
 
-/* ---------- Exchange rates panel ---------- */
-.notif.w-rates-pop {
+/* ---------- Popovers: exchange rates and this month's top-ups ---------- */
+.notif.w-rates-pop,
+.notif.w-topups-pop {
   display: grid;
   gap: var(--space-3);
-  width: min(300px, calc(100vw - 24px));
   padding: 16px;
   border-radius: var(--radius-panel);
 }
-.w-pop-head h2 {
+.notif.w-rates-pop {
+  width: min(300px, calc(100vw - 24px));
+}
+.notif.w-topups-pop {
+  width: min(400px, calc(100vw - 24px));
+}
+.w-pop-head h2,
+.w-pop-title {
   margin: 0;
   font-size: var(--text-base);
   font-weight: 500;
@@ -342,32 +392,45 @@ html[data-density="compact"] .w-row {
   margin: 2px 0 0;
   font-size: var(--text-xs);
 }
-.w-rate {
+.w-pop-list {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.w-pop-list li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-sm);
-  color: var(--text-secondary);
 }
-.w-rate input {
+.w-pop-name {
   min-width: 0;
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: 14px;
-  background: var(--surface);
-  color: var(--foreground);
-  font: 400 var(--text-base) / 1.4 var(--font);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.w-rate input:focus {
-  outline: 2px solid var(--border-strong);
-  outline-offset: 2px;
+.w-pop-paid {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 64px;
+  white-space: nowrap;
 }
-.w-rate input[aria-invalid="true"] {
-  border-color: var(--danger);
+.w-pop-total {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.w-pop-note {
+  margin: 0;
+  font-size: var(--text-xs);
 }
 
 /* ---------- Cost and top-up dialogs ---------- */
@@ -380,41 +443,12 @@ html[data-density="compact"] .w-row {
   font-size: var(--text-sm);
   color: var(--text-secondary);
 }
-.w-note {
-  margin: 0;
-  font-size: var(--text-xs);
-  line-height: 1.35;
-}
-.w-note.bad {
-  color: var(--danger);
-}
 .dsec .field {
   max-width: none;
 }
-.w-pair {
+.w-suggest {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 112px;
-  align-items: start;
-  gap: var(--space-3);
-}
-.field select {
-  height: 40px;
-  padding: 0 40px 0 16px;
-  border: 1px solid var(--border-strong);
-  border-radius: 18px;
-  background: var(--surface)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8a8a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
-    no-repeat right 14px center / 14px;
-  color: var(--foreground);
-  font: 400 var(--text-base) / 1.4 var(--font);
-  appearance: none;
-}
-.field select:focus {
-  outline: 2px solid var(--border-strong);
-  outline-offset: 2px;
-}
-.field input[type="date"] {
-  min-width: 0;
+  gap: var(--space-2);
 }
 .w-chips {
   display: flex;
@@ -422,9 +456,6 @@ html[data-density="compact"] .w-row {
   gap: var(--space-2);
 }
 .w-chip {
-  display: grid;
-  align-content: center;
-  gap: 1px;
   min-height: 30px;
   padding: 4px 12px;
   border: 1px solid var(--border);
@@ -439,9 +470,6 @@ html[data-density="compact"] .w-row {
     border-color var(--dur-fast) var(--ease-standard),
     color var(--dur-fast) var(--ease-standard),
     scale var(--dur-spring) var(--ease-spring);
-}
-.w-chip .muted {
-  font-size: var(--text-xs);
 }
 .w-chip[aria-pressed="true"] {
   border-color: var(--border-strong);
@@ -468,9 +496,4 @@ html[data-density="compact"] .w-row {
 .w-foot .w-clear {
   margin-right: auto;
   margin-left: -12px;
-}
-@media (max-width: 420px) {
-  .w-pair {
-    grid-template-columns: minmax(0, 1fr) 96px;
-  }
 }

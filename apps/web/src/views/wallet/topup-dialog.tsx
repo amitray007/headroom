@@ -3,65 +3,61 @@ import { useState, type FormEvent } from "react";
 import type { Provider } from "@headroom/core/contracts";
 import { accountName, groupByProvider, planLabel, providerName } from "@headroom/view-model/labels";
 import type { OverviewConnection } from "@headroom/view-model/overview";
-import { currencies, type Currency, type TopUp } from "@headroom/view-model/wallet";
+import { currencies, parsePositive, type Currency } from "@headroom/view-model/wallet-money";
+import type { TopUp } from "@headroom/view-model/wallet";
 
+import { BrandMark } from "../../icons.tsx";
 import { TextField } from "../../shell/delivery/form-parts.tsx";
 import { Button } from "../../ui/button.tsx";
+import { DatePicker } from "../../ui/date-picker.tsx";
 import { Dialog } from "../../ui/dialog.tsx";
-import { Segmented } from "../../ui/segmented.tsx";
-import { newId, parseAmount, parsePositive } from "./book.ts";
-import { DateField, SelectField } from "./fields.tsx";
-import { effectivePrivacy, useDevicePrefs } from "../../lib/device-prefs.ts";
+import { MoneyInput } from "../../ui/money-input.tsx";
+import { RadioCards, type RadioCard } from "../../ui/radio-cards.tsx";
+import { Select, type SelectOption } from "../../ui/select.tsx";
+import { newId } from "./book.ts";
 
-/**
- * Option labels for one provider's accounts. Two accounts with the same name and plan get the email, or a number
- * while Privacy Mode is on, because an option cannot blur its text.
- */
-function optionLabels(
+const kinds: readonly RadioCard<TopUp["kind"]>[] = [
+  { value: "paid", label: "Paid", description: "You bought these credits." },
+  { value: "free", label: "Free", description: "Promo or bonus credits." },
+];
+
+/** One option per account: its provider's mark, name, plan and email (blurred in Privacy Mode), under the provider. */
+function accountOptions(
   connections: readonly OverviewConnection[],
-  hidden: boolean,
-): ReadonlyMap<string, string> {
-  const base = connections.map((connection) =>
-    [accountName(connection), planLabel(connection.plan)]
-      .filter((part) => part !== null)
-      .join(" · "),
+  providerOrder: readonly Provider[],
+): readonly SelectOption<string>[] {
+  return groupByProvider(connections, providerOrder).flatMap((group) =>
+    group.connections.map((connection): SelectOption<string> => {
+      const plan = planLabel(connection.plan);
+      return {
+        value: connection.id,
+        label: accountName(connection),
+        icon: <BrandMark provider={connection.provider} />,
+        group: providerName(group.provider),
+        ...(plan === null ? {} : { meta: plan }),
+        ...(connection.identity === null ? {} : { detail: connection.identity }),
+      };
+    }),
   );
-  const labels = new Map<string, string>();
-  connections.forEach((connection, index) => {
-    const label = base[index] ?? "";
-    const twins = base.filter((other) => other === label).length;
-    if (twins < 2) labels.set(connection.id, label);
-    else if (!hidden && connection.identity !== null) {
-      labels.set(connection.id, `${label} · ${connection.identity}`);
-    } else {
-      const position = base.slice(0, index + 1).filter((other) => other === label).length;
-      labels.set(connection.id, `${label} ${position}`);
-    }
-  });
-  return labels;
 }
-
-const kinds = [
-  { value: "paid", label: "Paid" },
-  { value: "free", label: "Free" },
-] as const;
 
 function TopUpForm(props: {
   readonly connections: readonly OverviewConnection[];
   readonly providerOrder: readonly Provider[];
+  readonly connectionId: string | null;
   readonly defaultCurrency: Currency;
   readonly today: string;
   readonly onAdd: (topUp: TopUp) => void;
   readonly onCancel: () => void;
 }) {
-  const groups = groupByProvider(props.connections, props.providerOrder);
-  const prefs = useDevicePrefs();
-  const hidden = effectivePrivacy(prefs.privacy, prefs.demo);
-  const [connectionId, setConnectionId] = useState(groups[0]?.connections[0]?.id ?? "");
-  const [date, setDate] = useState(props.today);
+  const options = accountOptions(props.connections, props.providerOrder);
+  const [connectionId, setConnectionId] = useState(props.connectionId ?? options[0]?.value ?? "");
+  const [date, setDate] = useState<string | null>(props.today);
   const [kind, setKind] = useState<TopUp["kind"]>("paid");
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState<Currency>(props.defaultCurrency);
+  const [price, setPrice] = useState<{ minor: number | null; currency: Currency }>({
+    minor: null,
+    currency: props.defaultCurrency,
+  });
   const [credits, setCredits] = useState("");
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<{
@@ -72,20 +68,24 @@ function TopUpForm(props: {
 
   const submit = (event: FormEvent): void => {
     event.preventDefault();
-    const minor = kind === "paid" ? parseAmount(amount) : null;
     const added = credits.trim() === "" ? null : parsePositive(credits);
     const next: { amount?: string; credits?: string; date?: string } = {};
-    if (kind === "paid" && minor === null) next.amount = "Enter an amount above zero, such as 25.";
+    if (kind === "paid" && (price.minor === null || price.minor <= 0)) {
+      next.amount = "Enter an amount above zero.";
+    }
     if (credits.trim() !== "" && added === null) next.credits = "Enter a number above zero.";
-    if (date === "") next.date = "Pick a date.";
+    if (date === null) next.date = "Pick a date.";
     setErrors(next);
-    if (Object.keys(next).length > 0 || connectionId === "") return;
+    if (Object.keys(next).length > 0 || connectionId === "" || date === null) return;
     props.onAdd({
       id: newId(),
       connectionId,
       date,
       kind,
-      price: kind === "paid" && minor !== null ? { minor, currency } : null,
+      price:
+        kind === "paid" && price.minor !== null
+          ? { minor: price.minor, currency: price.currency }
+          : null,
       credits: added,
       note: note.trim() === "" ? null : note.trim(),
     });
@@ -94,29 +94,25 @@ function TopUpForm(props: {
   return (
     <form onSubmit={submit} noValidate>
       <div className="dsec">
-        <SelectField label="Account" value={connectionId} onChange={setConnectionId}>
-          {groups.map((group) => {
-            const labels = optionLabels(group.connections, hidden);
-            return (
-              <optgroup key={group.provider} label={providerName(group.provider)}>
-                {group.connections.map((connection) => (
-                  <option key={connection.id} value={connection.id}>
-                    {labels.get(connection.id)}
-                  </option>
-                ))}
-              </optgroup>
-            );
-          })}
-        </SelectField>
-        <DateField label="Date" value={date} onChange={setDate} required />
-        {errors.date === undefined ? null : (
-          <p className="w-note bad" role="alert">
-            {errors.date}
-          </p>
-        )}
-        <Segmented
-          full
+        <Select
+          label="Account"
+          value={connectionId === "" ? null : connectionId}
+          options={options}
+          onChange={setConnectionId}
+        />
+        <DatePicker
+          label="Date"
+          value={date}
+          error={errors.date ?? null}
+          onChange={(next) => {
+            setDate(next);
+            setErrors({});
+          }}
+        />
+        <RadioCards
           label="Kind of top-up"
+          hideLabel
+          layout="grid"
           value={kind}
           options={kinds}
           onChange={(next) => {
@@ -125,33 +121,17 @@ function TopUpForm(props: {
           }}
         />
         {kind === "paid" ? (
-          <div className="w-pair">
-            <TextField
-              label="Amount"
-              value={amount}
-              inputMode="decimal"
-              placeholder="0.00"
-              error={errors.amount ?? null}
-              onChange={(value) => {
-                setAmount(value);
-                setErrors({});
-              }}
-            />
-            <SelectField
-              label="Currency"
-              value={currency}
-              onChange={(value) => {
-                const chosen = currencies.find((entry) => entry === value);
-                if (chosen !== undefined) setCurrency(chosen);
-              }}
-            >
-              {currencies.map((entry) => (
-                <option key={entry} value={entry}>
-                  {entry}
-                </option>
-              ))}
-            </SelectField>
-          </div>
+          <MoneyInput
+            label="Amount"
+            minor={price.minor}
+            currency={price.currency}
+            currencies={currencies}
+            error={errors.amount ?? null}
+            onChange={(next) => {
+              setPrice(next);
+              setErrors({});
+            }}
+          />
         ) : null}
         <TextField
           label="Credits Added (Optional)"
@@ -175,11 +155,17 @@ function TopUpForm(props: {
   );
 }
 
-/** Record credits bought or received. Closed unless `open`; the form mounts fresh each time it opens. */
+/**
+ * Record credits bought or received. Closed unless `open`; the form mounts fresh each time it opens, with
+ * `connectionId` chosen when the owner started from an account.
+ */
 export function TopUpDialog(props: {
   readonly open: boolean;
   readonly connections: readonly OverviewConnection[];
   readonly providerOrder: readonly Provider[];
+  /** The account to start on, or null for the first. */
+  readonly connectionId: string | null;
+  /** The display currency, the starting choice for a paid top-up. */
   readonly defaultCurrency: Currency;
   /** Today as `YYYY-MM-DD`, the starting date. */
   readonly today: string;
@@ -193,6 +179,7 @@ export function TopUpDialog(props: {
         <TopUpForm
           connections={props.connections}
           providerOrder={props.providerOrder}
+          connectionId={props.connectionId}
           defaultCurrency={props.defaultCurrency}
           today={props.today}
           onAdd={(topUp) => {

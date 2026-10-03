@@ -1,5 +1,7 @@
 import type { OverviewConnection } from "./overview.ts";
-import { suggestPrices, type Cost, type Money, type TopUp, type WalletBook } from "./wallet.ts";
+import { suggestPrices, type Cost, type TopUp, type WalletBook } from "./wallet.ts";
+import { isoDate, type Cycle } from "./wallet-dates.ts";
+import { toMinor, type Money } from "./wallet-money.ts";
 
 /** A made-up Wallet for Demo Mode, shaped to show every kind of entry. Same `seed` and `anchor`, same book. */
 
@@ -34,20 +36,16 @@ function intFor(seed: number, key: string, min: number, max: number): number {
   return Math.floor(min + next() * (max - min + 1));
 }
 
-function isoDate(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
 // ---------- the book ----------
 
-const usd = (dollars: number): Money => ({ minor: dollars * 100, currency: "USD" });
+const usd = (dollars: number): Money => ({ minor: toMinor(dollars, "USD"), currency: "USD" });
 
 /** A list price that fits the account's plan; the first suggestion, or `fallback` when none fits. */
 function listPrice(
   connection: OverviewConnection,
   label: string | null,
   fallback: Money,
-): { price: Money; cycle: "monthly" | "annual" } {
+): { price: Money; cycle: Cycle } {
   const options = suggestPrices(connection.provider, connection.plan);
   const found =
     (label === null ? undefined : options.find((option) => option.label === label)) ?? options[0];
@@ -76,11 +74,12 @@ export function demoWallet(
 
   const renewal = (connection: OverviewConnection): string =>
     isoDate(anchor + intFor(seed, `${connection.id}:renews`, 1, 28) * day);
-  const paid = (
-    connection: OverviewConnection,
-    price: Money,
-    cycle: "monthly" | "annual",
-  ): Cost => ({ kind: "paid", price, cycle, renewsOn: renewal(connection) });
+  const paid = (connection: OverviewConnection, price: Money, cycle: Cycle): Cost => ({
+    kind: "paid",
+    price,
+    cycle,
+    renewsOn: renewal(connection),
+  });
   const set = (position: string, make: (connection: OverviewConnection) => Cost): void => {
     const connection = byPosition.get(position);
     if (connection !== undefined) costs[connection.id] = make(connection);
@@ -153,8 +152,21 @@ export function demoWallet(
   return {
     costs,
     topUps,
-    displayCurrency: "USD",
+    // Left unset, so Demo Mode follows the browser locale like a new book does.
+    displayCurrency: null,
     // Mid-market rates, early October 2026.
-    perUsd: { USD: 1, INR: 95.16, EUR: 0.88, GBP: 0.75 },
+    perUsd: {
+      USD: 1,
+      EUR: 0.88,
+      GBP: 0.75,
+      INR: 95.16,
+      CAD: 1.39,
+      AUD: 1.54,
+      JPY: 149.2,
+      SGD: 1.29,
+      CHF: 0.8,
+      BRL: 5.41,
+    },
+    ratesChangedOn: isoDate(anchor),
   };
 }

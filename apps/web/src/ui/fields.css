@@ -1,0 +1,732 @@
+/* Form fields: Select, MoneyInput, DatePicker, RadioCards and the listbox they share.
+   They sit next to TextField (the global `.field`: 40px tall, 18px corners, strong border) and follow Arc's
+   select, money-input, date-picker, calendar and radio-cards. Arc hides focus rings on its fields; this app keeps them. */
+
+/* ---------- Field chrome ---------- */
+.fld .dl-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+.fld .dl-note.bad {
+  color: var(--danger);
+}
+.fld .dl-note.hint {
+  color: var(--text-muted);
+}
+.fld-label {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+/* ---------- Trigger: the button that looks like a field (Select, DatePicker) ---------- */
+.fld-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  padding: 0 14px 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--foreground);
+  font: 400 var(--text-base) / 1.4 var(--font);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-fast) var(--ease-standard);
+}
+.fld-trigger[data-size="sm"] {
+  height: 32px;
+  padding: 0 10px 0 12px;
+  border-radius: 16px;
+  font-size: var(--text-sm);
+}
+@media (hover: hover) and (pointer: fine) {
+  .fld-trigger:hover {
+    background: var(--surface-muted);
+  }
+}
+.fld-trigger[aria-expanded="true"] {
+  background: var(--surface-muted);
+}
+.fld-trigger[data-invalid] {
+  border-color: var(--danger);
+}
+.fld-trigger:focus-visible {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+  border-radius: 18px;
+}
+.fld-trigger[data-size="sm"]:focus-visible {
+  border-radius: 16px;
+}
+.fld-lead {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--text-muted);
+}
+.fld-lead > svg {
+  width: 16px;
+  height: 16px;
+}
+.fld-value {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.fld-value > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fld-value .fld-main {
+  flex: none;
+  max-width: 100%;
+}
+.fld-value .fld-sub {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.fld-value .fld-ph {
+  color: var(--text-muted);
+}
+.fld-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  align-self: center;
+}
+.fld-chevron {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-muted);
+  transition: rotate var(--dur-spring) var(--ease-spring);
+}
+.fld-chevron > svg {
+  width: 16px;
+  height: 16px;
+}
+.fld-trigger[aria-expanded="true"] .fld-chevron {
+  rotate: 180deg;
+}
+
+/* ---------- Floating panel for listboxes and the calendar (extends .notif: top layer, spring entrance) ---------- */
+.notif.fpop {
+  width: max-content;
+  max-width: min(24rem, calc(100vw - 20px));
+  max-height: min(320px, calc(100vh - 24px));
+  padding: 6px;
+  border-radius: 20px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.notif.fpop.fpop-start {
+  transform-origin: top left;
+}
+.notif.fpop.fpop-start.above {
+  transform-origin: bottom left;
+}
+/* The active row is the focus indicator inside the list, so the panel keeps no ring of its own. */
+.notif.fpop:focus-visible {
+  outline: none;
+}
+.fpop:focus-visible .lb-opt[data-active] {
+  outline: 2px solid var(--border-strong);
+  outline-offset: -2px;
+}
+
+/* ---------- Listbox rows ---------- */
+.lb-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 14px;
+  font-size: var(--text-base);
+  line-height: 1.3;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--dur-instant) var(--ease-standard);
+}
+.lb-opt[data-active] {
+  background: color-mix(in oklab, var(--foreground) 7%, transparent);
+}
+.lb-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  color: var(--text-secondary);
+}
+.lb-text {
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  min-width: 0;
+}
+.lb-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.lb-label,
+.lb-meta,
+.lb-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lb-label {
+  flex: none;
+  max-width: 100%;
+}
+.lb-meta {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.lb-detail {
+  font-size: var(--text-xs);
+}
+.lb-check {
+  display: inline-flex;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--foreground);
+}
+.lb-check > svg {
+  width: 16px;
+  height: 16px;
+  animation: lb-check-in var(--dur-standard) var(--ease-enter) 40ms backwards;
+}
+@keyframes lb-check-in {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+.lb-group {
+  padding: 8px 10px 4px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+/* ---------- Money input ---------- */
+.mi {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 6px 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  background: var(--surface);
+  cursor: text;
+  transition: border-color var(--dur-fast) var(--ease-standard);
+}
+.mi:focus-within {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
+.mi[data-invalid] {
+  border-color: var(--danger);
+}
+.mi-symbol {
+  flex: none;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.fld .mi .mi-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--foreground);
+  font: 400 var(--text-base) / 1.4 var(--font);
+  font-variant-numeric: tabular-nums;
+}
+.fld .mi .mi-input:focus,
+.fld .mi .mi-input:focus-visible {
+  outline: none;
+}
+.mi-input::placeholder {
+  color: var(--text-muted);
+}
+.mi-currency {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 6px 0 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--foreground);
+  font: 500 var(--text-sm) / 1 var(--font);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+@media (hover: hover) and (pointer: fine) {
+  .mi-currency:hover {
+    background: var(--surface-muted);
+  }
+}
+.mi-currency[aria-expanded="true"] {
+  background: var(--surface-muted);
+}
+.mi-currency:focus-visible {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 1px;
+  border-radius: var(--radius-pill);
+}
+.mi-currency .fld-chevron > svg {
+  width: 14px;
+  height: 14px;
+}
+.mi-code {
+  flex: none;
+  padding: 0 10px;
+  color: var(--text-secondary);
+  font: 500 var(--text-sm) / 1 var(--font);
+  letter-spacing: 0.02em;
+}
+.mi-currency .mi-code {
+  padding: 0;
+  color: inherit;
+  letter-spacing: 0;
+}
+.mi-sym {
+  min-width: 30px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.fpop-money {
+  min-width: 232px;
+}
+
+/* ---------- Calendar ---------- */
+.notif.fpop.fpop-cal {
+  width: min(320px, calc(100vw - 24px));
+  max-height: none;
+  padding: 16px;
+  overflow: visible;
+}
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  margin-bottom: 12px;
+}
+.cal-title {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.cal-title > span {
+  display: inline-block;
+}
+.cal-nav {
+  display: inline-flex;
+  gap: 2px;
+  margin-right: -6px;
+}
+.cal-step {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    opacity var(--dur-fast) var(--ease-standard),
+    scale var(--dur-spring) var(--ease-spring);
+}
+.cal-step > svg {
+  width: 16px;
+  height: 16px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cal-step:hover:not([aria-disabled="true"]) {
+    background: var(--surface-muted);
+    color: var(--foreground);
+  }
+}
+.cal-step:active:not([aria-disabled="true"]) {
+  scale: 0.96;
+  transition-duration: var(--dur-fast), var(--dur-fast), var(--dur-fast), 100ms;
+  transition-timing-function: var(--ease-standard);
+}
+.cal-step[aria-disabled="true"] {
+  opacity: 0.36;
+  cursor: default;
+}
+.cal-step:focus-visible {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+  border-radius: var(--radius-pill);
+}
+.cal-grid {
+  display: grid;
+  row-gap: 4px;
+}
+.cal-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  column-gap: 4px;
+}
+.cal-wd {
+  margin-bottom: 2px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 24px;
+  text-align: center;
+}
+.cal-body {
+  display: grid;
+  row-gap: 4px;
+}
+.cal-body[data-dir],
+.cal-title > span[data-dir] {
+  animation: cal-shift var(--dur-standard) var(--ease-enter) backwards;
+}
+.cal-body[data-dir="next"],
+.cal-title > span[data-dir="next"] {
+  --cal-shift: 12px;
+}
+.cal-body[data-dir="prev"],
+.cal-title > span[data-dir="prev"] {
+  --cal-shift: -12px;
+}
+@keyframes cal-shift {
+  from {
+    opacity: 0;
+    translate: var(--cal-shift, 0) 0;
+  }
+}
+.cal-cell {
+  display: grid;
+}
+.cal-day {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--foreground);
+  font: 400 var(--text-sm) / 1 var(--font);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    scale var(--dur-spring) var(--ease-spring);
+}
+@media (hover: hover) and (pointer: fine) {
+  .cal-day:hover:not(:disabled):not([data-selected]) {
+    background: var(--surface-muted);
+  }
+}
+.cal-day:active:not(:disabled) {
+  scale: 0.94;
+  transition-duration: var(--dur-fast), var(--dur-fast), 100ms;
+  transition-timing-function: var(--ease-standard);
+}
+.cal-day[data-outside] {
+  color: var(--text-muted);
+}
+.cal-day[data-today],
+.cal-day[data-selected] {
+  font-weight: 500;
+}
+/* Today is a small dot under the number; it takes the number's colour, so it flips with the disc. */
+.cal-day[data-today]::after {
+  content: "";
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.cal-day[data-selected] {
+  background: var(--accent);
+  color: var(--background);
+  animation: cal-land var(--dur-standard) var(--ease-enter) backwards;
+}
+@keyframes cal-land {
+  from {
+    scale: 0.82;
+    opacity: 0.6;
+  }
+}
+.cal-day:disabled {
+  color: var(--text-muted);
+  opacity: 0.42;
+  cursor: default;
+}
+.cal-day[data-outside]:disabled {
+  opacity: 0.3;
+}
+.cal-day:focus-visible {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+.cal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+.cal-clear {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    scale var(--dur-spring) var(--ease-spring);
+}
+@media (hover: hover) and (pointer: fine) {
+  .cal-clear:hover:not(:disabled) {
+    background: var(--surface-muted);
+    color: var(--foreground);
+  }
+}
+.cal-clear:active:not(:disabled) {
+  scale: 0.97;
+}
+.cal-clear:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.cal-clear:focus-visible {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+/* ---------- Radio cards ---------- */
+.rc {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+.rc[data-layout="list"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.rc[data-layout="grid"] {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
+  gap: 10px;
+}
+/* One ring that glides to the selected card. It sits over the card's border, so no card changes size. */
+.rc-ring {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  width: var(--rc-w, 0);
+  height: var(--rc-h, 0);
+  translate: var(--rc-x, 0) var(--rc-y, 0);
+  border: 1.5px solid var(--accent);
+  border-radius: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    translate var(--dur-considered) var(--ease-spring),
+    width var(--dur-considered) var(--ease-spring),
+    height var(--dur-considered) var(--ease-spring),
+    opacity var(--dur-fast) var(--ease-standard);
+}
+.rc-ring[data-on] {
+  opacity: 1;
+}
+.rc-ring[data-snap] {
+  transition: none;
+}
+.rc-card {
+  position: relative;
+  display: grid;
+  align-items: start;
+  gap: 4px 12px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--foreground);
+  font: 400 var(--text-sm) / 1.4 var(--font);
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard);
+}
+.rc[data-layout="grid"] .rc-card {
+  grid-template-areas: "body indicator" "meta meta";
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+.rc[data-layout="list"] .rc-card {
+  grid-template-areas: "indicator body meta";
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 56px;
+  padding: 10px 16px 10px 14px;
+}
+.rc-card[aria-checked="true"] {
+  background: color-mix(in oklab, var(--accent) 4%, var(--surface));
+}
+@media (hover: hover) and (pointer: fine) {
+  .rc-card[aria-checked="false"]:hover {
+    border-color: var(--border-strong);
+  }
+}
+.rc-card:active {
+  background: var(--surface-muted);
+}
+.rc-card:focus-visible {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+  border-radius: 20px;
+}
+.rc-indicator {
+  display: grid;
+  grid-area: indicator;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 50%;
+  transition:
+    border-color var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-fast) var(--ease-standard);
+}
+.rc[data-layout="grid"] .rc-indicator {
+  margin-top: 1px;
+}
+.rc-card[aria-checked="true"] .rc-indicator {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.rc-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--surface);
+  scale: 0;
+  transition: scale var(--dur-standard) var(--ease-spring);
+}
+.rc-card[aria-checked="true"] .rc-dot {
+  scale: 1;
+}
+.rc-body {
+  display: grid;
+  grid-area: body;
+  gap: 2px;
+  min-width: 0;
+}
+.rc-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 500;
+}
+.rc-label-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rc-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  color: var(--text-secondary);
+}
+.rc-card[aria-checked="true"] .rc-icon {
+  color: var(--foreground);
+}
+.rc-desc {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  text-wrap: pretty;
+}
+.rc-meta {
+  grid-area: meta;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rc[data-layout="grid"] .rc-meta {
+  margin-top: 8px;
+  font-size: var(--text-md);
+}
+.rc[data-layout="list"] .rc-meta {
+  font-weight: 500;
+}
+
+/* A small select sits inline in a toolbar instead of filling the row. */
+.field.fld[data-size="sm"] {
+  display: inline-grid;
+  max-width: none;
+}
+.fld[data-size="sm"] .fld-trigger {
+  width: auto;
+  min-width: 140px;
+}

@@ -9,13 +9,17 @@ import { useNow } from "../lib/now.ts";
 import { Bar, type BarTone } from "./bar.tsx";
 import { Button, ButtonLink } from "./button.tsx";
 import { CountUp } from "./count-up.tsx";
+import { DatePicker } from "./date-picker.tsx";
 import { Dialog } from "./dialog.tsx";
 import { HoldButton, type HoldPhase } from "./hold-button.tsx";
 import { InfoTip } from "./info-tip.tsx";
 import { Lockup } from "./lockup.tsx";
 import { Menu, MenuBlock, MenuItem, MenuSwitch, MenuWho, Popover } from "./menu.tsx";
+import { MoneyInput } from "./money-input.tsx";
 import { HealthyStatus, Pill, StatusPill, StatusSlot, type StatusKind } from "./pill.tsx";
+import { RadioCards, type RadioCard } from "./radio-cards.tsx";
 import { Segmented } from "./segmented.tsx";
+import { Select, type SelectOption } from "./select.tsx";
 import { Spinner } from "./spinner.tsx";
 import { Switch } from "./switch.tsx";
 
@@ -67,6 +71,131 @@ const iconList = [
 
 const succeed = (outcome: "ok" | "failed") => () =>
   new Promise<"ok" | "failed">((resolve) => setTimeout(() => resolve(outcome), 1200));
+
+const accountOptions: readonly SelectOption<string>[] = [
+  {
+    value: "claude-1",
+    label: "Claude",
+    meta: "Max 20x",
+    detail: "amit.ray@example.com",
+    icon: <BrandMark provider="claude" />,
+    group: "Claude",
+  },
+  {
+    value: "claude-2",
+    label: "Claude",
+    meta: "Pro",
+    detail: "work@example.org",
+    icon: <BrandMark provider="claude" />,
+    group: "Claude",
+  },
+  {
+    value: "codex-1",
+    label: "Codex",
+    meta: "Pro",
+    detail: "amit.ray@example.com",
+    icon: <BrandMark provider="codex" />,
+    group: "Codex",
+  },
+  {
+    value: "cursor-1",
+    label: "Cursor",
+    meta: "Pro+",
+    detail: "amit.ray@example.com",
+    icon: <BrandMark provider="cursor" />,
+    group: "Cursor",
+  },
+  {
+    value: "grok-1",
+    label: "Grok",
+    detail: "grok@example.net",
+    icon: <BrandMark provider="grok" />,
+    group: "Grok",
+  },
+  {
+    value: "copilot-1",
+    label: "Copilot",
+    meta: "Individual",
+    icon: <BrandMark provider="copilot" />,
+    group: "Copilot",
+  },
+];
+const cadenceOptions: readonly SelectOption<string>[] = [
+  { value: "monthly", label: "Monthly" },
+  { value: "yearly", label: "Yearly" },
+  { value: "weekly", label: "Weekly" },
+];
+const planCards: readonly RadioCard<string>[] = [
+  {
+    value: "monthly",
+    label: "Monthly",
+    description: "Renews every month. Cancel any time.",
+    meta: "$20",
+  },
+  { value: "yearly", label: "Yearly", description: "Two months free.", meta: "$200" },
+  {
+    value: "usage",
+    label: "Pay as you go",
+    description: "Billed on use, with a monthly cap.",
+    meta: "Variable",
+  },
+];
+const planCardsWithIcons: readonly RadioCard<string>[] = planCards.map((card) =>
+  Object.assign({}, card, { icon: <icons.SparkleIcon /> }),
+);
+const moneyCurrencies = [
+  "USD",
+  "INR",
+  "EUR",
+  "GBP",
+  "CAD",
+  "AUD",
+  "JPY",
+  "SGD",
+  "CHF",
+  "BRL",
+] as const;
+type MoneyCurrency = (typeof moneyCurrencies)[number];
+
+/** Every form field once, so the same markup can sit on the page and inside a dialog. */
+function FieldSet(props: { readonly prefix: string }) {
+  const [account, setAccount] = useState<string | null>("claude-1");
+  const [cadence, setCadence] = useState<string | null>(null);
+  const [amount, setAmount] = useState<{ minor: number | null; currency: MoneyCurrency }>({
+    minor: 1999,
+    currency: "USD",
+  });
+  const [renews, setRenews] = useState<string | null>("2026-10-12");
+  const [plan, setPlan] = useState("monthly");
+  return (
+    <div className="dl-form" data-prefix={props.prefix}>
+      <Select
+        label="Account"
+        value={account}
+        options={accountOptions}
+        onChange={setAccount}
+        placeholder="Choose an account"
+      />
+      <Select
+        label="Billing cadence"
+        value={cadence}
+        options={cadenceOptions}
+        onChange={setCadence}
+        placeholder="Choose a cadence"
+      />
+      <MoneyInput
+        label="Monthly cost"
+        minor={amount.minor}
+        currency={amount.currency}
+        currencies={moneyCurrencies}
+        onChange={setAmount}
+        hint="Typed with grouping, stored as minor units."
+      />
+      <DatePicker label="Renews on" value={renews} onChange={setRenews} optional min="2026-10-01" />
+      <RadioCards label="Plan" value={plan} options={planCards} onChange={setPlan} />
+    </div>
+  );
+}
 
 function Section(props: { readonly title: string; readonly children: ReactNode }) {
   return (
@@ -243,13 +372,176 @@ function rowMenu(name: string) {
 }
 
 /** Every primitive in every state. Development only; reach it at #/dev/ui. */
+function GalleryFields(props: { readonly onOpenDialog: () => void }) {
+  const [account, setAccount] = useState<string | null>(null);
+  const [toolbar, setToolbar] = useState<string | null>("claude-1");
+  const [usd, setUsd] = useState<{ minor: number | null; currency: MoneyCurrency }>({
+    minor: 123456,
+    currency: "USD",
+  });
+  const [inr, setInr] = useState<{ minor: number | null; currency: MoneyCurrency }>({
+    minor: 123456789,
+    currency: "INR",
+  });
+  const [eur, setEur] = useState<{ minor: number | null; currency: MoneyCurrency }>({
+    minor: null,
+    currency: "EUR",
+  });
+  const [gbp, setGbp] = useState<{ minor: number | null; currency: MoneyCurrency }>({
+    minor: 4500,
+    currency: "GBP",
+  });
+  const [jpy, setJpy] = useState<{ minor: number | null; currency: MoneyCurrency }>({
+    minor: 15000,
+    currency: "JPY",
+  });
+  const [lockedMinor, setLockedMinor] = useState<number | null>(2000);
+  const [date, setDate] = useState<string | null>(null);
+  const [required, setRequired] = useState<string | null>("2026-10-20");
+  const [list, setList] = useState("monthly");
+  const [grid, setGrid] = useState("yearly");
+  return (
+    <>
+      <Section title="Select">
+        <div className="dl-form" style={{ maxWidth: 420 }}>
+          <Select
+            label="Account"
+            value={account}
+            options={accountOptions}
+            onChange={setAccount}
+            placeholder="Choose an account"
+          />
+          <Select
+            label="Account (with error)"
+            value={null}
+            options={cadenceOptions}
+            onChange={setAccount}
+            error="Choose one."
+          />
+          <Row>
+            <Select
+              label="Account"
+              hideLabel
+              size="sm"
+              value={toolbar}
+              options={accountOptions}
+              onChange={setToolbar}
+            />
+            <Select
+              label="Cadence"
+              hideLabel
+              size="sm"
+              value={null}
+              options={cadenceOptions}
+              onChange={setToolbar}
+              placeholder="Cadence"
+            />
+          </Row>
+        </div>
+      </Section>
+
+      <Section title="Money Input">
+        <div className="dl-form" style={{ maxWidth: 420 }}>
+          <MoneyInput
+            label="USD"
+            minor={usd.minor}
+            currency={usd.currency}
+            currencies={moneyCurrencies}
+            onChange={setUsd}
+          />
+          <MoneyInput
+            label="INR (lakh grouping)"
+            minor={inr.minor}
+            currency={inr.currency}
+            currencies={moneyCurrencies}
+            onChange={setInr}
+          />
+          <MoneyInput
+            label="EUR (empty)"
+            minor={eur.minor}
+            currency={eur.currency}
+            currencies={moneyCurrencies}
+            onChange={setEur}
+            hint="Paste 1,999.50 or $20."
+          />
+          <MoneyInput
+            label="GBP (with error)"
+            minor={gbp.minor}
+            currency={gbp.currency}
+            currencies={moneyCurrencies}
+            onChange={setGbp}
+            error="Enter a smaller amount."
+          />
+          <MoneyInput
+            label="JPY (no decimals)"
+            minor={jpy.minor}
+            currency={jpy.currency}
+            currencies={moneyCurrencies}
+            onChange={setJpy}
+          />
+          <MoneyInput
+            label="One currency (static)"
+            minor={lockedMinor}
+            currency="USD"
+            currencies={["USD"]}
+            onChange={(next) => setLockedMinor(next.minor)}
+          />
+          <p className="muted" style={{ margin: 0, fontSize: "var(--text-xs)" }}>
+            USD minor: {usd.minor ?? "null"} · INR minor: {inr.minor ?? "null"} · JPY minor:{" "}
+            {jpy.minor ?? "null"}
+          </p>
+        </div>
+      </Section>
+
+      <Section title="Date Picker">
+        <div className="dl-form" style={{ maxWidth: 420 }}>
+          <DatePicker
+            label="Renews on (optional, min Oct 1 2026)"
+            value={date}
+            onChange={setDate}
+            optional
+            min="2026-10-01"
+          />
+          <DatePicker
+            label="Due date (min, max, error)"
+            value={required}
+            onChange={setRequired}
+            min="2026-10-05"
+            max="2026-12-20"
+            error="Pick a date in range."
+          />
+        </div>
+      </Section>
+
+      <Section title="Radio Cards">
+        <div className="dl-form" style={{ maxWidth: 520 }}>
+          <RadioCards label="Plan (list)" value={list} options={planCards} onChange={setList} />
+          <RadioCards
+            label="Plan (grid)"
+            layout="grid"
+            value={grid}
+            options={planCardsWithIcons}
+            onChange={setGrid}
+          />
+        </div>
+      </Section>
+
+      <Section title="Fields in a Dialog">
+        <Row>
+          <Button onClick={props.onOpenDialog}>Open Form Dialog</Button>
+        </Row>
+      </Section>
+    </>
+  );
+}
+
 export function Gallery() {
   const [scheme, setScheme] = useState<Scheme>("system");
   const [privacy, setPrivacy] = useState(true);
   const [busy, setBusy] = useState(false);
   const [statusIndex, setStatusIndex] = useState(0);
   const [count, setCount] = useState(61068);
-  const [dialog, setDialog] = useState<"none" | "plain" | "settings">("none");
+  const [dialog, setDialog] = useState<"none" | "plain" | "settings" | "fields">("none");
   const [density, setDensity] = useState<"comfortable" | "compact">("comfortable");
   const [segment, setSegment] = useState("used");
   const now = useNow();
@@ -547,6 +839,8 @@ export function Gallery() {
         </Row>
       </Section>
 
+      <GalleryFields onOpenDialog={() => setDialog("fields")} />
+
       <Section title="Brand Marks and Avatar">
         <Row>
           {providers.map((provider: Provider) => (
@@ -572,6 +866,11 @@ export function Gallery() {
         </Row>
       </Section>
 
+      <Dialog open={dialog === "fields"} onClose={() => setDialog("none")} title="Form Fields">
+        <section className="dsec">
+          <FieldSet prefix="dialog" />
+        </section>
+      </Dialog>
       <Dialog open={dialog === "plain"} onClose={() => setDialog("none")} title="Account">
         <section className="dsec">
           <div className="dsec-head">

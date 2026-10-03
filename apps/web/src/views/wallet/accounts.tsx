@@ -1,35 +1,18 @@
 import { useId } from "react";
 
-import { BrandMark, PencilIcon } from "../../icons.tsx";
+import { BrandMark, PencilIcon, PlusIcon } from "../../icons.tsx";
 import { accountName, planLabel, providerName } from "@headroom/view-model/labels";
-import {
-  convert,
-  formatMoney,
-  type Currency,
-  type Cycle,
-  type WalletAccount,
-  type WalletBook,
-  type WalletProvider,
-} from "@headroom/view-model/wallet";
+import { dayLabel } from "@headroom/view-model/wallet-dates";
+import { formatMoney } from "@headroom/view-model/wallet-money";
+import type { WalletAccount, WalletProvider } from "@headroom/view-model/wallet";
 
 import { Button } from "../../ui/button.tsx";
 import { Pill } from "../../ui/pill.tsx";
-import { dayLabel, plural } from "./book.ts";
+import { figureText, originalNote } from "./amount.ts";
 
-const cycleWord: Record<Cycle, string> = { monthly: "month", annual: "year" };
-
-function Price(props: { readonly text: string; readonly unit: string }) {
-  return (
-    <span className="w-price">
-      <span className="num">{props.text}</span>
-      <span className="unit">{props.unit}</span>
-    </span>
-  );
-}
-
-/** What the account costs: a price, Free, Included, or Not Set. */
+/** What the account costs per month: a price, Free, Included, or Not Set. */
 function CostCell(props: { readonly account: WalletAccount }) {
-  const { cost, monthly } = props.account;
+  const { cost, monthly, billed } = props.account;
   if (cost === null) return <span className="w-unset">Not Set</span>;
   if (cost.kind === "free") return <Pill tone="quiet">Free</Pill>;
   if (cost.kind === "included") {
@@ -40,79 +23,49 @@ function CostCell(props: { readonly account: WalletAccount }) {
       </span>
     );
   }
+  if (monthly === null || billed === null) return null;
+  const yearly = cost.cycle === "annual" ? (billed.original ?? billed.shown) : null;
+  const notes: string[] = [];
+  // No rate: say so. A yearly plan names its yearly price; a monthly one names what it was converted from.
+  if (monthly.shown === null) notes.push(originalNote(monthly) ?? "");
+  if (yearly !== null) notes.push(`${formatMoney(yearly)} / year`);
+  else if (monthly.shown !== null) notes.push(originalNote(monthly, " billed") ?? "");
   return (
     <span className="w-cost">
-      <Price text={formatMoney(cost.price)} unit={`/ ${cycleWord[cost.cycle]}`} />
-      {cost.cycle === "annual" && monthly !== null ? (
-        <span className="muted num">{formatMoney(monthly)} / month</span>
-      ) : null}
+      <span className="w-figure num">{figureText(monthly)}</span>
+      {notes
+        .filter((note) => note !== "")
+        .map((note) => (
+          <span key={note} className="muted num">
+            {note}
+          </span>
+        ))}
     </span>
   );
 }
 
-/** The next renewal, and for a price in another currency what it comes to in the display currency. */
-function RenewalCell(props: {
-  readonly account: WalletAccount;
-  readonly display: Currency;
-  readonly perUsd: WalletBook["perUsd"];
-}) {
-  const { cost, nextRenewal } = props.account;
-  if (cost === null || cost.kind !== "paid") return <span className="muted">—</span>;
-  const converted =
-    cost.price.currency === props.display ? null : convert(cost.price, props.display, props.perUsd);
+/** Usage spend the provider reports: the figure alone, with what it is in the tooltip. */
+function SpendCell(props: { readonly account: WalletAccount }) {
+  const { usageSpend } = props.account;
+  if (usageSpend === null) return null;
+  const note = originalNote(usageSpend);
   return (
-    <span className="w-renewal">
-      {nextRenewal === null ? (
-        <span className="muted">—</span>
-      ) : (
-        <span>Renews {dayLabel(nextRenewal)}</span>
-      )}
-      {cost.price.currency === props.display ? null : converted === null ? (
-        <span className="muted">No exchange rate</span>
-      ) : (
-        <span className="muted num">≈ {formatMoney(converted)}</span>
-      )}
+    <span className="w-cost" title={usageSpend.label}>
+      <span className="w-figure num">{figureText(usageSpend)}</span>
+      {note === null ? null : <span className="muted num">{note}</span>}
     </span>
   );
-}
-
-/** "2 top-ups · $25 paid · 1 free", or null when the account has none. */
-function topUpLine(
-  account: WalletAccount,
-  display: Currency,
-  perUsd: WalletBook["perUsd"],
-): string | null {
-  const { topUps } = account;
-  if (topUps.length === 0) return null;
-  const paid = topUps.filter((topUp) => topUp.kind === "paid");
-  const free = topUps.length - paid.length;
-  const parts = [plural(topUps.length, "top-up", "top-ups")];
-  if (paid.length > 0) {
-    // One amount with no rate leaves the total unknown, so only the count shows.
-    let minor = 0;
-    let known = true;
-    for (const topUp of paid) {
-      const money = topUp.price === null ? null : convert(topUp.price, display, perUsd);
-      if (money === null) known = false;
-      else minor += money.minor;
-    }
-    parts.push(known ? `${formatMoney({ minor, currency: display })} paid` : `${paid.length} paid`);
-  }
-  if (free > 0) parts.push(`${free} free`);
-  return parts.join(" · ");
 }
 
 function AccountRow(props: {
   readonly account: WalletAccount;
-  readonly display: Currency;
-  readonly perUsd: WalletBook["perUsd"];
   readonly onEdit: () => void;
+  readonly onAddTopUp: () => void;
 }) {
   const { account } = props;
-  const { connection, usageSpend } = account;
+  const { connection, nextRenewal } = account;
   const name = accountName(connection);
   const plan = planLabel(connection.plan);
-  const line = topUpLine(account, props.display, props.perUsd);
   return (
     <li className="w-row">
       <div className="w-who">
@@ -130,21 +83,19 @@ function AccountRow(props: {
         {connection.identity === null ? null : (
           <span className="w-sub who">{connection.identity}</span>
         )}
-        {line === null ? null : <span className="w-sub">{line}</span>}
       </div>
-      <div className="w-col w-c-cost">
+      <div className="w-col w-c-cost" data-label="Cost / Month">
         <CostCell account={account} />
       </div>
-      <div className="w-col w-c-renew">
-        <RenewalCell account={account} display={props.display} perUsd={props.perUsd} />
-      </div>
-      <div className="w-col w-c-spend">
-        {usageSpend === null ? null : (
-          <span className="w-spend">
-            <span className="num">+{formatMoney(usageSpend.money)}</span>
-            <span className="muted">{usageSpend.label}</span>
-          </span>
+      <div className="w-col w-c-renew" data-label="Renews">
+        {nextRenewal === null ? (
+          <span className="muted">—</span>
+        ) : (
+          <span>{dayLabel(nextRenewal)}</span>
         )}
+      </div>
+      <div className="w-col w-c-spend" data-label="Usage Spend">
+        <SpendCell account={account} />
       </div>
       <div className="w-act">
         {account.cost === null ? (
@@ -161,6 +112,15 @@ function AccountRow(props: {
             <PencilIcon />
           </Button>
         )}
+        <Button
+          variant="quiet"
+          size="sm"
+          aria-label={`Add top-up for ${name}`}
+          title="Add Top-Up"
+          onClick={props.onAddTopUp}
+        >
+          <PlusIcon />
+        </Button>
       </div>
     </li>
   );
@@ -183,12 +143,11 @@ function Subtotal(props: { readonly group: WalletProvider }) {
   );
 }
 
-/** One provider: its header with the monthly subtotal, then one bordered group with a row per account. */
+/** One provider: its header with the monthly subtotal, a column header row, then a row per account. */
 export function ProviderBlock(props: {
   readonly group: WalletProvider;
-  readonly display: Currency;
-  readonly perUsd: WalletBook["perUsd"];
   readonly onEdit: (connectionId: string) => void;
+  readonly onAddTopUp: (connectionId: string) => void;
 }) {
   const { group } = props;
   const headingId = useId();
@@ -206,17 +165,25 @@ export function ProviderBlock(props: {
         ) : null}
         <Subtotal group={group} />
       </header>
-      <ul className="w-card">
-        {group.accounts.map((account) => (
-          <AccountRow
-            key={account.connection.id}
-            account={account}
-            display={props.display}
-            perUsd={props.perUsd}
-            onEdit={() => props.onEdit(account.connection.id)}
-          />
-        ))}
-      </ul>
+      <div className="w-card">
+        <div className="w-colhead">
+          <span>Account</span>
+          <span>Cost / Month</span>
+          <span>Renews</span>
+          <span>Usage Spend</span>
+          <span />
+        </div>
+        <ul className="w-rows">
+          {group.accounts.map((account) => (
+            <AccountRow
+              key={account.connection.id}
+              account={account}
+              onEdit={() => props.onEdit(account.connection.id)}
+              onAddTopUp={() => props.onAddTopUp(account.connection.id)}
+            />
+          ))}
+        </ul>
+      </div>
     </section>
   );
 }

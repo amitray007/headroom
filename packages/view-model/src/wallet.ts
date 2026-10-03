@@ -2,23 +2,23 @@ import type { Provider } from "@headroom/core/contracts";
 
 import { groupByProvider } from "./labels.ts";
 import type { OverviewConnection } from "./overview.ts";
+import { isoDate, rollForward, type Cycle } from "./wallet-dates.ts";
+import {
+  convert,
+  currencies,
+  defaultCurrency,
+  missingRate,
+  toMinor,
+  type Currency,
+  type Money,
+  type Rates,
+} from "./wallet-money.ts";
 
 /**
  * Wallet: what the owner pays for each account, in money. Exploration on the `wallet-exploration` branch.
  * Providers never report what an account costs, so every cost and top-up here is owner-entered; only usage spend
  * (Claude extra usage, Cursor on-demand, Vercel 30-day spend) comes from the provider's own figures.
  */
-
-export const currencies = ["USD", "EUR", "GBP", "INR"] as const;
-export type Currency = (typeof currencies)[number];
-
-export type Cycle = "monthly" | "annual";
-
-/** An amount in minor units (cents, paise) with its currency. Never mixed with credits or percentages. */
-export interface Money {
-  readonly minor: number;
-  readonly currency: Currency;
-}
 
 /**
  * What one account costs. An account with no entry is "Not set": unknown, never zero.
@@ -54,18 +54,69 @@ export interface WalletBook {
   /** Keyed by connection id. A missing key is "Not set". */
   readonly costs: Readonly<Record<string, Cost>>;
   readonly topUps: readonly TopUp[];
-  /** Totals are shown in this currency. */
-  readonly displayCurrency: Currency;
+  /** Every figure is shown in this currency. Null until the owner picks one; the browser locale decides then. */
+  readonly displayCurrency: Currency | null;
   /** Owner-set rates: units of each currency per 1 USD. USD is always 1. A missing rate leaves that currency out of converted totals. */
-  readonly perUsd: Readonly<Partial<Record<Currency, number>>>;
+  readonly perUsd: Rates;
+  /** The day (`YYYY-MM-DD`) the owner last changed a rate, or null when none was ever set. */
+  readonly ratesChangedOn: string | null;
 }
 
 export const emptyBook: WalletBook = {
   costs: {},
   topUps: [],
-  displayCurrency: "USD",
+  displayCurrency: null,
   perUsd: { USD: 1 },
+  ratesChangedOn: null,
 };
+
+/** The currency every figure shows in: the owner's choice, else the one the browser locale suggests. */
+export function displayCurrencyOf(book: WalletBook, locale: string): Currency {
+  return book.displayCurrency ?? defaultCurrency(locale);
+}
+
+/** The currencies the owner's entries use, in the usual order. */
+export function usedCurrencies(book: WalletBook): readonly Currency[] {
+  const used = new Set<Currency>();
+  for (const cost of Object.values(book.costs)) {
+    if (cost.kind === "paid") used.add(cost.price.currency);
+  }
+  for (const topUp of book.topUps) {
+    if (topUp.price !== null) used.add(topUp.price.currency);
+  }
+  return currencies.filter((currency) => used.has(currency));
+}
+
+/**
+ * The currencies that need a rate against USD: every one the book uses and the display currency, since provider
+ * spend is in USD. USD itself needs none.
+ */
+export function rateCurrencies(book: WalletBook, display: Currency): readonly Currency[] {
+  const needed = new Set<Currency>([...usedCurrencies(book), display]);
+  return currencies.filter((currency) => currency !== "USD" && needed.has(currency));
+}
+
+/**
+ * An amount ready to show. `shown` is the figure in the display currency, null when a rate is missing.
+ * `original` is the amount as entered, set only when its currency is not the display currency. `noRate` names
+ * the currency that has no rate when `shown` is null.
+ */
+export interface Amount {
+  readonly shown: Money | null;
+  readonly original: Money | null;
+  readonly noRate: Currency | null;
+}
+
+/** Convert one amount for display. */
+export function amountOf(money: Money, display: Currency, rates: Rates): Amount {
+  if (money.currency === display) return { shown: money, original: null, noRate: null };
+  const shown = convert(money, display, rates);
+  return {
+    shown,
+    original: money,
+    noRate: shown === null ? missingRate(money.currency, display, rates) : null,
+  };
+}
 
 /** A total that may leave some amounts out: `missing` counts amounts with no rate into the display currency. */
 export interface Total {
@@ -76,8 +127,18 @@ export interface Total {
 /** Provider-reported spend in money for this account, or null when the provider reports none. */
 export interface UsageSpend {
   readonly money: Money;
-  /** For example "Extra usage this month", "On-demand this cycle", "Last 30 days". */
+  /** What the figure is, for example "Extra usage this month", "On-demand this cycle", "Last 30 days". */
   readonly label: string;
+}
+
+/** Usage spend converted for display. */
+export interface ShownSpend extends Amount {
+  readonly label: string;
+}
+
+/** A top-up with its price converted for display; `amount` is null for a free one. */
+export interface WalletTopUp extends TopUp {
+  readonly amount: Amount | null;
 }
 
 /** A list price Headroom suggests when the owner sets a cost. A starting value only; the owner's entry wins. */
@@ -94,12 +155,13 @@ export interface WalletAccount {
   readonly connection: OverviewConnection;
   /** Null when Not set. */
   readonly cost: Cost | null;
-  /** The cost per month in its own currency (annual / 12); zero for free and included; null when Not set. */
-  readonly monthly: Money | null;
+  /** The cost per month (annual / 12); zero for free and included; null when Not set. */
+  readonly monthly: Amount | null;
+  /** The price as billed, per its cycle; null unless paid. */
+  readonly billed: Amount | null;
   /** The next renewal on or after `now` as `YYYY-MM-DD`, or null. */
   readonly nextRenewal: string | null;
-  readonly usageSpend: UsageSpend | null;
-  readonly topUps: readonly TopUp[];
+  readonly usageSpend: ShownSpend | null;
 }
 
 export interface WalletProvider {
@@ -110,6 +172,8 @@ export interface WalletProvider {
 }
 
 export interface WalletSummary {
+  /** The display currency every figure is in. */
+  readonly currency: Currency;
   readonly providers: readonly WalletProvider[];
   /** Every paid subscription per month, in the display currency. */
   readonly monthly: Total;
@@ -121,17 +185,24 @@ export interface WalletSummary {
   };
   /** Provider-reported usage spend, in the display currency. */
   readonly usageSpend: Total;
-  /** Paid top-ups dated in the calendar month of `now`, in the display currency, and how many free ones. */
-  readonly topUpsThisMonth: { readonly paid: Total; readonly freeCount: number };
+  /** Every top-up, newest first. */
+  readonly topUps: readonly WalletTopUp[];
+  /** Top-ups dated in the calendar month of `now`: the paid total in the display currency, and the counts. */
+  readonly topUpsThisMonth: {
+    readonly paid: Total;
+    readonly paidCount: number;
+    readonly freeCount: number;
+    readonly items: readonly WalletTopUp[];
+  };
   /** The soonest renewal across paid accounts. */
   readonly nextRenewal: {
     readonly connectionId: string;
     readonly date: string;
-    readonly price: Money;
+    readonly price: Amount;
   } | null;
 }
 
-const usd = (dollars: number): Money => ({ minor: Math.round(dollars * 100), currency: "USD" });
+const usd = (dollars: number): Money => ({ minor: toMinor(dollars, "USD"), currency: "USD" });
 
 /** The monthly amount of a cost in its own currency; null when the cost is Not set. */
 export function monthlyOf(cost: Cost | null): Money | null {
@@ -139,21 +210,6 @@ export function monthlyOf(cost: Cost | null): Money | null {
   if (cost.kind !== "paid") return { minor: 0, currency: "USD" };
   const minor = cost.cycle === "annual" ? Math.round(cost.price.minor / 12) : cost.price.minor;
   return { minor, currency: cost.price.currency };
-}
-
-function rateOf(currency: Currency, perUsd: WalletBook["perUsd"]): number | null {
-  if (currency === "USD") return 1;
-  const rate = perUsd[currency];
-  return rate !== undefined && Number.isFinite(rate) && rate > 0 ? rate : null;
-}
-
-/** Convert through USD with the owner's rates; null when either rate is missing. */
-export function convert(money: Money, to: Currency, perUsd: WalletBook["perUsd"]): Money | null {
-  if (money.currency === to) return money;
-  const from = rateOf(money.currency, perUsd);
-  const target = rateOf(to, perUsd);
-  if (from === null || target === null) return null;
-  return { minor: Math.round((money.minor / from) * target), currency: to };
 }
 
 const usageSpendMetrics: Partial<Record<Provider, { key: string; label: string }>> = {
@@ -276,45 +332,6 @@ export function suggestPrices(provider: Provider, plan: string | null): readonly
     .map((match) => match.item.suggestion);
 }
 
-// ---------- dates ----------
-
-function isoDate(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
-/** Parse `YYYY-MM-DD` into numbers; null when it is not a real date. */
-function parseDate(text: string): { year: number; month: number; day: number } | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
-  if (match === null) return null;
-  const [year, month, dayOfMonth] = [Number(match[1]), Number(match[2]), Number(match[3])];
-  const parsed = new Date(Date.UTC(year, month - 1, dayOfMonth));
-  return parsed.getUTCFullYear() === year &&
-    parsed.getUTCMonth() === month - 1 &&
-    parsed.getUTCDate() === dayOfMonth
-    ? { year, month, day: dayOfMonth }
-    : null;
-}
-
-/** The date `months` after the start, keeping the start's day of month and clamping to the month's end. */
-function addMonths(start: { year: number; month: number; day: number }, months: number): string {
-  const index = start.year * 12 + (start.month - 1) + months;
-  const year = Math.floor(index / 12);
-  const month = index - year * 12;
-  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  const value = new Date(Date.UTC(year, month, Math.min(start.day, lastDay)));
-  return value.toISOString().slice(0, 10);
-}
-
-/** Roll a renewal date forward by its cycle until it is on or after `today` (`YYYY-MM-DD`). */
-function rollForward(renewsOn: string, cycle: Cycle, today: string): string | null {
-  const start = parseDate(renewsOn);
-  if (start === null) return null;
-  const step = cycle === "annual" ? 12 : 1;
-  let next = addMonths(start, 0);
-  for (let count = 1; next < today; count += 1) next = addMonths(start, count * step);
-  return next;
-}
-
 // ---------- summary ----------
 
 class Sum {
@@ -323,10 +340,9 @@ class Sum {
 
   constructor(private readonly currency: Currency) {}
 
-  add(money: Money | null, perUsd: WalletBook["perUsd"]): void {
-    const converted = money === null ? null : convert(money, this.currency, perUsd);
-    if (converted === null) this.missing += 1;
-    else this.minor += converted.minor;
+  add(amount: Amount | null): void {
+    if (amount === null || amount.shown === null) this.missing += 1;
+    else this.minor += amount.shown.minor;
   }
 
   total(): Total {
@@ -334,16 +350,22 @@ class Sum {
   }
 }
 
-/** Everything the Wallet view shows, in the saved provider order. `now` is epoch milliseconds. */
+/**
+ * Everything the Wallet view shows, in the saved provider order, every figure in the display currency. `now` is
+ * epoch milliseconds; `locale` picks the display currency when the owner has not.
+ */
 export function summarize(
   connections: readonly OverviewConnection[],
   providerOrder: readonly Provider[],
   book: WalletBook,
   now: number,
+  locale = "en-US",
 ): WalletSummary {
-  const currency = book.displayCurrency;
+  const currency = displayCurrencyOf(book, locale);
+  const rates = book.perUsd;
   const today = isoDate(now);
   const month = today.slice(0, 7);
+  const zero: Amount = { shown: { minor: 0, currency }, original: null, noRate: null };
   const monthly = new Sum(currency);
   const usageSpend = new Sum(currency);
   const counts = { paid: 0, free: 0, included: 0, notSet: 0 };
@@ -353,68 +375,69 @@ export function summarize(
     const providerMonthly = new Sum(currency);
     const accounts = group.connections.map((connection): WalletAccount => {
       const cost = book.costs[connection.id] ?? null;
-      const accountMonthly = monthlyOf(cost);
-      const renewal =
-        cost?.kind === "paid" && cost.renewsOn !== null
-          ? rollForward(cost.renewsOn, cost.cycle, today)
-          : null;
       const spend = usageSpendOf(connection);
+      const shownSpend =
+        spend === null ? null : { ...amountOf(spend.money, currency, rates), label: spend.label };
       if (cost === null) counts.notSet += 1;
       else counts[cost.kind] += 1;
+      let accountMonthly: Amount | null = cost === null ? null : zero;
+      let billed: Amount | null = null;
+      let renewal: string | null = null;
       if (cost?.kind === "paid") {
-        providerMonthly.add(accountMonthly, book.perUsd);
-        monthly.add(accountMonthly, book.perUsd);
+        const own = monthlyOf(cost);
+        accountMonthly = own === null ? null : amountOf(own, currency, rates);
+        billed = amountOf(cost.price, currency, rates);
+        providerMonthly.add(accountMonthly);
+        monthly.add(accountMonthly);
+        renewal = cost.renewsOn === null ? null : rollForward(cost.renewsOn, cost.cycle, today);
         if (renewal !== null && (soonest.value === null || renewal < soonest.value.date)) {
-          soonest.value = { connectionId: connection.id, date: renewal, price: cost.price };
+          soonest.value = { connectionId: connection.id, date: renewal, price: billed };
         }
       }
-      if (spend !== null) usageSpend.add(spend.money, book.perUsd);
+      if (shownSpend !== null) usageSpend.add(shownSpend);
       return {
         connection,
         cost,
         monthly: accountMonthly,
+        billed,
         nextRenewal: renewal,
-        usageSpend: spend,
-        topUps: book.topUps
-          .filter((topUp) => topUp.connectionId === connection.id)
-          .toSorted((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id)),
+        usageSpend: shownSpend,
       };
     });
     return { provider: group.provider, accounts, monthly: providerMonthly.total() };
   });
 
+  const topUps = book.topUps
+    .map((topUp): WalletTopUp => ({
+      ...topUp,
+      amount:
+        topUp.kind === "paid" && topUp.price !== null
+          ? amountOf(topUp.price, currency, rates)
+          : null,
+    }))
+    .toSorted((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
+  const thisMonth = topUps.filter((topUp) => topUp.date.startsWith(month));
   const topUpTotal = new Sum(currency);
-  let freeCount = 0;
-  for (const topUp of book.topUps) {
-    if (!topUp.date.startsWith(month)) continue;
-    if (topUp.kind === "free") freeCount += 1;
-    else topUpTotal.add(topUp.price, book.perUsd);
+  let paidCount = 0;
+  for (const topUp of thisMonth) {
+    if (topUp.kind === "free") continue;
+    paidCount += 1;
+    topUpTotal.add(topUp.amount);
   }
 
   return {
+    currency,
     providers,
     monthly: monthly.total(),
     counts,
     usageSpend: usageSpend.total(),
-    topUpsThisMonth: { paid: topUpTotal.total(), freeCount },
+    topUps,
+    topUpsThisMonth: {
+      paid: topUpTotal.total(),
+      paidCount,
+      freeCount: thisMonth.length - paidCount,
+      items: thisMonth,
+    },
     nextRenewal: soonest.value,
   };
-}
-
-const locales: Record<Currency, string> = {
-  USD: "en-US",
-  EUR: "en-US",
-  GBP: "en-US",
-  INR: "en-IN",
-};
-
-/** Format money for display, for example "$200", "$1,128.10", "₹1,999". Whole amounts drop the decimals. */
-export function formatMoney(money: Money): string {
-  const digits = money.minor % 100 === 0 ? 0 : 2;
-  return new Intl.NumberFormat(locales[money.currency], {
-    style: "currency",
-    currency: money.currency,
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(money.minor / 100);
 }

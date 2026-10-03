@@ -26,9 +26,10 @@ export function WalletSkeleton() {
   return (
     <div aria-busy="true" className="w-page">
       <LoadingNote>Loading wallet</LoadingNote>
-      <div className="w-tools" aria-hidden="true">
-        <Sk width={190} />
-        <div className="w-segs">
+      <div className="w-tools">
+        <h1 className="w-title">Wallet</h1>
+        <div className="w-segs" aria-hidden="true">
+          <Sk width={92} height={30} className="sk-pill" />
           <Sk width={120} height={30} className="sk-pill" />
           <Sk width={104} height={36} className="sk-pill" />
         </div>
@@ -47,11 +48,20 @@ export function WalletSkeleton() {
           <Sk width={20} height={20} className="sk-pill" />
           <Sk kind="title" width={110} />
         </header>
-        <ul className="w-card">
-          {Array.from({ length: 3 }, (_, index) => (
-            <SkeletonRow key={index} />
-          ))}
-        </ul>
+        <div className="w-card">
+          <div className="w-colhead">
+            <Sk width={60} />
+            <Sk width={80} />
+            <Sk width={50} />
+            <Sk width={80} />
+            <span />
+          </div>
+          <ul className="w-rows">
+            {Array.from({ length: 3 }, (_, index) => (
+              <SkeletonRow key={index} />
+            ))}
+          </ul>
+        </div>
       </section>
     </div>
   );

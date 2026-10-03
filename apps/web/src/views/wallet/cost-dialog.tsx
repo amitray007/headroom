@@ -2,29 +2,24 @@ import { useState, type FormEvent } from "react";
 
 import type { Provider } from "@headroom/core/contracts";
 import { accountName, planLabel, providerName } from "@headroom/view-model/labels";
-import {
-  currencies,
-  formatMoney,
-  suggestPrices,
-  type Cost,
-  type Currency,
-  type Cycle,
-  type WalletAccount,
-} from "@headroom/view-model/wallet";
+import { monthLabel, type Cycle } from "@headroom/view-model/wallet-dates";
+import { currencies, formatMoney, type Currency } from "@headroom/view-model/wallet-money";
+import { suggestPrices, type Cost, type WalletAccount } from "@headroom/view-model/wallet";
 
 import { TextField } from "../../shell/delivery/form-parts.tsx";
 import { Button } from "../../ui/button.tsx";
+import { DatePicker } from "../../ui/date-picker.tsx";
 import { Dialog } from "../../ui/dialog.tsx";
+import { MoneyInput } from "../../ui/money-input.tsx";
+import { RadioCards, type RadioCard } from "../../ui/radio-cards.tsx";
 import { Segmented } from "../../ui/segmented.tsx";
-import { amountText, monthLabel, parseAmount } from "./book.ts";
-import { DateField, GroupField, SelectField } from "./fields.tsx";
 
 type Kind = Cost["kind"];
 
-const kinds: readonly { readonly value: Kind; readonly label: string }[] = [
-  { value: "paid", label: "Paid" },
-  { value: "free", label: "Free" },
-  { value: "included", label: "Included" },
+const kinds: readonly RadioCard<Kind>[] = [
+  { value: "paid", label: "Paid", description: "You pay for this plan." },
+  { value: "free", label: "Free", description: "Counts as nothing in your totals." },
+  { value: "included", label: "Included", description: "Comes with another subscription." },
 ];
 
 const cycles: readonly { readonly value: Cycle; readonly label: string }[] = [
@@ -39,7 +34,7 @@ const includedWith: Partial<Record<Provider, readonly string[]>> = {
   antigravity: ["Google AI Pro"],
 };
 
-const cycleWord: Record<Cycle, string> = { monthly: "month", annual: "year" };
+const cycleUnit: Record<Cycle, string> = { monthly: "mo", annual: "yr" };
 
 function CostForm(props: {
   readonly account: WalletAccount;
@@ -51,15 +46,13 @@ function CostForm(props: {
   const { provider, plan } = account.connection;
   const current = account.cost;
   const [kind, setKind] = useState<Kind>(current?.kind ?? "paid");
-  const [amount, setAmount] = useState(
-    current?.kind === "paid" ? amountText(current.price.minor) : "",
-  );
-  const [currency, setCurrency] = useState<Currency>(
-    current?.kind === "paid" ? current.price.currency : props.defaultCurrency,
-  );
+  const [price, setPrice] = useState<{ minor: number | null; currency: Currency }>({
+    minor: current?.kind === "paid" ? current.price.minor : null,
+    currency: current?.kind === "paid" ? current.price.currency : props.defaultCurrency,
+  });
   const [cycle, setCycle] = useState<Cycle>(current?.kind === "paid" ? current.cycle : "monthly");
-  const [renewsOn, setRenewsOn] = useState(
-    current?.kind === "paid" ? (current.renewsOn ?? "") : "",
+  const [renewsOn, setRenewsOn] = useState<string | null>(
+    current?.kind === "paid" ? current.renewsOn : null,
   );
   const [included, setIncluded] = useState(
     current?.kind === "included" ? current.includedWith : "",
@@ -78,14 +71,13 @@ function CostForm(props: {
       if (words === "") setError("Say what this account comes with.");
       else props.onSave({ kind: "included", includedWith: words });
     } else {
-      const minor = parseAmount(amount);
-      if (minor === null) setError("Enter an amount above zero, such as 199.99.");
+      if (price.minor === null || price.minor <= 0) setError("Enter an amount above zero.");
       else {
         props.onSave({
           kind: "paid",
-          price: { minor, currency },
+          price: { minor: price.minor, currency: price.currency },
           cycle,
-          renewsOn: renewsOn === "" ? null : renewsOn,
+          renewsOn,
         });
       }
     }
@@ -99,9 +91,9 @@ function CostForm(props: {
     <form onSubmit={submit} noValidate>
       <div className="dsec">
         <p className="w-desc">{description}</p>
-        <Segmented
-          full
+        <RadioCards
           label="Kind of cost"
+          hideLabel
           value={kind}
           options={kinds}
           onChange={(next) => {
@@ -113,12 +105,15 @@ function CostForm(props: {
       {kind === "paid" ? (
         <div className="dsec">
           {suggestions.length === 0 ? null : (
-            <GroupField label="List prices">
+            <div className="w-suggest">
+              <p className="w-desc">
+                List prices, checked {monthLabel(suggestions[0]?.asOf ?? "")}
+              </p>
               <div className="w-chips">
                 {suggestions.map((suggestion) => {
                   const chosen =
-                    amount === amountText(suggestion.price.minor) &&
-                    currency === suggestion.price.currency &&
+                    price.minor === suggestion.price.minor &&
+                    price.currency === suggestion.price.currency &&
                     cycle === suggestion.cycle;
                   return (
                     <button
@@ -127,54 +122,38 @@ function CostForm(props: {
                       className="w-chip"
                       aria-pressed={chosen}
                       onClick={() => {
-                        setAmount(amountText(suggestion.price.minor));
-                        setCurrency(suggestion.price.currency);
+                        setPrice({
+                          minor: suggestion.price.minor,
+                          currency: suggestion.price.currency,
+                        });
                         setCycle(suggestion.cycle);
                         setError(null);
                       }}
                     >
-                      <span>
-                        {suggestion.label} · {formatMoney(suggestion.price)} /{" "}
-                        {cycleWord[suggestion.cycle]}
-                      </span>
-                      <span className="muted">List price, {monthLabel(suggestion.asOf)}</span>
+                      {suggestion.label} · {formatMoney(suggestion.price)}/
+                      {cycleUnit[suggestion.cycle]}
                     </button>
                   );
                 })}
               </div>
-            </GroupField>
+            </div>
           )}
-          <div className="w-pair">
-            <TextField
-              label="Amount"
-              value={amount}
-              inputMode="decimal"
-              placeholder="0.00"
-              error={error}
-              onChange={(value) => {
-                setAmount(value);
-                setError(null);
-              }}
-            />
-            <SelectField
-              label="Currency"
-              value={currency}
-              onChange={(value) => {
-                const next = currencies.find((entry) => entry === value);
-                if (next !== undefined) setCurrency(next);
-              }}
-            >
-              {currencies.map((entry) => (
-                <option key={entry} value={entry}>
-                  {entry}
-                </option>
-              ))}
-            </SelectField>
-          </div>
-          <GroupField label="Billing">
+          <MoneyInput
+            label="Price"
+            minor={price.minor}
+            currency={price.currency}
+            currencies={currencies}
+            error={error}
+            onChange={(next) => {
+              setPrice(next);
+              setError(null);
+            }}
+          />
+          <div className="field">
+            <span className="w-label">Billing</span>
             <Segmented full label="Billing" value={cycle} options={cycles} onChange={setCycle} />
-          </GroupField>
-          <DateField label="Renews On (Optional)" value={renewsOn} onChange={setRenewsOn} />
+          </div>
+          <DatePicker label="Renews On" optional value={renewsOn} onChange={setRenewsOn} />
         </div>
       ) : null}
       {kind === "included" ? (
@@ -207,13 +186,6 @@ function CostForm(props: {
               ))}
             </div>
           )}
-        </div>
-      ) : null}
-      {kind === "free" ? (
-        <div className="dsec">
-          <p className="w-desc">
-            Counts as {formatMoney({ minor: 0, currency: props.defaultCurrency })} in your totals.
-          </p>
         </div>
       ) : null}
       <div className="w-foot">

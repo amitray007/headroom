@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import { demoOverview } from "./demo.ts";
 import { demoWallet } from "./wallet-demo.ts";
-import { currencies, summarize } from "./wallet.ts";
+import { summarize } from "./wallet.ts";
+import { currencies } from "./wallet-money.ts";
 
 const anchor = Date.UTC(2026, 9, 3, 12, 0, 0);
 const seeds = [1, 2, 7, 42, 99, 1234, 20_261_003];
@@ -80,9 +81,30 @@ describe("demoWallet", () => {
     }
   });
 
-  test("displays in USD with a rate for every currency", () => {
-    const { book } = build(1);
-    expect(book.displayCurrency).toBe("USD");
-    for (const currency of currencies) expect(book.perUsd[currency]).toBeGreaterThan(0);
+  test("has a rate for every currency, so any display currency totals without gaps", () => {
+    const { overview, book } = build(1);
+    expect(book.displayCurrency).toBeNull();
+    expect(book.ratesChangedOn).toBe("2026-10-03");
+    for (const currency of currencies) {
+      expect(book.perUsd[currency]).toBeGreaterThan(0);
+      const summary = summarize(
+        overview.connections,
+        overview.providerOrder,
+        { ...book, displayCurrency: currency },
+        anchor,
+      );
+      expect(summary.currency).toBe(currency);
+      expect(summary.monthly.missing).toBe(0);
+      expect(summary.usageSpend.missing).toBe(0);
+      expect(summary.topUpsThisMonth.paid.missing).toBe(0);
+    }
+  });
+
+  test("without a choice the browser locale decides the display currency", () => {
+    const { overview, book } = build(1);
+    const at = (locale: string) =>
+      summarize(overview.connections, overview.providerOrder, book, anchor, locale).currency;
+    expect(at("en-IN")).toBe("INR");
+    expect(at("en-US")).toBe("USD");
   });
 });

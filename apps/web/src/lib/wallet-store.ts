@@ -1,14 +1,12 @@
 import { useCallback, useSyncExternalStore } from "react";
 
+import { emptyBook, type Cost, type TopUp, type WalletBook } from "@headroom/view-model/wallet";
 import {
   currencies,
-  emptyBook,
-  type Cost,
   type Currency,
   type Money,
-  type TopUp,
-  type WalletBook,
-} from "@headroom/view-model/wallet";
+  type Rates,
+} from "@headroom/view-model/wallet-money";
 
 import { browserStorage } from "./device-prefs.ts";
 
@@ -105,7 +103,7 @@ export function parseBook(text: string | null): WalletBook {
         return topUp === null ? [] : [topUp];
       })
     : [];
-  const perUsd: Partial<Record<Currency, number>> = { USD: 1 };
+  const perUsd: { -readonly [C in keyof Rates]: number } = { USD: 1 };
   if (isRecord(parsed["perUsd"])) {
     for (const currency of currencies) {
       const rate = parsed["perUsd"][currency];
@@ -114,11 +112,13 @@ export function parseBook(text: string | null): WalletBook {
       }
     }
   }
+  const changed = parsed["ratesChangedOn"];
   return {
     costs,
     topUps,
-    displayCurrency: readCurrency(parsed["displayCurrency"]) ?? "USD",
+    displayCurrency: readCurrency(parsed["displayCurrency"]),
     perUsd,
+    ratesChangedOn: typeof changed === "string" && dayPattern.test(changed) ? changed : null,
   };
 }
 

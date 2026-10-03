@@ -45,7 +45,8 @@ const book: WalletBook = {
     },
   ],
   displayCurrency: "EUR",
-  perUsd: { USD: 1, EUR: 0.92 },
+  perUsd: { USD: 1, EUR: 0.92, JPY: 149.5 },
+  ratesChangedOn: "2026-10-03",
 };
 
 describe("parseBook", () => {
@@ -75,14 +76,26 @@ describe("parseBook", () => {
           { id: "y", connectionId: "good", date: "soon", kind: "free" },
           { id: "z", connectionId: "good", date: "2026-10-01", kind: "paid" },
         ],
-        displayCurrency: "JPY",
-        perUsd: { EUR: -3, INR: 83.5, JPY: 150 },
+        displayCurrency: "XYZ",
+        perUsd: { EUR: -3, INR: 83.5, JPY: 150, XYZ: 2 },
+        ratesChangedOn: "yesterday",
       }),
     );
     expect(Object.keys(loose.costs)).toEqual(["good"]);
     expect(loose.topUps.map((topUp) => topUp.id)).toEqual(["x"]);
-    expect(loose.displayCurrency).toBe("USD");
-    expect(loose.perUsd).toEqual({ USD: 1, INR: 83.5 });
+    expect(loose.displayCurrency).toBeNull();
+    expect(loose.perUsd).toEqual({ USD: 1, INR: 83.5, JPY: 150 });
+    expect(loose.ratesChangedOn).toBeNull();
+  });
+  test("a book saved before the owner chose a currency has none, and the new currencies read back", () => {
+    const old = parseBook(JSON.stringify({ costs: {}, topUps: [] }));
+    expect(old.displayCurrency).toBeNull();
+    expect(old.ratesChangedOn).toBeNull();
+    const kept = parseBook(
+      JSON.stringify({ displayCurrency: "JPY", perUsd: { CAD: 1.4, BRL: 5.4, CHF: 0.8 } }),
+    );
+    expect(kept.displayCurrency).toBe("JPY");
+    expect(kept.perUsd).toEqual({ USD: 1, CAD: 1.4, BRL: 5.4, CHF: 0.8 });
   });
 });
 

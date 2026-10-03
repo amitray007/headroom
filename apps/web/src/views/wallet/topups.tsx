@@ -4,12 +4,13 @@ import { BrandMark, PlusIcon, TrashIcon } from "../../icons.tsx";
 import { accountName, providerName } from "@headroom/view-model/labels";
 import type { OverviewConnection } from "@headroom/view-model/overview";
 import { formatNumber } from "@headroom/view-model/present";
-import { formatMoney, type TopUp } from "@headroom/view-model/wallet";
+import { dayLabel } from "@headroom/view-model/wallet-dates";
+import type { WalletTopUp } from "@headroom/view-model/wallet";
 
 import { Button } from "../../ui/button.tsx";
 import { EmptyState } from "../../ui/empty-state.tsx";
 import { Pill } from "../../ui/pill.tsx";
-import { dayLabel } from "./book.ts";
+import { figureText, originalNote } from "./amount.ts";
 
 const askMs = 6000;
 
@@ -56,11 +57,12 @@ function RemoveTopUp(props: { readonly label: string; readonly onRemove: () => v
 }
 
 function TopUpRow(props: {
-  readonly topUp: TopUp;
+  readonly topUp: WalletTopUp;
   readonly connection: OverviewConnection | undefined;
   readonly onRemove: () => void;
 }) {
   const { topUp, connection } = props;
+  const note = topUp.amount === null ? null : originalNote(topUp.amount);
   const name =
     connection === undefined
       ? "Removed account"
@@ -72,20 +74,20 @@ function TopUpRow(props: {
         {connection === undefined ? null : <BrandMark provider={connection.provider} />}
         <span className="w-name">{name}</span>
       </span>
-      <span className="w-credits num">
+      <span className="w-credits num" data-label="Credits">
         {topUp.credits === null ? (
           <span className="muted">—</span>
         ) : (
-          `${formatNumber(topUp.credits, Number.isInteger(topUp.credits) ? 0 : 2)} credits`
+          formatNumber(topUp.credits, Number.isInteger(topUp.credits) ? 0 : 2)
         )}
       </span>
       <span className="w-paid">
-        {topUp.kind === "free" || topUp.price === null ? (
+        {topUp.amount === null ? (
           <Pill tone="quiet">Free</Pill>
         ) : (
-          <span className="num">
-            <span className="muted">Paid </span>
-            {formatMoney(topUp.price)}
+          <span className="w-cost">
+            <span className="w-figure num">{figureText(topUp.amount)}</span>
+            {note === null ? null : <span className="muted num">{note}</span>}
           </span>
         )}
       </span>
@@ -100,36 +102,45 @@ function TopUpRow(props: {
   );
 }
 
-/** Every top-up, newest first, in one bordered group. */
+/** Every top-up, newest first, in one bordered group under a column header row. */
 export function TopUpsSection(props: {
-  readonly topUps: readonly TopUp[];
+  readonly topUps: readonly WalletTopUp[];
   readonly connections: readonly OverviewConnection[];
   readonly onRemove: (id: string) => void;
 }) {
   const byId = new Map(props.connections.map((connection) => [connection.id, connection]));
-  const sorted = props.topUps.toSorted((a, b) => b.date.localeCompare(a.date));
   return (
     <section className="provider w-topups" aria-labelledby="w-topups-title">
       <header>
         <h2 id="w-topups-title">Top-Ups</h2>
       </header>
-      {sorted.length === 0 ? (
+      {props.topUps.length === 0 ? (
         <div className="w-card">
           <EmptyState compact icon={<PlusIcon />} title="No Top-Ups Yet">
             Add one when you buy or receive credits.
           </EmptyState>
         </div>
       ) : (
-        <ul className="w-card">
-          {sorted.map((topUp) => (
-            <TopUpRow
-              key={topUp.id}
-              topUp={topUp}
-              connection={byId.get(topUp.connectionId)}
-              onRemove={() => props.onRemove(topUp.id)}
-            />
-          ))}
-        </ul>
+        <div className="w-card">
+          <div className="w-colhead">
+            <span>Date</span>
+            <span>Account</span>
+            <span>Credits</span>
+            <span>Price</span>
+            <span>Note</span>
+            <span />
+          </div>
+          <ul className="w-rows">
+            {props.topUps.map((topUp) => (
+              <TopUpRow
+                key={topUp.id}
+                topUp={topUp}
+                connection={byId.get(topUp.connectionId)}
+                onRemove={() => props.onRemove(topUp.id)}
+              />
+            ))}
+          </ul>
+        </div>
       )}
     </section>
   );

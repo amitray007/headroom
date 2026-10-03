@@ -266,5 +266,17 @@ export function GripIcon(props: IconProps) {
 /** A down chevron; rotate it for an open state. */
 export const ChevronDownIcon = stroke(<path d="m6 9 6 6 6-6" />);
 
+/** Previous and next chevrons, for paging controls such as a calendar header. */
+export const ChevronLeftIcon = stroke(<path d="m15 6-6 6 6 6" />);
+export const ChevronRightIcon = stroke(<path d="m9 6 6 6-6 6" />);
+
+/** A calendar page, for date fields. */
+export const CalendarIcon = stroke(
+  <>
+    <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
+    <path d="M3.5 10h17M8 3v4M16 3v4" />
+  </>,
+);
+
 /** Up and down arrows: reorder. */
 export const ReorderIcon = stroke(<path d="m3 16 4 4 4-4M7 20V4M21 8l-4-4-4 4M17 4v16" />);

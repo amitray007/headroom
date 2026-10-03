@@ -2,18 +2,20 @@ import { describe, expect, test } from "bun:test";
 
 import { connection, metric } from "./test-fixtures.ts";
 import {
-  convert,
+  amountOf,
+  displayCurrencyOf,
   emptyBook,
-  formatMoney,
   monthlyOf,
+  rateCurrencies,
   suggestPrices,
   summarize,
   usageSpendOf,
+  usedCurrencies,
   type Cost,
-  type Money,
   type TopUp,
   type WalletBook,
 } from "./wallet.ts";
+import type { Money } from "./wallet-money.ts";
 
 const usd = (dollars: number): Money => ({ minor: Math.round(dollars * 100), currency: "USD" });
 const inr = (rupees: number): Money => ({ minor: rupees * 100, currency: "INR" });
@@ -53,40 +55,6 @@ describe("monthlyOf", () => {
 
   test("Not set stays unknown", () => {
     expect(monthlyOf(null)).toBeNull();
-  });
-});
-
-describe("convert", () => {
-  const perUsd = { USD: 1, INR: 95, EUR: 0.9 };
-
-  test("goes through USD in both directions", () => {
-    expect(convert(usd(20), "INR", perUsd)).toEqual(inr(1900));
-    expect(convert(inr(1900), "USD", perUsd)).toEqual(usd(20));
-    expect(convert(inr(1900), "EUR", perUsd)).toEqual({ minor: 1800, currency: "EUR" });
-  });
-
-  test("rounds to whole minor units", () => {
-    expect(convert({ minor: 1, currency: "USD" }, "INR", perUsd)).toEqual({
-      minor: 95,
-      currency: "INR",
-    });
-    expect(convert({ minor: 333, currency: "INR" }, "USD", perUsd)).toEqual({
-      minor: 4,
-      currency: "USD",
-    });
-  });
-
-  test("USD needs no rate and the same currency needs none", () => {
-    expect(convert(usd(5), "USD", {})).toEqual(usd(5));
-    expect(convert(inr(5), "INR", {})).toEqual(inr(5));
-    expect(convert(usd(5), "INR", { INR: 90 })).toEqual(inr(450));
-  });
-
-  test("a missing or non-positive rate gives null", () => {
-    expect(convert(usd(5), "GBP", perUsd)).toBeNull();
-    expect(convert({ minor: 500, currency: "GBP" }, "USD", perUsd)).toBeNull();
-    expect(convert(usd(5), "INR", { INR: 0 })).toBeNull();
-    expect(convert(usd(5), "INR", { INR: -3 })).toBeNull();
   });
 });
 
@@ -262,8 +230,12 @@ describe("summarize", () => {
       money: usd(0),
       missing: 1,
     });
-    // The account keeps its own currency.
-    expect(summary.providers[0]?.accounts[1]?.monthly).toEqual(inr(1900));
+    // The account shows the converted figure and keeps what was entered beside it.
+    expect(summary.providers[0]?.accounts[1]?.monthly).toEqual({
+      shown: usd(20),
+      original: inr(1900),
+      noRate: null,
+    });
     const inInr = summarize(
       all,
       [],
@@ -313,7 +285,7 @@ describe("summarize", () => {
     expect(summary.nextRenewal).toEqual({
       connectionId: "x1",
       date: "2026-10-07",
-      price: usd(20),
+      price: { shown: usd(20), original: null, noRate: null },
     });
     expect(summarize(all, [], book({}), now).nextRenewal).toBeNull();
   });
@@ -345,19 +317,11 @@ describe("summarize", () => {
       topUp("g", { date: "2026-10-10", price: { minor: 100, currency: "GBP" } }),
     ];
     const summary = summarize([codex], [], book({ topUps, perUsd: { USD: 1, INR: 95 } }), now);
-    expect(summary.providers[0]?.accounts[0]?.topUps.map((item) => item.id)).toEqual([
-      "e",
-      "d",
-      "f",
-      "g",
-      "c",
-      "b",
-      "a",
-    ]);
-    expect(summary.topUpsThisMonth).toEqual({
-      paid: { money: usd(35), missing: 1 },
-      freeCount: 2,
-    });
+    expect(summary.topUps.map((item) => item.id)).toEqual(["e", "d", "f", "g", "c", "b", "a"]);
+    expect(summary.topUpsThisMonth.paid).toEqual({ money: usd(35), missing: 1 });
+    expect(summary.topUpsThisMonth.paidCount).toBe(3);
+    expect(summary.topUpsThisMonth.freeCount).toBe(2);
+    expect(summary.topUpsThisMonth.items.map((item) => item.id)).toEqual(["d", "f", "g", "c", "b"]);
   });
 
   test("the month is read in UTC", () => {
@@ -372,22 +336,185 @@ describe("summarize", () => {
   });
 });
 
-describe("formatMoney", () => {
-  test("drops decimals for whole amounts", () => {
-    expect(formatMoney(usd(200))).toBe("$200");
-    expect(formatMoney(usd(0))).toBe("$0");
-    expect(formatMoney(inr(1999))).toBe("₹1,999");
+describe("display currency", () => {
+  const rates = { USD: 1, INR: 95, EUR: 0.9, JPY: 150 };
+
+  test("the book's choice wins, else the browser locale decides", () => {
+    expect(displayCurrencyOf(book({ displayCurrency: "GBP" }), "en-IN")).toBe("GBP");
+    expect(displayCurrencyOf(emptyBook, "en-IN")).toBe("INR");
+    expect(displayCurrencyOf(emptyBook, "en-US")).toBe("USD");
+    expect(summarize([claude], [], emptyBook, now, "en-IN").currency).toBe("INR");
+    expect(summarize([claude], [], emptyBook, now).currency).toBe("USD");
+    expect(summarize([claude], [], book({ displayCurrency: "EUR" }), now, "en-IN").currency).toBe(
+      "EUR",
+    );
   });
 
-  test("keeps two decimals otherwise", () => {
-    expect(formatMoney({ minor: 112_810, currency: "USD" })).toBe("$1,128.10");
-    expect(formatMoney(usd(19.99))).toBe("$19.99");
-    expect(formatMoney({ minor: 1667, currency: "USD" })).toBe("$16.67");
+  test("an amount in the display currency has no original", () => {
+    expect(amountOf(usd(20), "USD", rates)).toEqual({
+      shown: usd(20),
+      original: null,
+      noRate: null,
+    });
   });
 
-  test("uses the currency symbol and the Indian grouping for rupees", () => {
-    expect(formatMoney({ minor: 2000, currency: "EUR" })).toBe("€20");
-    expect(formatMoney({ minor: 1950, currency: "GBP" })).toBe("£19.50");
-    expect(formatMoney(inr(123_456))).toBe("₹1,23,456");
+  test("an amount in another currency shows converted with the original beside it", () => {
+    expect(amountOf(inr(1900), "USD", rates)).toEqual({
+      shown: usd(20),
+      original: inr(1900),
+      noRate: null,
+    });
+    expect(amountOf(usd(20), "JPY", rates)).toEqual({
+      shown: { minor: 3000, currency: "JPY" },
+      original: usd(20),
+      noRate: null,
+    });
+  });
+
+  test("with no rate the original stays, and the currency without a rate is named", () => {
+    expect(amountOf(inr(1999), "USD", { USD: 1 })).toEqual({
+      shown: null,
+      original: inr(1999),
+      noRate: "INR",
+    });
+    expect(amountOf(usd(12), "INR", { USD: 1 })).toEqual({
+      shown: null,
+      original: usd(12),
+      noRate: "INR",
+    });
+  });
+
+  test("every account, row and total follows the display currency", () => {
+    const costs = {
+      c1: paid(usd(100), "2026-10-20"),
+      c2: paid(inr(1999), "2026-10-08"),
+      x1: paid({ minor: 2000, currency: "EUR" }),
+      g1: { kind: "free" } satisfies Cost,
+    };
+    const summary = summarize(
+      all,
+      [],
+      book({ costs, displayCurrency: "INR", perUsd: { USD: 1, INR: 95 } }),
+      now,
+    );
+    const accounts = summary.providers.flatMap((group) => group.accounts);
+    const byId = (id: string) => accounts.find((account) => account.connection.id === id);
+    expect(byId("c1")?.monthly).toEqual({ shown: inr(9500), original: usd(100), noRate: null });
+    expect(byId("c1")?.billed).toEqual({ shown: inr(9500), original: usd(100), noRate: null });
+    expect(byId("c2")?.monthly).toEqual({ shown: inr(1999), original: null, noRate: null });
+    expect(byId("x1")?.monthly).toEqual({
+      shown: null,
+      original: { minor: 2000, currency: "EUR" },
+      noRate: "EUR",
+    });
+    // Free is zero in the display currency, never null, even with no rate for anything.
+    expect(byId("g1")?.monthly).toEqual({ shown: inr(0), original: null, noRate: null });
+    expect(summary.monthly).toEqual({ money: inr(11_499), missing: 1 });
+    expect(summary.nextRenewal?.date).toBe("2026-10-08");
+    expect(summary.nextRenewal?.price).toEqual({ shown: inr(1999), original: null, noRate: null });
+  });
+
+  test("an annual plan shows its monthly share and keeps the yearly price", () => {
+    const summary = summarize(
+      [claude],
+      [],
+      book({
+        costs: { c1: paid(usd(200), null, "annual") },
+        displayCurrency: "INR",
+        perUsd: { USD: 1, INR: 95 },
+      }),
+      now,
+    );
+    const account = summary.providers[0]?.accounts[0];
+    expect(account?.monthly?.shown).toEqual({ minor: 158_365, currency: "INR" });
+    expect(account?.billed?.shown).toEqual(inr(19_000));
+    expect(account?.billed?.original).toEqual(usd(200));
+  });
+
+  test("usage spend converts like any other amount", () => {
+    const withSpend = connection("claude", {
+      id: "c1",
+      metrics: [spend("extra_usage.used", "12.5")],
+    });
+    const inInr = summarize(
+      [withSpend],
+      [],
+      book({ displayCurrency: "INR", perUsd: { USD: 1, INR: 90 } }),
+      now,
+    );
+    expect(inInr.providers[0]?.accounts[0]?.usageSpend).toEqual({
+      shown: inr(1125),
+      original: usd(12.5),
+      noRate: null,
+      label: "Extra usage this month",
+    });
+    expect(inInr.usageSpend).toEqual({ money: inr(1125), missing: 0 });
+    const unrated = summarize([withSpend], [], book({ displayCurrency: "INR" }), now);
+    expect(unrated.providers[0]?.accounts[0]?.usageSpend).toEqual({
+      shown: null,
+      original: usd(12.5),
+      noRate: "INR",
+      label: "Extra usage this month",
+    });
+    expect(unrated.usageSpend.missing).toBe(1);
+  });
+
+  test("a top-up converts, a free one has no amount", () => {
+    const summary = summarize(
+      [codex],
+      [],
+      book({
+        displayCurrency: "USD",
+        perUsd: { USD: 1, INR: 95 },
+        topUps: [
+          topUp("a", { price: inr(950) }),
+          topUp("b", { price: usd(5) }),
+          topUp("c", { kind: "free", price: null }),
+          topUp("d", { price: { minor: 100, currency: "GBP" } }),
+        ],
+      }),
+      now,
+    );
+    const byId = (id: string) => summary.topUps.find((item) => item.id === id)?.amount;
+    expect(byId("a")).toEqual({ shown: usd(10), original: inr(950), noRate: null });
+    expect(byId("b")).toEqual({ shown: usd(5), original: null, noRate: null });
+    expect(byId("c")).toBeNull();
+    expect(byId("d")).toEqual({
+      shown: null,
+      original: { minor: 100, currency: "GBP" },
+      noRate: "GBP",
+    });
+  });
+
+  test("a yen display totals whole yen", () => {
+    const summary = summarize(
+      [claude],
+      [],
+      book({ costs: { c1: paid(usd(20)) }, displayCurrency: "JPY", perUsd: { USD: 1, JPY: 150 } }),
+      now,
+    );
+    expect(summary.monthly).toEqual({ money: { minor: 3000, currency: "JPY" }, missing: 0 });
+  });
+});
+
+describe("currencies in use", () => {
+  test("lists the ones the entries use, in the usual order", () => {
+    expect(usedCurrencies(emptyBook)).toEqual([]);
+    const used = book({
+      costs: { a: paid(inr(1999)), b: paid(usd(20)), c: { kind: "free" } },
+      topUps: [
+        topUp("t", { price: { minor: 500, currency: "EUR" } }),
+        topUp("u", { kind: "free", price: null }),
+      ],
+    });
+    expect(usedCurrencies(used)).toEqual(["USD", "EUR", "INR"]);
+  });
+
+  test("rates are needed for those and the display currency, never USD", () => {
+    expect(rateCurrencies(emptyBook, "USD")).toEqual([]);
+    expect(rateCurrencies(emptyBook, "INR")).toEqual(["INR"]);
+    expect(rateCurrencies(book({ costs: { a: paid(inr(1999)), b: paid(usd(5)) } }), "EUR")).toEqual(
+      ["EUR", "INR"],
+    );
   });
 });

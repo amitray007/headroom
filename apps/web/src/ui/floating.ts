@@ -19,6 +19,14 @@ export function keepInView(start: number, size: number, limit: number, margin: n
   return Math.max(margin, Math.min(start, limit - size - margin));
 }
 
+/** Where a layer sits against its trigger. The default is right-aligned at the panel's own width. */
+interface FloatingPlacement {
+  /** "start" lines the panel's left edge up with the trigger's; "end" (the default) lines up the right edges. */
+  readonly align?: "start" | "end";
+  /** Give the panel the trigger's width as its minimum when it opens, for a listbox under a field. */
+  readonly matchWidth?: boolean;
+}
+
 /** The layer that is open now. Opening another layer closes it, so only one is ever open. */
 let closeCurrent: (() => void) | null = null;
 
@@ -62,6 +70,7 @@ export interface FloatingLayer {
 export function useFloatingLayer(
   gap: number,
   hoverable = false,
+  placementOptions: FloatingPlacement = {},
 ): {
   readonly layer: FloatingLayer;
   readonly triggerRef: RefObject<HTMLButtonElement | null>;
@@ -72,6 +81,7 @@ export function useFloatingLayer(
   const panelRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<"closed" | "closed-focus" | "open">("closed");
   const open = state === "open";
+  const { align = "end", matchWidth = false } = placementOptions;
   const [placement, setPlacement] = useState({ top: 0, left: 0, above: false });
 
   const openRef = useRef(false);
@@ -137,15 +147,21 @@ export function useFloatingLayer(
     }
     if (!panel.matches(":popover-open")) panel.showPopover();
     const rect = trigger.getBoundingClientRect();
+    if (matchWidth) panel.style.minWidth = `${Math.round(rect.width)}px`;
     const width = panel.offsetWidth;
     const height = panel.offsetHeight;
     const below = rect.bottom + gap + height <= window.innerHeight - edge;
     setPlacement({
       above: !below,
       top: below ? rect.bottom + gap : Math.max(edge, rect.top - gap - height),
-      left: keepInView(rect.right - width, width, window.innerWidth, edge),
+      left: keepInView(
+        align === "start" ? rect.left : rect.right - width,
+        width,
+        window.innerWidth,
+        edge,
+      ),
     });
-  }, [open, gap]);
+  }, [open, gap, align, matchWidth]);
 
   useEffect(() => {
     if (state === "closed-focus") triggerRef.current?.focus();
