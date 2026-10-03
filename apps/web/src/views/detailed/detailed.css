@@ -74,9 +74,18 @@
 .d-card.open {
   border-color: var(--border-strong);
 }
+/* The status column fits "29 min ago". It widens only in a group where a row shows a status pill, so healthy
+   rows keep no empty gap before the refresh time, and the rows of one group keep the same columns. */
+.d-list,
+.d-group {
+  --d-state: 88px;
+}
+.d-group:has(.d-state .pill) {
+  --d-state: 124px;
+}
 .d-head {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.7fr) 150px 128px 20px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.5fr) 150px var(--d-state, 88px) 20px;
   align-items: center;
   gap: var(--space-5);
   width: 100%;
@@ -176,10 +185,12 @@ div.d-head:active {
   display: block;
   margin: 0;
 }
+/* Right-aligned, so the reset time sits beside the refresh time and the free space falls after the limit bar. */
 .d-reset {
   font-size: var(--text-sm);
   color: var(--text-secondary);
   line-height: 1.35;
+  text-align: right;
 }
 .d-state {
   display: flex;
@@ -286,6 +297,7 @@ div.d-head:active {
   .d-reset {
     grid-area: reset;
     margin-top: -4px;
+    text-align: left;
   }
   .d-drawer > .fold-clip > .d-body {
     padding: var(--space-1) var(--space-4) var(--space-4);
