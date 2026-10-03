@@ -776,6 +776,19 @@ time.when {
 .confirm .q {
   white-space: nowrap;
 }
+/* The result states hold only words and an icon: even padding, and the icon keeps its size. */
+.confirm output.q {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 8px;
+}
+.confirm output.q .spin,
+.confirm output.q svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
 .confirm .btn.sm {
   height: 24px;
   padding: 0 9px;
