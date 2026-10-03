@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import { BrandMark } from "../../icons.tsx";
-import { providerName, statusOf } from "@headroom/view-model/labels";
+import { awaitingFirstRefresh, providerName, statusOf } from "@headroom/view-model/labels";
 import { formatNumber } from "@headroom/view-model/present";
 import { Bar } from "../../ui/bar.tsx";
 import { cx } from "../../ui/cx.ts";
@@ -60,7 +60,9 @@ export function SingleCard(props: { readonly row: Row; readonly look: Look }) {
   const { row, look } = props;
   const { connection } = row;
   const provider = connection.provider;
-  const kind = connection.snapshot === null ? "waiting" : statusKindOf(statusOf(connection).word);
+  const kind = awaitingFirstRefresh(connection)
+    ? "waiting"
+    : statusKindOf(statusOf(connection).word);
   return (
     <article className={cx("cmp-single", row.inactive && "dim")}>
       <header>

@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   accountName,
   authMethodWords,
+  awaitingFirstRefresh,
   groupByProvider,
   planLabel,
   providerName,
@@ -87,5 +88,29 @@ describe("status", () => {
     );
     expect(refreshFailed(null)).toBe(false);
     expect(refreshFailed({ ...failed, outcome: "partial" })).toBe(false);
+  });
+});
+
+describe("awaitingFirstRefresh", () => {
+  const fresh = connection("codex", { snapshot: null, latestRun: null });
+  const failedRun = {
+    startedAt: 1,
+    finishedAt: 2,
+    outcome: "invalid_response",
+    error: null,
+  } as const;
+  test("waits only while nothing has gone wrong", () => {
+    expect(awaitingFirstRefresh(fresh)).toBe(true);
+    expect(awaitingFirstRefresh({ ...fresh, latestRun: { ...failedRun, outcome: null } })).toBe(
+      true,
+    );
+  });
+  test("a failed first refresh is not waiting", () => {
+    expect(awaitingFirstRefresh({ ...fresh, latestRun: failedRun })).toBe(false);
+  });
+  test("paused, disconnected or read accounts are not waiting", () => {
+    expect(awaitingFirstRefresh({ ...fresh, state: "paused" })).toBe(false);
+    expect(awaitingFirstRefresh({ ...fresh, state: "reconnect_required" })).toBe(false);
+    expect(awaitingFirstRefresh(connection("codex"))).toBe(false);
   });
 });

@@ -1,0 +1,15 @@
+{
+  "plan_type": "go",
+  "rate_limit": {
+    "primary_window": {
+      "used_percent": 12,
+      "limit_window_seconds": 18000,
+      "reset_at": 1700003600,
+      "reset_after_seconds": null
+    },
+    "secondary_window": null
+  },
+  "additional_rate_limits": null,
+  "credits": null,
+  "rate_limit_reset_credits": null
+}

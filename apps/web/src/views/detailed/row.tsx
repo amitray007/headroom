@@ -3,7 +3,13 @@ import { useId, useState } from "react";
 import type { OverviewConnection } from "../../api.ts";
 import { BrandMark, ChevronDownIcon } from "../../icons.tsx";
 import { isInactive } from "@headroom/view-model/accounts";
-import { accountName, planLabel, providerName, statusOf } from "@headroom/view-model/labels";
+import {
+  accountName,
+  awaitingFirstRefresh,
+  planLabel,
+  providerName,
+  statusOf,
+} from "@headroom/view-model/labels";
 import { useNow } from "../../lib/now.ts";
 import { presentPanel } from "@headroom/view-model/present";
 import { When } from "../../lib/when.tsx";
@@ -16,11 +22,7 @@ import { headlineOf, RowLimit, RowReset } from "./limit.tsx";
 function RowStatus(props: { readonly connection: OverviewConnection }) {
   const { connection } = props;
   const status = statusOf(connection);
-  const waiting =
-    connection.snapshot === null &&
-    connection.state !== "reconnect_required" &&
-    connection.state !== "paused";
-  if (waiting) return <StatusPill kind="waiting" label="Waiting" />;
+  if (awaitingFirstRefresh(connection)) return <StatusPill kind="waiting" label="Waiting" />;
   if (status.word === "Active" && connection.lastSuccessAt !== null) {
     return <HealthyStatus age={<When at={connection.lastSuccessAt} kind="ago" />} />;
   }

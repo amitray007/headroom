@@ -95,6 +95,21 @@ export function refreshFailed(run: OverviewConnection["latestRun"]): boolean {
   return run !== null && run.outcome !== null && !healthyOutcomes.has(run.outcome);
 }
 
+/**
+ * Connected, with no reading yet and nothing gone wrong: the first refresh is still to come. A first refresh that
+ * failed is not waiting; it shows as a failed refresh.
+ */
+export function awaitingFirstRefresh(
+  connection: Pick<OverviewConnection, "state" | "latestRun" | "snapshot">,
+): boolean {
+  return (
+    connection.snapshot === null &&
+    connection.state !== "reconnect_required" &&
+    connection.state !== "paused" &&
+    !refreshFailed(connection.latestRun)
+  );
+}
+
 export function statusOf(
   connection: Pick<OverviewConnection, "state" | "latestRun" | "stale">,
 ): StatusView {

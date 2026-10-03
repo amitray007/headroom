@@ -7,6 +7,7 @@ import resetCreditsFixture from "./fixtures/reset-credits.json";
 import usagePartial from "./fixtures/usage-partial.json";
 import usageFixture from "./fixtures/usage.json";
 import usageLiveShape from "./fixtures/usage-live-shape.json";
+import usageNulls from "./fixtures/usage-nulls.json";
 import { createCodexConnector, credentialFromAuthFile, parseDeviceStep } from "./index.ts";
 import {
   accessToken,
@@ -245,6 +246,18 @@ describe("identity and collection", () => {
     expect(byKey["credits.balance"]).toMatchObject({ valueText: "1234.5678", unlimited: false });
     expect(byKey["reset_credits.available_count"]).toMatchObject({ valueText: "3" });
     expect(result.failures).toHaveLength(1);
+  });
+
+  test("null parts of the usage body read as missing, so the refresh still succeeds", async () => {
+    const http = fakeFetch({
+      [usageUrl]: () => json(usageNulls),
+      [resetCreditsUrl]: () => json({ detail: "not found" }, 404),
+    });
+    const connector = createCodexConnector({ runner: new FakeRunner(), fetch: http.fetch });
+    const result = await connector.collect(credential, await connector.identity(credential));
+    const keys = result.metrics.map((m) => m.providerMetricKey);
+    expect(keys).toEqual(["rate_limit.primary_window"]);
+    expect(result.metrics[0]).toMatchObject({ valueText: "12", availability: "available" });
   });
 
   test("missing percentages are unknown, not zero; a failing reset-credits route is a capability failure", async () => {

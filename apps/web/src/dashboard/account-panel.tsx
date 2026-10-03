@@ -3,6 +3,7 @@ import { useId, type ReactNode } from "react";
 import { api, type OverviewConnection } from "../api.ts";
 import { AlertIcon, ClockIcon, PauseIcon, PlayIcon, RetryIcon } from "../icons.tsx";
 import {
+  awaitingFirstRefresh,
   accountName,
   planLabel,
   providerName,
@@ -67,7 +68,7 @@ export function AccountPanel(props: {
   const model = presentPanel(connection, now);
   const disconnected = connection.state === "reconnect_required";
   const paused = connection.state === "paused";
-  const waiting = connection.snapshot === null && !disconnected && !paused;
+  const waiting = awaitingFirstRefresh(connection);
   const hold = model.hold;
   const banked = model.banked;
 

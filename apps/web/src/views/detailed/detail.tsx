@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import type { OverviewConnection } from "../../api.ts";
 import { CellView } from "../../dashboard/cells.tsx";
-import { providerName } from "@headroom/view-model/labels";
+import { awaitingFirstRefresh, providerName } from "@headroom/view-model/labels";
 import { presentPanel } from "@headroom/view-model/present";
 import { useNow } from "../../lib/now.ts";
 import { href } from "../../router.ts";
@@ -28,7 +28,7 @@ function noticeFor(connection: OverviewConnection, hasCells: boolean): ReactNode
   if (connection.state === "paused") {
     return <p className="d-note">Paused. Headroom is not refreshing this account.</p>;
   }
-  if (!hasCells && connection.snapshot === null) {
+  if (!hasCells && awaitingFirstRefresh(connection)) {
     return <p className="d-note">Connected just now. The first refresh is running.</p>;
   }
   if (connection.stale) {

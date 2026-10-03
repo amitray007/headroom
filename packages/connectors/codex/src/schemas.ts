@@ -49,53 +49,57 @@ export const refreshErrorSchema = z.object({
   error_description: z.string().optional(),
 });
 
+/**
+ * An optional field that may also be null. The usage route sends null for parts a plan does not have (seen for
+ * windows and model limits; other plans, such as Go, may do it elsewhere). Null reads as missing, so it becomes
+ * unknown in the output, never a failed refresh.
+ */
+function maybe<T extends z.ZodType>(schema: T) {
+  return schema.nullish().transform((value) => value ?? undefined);
+}
+
 const windowSchema = z
   .object({
-    used_percent: z.number().optional(),
-    limit_window_seconds: z.number().int().optional(),
-    reset_at: z.number().optional(),
-    reset_after_seconds: z.number().optional(),
+    used_percent: maybe(z.number()),
+    limit_window_seconds: maybe(z.number().int()),
+    reset_at: maybe(z.number()),
+    reset_after_seconds: maybe(z.number()),
   })
   .loose();
 
-/** Windows are null when the plan has only one; observed 2026-10-01 on a Pro account. */
 const rateLimitSchema = z
   .object({
-    primary_window: windowSchema.nullable().optional(),
-    secondary_window: windowSchema.nullable().optional(),
+    primary_window: maybe(windowSchema),
+    secondary_window: maybe(windowSchema),
   })
   .loose();
 
 /** `GET /wham/usage`. Loose everywhere: unknown fields are kept out of the normalized output, not rejected. */
 export const usageResponseSchema = z
   .object({
-    plan_type: z.string().optional(),
-    rate_limit: rateLimitSchema.nullable().optional(),
-    /** Null, not an empty array, when no model-specific limit applies (observed 2026-10-01). */
-    additional_rate_limits: z
-      .array(
+    plan_type: maybe(z.string()),
+    rate_limit: maybe(rateLimitSchema),
+    additional_rate_limits: maybe(
+      z.array(
         z
           .object({
-            limit_name: z.string().optional(),
-            metered_feature: z.string().optional(),
-            rate_limit: rateLimitSchema.nullable().optional(),
+            limit_name: maybe(z.string()),
+            metered_feature: maybe(z.string()),
+            rate_limit: maybe(rateLimitSchema),
           })
           .loose(),
-      )
-      .nullable()
-      .optional(),
-    credits: z
-      .object({
-        balance: z.union([z.number(), z.string()]).optional(),
-        has_credits: z.boolean().optional(),
-        unlimited: z.boolean().optional(),
-      })
-      .loose()
-      .optional(),
-    rate_limit_reset_credits: z
-      .object({ available_count: z.number().int().optional() })
-      .loose()
-      .optional(),
+      ),
+    ),
+    credits: maybe(
+      z
+        .object({
+          balance: maybe(z.union([z.number(), z.string()])),
+          has_credits: maybe(z.boolean()),
+          unlimited: maybe(z.boolean()),
+        })
+        .loose(),
+    ),
+    rate_limit_reset_credits: maybe(z.object({ available_count: maybe(z.number().int()) }).loose()),
   })
   .loose();
 export type UsageResponse = z.infer<typeof usageResponseSchema>;
