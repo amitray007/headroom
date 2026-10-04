@@ -75,6 +75,7 @@ function NumberRow<T extends number>(props: {
 
 const thresholds = [30, 20, 15] as const;
 const intervals = [5, 10, 15, 30] as const;
+const retentions = [30, 90, 180, 365] as const;
 
 const tabs = [
   { value: "general", label: "General" },
@@ -109,6 +110,16 @@ function General(props: { readonly change: (patch: SettingsPatch) => void }) {
           values={intervals}
           format={(value) => `${value} min`}
           onChange={(refreshIntervalMinutes) => change({ refreshIntervalMinutes })}
+        />
+      </Section>
+      <Section title="Data">
+        <NumberRow
+          title="History"
+          note="Older refresh history is deleted. The latest reading of each account is always kept."
+          value={settings.historyRetentionDays}
+          values={retentions}
+          format={(value) => (value === 365 ? "1 year" : `${value} days`)}
+          onChange={(historyRetentionDays) => change({ historyRetentionDays })}
         />
       </Section>
       <Section title="Time">

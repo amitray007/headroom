@@ -4,10 +4,20 @@ import "./spend.css";
 
 import { BrandMark } from "../../icons.tsx";
 import { providerName } from "@headroom/view-model/labels";
-import { providerSpend, type ProviderSpend, type WalletSummary } from "@headroom/view-model/wallet";
+import {
+  providerSpend,
+  removedAccounts,
+  type ProviderSpend,
+  type SpendSource,
+  type WalletSummary,
+} from "@headroom/view-model/wallet";
 import { formatMoney, type Currency } from "@headroom/view-model/wallet-money";
 
 const shareFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+
+function sourceName(source: SpendSource): string {
+  return source === removedAccounts ? "Removed Accounts" : providerName(source);
+}
 
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
@@ -111,7 +121,7 @@ export function SpendByProvider(props: { readonly summary: WalletSummary }) {
               <Ring parts={parts} colors={colors} active={active} onActive={setActive} />
               <div className="sp-center" aria-hidden="true">
                 <span className="sp-center-label">
-                  {focus === undefined ? "All-in this month" : providerName(focus.provider)}
+                  {focus === undefined ? "All-in this month" : sourceName(focus.provider)}
                 </span>
                 <span className="sp-center-value num">
                   {money(focus === undefined ? all : focus.total)}
@@ -184,8 +194,10 @@ export function SpendByProvider(props: { readonly summary: WalletSummary }) {
                     <th scope="row">
                       <span className="sp-who">
                         <i className="sp-dot" style={{ background: colors.get(part.provider) }} />
-                        <BrandMark provider={part.provider} />
-                        {providerName(part.provider)}
+                        {part.provider === removedAccounts ? null : (
+                          <BrandMark provider={part.provider} />
+                        )}
+                        {sourceName(part.provider)}
                       </span>
                     </th>
                     <td className="sp-mix" aria-hidden="true">

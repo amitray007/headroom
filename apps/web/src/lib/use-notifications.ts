@@ -11,6 +11,7 @@ import {
   saveRead,
   type AppNotification,
 } from "@headroom/view-model/notifications";
+import { browserStorage } from "./device-prefs.ts";
 import { useNow } from "./now.ts";
 import { useSettings } from "./settings.tsx";
 
@@ -25,14 +26,6 @@ export interface NotificationsView {
   readonly unread: number;
   markRead: (id: string) => void;
   markAllRead: () => void;
-}
-
-function storage(): Storage | null {
-  try {
-    return typeof localStorage === "undefined" ? null : localStorage;
-  } catch {
-    return null;
-  }
 }
 
 const noneRead: ReadonlySet<string> = new Set();
@@ -52,7 +45,7 @@ export function useNotifications(
   const ready = connections !== null && loaded;
   const now = useNow();
   const [stored, setStored] = useState<ReadonlySet<string>>(() => {
-    const store = storage();
+    const store = browserStorage();
     return store === null ? new Set() : loadRead(store);
   });
   const [demoRead, setDemoRead] = useState<{
@@ -72,7 +65,7 @@ export function useNotifications(
   );
   useEffect(() => {
     if (demo || read.size === stored.size) return;
-    const store = storage();
+    const store = browserStorage();
     if (store !== null) saveRead(store, read);
   }, [demo, read, stored]);
   const update = (next: ReadonlySet<string>) => {
@@ -81,7 +74,7 @@ export function useNotifications(
       return;
     }
     setStored(next);
-    const store = storage();
+    const store = browserStorage();
     if (store !== null) saveRead(store, next);
   };
   const items = derived.map((item) => ({ ...item, read: read.has(item.id) }));

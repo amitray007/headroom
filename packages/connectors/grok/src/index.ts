@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   type BeginConnectOptions,
   type Capability,
-  type ClassifiedError,
   type CollectResult,
   type ConnectProgress,
   type Connector,
@@ -15,7 +14,16 @@ import {
   type RefreshResult,
   type StoredCredential,
   type SubmitInput,
+  awaitCliStep,
+  classified,
   classifyUnknown,
+  decodeJwt,
+  expiryOf,
+  finishCliLogin,
+  parseDate,
+  retryAfterMs,
+  throwForStatus,
+  timeoutFetch,
 } from "@headroom/core";
 
 import {
@@ -81,47 +89,16 @@ export function parseDeviceStep(output: string): { url: string; code: string } |
 }
 
 export function createGrokConnector(options: GrokConnectorOptions): Connector {
-  const http: FetchLike = options.fetch ?? ((input, init) => fetch(input, init));
+  const http: FetchLike = options.fetch ?? timeoutFetch();
   const now = options.now ?? (() => Date.now());
   const runner = options.runner;
 
-  async function finishCliLogin(attemptId: string): Promise<ConnectProgress> {
-    const status = runner.status(attemptId);
-    if (!status)
-      return {
-        status: "error",
-        error: classified("approval_expired", "the sign-in process is gone"),
-      };
-    if (status.credentialsPresent) {
-      const contents = runner.readCredentials(attemptId);
-      await runner.cleanup(attemptId);
-      if (!contents)
-        return {
-          status: "error",
-          error: classified("internal_error", "credentials file vanished"),
-        };
-      try {
-        return { status: "credentials", credential: credentialFromAuthFile(contents) };
-      } catch (error) {
-        return { status: "error", error: classify(error) };
-      }
-    }
-    if (status.state === "timed_out") {
-      await runner.cleanup(attemptId);
-      return {
-        status: "error",
-        error: classified("approval_expired", "the one-time code expired"),
-      };
-    }
-    if (status.state !== "running") {
-      await runner.cleanup(attemptId);
-      return {
-        status: "error",
-        error: classified("approval_denied", "the sign-in did not complete"),
-      };
-    }
-    return { status: "waiting", privateState: { attemptId }, pollAfterMs: 3000 };
-  }
+  const finishLogin = (attemptId: string): Promise<ConnectProgress> =>
+    finishCliLogin(runner, attemptId, {
+      parse: credentialFromAuthFile,
+      pollAfterMs: 3000,
+      expiredMessage: "the one-time code expired",
+    });
 
   return {
     provider: "grok",
@@ -148,17 +125,12 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
         credentialFile: cli.credentialFile,
         timeoutMs: Math.min(cli.timeoutMs, Math.max(1000, begin.expiresAt - now())),
       });
-      const deadline = now() + 20_000;
-      let step = parseDeviceStep(runner.status(begin.attemptId)?.output ?? "");
-      while (!step && now() < deadline) {
-        // eslint-disable-next-line no-await-in-loop -- waiting on a child process's first lines
-        await Bun.sleep(100);
-        const status = runner.status(begin.attemptId);
-        if (!status || status.state !== "running") break;
-        step = parseDeviceStep(status.output);
-      }
+      const step = await awaitCliStep(runner, begin.attemptId, {
+        parse: parseDeviceStep,
+        now,
+        timeoutMs: 20_000,
+      });
       if (!step) {
-        await runner.cleanup(begin.attemptId);
         return {
           status: "error",
           error: classified("provider_unavailable", "grok did not print a device code"),
@@ -189,7 +161,7 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
           credential: credentialFromAuthFile(input.contents),
         });
       } catch (error) {
-        return Promise.resolve({ status: "error", error: classify(error) });
+        return Promise.resolve({ status: "error", error: classifyUnknown(error) });
       }
     },
 
@@ -200,7 +172,7 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
           status: "error",
           error: classified("internal_error", "attempt state missing"),
         });
-      return finishCliLogin(parsed.data.attemptId);
+      return finishLogin(parsed.data.attemptId);
     },
 
     async cancelConnect(privateState: unknown): Promise<void> {
@@ -263,7 +235,7 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
           ],
         };
       }
-      await throwForStatus(response, "billing");
+      throwForStatus(response, "billing");
       const billing = billingResponseSchema.safeParse(await response.json().catch(() => null));
       if (!billing.success)
         throw new ConnectorError("invalid_response", "billing response shape changed");
@@ -286,17 +258,18 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
         },
       ];
       // Observed 2026-10-01: the billing body also carries on-demand spend, the prepaid balance and
-      // per-product percentages of the same weekly pool. Absent fields stay unknown, never zero.
+      // per-product percentages of the same weekly pool. The body is proto-JSON, so a present wrapper
+      // without a value is a real zero; only an absent wrapper is unknown (and emits no metric).
       if (config.onDemandUsed !== undefined)
         metrics.push({
           providerMetricKey: "on_demand.used",
           kind: "spend",
           scope: "window:weekly",
-          valueText: config.onDemandUsed.val === undefined ? null : String(config.onDemandUsed.val),
+          valueText: String(config.onDemandUsed.val ?? 0),
           unit: "grok_credits",
           windowStart: start,
           windowEnd: end,
-          availability: config.onDemandUsed.val === undefined ? "unknown" : "available",
+          availability: "available",
           interface: "private",
         });
       if (config.prepaidBalance !== undefined)
@@ -304,10 +277,9 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
           providerMetricKey: "prepaid_balance",
           kind: "credits",
           scope: "account",
-          valueText:
-            config.prepaidBalance.val === undefined ? null : String(config.prepaidBalance.val),
+          valueText: String(config.prepaidBalance.val ?? 0),
           unit: "grok_credits",
-          availability: config.prepaidBalance.val === undefined ? "unknown" : "available",
+          availability: "available",
           interface: "private",
         });
       for (const product of config.productUsage ?? []) {
@@ -317,12 +289,12 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
           providerMetricKey: `product.${key}.used_percent`,
           kind: "quota_percentage",
           scope: "window:weekly",
-          valueText: product.usagePercent === undefined ? null : String(product.usagePercent),
+          valueText: String(product.usagePercent ?? 0),
           unit: "percent",
           windowStart: start,
           windowEnd: end,
           resetsAt: end,
-          availability: product.usagePercent === undefined ? "unknown" : "available",
+          availability: "available",
           interface: "private",
         });
       }
@@ -379,7 +351,7 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
       if (response.status === 429)
         return {
           status: "transient",
-          error: classified("rate_limited", "token endpoint rate limited", 60_000),
+          error: classified("rate_limited", "token endpoint rate limited", retryAfterMs(response)),
         };
       return {
         status: "transient",
@@ -391,7 +363,7 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
       return Promise.resolve("local_only");
     },
 
-    classify,
+    classify: classifyUnknown,
   };
 }
 
@@ -425,52 +397,4 @@ function poolMetric(
     availability,
     interface: "private",
   };
-}
-
-function classify(error: unknown): ClassifiedError {
-  return classifyUnknown(error);
-}
-
-function classified(
-  category: ClassifiedError["category"],
-  message: string,
-  retryAfterMs?: number,
-): ClassifiedError {
-  return new ConnectorError(category, message, retryAfterMs).toClassified();
-}
-
-async function throwForStatus(response: Response, what: string): Promise<void> {
-  if (response.ok) return;
-  if (response.status === 401)
-    throw new ConnectorError("authentication_required", `${what} returned 401`);
-  if (response.status === 403)
-    throw new ConnectorError("permission_denied", `${what} returned 403`);
-  if (response.status === 429)
-    throw new ConnectorError("rate_limited", `${what} returned 429`, 60_000);
-  if (response.status >= 500)
-    throw new ConnectorError("provider_unavailable", `${what} returned ${response.status}`);
-  throw new ConnectorError("invalid_response", `${what} returned ${response.status}`);
-}
-
-export function decodeJwt(token: string): unknown {
-  const payload = token.split(".")[1];
-  if (!payload) return null;
-  try {
-    return JSON.parse(
-      Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"),
-    );
-  } catch {
-    return null;
-  }
-}
-
-function expiryOf(token: string): number | null {
-  const claims = jwtClaimsSchema.safeParse(decodeJwt(token));
-  return claims.success && claims.data.exp !== undefined ? claims.data.exp * 1000 : null;
-}
-
-function parseDate(value: string | undefined): number | null {
-  if (!value) return null;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
 }

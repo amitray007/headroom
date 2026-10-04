@@ -1,7 +1,7 @@
 # Working in Headroom
 
 Headroom is a self-hosted web dashboard for AI account allowances, balances and usage.
-This repository currently contains the project specification and research, not a working application.
+This repository contains the working application and its specification and research.
 
 - Read [docs/README.md](docs/README.md) for the document map and current implementation status.
 - Before implementing a provider, read its dossier in `docs/providers/` and [the validation plan](docs/validation.md).

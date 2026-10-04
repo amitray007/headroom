@@ -35,3 +35,22 @@ export async function copyText(
     return "error";
   }
 }
+
+/**
+ * How the reset button reads an action outcome. Only `succeeded` and `failed` are certain. Anything else
+ * (`uncertain`, or an action still `requested` or `submitted`) means the provider may have consumed the
+ * reset, so the button must not offer a retry, which would use a new idempotency key.
+ */
+export function resetOutcome(state: string): "ok" | "failed" | "unknown" {
+  if (state === "succeeded") return "ok";
+  if (state === "failed") return "failed";
+  return "unknown";
+}
+
+/**
+ * The same, when the request itself threw. A 4xx answer means the server refused before calling the
+ * provider; a network error or a 5xx may hide a request that got through.
+ */
+export function resetOutcomeOfError(status: number | null): "failed" | "unknown" {
+  return status !== null && status >= 400 && status < 500 ? "failed" : "unknown";
+}

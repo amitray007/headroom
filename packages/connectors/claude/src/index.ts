@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   type BeginConnectOptions,
   type Capability,
-  type ClassifiedError,
   type CollectResult,
   type ConnectProgress,
   type Connector,
@@ -16,7 +15,14 @@ import {
   type ResetCreditObservation,
   type StoredCredential,
   type SubmitInput,
+  awaitCliStep,
+  classified,
   classifyUnknown,
+  finishCliLogin,
+  parseDate,
+  retryAfterMs,
+  throwForStatus,
+  timeoutFetch,
 } from "@headroom/core";
 
 import {
@@ -93,44 +99,16 @@ export function codeFromInput(input: SubmitInput): string | null {
 }
 
 export function createClaudeConnector(options: ClaudeConnectorOptions): Connector {
-  const http: FetchLike = options.fetch ?? ((input, init) => fetch(input, init));
+  const http: FetchLike = options.fetch ?? timeoutFetch();
   const now = options.now ?? (() => Date.now());
   const runner = options.runner;
 
-  async function finishCliLogin(attemptId: string): Promise<ConnectProgress> {
-    const status = runner.status(attemptId);
-    if (!status)
-      return {
-        status: "error",
-        error: classified("approval_expired", "the sign-in process is gone"),
-      };
-    if (status.credentialsPresent) {
-      const contents = runner.readCredentials(attemptId);
-      await runner.cleanup(attemptId);
-      if (!contents)
-        return {
-          status: "error",
-          error: classified("internal_error", "credentials file vanished"),
-        };
-      try {
-        return { status: "credentials", credential: credentialFromCredentialsFile(contents) };
-      } catch (error) {
-        return { status: "error", error: classify(error) };
-      }
-    }
-    if (status.state === "timed_out") {
-      await runner.cleanup(attemptId);
-      return { status: "error", error: classified("approval_expired", "the sign-in timed out") };
-    }
-    if (status.state !== "running") {
-      await runner.cleanup(attemptId);
-      return {
-        status: "error",
-        error: classified("approval_denied", "the sign-in did not complete"),
-      };
-    }
-    return { status: "waiting", privateState: { attemptId }, pollAfterMs: 2000 };
-  }
+  const finishLogin = (attemptId: string): Promise<ConnectProgress> =>
+    finishCliLogin(runner, attemptId, {
+      parse: credentialFromCredentialsFile,
+      pollAfterMs: 2000,
+      expiredMessage: "the sign-in timed out",
+    });
 
   return {
     provider: "claude",
@@ -157,17 +135,12 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
         credentialFile: cli.credentialFile,
         timeoutMs: Math.min(cli.timeoutMs, Math.max(1000, begin.expiresAt - now())),
       });
-      const deadline = now() + 30_000;
-      let url = parseAuthorizeUrl(runner.status(begin.attemptId)?.output ?? "");
-      while (!url && now() < deadline) {
-        // eslint-disable-next-line no-await-in-loop -- waiting on a child process's first lines
-        await Bun.sleep(100);
-        const status = runner.status(begin.attemptId);
-        if (!status || status.state !== "running") break;
-        url = parseAuthorizeUrl(status.output);
-      }
+      const url = await awaitCliStep(runner, begin.attemptId, {
+        parse: parseAuthorizeUrl,
+        now,
+        timeoutMs: 30_000,
+      });
       if (!url) {
-        await runner.cleanup(begin.attemptId);
         return {
           status: "error",
           error: classified("provider_unavailable", "claude did not print an authorization URL"),
@@ -197,7 +170,7 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
             credential: credentialFromCredentialsFile(input.contents),
           };
         } catch (error) {
-          return { status: "error", error: classify(error) };
+          return { status: "error", error: classifyUnknown(error) };
         }
       }
       const parsed = privateStateSchema.safeParse(privateState);
@@ -218,7 +191,7 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
       }
       // The CLI exchanges the code and writes the credentials file; the next poll picks it up.
       await Bun.sleep(500);
-      const progress = await finishCliLogin(parsed.data.attemptId);
+      const progress = await finishLogin(parsed.data.attemptId);
       return progress.status === "waiting" ? { ...progress, pollAfterMs: 1000 } : progress;
     },
 
@@ -229,7 +202,7 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
           status: "error",
           error: classified("internal_error", "attempt state missing"),
         });
-      return finishCliLogin(parsed.data.attemptId);
+      return finishLogin(parsed.data.attemptId);
     },
 
     async cancelConnect(privateState: unknown): Promise<void> {
@@ -240,7 +213,7 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
     async identity(credential: StoredCredential): Promise<Identity> {
       const secret = claudeCredentialSchema.parse(credential.secret);
       const response = await http(profileUrl, { headers: oauthHeaders(secret.accessToken) });
-      await throwForStatus(response, "profile");
+      throwForStatus(response, "profile");
       const profile = profileSchema.safeParse(await response.json().catch(() => null));
       if (!profile.success)
         throw new ConnectorError("invalid_response", "profile response shape changed");
@@ -289,7 +262,7 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
     async collect(credential: StoredCredential): Promise<CollectResult> {
       const secret = claudeCredentialSchema.parse(credential.secret);
       const response = await http(usageUrl, { headers: oauthHeaders(secret.accessToken) });
-      await throwForStatus(response, "usage");
+      throwForStatus(response, "usage");
       const usage = usageResponseSchema.safeParse(await response.json().catch(() => null));
       if (!usage.success)
         throw new ConnectorError("invalid_response", "usage response shape changed");
@@ -345,7 +318,7 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
       if (response.status === 429)
         return {
           status: "transient",
-          error: classified("rate_limited", "token endpoint rate limited", 60_000),
+          error: classified("rate_limited", "token endpoint rate limited", retryAfterMs(response)),
         };
       return {
         status: "transient",
@@ -357,7 +330,7 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
       return Promise.resolve("local_only");
     },
 
-    classify,
+    classify: classifyUnknown,
   };
 }
 
@@ -436,72 +409,38 @@ function metricsFrom(
   // grants rather than reporting none, so emit no count: an unavailable figure is unknown, not zero.
   if (usage.cedar_ember?.eligible === true) {
     let total = 0;
-    (usage.cedar_ember.grants ?? []).forEach((grant, index) => {
-      const left = grant.resets_left ?? 0;
+    let unknownCount = false;
+    for (const [index, grant] of (usage.cedar_ember.grants ?? []).entries()) {
+      const left = grant.resets_left;
       const startsAt = parseDate(grant.starts_at);
       const endsAt = parseDate(grant.ends_at);
-      const usable =
+      const active =
         grant.paused !== true &&
-        left >= 1 &&
         (startsAt === null || startsAt <= observedAt) &&
         (endsAt === null || endsAt > observedAt);
+      // A missing count is unknown, not zero. It only blurs the total when the grant could count at all.
+      if (left === undefined && active) unknownCount = true;
+      const usable = active && left !== undefined && left >= 1;
       if (usable) total += left;
       resetCredits.push({
         providerCreditId: `grant-${index}`,
         eligible: true,
         usable,
         expiresAt: endsAt,
-        rawLabel: grant.label ?? `${left} left`,
+        rawLabel: grant.label ?? (left === undefined ? "count unknown" : `${left} left`),
       });
-    });
+    }
     metrics.push({
       providerMetricKey: "reset_grants.available",
       kind: "reset_inventory",
       scope: "account",
-      valueText: String(total),
+      valueText: unknownCount ? null : String(total),
       unit: "resets",
-      availability: "available",
+      availability: unknownCount ? "unknown" : "available",
       interface: "private",
     });
   }
   return { metrics, resetCredits };
-}
-
-function classify(error: unknown): ClassifiedError {
-  return classifyUnknown(error);
-}
-
-function classified(
-  category: ClassifiedError["category"],
-  message: string,
-  retryAfterMs?: number,
-): ClassifiedError {
-  return new ConnectorError(category, message, retryAfterMs).toClassified();
-}
-
-async function throwForStatus(response: Response, what: string): Promise<void> {
-  if (response.ok) return;
-  if (response.status === 401)
-    throw new ConnectorError("authentication_required", `${what} returned 401`);
-  if (response.status === 403)
-    throw new ConnectorError("permission_denied", `${what} returned 403`);
-  if (response.status === 429) {
-    const header = Number(response.headers.get("retry-after"));
-    throw new ConnectorError(
-      "rate_limited",
-      `${what} returned 429`,
-      Number.isFinite(header) && header > 0 ? header * 1000 : 60_000,
-    );
-  }
-  if (response.status >= 500)
-    throw new ConnectorError("provider_unavailable", `${what} returned ${response.status}`);
-  throw new ConnectorError("invalid_response", `${what} returned ${response.status}`);
-}
-
-function parseDate(value: string | null | undefined): number | null {
-  if (!value) return null;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
 }
 
 function centsToDollars(cents: number): string {

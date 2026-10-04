@@ -7,7 +7,7 @@ import { openDatabase } from "../db/index.ts";
 import { AttemptStore, ConnectionStore } from "../lifecycle.ts";
 import { SnapshotStore } from "../snapshots.ts";
 import { ConnectService, InvalidAttemptStateError, ProviderDisabledError } from "./connect.ts";
-import { credentialFixture, FakeConnector, partialCollect } from "./fake-connector.ts";
+import { credentialFixture, FakeConnector, okCollect, partialCollect } from "./fake-connector.ts";
 
 async function rejection(promise: Promise<unknown>): Promise<unknown> {
   try {
@@ -27,9 +27,10 @@ function setup() {
   const connections = new ConnectionStore(db, clock);
   const credentials = new CredentialStore(db, keyring);
   const snapshots = new SnapshotStore(db, clock);
+  const attempts = new AttemptStore(db, keyring, clock);
   const service = new ConnectService({
     registry: { get: (p) => (p === "codex" ? connector : undefined), list: () => [connector] },
-    attempts: new AttemptStore(db, keyring, clock),
+    attempts,
     connections,
     credentials,
     snapshots,
@@ -38,6 +39,7 @@ function setup() {
   });
   return {
     service,
+    attempts,
     connector,
     connections,
     credentials,
@@ -248,5 +250,106 @@ describe("ConnectService", () => {
     const attempt = await service.begin({ provider: "codex", method: "device_code" });
     expect(attempt.state).toBe("failed");
     expect(attempt.error).toContain("internal_error");
+  });
+
+  test("expiring a polled attempt asks the connector to clean up with the private state, then expires it", async () => {
+    const { service, attempts, connector, advance } = setup();
+    const cancelled: unknown[] = [];
+    connector.cancelConnect = (privateState?: unknown) => {
+      cancelled.push(privateState);
+      return Promise.resolve();
+    };
+    const begun = await service.begin({ provider: "codex", method: "device_code" });
+    advance(60_001);
+    expect((await service.poll(begun.id)).state).toBe("expired");
+    expect(cancelled).toEqual([{ deviceId: "dev-1" }]);
+    expect(attempts.privateState(begun.id)).toBeNull();
+    // Expiring again is a no-op: the connector is not asked twice.
+    await service.expire(begun.id);
+    expect(cancelled).toHaveLength(1);
+  });
+
+  test("expire still expires the attempt when the connector cleanup throws", async () => {
+    const { service, attempts, connector, advance } = setup();
+    connector.cancelConnect = () => Promise.reject(new Error("rm failed"));
+    const begun = await service.begin({ provider: "codex", method: "device_code" });
+    advance(60_001);
+    expect(await rejection(service.expire(begun.id))).toBeInstanceOf(Error);
+    expect(attempts.get(begun.id)?.state).toBe("expired");
+  });
+
+  test("a definitive first-collection failure on a reconnect keeps the connection and asks to reconnect", async () => {
+    const { service, connector, connections, credentials } = setup();
+    connector.beginQueue.push({ status: "credentials", credential: credentialFixture("first") });
+    const first = await service.begin({ provider: "codex", method: "import" });
+    connections.requireReconnect(first.connectionId!, "refresh_rejected");
+    connector.beginQueue.push({ status: "credentials", credential: credentialFixture("second") });
+    connector.collectQueue.push(new ConnectorError("authentication_required", "usage says 401"));
+    const attempt = await service.begin({
+      provider: "codex",
+      method: "import",
+      connectionId: first.connectionId!,
+    });
+    expect(attempt.state).toBe("failed");
+    const kept = connections.get(first.connectionId!)!;
+    expect(kept.state).toBe("reconnect_required");
+    expect(kept.reconnectReason).toBe("token_rejected");
+    expect(credentials.get(first.connectionId!)).toBeNull();
+  });
+
+  test("a definitive first-collection failure on an identity already linked keeps that connection", async () => {
+    const { service, connector, connections, credentials } = setup();
+    connector.beginQueue.push({ status: "credentials", credential: credentialFixture("first") });
+    const first = await service.begin({ provider: "codex", method: "import" });
+    expect(connections.get(first.connectionId!)?.state).toBe("ready");
+    connector.beginQueue.push({ status: "credentials", credential: credentialFixture("second") });
+    connector.collectQueue.push(new ConnectorError("authentication_required", "usage says 401"));
+    const attempt = await service.begin({ provider: "codex", method: "import" });
+    expect(attempt.state).toBe("failed");
+    expect(connections.list()).toHaveLength(1);
+    expect(connections.get(first.connectionId!)?.state).toBe("reconnect_required");
+    expect(connections.get(first.connectionId!)?.reconnectReason).toBe("token_rejected");
+    expect(credentials.get(first.connectionId!)).toBeNull();
+  });
+
+  test("an imported credential whose access token has expired is refreshed before its first collection", async () => {
+    const { service, connector, credentials, advance } = setup();
+    advance(credentialFixture().expiresAt! - 1_700_000_000_000 - 60_000);
+    const used: unknown[] = [];
+    connector.collect = (credential?: { secret: unknown }) => {
+      connector.calls.push("collect");
+      used.push(credential?.secret);
+      return Promise.resolve(okCollect());
+    };
+    connector.beginQueue.push({ status: "credentials", credential: credentialFixture() });
+    const attempt = await service.begin({ provider: "codex", method: "import" });
+    expect(attempt.state).toBe("succeeded");
+    expect(connector.calls).toEqual([
+      "begin:import",
+      "identity",
+      "refresh",
+      "capabilities",
+      "collect",
+    ]);
+    expect(used).toEqual([credentialFixture("refreshed").secret]);
+    expect(credentials.get(attempt.connectionId!)?.secret).toEqual(
+      credentialFixture("refreshed").secret,
+    );
+  });
+
+  test("a credential far from expiry is not refreshed, and a rejected refresh still collects with the original", async () => {
+    const { service, connector, advance } = setup();
+    connector.beginQueue.push({ status: "credentials", credential: credentialFixture() });
+    await service.begin({ provider: "codex", method: "import" });
+    expect(connector.calls).not.toContain("refresh");
+    advance(credentialFixture().expiresAt! - 1_700_000_000_000 + 1);
+    connector.refreshQueue.push({
+      status: "rejected",
+      error: { category: "authentication_required", class: "definitive", message: "no" },
+    });
+    connector.beginQueue.push({ status: "credentials", credential: credentialFixture("again") });
+    const attempt = await service.begin({ provider: "codex", method: "import" });
+    expect(connector.calls.filter((c) => c === "refresh")).toHaveLength(1);
+    expect(attempt.state).toBe("succeeded");
   });
 });

@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, ne, notInArray } from "drizzle-orm";
 
 import type { Capability, ClassifiedError, CollectResult } from "./connector.ts";
 import { type Db, schema } from "./db/index.ts";
@@ -45,6 +45,19 @@ export class SnapshotStore {
       })
       .where(eq(schema.syncRuns.id, runId))
       .run();
+  }
+
+  /**
+   * Close every run still open as `interrupted`. Called once at startup: the process that
+   * opened them is gone, and an open run would otherwise look in progress forever.
+   */
+  interruptUnfinished(): number {
+    return this.db
+      .update(schema.syncRuns)
+      .set({ finishedAt: this.now(), outcome: "interrupted" })
+      .where(isNull(schema.syncRuns.finishedAt))
+      .returning({ id: schema.syncRuns.id })
+      .all().length;
   }
 
   latestRun(connectionId: string): SyncRunRow | null {
@@ -178,6 +191,75 @@ export class SnapshotStore {
       .orderBy(desc(schema.snapshots.observedAt))
       .limit(limit)
       .all();
+  }
+
+  /**
+   * Delete history older than `cutoff`, per connection, and keep each connection's newest
+   * snapshot and newest sync run however old: the dashboard reads them. Metrics and reset credits
+   * go with their snapshot through the foreign-key cascade. An action row that points at a pruned
+   * snapshot loses that link, because the reference has no cascade and would block the delete.
+   * A run that still owns a surviving snapshot stays, so the run cascade never takes one.
+   * Each connection is one transaction that walks the (connection, time) indexes.
+   */
+  prune(cutoff: Date): { snapshots: number; syncRuns: number } {
+    const counts = { snapshots: 0, syncRuns: 0 };
+    const ids = this.db.select({ id: schema.connections.id }).from(schema.connections).all();
+    for (const { id: connectionId } of ids) {
+      this.db.transaction((tx) => {
+        const newestSnapshot = tx
+          .select({ id: schema.snapshots.id })
+          .from(schema.snapshots)
+          .where(eq(schema.snapshots.connectionId, connectionId))
+          .orderBy(desc(schema.snapshots.observedAt), desc(schema.snapshots.receivedAt))
+          .limit(1)
+          .get();
+        const newestRun = tx
+          .select({ id: schema.syncRuns.id })
+          .from(schema.syncRuns)
+          .where(eq(schema.syncRuns.connectionId, connectionId))
+          .orderBy(desc(schema.syncRuns.startedAt))
+          .limit(1)
+          .get();
+        const oldSnapshots = and(
+          eq(schema.snapshots.connectionId, connectionId),
+          lt(schema.snapshots.observedAt, cutoff),
+          newestSnapshot ? ne(schema.snapshots.id, newestSnapshot.id) : undefined,
+        );
+        tx.update(schema.accountActions)
+          .set({ resultingSnapshotId: null })
+          .where(
+            inArray(
+              schema.accountActions.resultingSnapshotId,
+              tx.select({ id: schema.snapshots.id }).from(schema.snapshots).where(oldSnapshots),
+            ),
+          )
+          .run();
+        counts.snapshots += tx
+          .delete(schema.snapshots)
+          .where(oldSnapshots)
+          .returning({ id: schema.snapshots.id })
+          .all().length;
+        counts.syncRuns += tx
+          .delete(schema.syncRuns)
+          .where(
+            and(
+              eq(schema.syncRuns.connectionId, connectionId),
+              lt(schema.syncRuns.startedAt, cutoff),
+              newestRun ? ne(schema.syncRuns.id, newestRun.id) : undefined,
+              notInArray(
+                schema.syncRuns.id,
+                tx
+                  .select({ id: schema.snapshots.syncRunId })
+                  .from(schema.snapshots)
+                  .where(eq(schema.snapshots.connectionId, connectionId)),
+              ),
+            ),
+          )
+          .returning({ id: schema.syncRuns.id })
+          .all().length;
+      });
+    }
+    return counts;
   }
 
   /** Replace the connection's capability rows with the connector's current view. */

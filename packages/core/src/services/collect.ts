@@ -1,11 +1,11 @@
 import type { ClassifiedError, Connector, Identity } from "../connector.ts";
-import type { CredentialStore } from "../credentials.ts";
+import type { CredentialRecord, CredentialStore } from "../credentials.ts";
 import type { ReconnectReason, SyncRunOutcome } from "../enums.ts";
 import { LeaseHeldError, type LeaseStore } from "../leases.ts";
 import type { ConnectionRow, ConnectionStore } from "../lifecycle.ts";
-import type { SnapshotStore } from "../snapshots.ts";
+import type { SnapshotStore, SyncRunRow } from "../snapshots.ts";
 import type { ConnectorRegistry } from "./connect.ts";
-import { outcomeFor } from "./connect.ts";
+import { defaultRefreshLeadMs, outcomeFor, refreshAndStore } from "./connect.ts";
 
 /**
  * One scheduled or manual collection for one connection: lease, refresh if due,
@@ -40,12 +40,13 @@ export type CollectionOutcome =
 
 export class CollectionService {
   private readonly refreshLeadMs: number;
-  private readonly leaseTtlMs: number;
+  /** How long a lease lasts; an open run older than this has no live owner. */
+  readonly leaseTtlMs: number;
   private readonly confirmRejectionMs: number;
   private readonly now: () => Date;
 
   constructor(private readonly deps: CollectionServiceOptions) {
-    this.refreshLeadMs = deps.refreshLeadMs ?? 5 * 60 * 1000;
+    this.refreshLeadMs = deps.refreshLeadMs ?? defaultRefreshLeadMs;
     this.leaseTtlMs = deps.leaseTtlMs ?? 2 * 60 * 1000;
     this.confirmRejectionMs = deps.confirmRejectionMs ?? 2 * 60 * 1000;
     this.now = deps.now ?? (() => new Date());
@@ -68,6 +69,10 @@ export class CollectionService {
       );
     } catch (error) {
       if (error instanceof LeaseHeldError) return { status: "skipped", reason: "lease_held" };
+      // Deleted while this ran (the lease or a write hit a foreign key): nothing left to collect.
+      if (!this.deps.connections.get(connectionId)) {
+        return { status: "skipped", reason: "not_collectable" };
+      }
       throw error;
     }
   }
@@ -78,16 +83,36 @@ export class CollectionService {
   ): Promise<CollectionOutcome> {
     const record = this.deps.credentials.get(connection.id);
     if (!record) return { status: "skipped", reason: "no_credentials" };
-    let credential = { secret: record.secret, expiresAt: record.expiresAt };
     const previous = this.deps.snapshots.latestRun(connection.id);
     const run = this.deps.snapshots.startRun(connection.id);
+    try {
+      return await this.execute(connection, connector, record, previous, run.id);
+    } catch (error) {
+      // An unexpected throw must not leave the run open: the scheduler would wait on it forever.
+      try {
+        this.deps.snapshots.finishRun(run.id, "interrupted");
+      } catch {
+        // The original error matters more than a failure to record it.
+      }
+      throw error;
+    }
+  }
+
+  private async execute(
+    connection: ConnectionRow,
+    connector: Connector,
+    record: CredentialRecord,
+    previous: SyncRunRow | null,
+    runId: string,
+  ): Promise<CollectionOutcome> {
+    let credential = { secret: record.secret, expiresAt: record.expiresAt };
     const rejected = (error: ClassifiedError) =>
-      this.rejected(connection, previous?.outcome ?? null, run.id, error);
+      this.rejected(connection, previous?.outcome ?? null, runId, error);
 
     // Proactive refresh when expiry is known and near.
     if (record.refreshState !== "not_refreshable" && credential.expiresAt !== null) {
       if (credential.expiresAt - this.refreshLeadMs <= this.now().getTime()) {
-        const refreshed = await this.refresh(connection, connector, credential, run.id);
+        const refreshed = await this.refresh(connection, connector, credential, runId);
         if (refreshed.status === "failed") return refreshed;
         if (refreshed.status === "refreshed") credential = refreshed.credential;
       }
@@ -110,7 +135,7 @@ export class CollectionService {
         classified.category === "authentication_required" &&
         record.refreshState !== "not_refreshable"
       ) {
-        const refreshed = await this.refresh(connection, connector, credential, run.id);
+        const refreshed = await this.refresh(connection, connector, credential, runId);
         if (refreshed.status === "failed") return refreshed;
         if (refreshed.status === "refreshed") {
           credential = refreshed.credential;
@@ -127,7 +152,7 @@ export class CollectionService {
       }
     }
 
-    this.deps.snapshots.record(connection.id, run.id, result, connector.version);
+    this.deps.snapshots.record(connection.id, runId, result, connector.version);
     const partial =
       result.failures.length > 0 || result.metrics.some((m) => m.availability !== "available");
     const outcome = partial ? "partial" : "succeeded";
@@ -136,7 +161,7 @@ export class CollectionService {
       new Date(result.observedAt),
       outcome === "partial" ? "partial" : "ready",
     );
-    this.deps.snapshots.finishRun(run.id, outcome);
+    this.deps.snapshots.finishRun(runId, outcome);
     return { status: "collected", outcome };
   }
 
@@ -153,26 +178,21 @@ export class CollectionService {
     | { status: "not_refreshable" }
     | CollectionOutcome
   > {
-    let result;
-    try {
-      result = await connector.refresh(credential);
-    } catch (error) {
-      result = { status: "transient" as const, error: connector.classify(error) };
-    }
+    const result = await refreshAndStore(
+      this.deps.credentials,
+      connection.id,
+      connector,
+      credential,
+    );
     switch (result.status) {
       case "refreshed":
-        // Persist the rotated token before using it.
-        this.deps.credentials.put(connection.id, result.credential, "fresh");
         return { status: "refreshed", credential: result.credential };
       case "not_refreshable":
-        this.deps.credentials.setRefreshState(connection.id, "not_refreshable");
         return { status: "not_refreshable" };
       case "transient":
-        this.deps.credentials.setRefreshState(connection.id, "refresh_due");
         this.deps.snapshots.finishRun(runId, outcomeFor(result.error), result.error);
         return { status: "failed", outcome: outcomeFor(result.error), error: result.error };
       case "rejected":
-        this.deps.credentials.setRefreshState(connection.id, "refresh_failed");
         return this.fail(connection.id, runId, result.error, "refresh_rejected");
       default:
         return assertNever(result);

@@ -96,6 +96,17 @@ async function rejection(promise: Promise<unknown>): Promise<unknown> {
   }
 }
 
+const limited = () => new Response("", { status: 429, headers: { "retry-after": "1200" } });
+
+async function collectWith(config: unknown) {
+  const connector = createGrokConnector({
+    runner: new FakeRunner(),
+    fetch: fakeFetch({ [billingUrl]: () => json({ config }) }).fetch,
+  });
+  const result = await connector.collect(credentialFromAuthFile(authFile), identity);
+  return Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+}
+
 describe("Grok connector", () => {
   test("parses the device URL and code the CLI prints", () => {
     expect(parseDeviceStep(deviceOutput)).toEqual({
@@ -172,6 +183,29 @@ describe("Grok connector", () => {
     expect(byKey["product.grok_code.used_percent"]).toMatchObject({ valueText: "1" });
     expect(byKey["product.grok_chat.used_percent"]).toMatchObject({ valueText: "0" });
     expect(result.metrics.every((m) => m.availability === "available")).toBe(true);
+  });
+
+  test("proto-JSON zeros: a present wrapper without a value is an available zero, an absent wrapper emits nothing", async () => {
+    const period = {
+      type: "USAGE_PERIOD_TYPE_WEEKLY",
+      start: "2026-09-26T00:00:00Z",
+      end: "2026-10-03T00:00:00Z",
+    };
+    const present = await collectWith({
+      currentPeriod: period,
+      onDemandUsed: {},
+      prepaidBalance: {},
+      productUsage: [{ product: "grok_chat" }],
+    });
+    expect(present["on_demand.used"]).toMatchObject({ valueText: "0", availability: "available" });
+    expect(present["prepaid_balance"]).toMatchObject({ valueText: "0", availability: "available" });
+    expect(present["product.grok_chat.used_percent"]).toMatchObject({
+      valueText: "0",
+      availability: "available",
+    });
+    const absent = await collectWith({ currentPeriod: period });
+    expect(Object.keys(absent)).not.toContain("on_demand.used");
+    expect(Object.keys(absent)).not.toContain("prepaid_balance");
   });
 
   test("collect maps the weekly pool and cap; an absent percent is a genuine zero", async () => {
@@ -256,5 +290,21 @@ describe("Grok connector", () => {
       expiresAt: null,
     };
     expect(await connector.refresh(noRefresh)).toEqual({ status: "not_refreshable" });
+  });
+
+  test("a rate-limited billing call or refresh honours Retry-After", async () => {
+    const connector = createGrokConnector({
+      runner: new FakeRunner(),
+      fetch: fakeFetch({ [tokenUrl]: limited, [billingUrl]: limited }).fetch,
+    });
+    const credential = credentialFromAuthFile(authFile);
+    expect(await connector.refresh(credential)).toMatchObject({
+      status: "transient",
+      error: { category: "rate_limited", retryAfterMs: 1_200_000 },
+    });
+    expect(await rejection(connector.collect(credential, identity))).toMatchObject({
+      category: "rate_limited",
+      retryAfterMs: 1_200_000,
+    });
   });
 });

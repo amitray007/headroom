@@ -120,6 +120,45 @@ describe("Vercel AI Gateway connector", () => {
     });
   });
 
+  test("an outage hides nothing as not authorized: transient failures are temporarily unavailable, drift is unknown", async () => {
+    const spendWith = async (spend: () => Response) => {
+      const connector = createVercelConnector({
+        fetch: fakeFetch((url) =>
+          url.includes("/credits") ? json({ balance: "1", total_used: "0" }) : spend(),
+        ).fetch,
+      });
+      const result = await connector.collect(credential, identity);
+      return result.metrics.find((m) => m.providerMetricKey === "spend.30d");
+    };
+    expect(await spendWith(() => json({ error: { message: "down" } }, 503))).toMatchObject({
+      availability: "temporarily_unavailable",
+    });
+    expect(await spendWith(() => json({ error: { message: "slow" } }, 429))).toMatchObject({
+      availability: "temporarily_unavailable",
+    });
+    expect(await spendWith(() => json({ unexpected: true }))).toMatchObject({
+      availability: "unknown",
+    });
+    const unreachable = createVercelConnector({
+      fetch: Object.assign(
+        (input: string | URL | Request) =>
+          (typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url
+          ).includes("/credits")
+            ? Promise.resolve(json({ balance: "1", total_used: "0" }))
+            : Promise.reject(new Error("ECONNRESET")),
+        { preconnect: (): void => undefined },
+      ),
+    });
+    const result = await unreachable.collect(credential, identity);
+    expect(result.metrics.find((m) => m.providerMetricKey === "spend.30d")).toMatchObject({
+      availability: "temporarily_unavailable",
+    });
+  });
+
   test("drift in the credits response is invalid_response", async () => {
     const connector = createVercelConnector({
       fetch: fakeFetch(() => json({ balance: 12 })).fetch,

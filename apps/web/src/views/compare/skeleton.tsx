@@ -1,4 +1,6 @@
 import { LoadingNote, Sk } from "../../ui/skeleton.tsx";
+// The skeleton is the Suspense fallback while this view's code loads, so its styles ship with the first screen.
+import "./compare.css";
 
 /** The Compare view before the overview loads: tabs, the recommended line, a matrix and single cards in final size. */
 export function CompareSkeleton() {

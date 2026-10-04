@@ -22,6 +22,22 @@ applyStoredPrefs(document.documentElement, storage);
 // The bare root opens on the view this device used last.
 restoreView(window.location, window.history, storage === null ? null : readView(storage));
 
+// A tab left open across a deploy asks for page code whose file name changed. Reload once to get the new build; a
+// second failure within a minute is a real outage and goes to the error boundary.
+window.addEventListener("vite:preloadError", (event) => {
+  const stamp = "headroom.preload-reload";
+  try {
+    const last = Number(window.sessionStorage.getItem(stamp) ?? "0");
+    if (Date.now() - last < 60_000) return;
+    window.sessionStorage.setItem(stamp, String(Date.now()));
+  } catch {
+    // Blocked storage cannot guard against a reload loop, so leave the failure to the error boundary.
+    return;
+  }
+  event.preventDefault();
+  window.location.reload();
+});
+
 const root = document.getElementById("root");
 if (root === null) throw new Error("Missing #root element");
 createRoot(root).render(

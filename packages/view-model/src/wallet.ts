@@ -14,7 +14,7 @@ import {
 } from "./wallet-money.ts";
 
 /**
- * Wallet: what the owner pays for each account, in money. Exploration on the `wallet-exploration` branch.
+ * Wallet: what the owner pays for each account, in money.
  * Providers never report what an account costs, so every cost and top-up here is owner-entered; only usage spend
  * (Claude extra usage, Cursor on-demand, Vercel 30-day spend) comes from the provider's own figures.
  */
@@ -489,9 +489,14 @@ export function upcomingRenewals(
     .toSorted((a, b) => a.date.localeCompare(b.date));
 }
 
+/** The part of the spend ring that holds paid top-ups of accounts the owner has since removed. */
+export const removedAccounts = "removed";
+export type SpendSource = Provider | typeof removedAccounts;
+
 /** One provider's money this month, in display-currency minor units, split by kind. */
 export interface ProviderSpend {
-  readonly provider: Provider;
+  /** A provider, or `removed` for top-ups whose account no longer exists. */
+  readonly provider: SpendSource;
   /** Paid subscriptions per month. */
   readonly plan: number;
   /** Provider-reported usage spend. */
@@ -504,7 +509,8 @@ export interface ProviderSpend {
 /**
  * Where this month's all-in money goes: each provider's plans, usage spend and paid top-ups, largest total first
  * (equal totals keep provider order). A provider with nothing above zero is left out; amounts with no rate are
- * already outside the totals, so the parts add up to `allIn`.
+ * already outside the totals. Top-ups of a removed account still count in `allIn`, so they form one part
+ * (`removed`), and the parts add up to `allIn`.
  */
 export function providerSpend(summary: WalletSummary): readonly ProviderSpend[] {
   const providerOf = new Map(
@@ -513,21 +519,24 @@ export function providerSpend(summary: WalletSummary): readonly ProviderSpend[] 
     ),
   );
   const topUps = new Map<Provider, number>();
+  let removed = 0;
   for (const item of summary.topUpsThisMonth.items) {
     const provider = providerOf.get(item.connectionId);
     const minor = item.amount?.shown?.minor ?? 0;
-    if (provider !== undefined && minor > 0)
-      topUps.set(provider, (topUps.get(provider) ?? 0) + minor);
+    if (minor <= 0) continue;
+    if (provider === undefined) removed += minor;
+    else topUps.set(provider, (topUps.get(provider) ?? 0) + minor);
   }
-  return summary.providers
-    .map((group) => {
-      const plan = group.monthly.money.minor;
-      const usage = group.usageSpend.money.minor;
-      const topUp = topUps.get(group.provider) ?? 0;
-      return { provider: group.provider, plan, usage, topUps: topUp, total: plan + usage + topUp };
-    })
-    .filter((part) => part.total > 0)
-    .toSorted((a, b) => b.total - a.total);
+  const parts = summary.providers.map((group): ProviderSpend => {
+    const plan = group.monthly.money.minor;
+    const usage = group.usageSpend.money.minor;
+    const topUp = topUps.get(group.provider) ?? 0;
+    return { provider: group.provider, plan, usage, topUps: topUp, total: plan + usage + topUp };
+  });
+  if (removed > 0) {
+    parts.push({ provider: removedAccounts, plan: 0, usage: 0, topUps: removed, total: removed });
+  }
+  return parts.filter((part) => part.total > 0).toSorted((a, b) => b.total - a.total);
 }
 
 /**

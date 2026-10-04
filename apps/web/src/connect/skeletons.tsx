@@ -1,4 +1,6 @@
 import { LoadingNote, Sk } from "../ui/skeleton.tsx";
+// The skeleton is the Suspense fallback while the connect page loads, so its styles ship with the first screen.
+import "./connect.css";
 
 /** Provider cards while the provider list loads. Seven is the full set; fewer may be enabled. */
 export function CardsSkeleton() {

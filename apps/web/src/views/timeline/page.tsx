@@ -6,7 +6,6 @@ import { prefersReducedMotion } from "../../ui/motion.ts";
 import { HoverPopover } from "../../ui/hover-popover.tsx";
 import { Segmented } from "../../ui/segmented.tsx";
 import { SlideSwap, type SwapDirection } from "../../ui/slide-swap.tsx";
-import { Sk, LoadingNote } from "../../ui/skeleton.tsx";
 import { LoadFailed, NoAccounts } from "../../dashboard/states.tsx";
 import type { ViewProps } from "../props.ts";
 import { UpNextCard, WatchListCard } from "./cards.tsx";
@@ -20,6 +19,7 @@ import {
   type TimelineKind,
 } from "./lanes.ts";
 import { axisFor, rangeLabel } from "./range.ts";
+import { TimelineSkeleton } from "./skeleton.tsx";
 import { laneTips, type TipContext } from "./tips.ts";
 import "./timeline.css";
 
@@ -39,26 +39,6 @@ function Chevron(props: { readonly direction: "left" | "right" }) {
     >
       <path d={props.direction === "left" ? "m15 6-6 6 6 6" : "m9 6 6 6-6 6"} />
     </svg>
-  );
-}
-
-function TimelineSkeleton() {
-  return (
-    <div className="tl-view" aria-busy="true">
-      <LoadingNote>Loading timeline</LoadingNote>
-      <div className="tl-tools">
-        <Sk width={190} height={20} />
-        <Sk width={300} height={32} className="sk-pill" />
-      </div>
-      <div className="tl-chart tl-skeleton">
-        {[0, 1, 2, 3].map((row) => (
-          <div key={row} className="tl-skeleton-row">
-            <Sk width="55%" />
-            <Sk kind="bar" width={`${40 + row * 12}%`} />
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 

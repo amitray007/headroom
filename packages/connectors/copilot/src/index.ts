@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   type BeginConnectOptions,
   type Capability,
-  type ClassifiedError,
   type CollectResult,
   type ConnectProgress,
   type Connector,
@@ -14,7 +13,11 @@ import {
   type RefreshResult,
   type StoredCredential,
   type SubmitInput,
+  classified,
   classifyUnknown,
+  parseDate,
+  throwForStatus,
+  timeoutFetch,
 } from "@headroom/core";
 
 import {
@@ -68,7 +71,7 @@ export function credentialFromAppsFile(contents: string): StoredCredential {
 }
 
 export function createCopilotConnector(options: CopilotConnectorOptions = {}): Connector {
-  const http: FetchLike = options.fetch ?? ((input, init) => fetch(input, init));
+  const http: FetchLike = options.fetch ?? timeoutFetch();
   const now = options.now ?? (() => Date.now());
 
   return {
@@ -144,7 +147,7 @@ export function createCopilotConnector(options: CopilotConnectorOptions = {}): C
           credential: credentialFromAppsFile(input.contents),
         });
       } catch (error) {
-        return Promise.resolve({ status: "error", error: classify(error) });
+        return Promise.resolve({ status: "error", error: classifyUnknown(error) });
       }
     },
 
@@ -208,7 +211,11 @@ export function createCopilotConnector(options: CopilotConnectorOptions = {}): C
         default:
           return {
             status: "error",
-            error: classified("provider_unavailable", `GitHub answered ${body.data.error}`),
+            // The error code is provider text; the owner sees fixed wording and the HTTP status only.
+            error: classified(
+              "provider_unavailable",
+              `GitHub refused the sign-in (HTTP ${response.status})`,
+            ),
           };
       }
     },
@@ -220,7 +227,7 @@ export function createCopilotConnector(options: CopilotConnectorOptions = {}): C
     async identity(credential: StoredCredential): Promise<Identity> {
       const { token } = copilotCredentialSchema.parse(credential.secret);
       const response = await http(userUrl, { headers: githubHeaders(token) });
-      await throwForStatus(response, "user");
+      throwForStatus(response, "user", githubStatus);
       const user = userSchema.safeParse(await response.json().catch(() => null));
       if (!user.success)
         throw new ConnectorError("invalid_response", "user response shape changed");
@@ -255,7 +262,7 @@ export function createCopilotConnector(options: CopilotConnectorOptions = {}): C
     async collect(credential: StoredCredential): Promise<CollectResult> {
       const { token } = copilotCredentialSchema.parse(credential.secret);
       const response = await http(usageUrl, { headers: usageHeaders(token) });
-      await throwForStatus(response, "usage");
+      throwForStatus(response, "usage", githubStatus);
       const usage = usageResponseSchema.safeParse(await response.json().catch(() => null));
       if (!usage.success)
         throw new ConnectorError("invalid_response", "usage response shape changed");
@@ -272,7 +279,7 @@ export function createCopilotConnector(options: CopilotConnectorOptions = {}): C
       return Promise.resolve("local_only");
     },
 
-    classify,
+    classify: classifyUnknown,
   };
 }
 
@@ -364,41 +371,14 @@ function countMetric(
   };
 }
 
-function classify(error: unknown): ClassifiedError {
-  return classifyUnknown(error);
-}
-
-function classified(category: ClassifiedError["category"], message: string): ClassifiedError {
-  return new ConnectorError(category, message).toClassified();
-}
-
-async function throwForStatus(response: Response, what: string): Promise<void> {
-  if (response.ok) return;
-  if (response.status === 401)
-    throw new ConnectorError("authentication_required", `${what} returned 401`);
-  if (response.status === 403) {
-    const retry = Number(response.headers.get("retry-after"));
-    if (response.headers.get("x-ratelimit-remaining") === "0" || Number.isFinite(retry)) {
-      throw new ConnectorError(
-        "rate_limited",
-        `${what} rate limited`,
-        Number.isFinite(retry) && retry > 0 ? retry * 1000 : 60_000,
-      );
-    }
-    throw new ConnectorError("permission_denied", `${what} returned 403`);
-  }
-  if (response.status === 429)
-    throw new ConnectorError("rate_limited", `${what} returned 429`, 60_000);
-  if (response.status >= 500)
-    throw new ConnectorError("provider_unavailable", `${what} returned ${response.status}`);
-  throw new ConnectorError("invalid_response", `${what} returned ${response.status}`);
-}
-
-function parseDate(value: string | null | undefined): number | null {
-  if (!value) return null;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
-}
+/**
+ * GitHub's secondary rate limit arrives as a 403. It counts only when GitHub says so: no requests
+ * remaining, or a Retry-After header actually present. Any other 403 is a missing permission.
+ */
+const githubStatus = {
+  forbiddenIsRateLimit: (response: Response) =>
+    response.headers.get("x-ratelimit-remaining") === "0" || response.headers.has("retry-after"),
+};
 
 function round(value: number): number {
   return Math.round(value * 100) / 100;

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { api } from "../api.ts";
 import { CheckIcon, PauseIcon, PlayIcon, RetryIcon } from "../icons.tsx";
+import { connectionBusyMessage, isConnectionBusy } from "../lib/connection-busy.ts";
 import { useDevicePrefs } from "../lib/device-prefs.ts";
 import { ActionButton } from "../ui/action-button.tsx";
 import { Button } from "../ui/button.tsx";
@@ -10,6 +11,8 @@ import { Spinner } from "../ui/spinner.tsx";
 const resultMs = 1600;
 const askMs = 6000;
 const doneMs = 700;
+// The busy note has more to read than a failure word, so it stays up longer.
+const busyMs = 2800;
 
 type DisconnectPhase = "closed" | "asking" | "working" | "done" | "failed";
 
@@ -33,6 +36,8 @@ export function PanelActions(props: {
   const { demo } = useDevicePrefs();
   const failedWord = demo ? "Demo Mode" : "Failed";
   const [disconnect, setDisconnect] = useState<DisconnectPhase>("closed");
+  /** The last disconnect failed because a refresh was running; the failed face says so. */
+  const [busy, setBusy] = useState(false);
   const root = useRef<HTMLSpanElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
   const live = useRef(true);
@@ -72,10 +77,12 @@ export function PanelActions(props: {
     setDisconnect("working");
     try {
       await api.disconnect(id);
-    } catch {
+    } catch (cause) {
       if (!alive()) return;
+      const refreshing = isConnectionBusy(cause);
+      setBusy(refreshing);
       setDisconnect("failed");
-      await wait(resultMs);
+      await wait(refreshing ? busyMs : resultMs);
       if (alive()) setDisconnect("closed");
       return;
     }
@@ -158,6 +165,11 @@ export function PanelActions(props: {
                 </>
               ) : demo ? (
                 "Turn Off Demo Mode"
+              ) : busy ? (
+                // The pill is one short line, so the full note is the hover text and the spoken text.
+                <span title={connectionBusyMessage}>
+                  Refresh Running<span className="sr"> - {connectionBusyMessage}</span>
+                </span>
               ) : (
                 "Could Not Disconnect"
               )}

@@ -19,6 +19,15 @@ export {
   type SessionInfo,
 } from "./auth/index.ts";
 export * from "./connector.ts";
+export {
+  defaultFetchTimeoutMs,
+  retryAfterMs,
+  throwForStatus,
+  timeoutFetch,
+  type FetchLike,
+  type ThrowForStatusOptions,
+} from "./http.ts";
+export { decodeJwt, expiryOf, parseDate } from "./connector-util.ts";
 export { splitLabel, type SplitLabel } from "./label.ts";
 export {
   OrderStore,
@@ -83,6 +92,12 @@ export {
   type CliLoginSpec,
   type CliLoginStatus,
 } from "./cli-runner.ts";
+export {
+  awaitCliStep,
+  finishCliLogin,
+  type AwaitCliStepOptions,
+  type FinishCliLoginOptions,
+} from "./cli-login.ts";
 export {
   ChannelStore,
   generateWebhookSecret,

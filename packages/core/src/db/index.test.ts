@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { chmodSync, mkdtempSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { appliedMigrations, openDatabase, schema } from "./index.ts";
 
@@ -11,6 +14,7 @@ describe("openDatabase", () => {
       "0002_display_order",
       "0003_notification_delivery",
       "0004_wallet",
+      "0005_single_owner",
     ]);
     const tables = sqlite
       .query<{ name: string }, []>(
@@ -84,5 +88,39 @@ describe("openDatabase", () => {
     const bad = { state: "connected" } satisfies Partial<typeof schema.connections.$inferInsert>;
     expect(bad.state).toBe("connected");
     expect(db).toBeDefined();
+  });
+
+  test.skipIf(process.platform === "win32")(
+    "creates the directory 0700 and keeps the database and its WAL files 0600",
+    () => {
+      const root = mkdtempSync(join(tmpdir(), "headroom-db-"));
+      try {
+        const dir = join(root, "data");
+        const path = join(dir, "headroom.db");
+        const { sqlite } = openDatabase({ path });
+        sqlite.run("CREATE TABLE IF NOT EXISTS probe (x integer)");
+        sqlite.run("INSERT INTO probe VALUES (1)");
+        expect(statSync(dir).mode & 0o777).toBe(0o700);
+        for (const file of [path, `${path}-wal`, `${path}-shm`])
+          expect(statSync(file).mode & 0o777).toBe(0o600);
+        sqlite.close();
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  test.skipIf(process.platform === "win32")("tightens an existing 0644 database on open", () => {
+    const root = mkdtempSync(join(tmpdir(), "headroom-db-"));
+    try {
+      const path = join(root, "headroom.db");
+      openDatabase({ path }).sqlite.close();
+      chmodSync(path, 0o644);
+      const { sqlite } = openDatabase({ path });
+      expect(statSync(path).mode & 0o777).toBe(0o600);
+      sqlite.close();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

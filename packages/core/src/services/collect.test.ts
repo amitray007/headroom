@@ -204,4 +204,37 @@ describe("CollectionService", () => {
     leases.acquire(connection.id, "someone-else", 60_000);
     expect(await service.run(connection.id)).toEqual({ status: "skipped", reason: "lease_held" });
   });
+
+  test("a throw during a run closes it as interrupted and rethrows, so the schedule is not blocked", async () => {
+    const { service, connector, snapshots, connection } = setup();
+    connector.collect = () => Promise.reject(new Error("boom"));
+    connector.classify = () => {
+      throw new Error("classifier bug");
+    };
+    expect(await rejection(service.run(connection.id))).toBeInstanceOf(Error);
+    const run = snapshots.latestRun(connection.id);
+    expect(run?.outcome).toBe("interrupted");
+    expect(run?.finishedAt).not.toBeNull();
+  });
+
+  test("a connection deleted while its collection runs yields a clean outcome, not a foreign key error", async () => {
+    const { service, connector, connections, connection } = setup();
+    connector.collect = () => {
+      connections.delete(connection.id);
+      return Promise.resolve(okCollect());
+    };
+    expect(await service.run(connection.id)).toEqual({
+      status: "skipped",
+      reason: "not_collectable",
+    });
+  });
 });
+
+async function rejection(promise: Promise<unknown>): Promise<unknown> {
+  try {
+    await promise;
+    return undefined;
+  } catch (error) {
+    return error;
+  }
+}

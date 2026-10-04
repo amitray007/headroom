@@ -261,3 +261,8 @@ export type BillingCycle = z.infer<typeof billingCycleSchema>;
 export const topUpKinds = ["paid", "free"] as const;
 export const topUpKindSchema = z.enum(topUpKinds);
 export type TopUpKind = z.infer<typeof topUpKindSchema>;
+
+/** What disconnecting a credential achieved at the provider. `local_only` means the provider offers no revoke. */
+export const disconnectResults = ["revoked", "local_only", "failed"] as const;
+export const disconnectResultSchema = z.enum(disconnectResults);
+export type DisconnectResult = z.infer<typeof disconnectResultSchema>;

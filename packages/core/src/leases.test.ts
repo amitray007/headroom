@@ -62,4 +62,13 @@ describe("LeaseStore", () => {
     expect(result).toBe("done");
     expect(leases.acquire("c1", "b", 10_000)).toBe(true);
   });
+
+  test("acquireWithin waits for the holder to release, and gives up after the wait", async () => {
+    const { leases } = setup();
+    expect(leases.acquire("c1", "a", 60_000)).toBe(true);
+    expect(await leases.acquireWithin("c1", "b", 10_000, 30, 5)).toBe(false);
+    setTimeout(() => leases.release("c1", "a"), 20);
+    expect(await leases.acquireWithin("c1", "b", 10_000, 1_000, 5)).toBe(true);
+    expect(leases.acquire("c1", "c", 10_000)).toBe(false);
+  });
 });

@@ -87,6 +87,7 @@ export function createAuth(options: AuthOptions) {
     databaseHooks: {
       user: {
         create: {
+          // Early, friendly refusal. Not atomic: migration 0005's trigger on `user` is the real guard.
           before: async () => {
             if (ownerExists(options.db)) {
               throw new APIError("FORBIDDEN", {

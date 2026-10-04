@@ -186,10 +186,13 @@ export class AttemptStore {
       .run();
   }
 
-  /** Expire every non-terminal attempt past its deadline. Returns the ids expired. */
-  expireOverdue(): string[] {
+  /**
+   * Ids of non-terminal attempts past their deadline. It changes nothing: the caller expires each
+   * one through ConnectService.expire, which first lets the connector clean up its credentials file.
+   */
+  listOverdue(): string[] {
     const now = this.now();
-    const overdue = this.db
+    return this.db
       .select({ id: schema.authAttempts.id })
       .from(schema.authAttempts)
       .where(
@@ -198,9 +201,8 @@ export class AttemptStore {
           inArray(schema.authAttempts.state, ["created", "awaiting_user", "awaiting_input"]),
         ),
       )
-      .all();
-    for (const { id } of overdue) this.transition(id, "expired");
-    return overdue.map((r) => r.id);
+      .all()
+      .map((row) => row.id);
   }
 
   private require(id: string): AttemptRow {

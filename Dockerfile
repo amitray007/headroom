@@ -24,9 +24,22 @@ FROM oven/bun:1.4.2-slim AS runtime
 # They install outside root's home so the unprivileged app user can run them.
 ENV BUN_INSTALL_GLOBAL_DIR=/opt/bun-global
 RUN bun add -g @openai/codex@0.159.3 @anthropic-ai/claude-code@2.1.286 && codex --version && claude --version
-# Grok ships a prebuilt binary through its official installer; GROK_BIN_DIR places it, HOME holds the download.
+# Grok ships a prebuilt static binary. The vendor installer does not check a checksum and tracks the latest
+# release, so the binary is fetched directly at a pinned version and verified against a pinned SHA-256 per
+# architecture. To bump: read https://x.ai/cli/stable, download both binaries once, then update all three ARGs.
+ARG TARGETARCH
+ARG GROK_VERSION=1.0.46
+ARG GROK_SHA256_AMD64=41626a53292324140b92556b9d42ff5542e3dcd04aff85eafb8689dd4adb44fc
+ARG GROK_SHA256_ARM64=45b0943e736f00a249b9cf02af2be9e0749d97c09a6f55cfcf3029a1a836f23e
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/* \
-  && mkdir -p /opt/grok && GROK_BIN_DIR=/usr/local/bin HOME=/opt/grok bash -c "$(curl -fsSL https://x.ai/cli/install.sh)" \
+  && case "$TARGETARCH" in \
+       amd64) grok_arch=x86_64; grok_sha="$GROK_SHA256_AMD64" ;; \
+       arm64) grok_arch=aarch64; grok_sha="$GROK_SHA256_ARM64" ;; \
+       *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
+     esac \
+  && curl -fsSL -o /tmp/grok "https://x.ai/cli/grok-${GROK_VERSION}-linux-${grok_arch}" \
+  && echo "${grok_sha}  /tmp/grok" | sha256sum -c - \
+  && install -m 0755 /tmp/grok /usr/local/bin/grok && rm /tmp/grok \
   && grok --version
 RUN useradd --system --uid 10001 --create-home --home-dir /var/lib/headroom headroom \
   && mkdir -p /var/lib/headroom/data /etc/headroom \

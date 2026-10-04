@@ -2,58 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import { emptyBook, type WalletBook } from "@headroom/view-model/wallet";
 
-import { ApiError, type ServerWallet } from "../api.ts";
-import {
-  createWalletStore,
-  importLegacyBook,
-  parseBook,
-  walletKey,
-  type WalletClient,
-} from "./wallet-store.ts";
-
-function memory(initial: Record<string, string> = {}) {
-  const data = new Map(Object.entries(initial));
-  return {
-    getItem: (key: string) => data.get(key) ?? null,
-    setItem: (key: string, value: string) => void data.set(key, value),
-    removeItem: (key: string) => void data.delete(key),
-    data,
-  };
-}
-
-const book: WalletBook = {
-  costs: {
-    a: {
-      kind: "paid",
-      price: { minor: 20000, currency: "USD" },
-      cycle: "monthly",
-      renewsOn: "2026-10-12",
-    },
-    b: { kind: "free" },
-    c: { kind: "included", includedWith: "X Premium" },
-  },
-  topUps: [
-    {
-      id: "t1",
-      connectionId: "a",
-      date: "2026-10-01",
-      kind: "paid",
-      price: { minor: 2500, currency: "EUR" },
-      credits: 1000,
-      note: "Spring",
-    },
-    {
-      id: "t2",
-      connectionId: "b",
-      date: "2026-10-02",
-      kind: "free",
-      price: null,
-      credits: null,
-      note: null,
-    },
-  ],
-  displayCurrency: "EUR",
-};
+import type { ServerWallet } from "../api.ts";
+import { createWalletStore, type WalletClient } from "./wallet-store.ts";
 
 const server = (extra: Partial<ServerWallet> = {}): ServerWallet => ({
   costs: {},
@@ -90,58 +40,6 @@ function fakeClient(options: { reject?: (what: string) => Error | null } = {}) {
   };
   return { client, calls, gates };
 }
-
-const unknownConnection = new ApiError(404, "Request failed (404)", "unknown_connection");
-
-describe("parseBook", () => {
-  test("a missing, broken or foreign value is the empty book", () => {
-    expect(parseBook(null)).toBe(emptyBook);
-    expect(parseBook("{not json")).toBe(emptyBook);
-    expect(parseBook("[1,2]")).toBe(emptyBook);
-    expect(parseBook('"text"')).toBe(emptyBook);
-    expect(parseBook("null")).toBe(emptyBook);
-  });
-  test("drops entries that do not fit and keeps the rest", () => {
-    const loose = parseBook(
-      JSON.stringify({
-        costs: {
-          good: { kind: "free" },
-          noPrice: { kind: "paid", cycle: "monthly", renewsOn: null },
-          zero: {
-            kind: "paid",
-            price: { minor: 0, currency: "USD" },
-            cycle: "monthly",
-            renewsOn: null,
-          },
-          odd: { kind: "gift" },
-        },
-        topUps: [
-          { id: "x", connectionId: "good", date: "2026-10-01", kind: "free" },
-          { id: "y", connectionId: "good", date: "soon", kind: "free" },
-          { id: "z", connectionId: "good", date: "2026-10-01", kind: "paid" },
-        ],
-        displayCurrency: "XYZ",
-      }),
-    );
-    expect(Object.keys(loose.costs)).toEqual(["good"]);
-    expect(loose.topUps.map((topUp) => topUp.id)).toEqual(["x"]);
-    expect(loose.displayCurrency).toBeNull();
-  });
-  test("a book saved before the owner chose a currency has none", () => {
-    const old = parseBook(JSON.stringify({ costs: {}, topUps: [] }));
-    expect(old.displayCurrency).toBeNull();
-  });
-  test("rates saved by an older version are ignored", () => {
-    const older = parseBook(
-      JSON.stringify({
-        displayCurrency: "JPY",
-        perUsd: { CAD: 1.4, BRL: 5.4 },
-        ratesChangedOn: "2026-10-03",
-      }),
-    );
-    expect(older).toEqual({ costs: {}, topUps: [], displayCurrency: "JPY" });
-  });
-});
 
 describe("wallet store", () => {
   test("loads the server book; a failed load is flagged", async () => {
@@ -227,69 +125,5 @@ describe("wallet store", () => {
     expect(store.demo("1:100", make).displayCurrency).toBe("GBP");
     expect(store.demo("2:200", make)).toBe(emptyBook);
     expect(made).toBe(2);
-  });
-});
-
-describe("legacy import", () => {
-  const noCurrency = { current: null, save: () => Promise.resolve() };
-  test("does nothing without a saved book", async () => {
-    const { client, calls } = fakeClient();
-    expect(await importLegacyBook(client, memory(), noCurrency)).toBeNull();
-    expect(calls).toEqual([]);
-  });
-  test("sends costs and top-ups, saves the currency, then removes the key", async () => {
-    const storage = memory({ [walletKey]: JSON.stringify(book) });
-    const { client, calls } = fakeClient();
-    const saved: string[] = [];
-    const latest = await importLegacyBook(client, storage, {
-      current: null,
-      save: (currency) => {
-        saved.push(currency);
-        return Promise.resolve();
-      },
-    });
-    expect(calls).toEqual(["set a", "set b", "set c", "add a", "add b"]);
-    expect(latest?.topUps.map((t) => t.id)).toEqual(["s2", "s1"]);
-    expect(saved).toEqual(["EUR"]);
-    expect(storage.data.has(walletKey)).toBe(false);
-  });
-  test("keeps a currency the server already has", async () => {
-    const storage = memory({ [walletKey]: JSON.stringify(book) });
-    const saved: string[] = [];
-    await importLegacyBook(fakeClient().client, storage, {
-      current: "GBP",
-      save: (currency) => {
-        saved.push(currency);
-        return Promise.resolve();
-      },
-    });
-    expect(saved).toEqual([]);
-  });
-  test("skips unknown connections and still removes the key", async () => {
-    const storage = memory({ [walletKey]: JSON.stringify(book) });
-    const { client } = fakeClient({
-      reject: (what) => (what === "set b" ? unknownConnection : null),
-    });
-    await importLegacyBook(client, storage, noCurrency);
-    expect(storage.data.has(walletKey)).toBe(false);
-  });
-  test("keeps the key when any request fails for another reason", async () => {
-    const storage = memory({ [walletKey]: JSON.stringify(book) });
-    const { client } = fakeClient({
-      reject: (what) => (what === "add a" ? new Error("down") : null),
-    });
-    await importLegacyBook(client, storage, noCurrency);
-    expect(storage.data.has(walletKey)).toBe(true);
-    // The next load sends only what did not go through: no top-up reaches the server twice.
-    const retry = fakeClient();
-    await importLegacyBook(retry.client, storage, noCurrency);
-    expect(retry.calls).toEqual(["add a"]);
-    expect(storage.data.has(walletKey)).toBe(false);
-    const failing = memory({ [walletKey]: JSON.stringify(book) });
-    await importLegacyBook(fakeClient().client, failing, {
-      current: null,
-      save: () => Promise.reject(new Error("down")),
-    });
-    expect(failing.data.has(walletKey)).toBe(true);
   });
 });

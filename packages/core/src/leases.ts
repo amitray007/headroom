@@ -56,6 +56,26 @@ export class LeaseStore {
       .run();
   }
 
+  /**
+   * Poll for the lease until `waitMs` has passed. For work that must not overlap a collection
+   * but may wait for one to end. Returns false if it stayed held.
+   */
+  async acquireWithin(
+    connectionId: string,
+    holder: string,
+    ttlMs: number,
+    waitMs: number,
+    pollMs = 250,
+  ): Promise<boolean> {
+    const deadline = Date.now() + waitMs;
+    while (!this.acquire(connectionId, holder, ttlMs)) {
+      if (Date.now() >= deadline) return false;
+      // eslint-disable-next-line no-await-in-loop -- polling for another holder to finish
+      await Bun.sleep(pollMs);
+    }
+    return true;
+  }
+
   /** Run `fn` while holding the lease; release afterwards. Throws if the lease is taken. */
   async withLease<T>(
     connectionId: string,

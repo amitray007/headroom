@@ -10,6 +10,7 @@ export const defaultSettings: Settings = {
   density: "comfortable",
   detailedOrder: "urgency",
   keepInactiveLast: true,
+  historyRetentionDays: 90,
   accountActions: false,
   walletCurrency: null,
   notifications: {

@@ -10,6 +10,8 @@ services:
       dockerfile: Dockerfile
     image: headroom:${HEADROOM_IMAGE_TAG:-local}
     restart: unless-stopped
+    # Shutdown waits up to 10 s for a refresh in flight, so a rotated token is not lost.
+    stop_grace_period: 20s
     environment:
       HEADROOM_PUBLIC_URL: ${HEADROOM_PUBLIC_URL:?set HEADROOM_PUBLIC_URL to https://<TS_HOSTNAME>.<tailnet>.ts.net}
       # Other sites that may embed Headroom in a frame or call its API, comma separated origins.
