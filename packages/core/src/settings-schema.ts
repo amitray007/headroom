@@ -39,10 +39,12 @@ export const settingsSchema = z.object({
     runningLow: z.boolean(),
     expiringResets: z.boolean(),
     refreshFailures: z.boolean(),
-    /** Vercel AI Gateway credits running low. */
+    /** Credit balances running low, detected top-ups, and Wallet credits about to expire. */
     balances: z.boolean(),
-    /** Spend near or at its cap. */
+    /** Spend near or at its cap, on-demand use starting, and the owner's own budgets. */
     spend: z.boolean(),
+    /** A new banked reset, a limit that reset before its time, and auto-reset outcomes. */
+    resetActivity: z.boolean(),
     /** Limits on 5-hour session windows raise notices. Weekly and other windows always can. */
     includeSessions: z.boolean(),
     /** How many days before a banked reset expires the notice appears. */

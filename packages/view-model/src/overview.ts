@@ -1,5 +1,7 @@
 import {
   accountActionKindSchema,
+  accountEventSchema,
+  autoResetRuleSchema,
   authMethodSchema,
   availabilitySchema,
   connectionScopeSchema,
@@ -8,6 +10,7 @@ import {
   metricKindSchema,
   providerSchema,
   reconnectReasonSchema,
+  spendBudgetSchema,
   syncRunOutcomeSchema,
 } from "@headroom/core/contracts";
 import { z } from "zod";
@@ -67,6 +70,15 @@ export const overviewConnectionSchema = z.object({
     })
     .nullable(),
   actions: z.object({ enabled: z.boolean(), supported: z.array(accountActionKindSchema) }),
+  /** Account events from the last 7 days, newest first, at most 20 (ADR 0003). */
+  events: z.array(accountEventSchema).default([]),
+  /** The owner's auto-reset rule (null when none) and spend budgets for this account. */
+  automation: z
+    .object({
+      autoReset: autoResetRuleSchema.nullable(),
+      budgets: z.array(spendBudgetSchema),
+    })
+    .default({ autoReset: null, budgets: [] }),
 });
 
 export type Metric = z.infer<typeof metricSchema>;

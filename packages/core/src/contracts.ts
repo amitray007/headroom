@@ -14,4 +14,24 @@ export {
 export type { AttemptView } from "./services/connect.ts";
 export { notificationEventSchema, type NotificationEvent } from "./notification-event.ts";
 export { settingsSchema, type Settings } from "./settings-schema.ts";
-export { costSchema, topUpSchema } from "./wallet-schemas.ts";
+export {
+  costSchema,
+  expiryAlertDayOptions,
+  topUpInputSchema,
+  topUpSchema,
+  topUpUpdateSchema,
+} from "./wallet-schemas.ts";
+export {
+  accountEventDetailSchema,
+  accountEventSchema,
+  autoResetMinHoursLeft,
+  autoResetRuleSchema,
+  autoResetThresholds,
+  defaultAutoResetRule,
+  spendBudgetInputSchema,
+  spendBudgetSchema,
+  type AccountEvent,
+  type AccountEventDetail,
+  type AutoResetRule,
+  type SpendBudget,
+} from "./automation-schemas.ts";

@@ -45,6 +45,7 @@ export function defaultSettings(refreshIntervalSeconds: number): Settings {
       refreshFailures: true,
       balances: true,
       spend: true,
+      resetActivity: true,
       includeSessions: true,
       resetLeadDays: 3,
       mutedProviders: [],
@@ -98,6 +99,7 @@ export function mergeSettings(stored: unknown, defaults: Settings): Settings {
       ),
       balances: valid(flag, saved["balances"], defaults.notifications.balances),
       spend: valid(flag, saved["spend"], defaults.notifications.spend),
+      resetActivity: valid(flag, saved["resetActivity"], defaults.notifications.resetActivity),
       includeSessions: valid(
         flag,
         saved["includeSessions"],

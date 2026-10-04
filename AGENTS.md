@@ -11,7 +11,7 @@ This repository contains the working application and its specification and resea
 - Require a separate connection identity and credential boundary for every linked account. A folder path alone is not tenant isolation.
 - Treat an unavailable metric as unknown, not zero. Keep monetary balances, credits, percentages and reset inventories in separate units.
 - Preserve evidence labels: documented, source-inspected, prior observation, validated, and unvalidated. Label every metric `official` or `private`. A successful login does not prove quota access.
-- Monitoring must not generate model requests, redeem resets or purchase credits. Mutating account actions require their own explicit user action and validated provider support.
+- Monitoring must not generate model requests, redeem resets or purchase credits. A mutating account action needs an explicit owner action: a confirmed press in the dashboard, or a rule the owner configured ([ADR 0003](docs/decisions/0003-owner-automations.md)). Agents never enable a rule or run a mutation with real credentials.
 - Zed is outside the current scope. A laptop helper is not part of the connection design. Headroom is personal self-hosted software and must not be designed as a hosted multi-user service.
 - Run `mise run check` before claiming any change is done; it covers docs, format, type-aware lint, typecheck, Knip and tests. Use `mise run <task>` or `mise exec -- <command>`, never a global Bun. Update the docs index when adding a document.
 - Enumerations live in `packages/core/src/enums.ts`. Add a state there and in the data model together, never in only one place.

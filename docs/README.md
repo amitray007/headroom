@@ -37,7 +37,7 @@ Each dossier describes metrics, connection steps, tools, limitations and sources
 - [Evidence register](research/evidence.md): proof levels and earlier observations.
 - [Tools and packages](research/tools.md): what can be reused and what it does not solve.
 - [ACP assessment](research/acp.md): protocol scope and provider-specific gaps.
-- [Decisions](decisions/README.md): accepted product constraints and proposed implementation choices, with [ADR 0001](decisions/0001-direct-provider-clients.md) as the governing design record and [ADR 0002](decisions/0002-stack-and-tooling.md) for the stack and tooling.
+- [Decisions](decisions/README.md): accepted product constraints and proposed implementation choices, with [ADR 0001](decisions/0001-direct-provider-clients.md) as the governing design record [ADR 0002](decisions/0002-stack-and-tooling.md) for the stack and tooling, and [ADR 0003](decisions/0003-owner-automations.md) for owner automations and detected account events.
 - [Glossary](glossary.md): terms and units used across all dossiers.
 
 ## Maintaining these docs
