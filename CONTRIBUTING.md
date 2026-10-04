@@ -6,6 +6,7 @@ Thanks for helping. Bug reports, provider evidence, fixes and new connectors are
 
 - Search the [issues](https://github.com/amitray007/headroom/issues) first. For a larger change, open an issue to agree on the approach before writing code.
 - Never paste tokens, cookies, authorization codes, raw provider responses or personal account details into an issue, a pull request, a fixture or a log. Use synthetic values. Report security problems privately as described in [SECURITY.md](SECURITY.md).
+- Follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 - Read [AGENTS.md](AGENTS.md). It is short, and it holds the project rules for people and coding agents alike.
 
 ## Set up
