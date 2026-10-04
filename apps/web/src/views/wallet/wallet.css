@@ -47,6 +47,11 @@
   background: var(--surface);
 }
 .w-stat dt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 24px;
   font-size: var(--text-base);
   font-weight: 500;
 }
@@ -77,15 +82,14 @@
   color: var(--text-muted);
   font-weight: 400;
 }
-/* One line, always: the parts sit side by side, split by a middle dot, and a long last part is cut with an ellipsis. */
+/* The parts sit side by side, split by a middle dot. A narrow column wraps them onto a second line; text is never cut. */
 .w-cap {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   min-height: 1.35em;
   font-size: var(--text-sm);
   color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
 }
 .w-cap > .w-sep {
   flex: none;
@@ -95,14 +99,9 @@
 .w-cap > * {
   min-width: 0;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .w-cap > .menu-anchor {
   overflow: visible; /* the trigger's focus ring; the panel itself sits in the top layer */
-}
-.w-cap .warn {
-  color: var(--warning);
 }
 /* The top-ups caption is a button that opens the month's list. */
 .w-cap-trigger {
@@ -146,8 +145,8 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-/* Two half-width stats cannot hold a caption such as "6 paid · Set 1 missing cost"; phones get one column, and each
-   stat turns into a compact row: the label and the figure share a line, the caption runs the full width beneath. */
+/* Phones get one column, and each stat turns into a compact row: the label and the figure share a line, the caption
+   runs the full width beneath. */
 @media (max-width: 520px) {
   .w-band {
     grid-template-columns: minmax(0, 1fr);
@@ -164,6 +163,8 @@
   }
   .w-stat dt {
     grid-area: label;
+    /* The attention icon follows the label instead of sitting against the figure. */
+    justify-content: flex-start;
   }
   .w-stat .w-num {
     grid-area: figure;
@@ -240,9 +241,7 @@
   padding: var(--space-2) var(--space-4) var(--space-3);
   border-top: 1px solid var(--border-subtle);
   font-size: var(--text-sm);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-wrap: pretty;
 }
 /* A footer with a left part and a right-aligned figure; the figure sits in the amount column above. */
 .w-card-foot.w-split {
@@ -713,6 +712,74 @@ html[data-density="compact"] .w-row {
   color: var(--text-muted);
 }
 
+/* ---------- Attention: what a figure leaves out ---------- */
+.w-attn-trigger {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: -2px -4px -2px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--warning);
+  cursor: pointer;
+}
+.w-attn-trigger svg {
+  width: 16px;
+  height: 16px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .w-attn-trigger:hover {
+    background: var(--surface-muted);
+  }
+}
+.notif.w-attn-pop {
+  display: grid;
+  gap: var(--space-3);
+  width: min(360px, calc(100vw - 24px));
+  padding: 16px;
+  border-radius: var(--radius-panel);
+}
+.w-attn-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px var(--space-3);
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.w-attn-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.w-attn-list li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-3);
+}
+.w-attn-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.w-attn-name {
+  font-size: var(--text-base);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.w-attn-issue {
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
 /* ---------- Cost and top-up dialogs ---------- */
 .w-desc {
   margin: 0;
@@ -787,32 +854,6 @@ html[data-density="compact"] .w-row {
 .w-foot .w-clear {
   margin-right: auto;
   margin-left: -12px;
-}
-
-/* ---------- "Set N missing costs": every Not-set row is tinted for a moment, then fades back ---------- */
-.w-row[data-attention] {
-  background: color-mix(in oklab, var(--warning) 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--warning) 40%, transparent);
-  animation: w-attention 2500ms var(--ease-standard) forwards;
-}
-.w-row[data-attention] [data-set-cost] {
-  border-color: color-mix(in oklab, var(--warning) 55%, transparent);
-}
-@keyframes w-attention {
-  0%,
-  60% {
-    background: color-mix(in oklab, var(--warning) 12%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--warning) 40%, transparent);
-  }
-  100% {
-    background: transparent;
-    box-shadow: inset 0 0 0 1px transparent;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .w-row[data-attention] {
-    animation: none;
-  }
 }
 
 .w-save-error {

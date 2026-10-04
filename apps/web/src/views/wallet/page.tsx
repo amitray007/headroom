@@ -130,7 +130,12 @@ export function WalletPage(props: ViewProps) {
           </Button>
         </div>
       </div>
-      <SummaryBand summary={summary} connections={connections} />
+      <SummaryBand
+        summary={summary}
+        connections={connections}
+        onSetCost={setCostFor}
+        onEditTopUp={(topUp) => setTopUpFor({ connectionId: topUp.connectionId, editing: topUp })}
+      />
       <div className="w-glance">
         <SpendByProvider summary={summary} />
         <div className="w-side">

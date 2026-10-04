@@ -273,7 +273,7 @@ export function Popover(
 }
 
 /** Close the surrounding Menu or Popover from inside it. */
-function useCloseLayer(): () => void {
+export function useCloseLayer(): () => void {
   return useContext(CloseContext);
 }
 
