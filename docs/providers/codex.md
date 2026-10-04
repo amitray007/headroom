@@ -47,7 +47,7 @@ Every metric below comes from direct HTTP collection unless noted. A completed l
 | Credits | `available` when returned | `credits`: `has_credits`, `unlimited`, `balance` | `private`. Provider credit unit, not dollars. `unlimited` is an explicit flag, not a number. |
 | Next reset | `available` when returned | `resets_at`, Unix seconds | `private`. Retain the raw timestamp. |
 | Banked reset count | `unknown` | `…/wham/rate-limit-reset-credits` read route | `private`. Unvalidated. The app-server count is `official` but not the primary route. |
-| Reset redemption | `available` behind the "Allow Account Actions" setting | `POST …/rate-limit-reset-credits/consume` with the action row id as idempotency key | `private`. Explicit owner action with a confirmation naming the credit and its expiry, never a background job. Unvalidated until the owner runs the first one. |
+| Reset redemption | `available` behind the "Allow Account Actions" setting | `POST …/rate-limit-reset-credits/consume` with the action row id as idempotency key | `private`. Explicit owner action with a confirmation naming the credit and its expiry. The owner can also set an auto-reset rule (ADR 0003) that calls the same route when a watched `rate_limit.*` window is used up, behind the same setting; it is the only background caller. Unvalidated until the owner runs the first one. |
 | Usage history | `unknown` on the direct route | App-server `dailyUsageBuckets` | `official` by fallback only. `null` means unavailable, not zero. |
 | Admin versus non-admin | Provider-enforced | Account or workspace policy | Do not infer privileges from a plan name. |
 

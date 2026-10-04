@@ -52,6 +52,8 @@ const scheduler = new Scheduler({
   connect: ctx.connect,
   snapshots: ctx.snapshots,
   collection: ctx.collection,
+  events: ctx.accountEvents,
+  afterCollect: (connectionId, now) => ctx.autoReset.evaluate(connectionId, now),
   intervalMs: () => ctx.settings.get().refreshIntervalMinutes * 60_000,
   retentionDays: () => ctx.settings.get().historyRetentionDays,
   afterTick: (now) => ctx.dispatcher.dispatch(now).then(() => undefined),

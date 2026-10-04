@@ -56,6 +56,45 @@ function setup(options: { events?: NotificationEvent[]; env?: Record<string, str
 }
 
 describe("NotificationDispatcher", () => {
+  test("passes the Wallet's top-ups to the derivation", async () => {
+    const seen: unknown[] = [];
+    const ctx = testContext(
+      {},
+      {
+        fetch: () => Promise.resolve(new Response("{}")),
+        derive: (_connections, _settings, _now, topUps) => {
+          seen.push(topUps);
+          return [];
+        },
+      },
+    );
+    const connection = ctx.connections.create({
+      provider: "claude",
+      identity: { providerAccountId: "a", workspaceId: null, label: "a", assurance: "strong" },
+      scope: "individual",
+      authMethod: "import",
+      interface: "private",
+      connectorVersion: "fake-1",
+    });
+    ctx.channels.create(
+      "telegram",
+      { botToken: token, chatId: "-100" },
+      { includeIdentity: false, label: "@synthetic_bot" },
+    );
+    const added = ctx.wallet.addTopUp({
+      connectionId: connection.id,
+      date: "2026-10-01",
+      kind: "free",
+      price: null,
+      credits: 5,
+      note: null,
+      expiresOn: "2026-11-01",
+      expiryAlertDays: 7,
+    });
+    await ctx.dispatcher.dispatch(t0);
+    expect(seen).toEqual([[added]]);
+  });
+
   test("sends once and dedupes on the next pass", async () => {
     const { ctx, channel, sent } = setup();
     expect(await ctx.dispatcher.dispatch(t0)).toEqual({ sent: 1, delivered: 1, failed: 0 });

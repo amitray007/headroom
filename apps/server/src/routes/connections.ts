@@ -1,7 +1,14 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { accountActionKindSchema, authMethodSchema, type DisconnectResult } from "@headroom/core";
+import {
+  accountActionKindSchema,
+  authMethodSchema,
+  autoResetRuleSchema,
+  notificationAmountUnitSchema,
+  spendBudgetInputSchema,
+  type DisconnectResult,
+} from "@headroom/core";
 
 import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
@@ -142,6 +149,51 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
     } catch (error) {
       return handleServiceError(c, error);
     }
+  });
+
+  /**
+   * The owner's auto-reset rule (ADR 0003). Only providers whose connector can consume a reset
+   * credit take one. The rule fires later, from the scheduler, and only with Allow Account Actions on.
+   */
+  app.put("/:id/auto-reset", async (c) => {
+    const connection = ctx.connections.get(c.req.param("id"));
+    if (!connection) return c.json({ error: "unknown_connection" }, 404);
+    const body = autoResetRuleSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "invalid_body" }, 400);
+    if (!ctx.actions.supported(connection.provider).includes("consume_reset_credit"))
+      return c.json({ error: "unsupported_action" }, 409);
+    ctx.automation.setAutoReset(connection.id, body.data);
+    return c.json({ autoReset: ctx.automation.autoReset(connection.id) });
+  });
+
+  app.delete("/:id/auto-reset", (c) => {
+    const connection = ctx.connections.get(c.req.param("id"));
+    if (!connection) return c.json({ error: "unknown_connection" }, 404);
+    ctx.automation.clearAutoReset(connection.id);
+    return c.json({ autoReset: null });
+  });
+
+  /** A budget for one spend metric. The unit is the metric's own, read from the latest snapshot. */
+  app.put("/:id/budgets/:metricKey", async (c) => {
+    const connection = ctx.connections.get(c.req.param("id"));
+    if (!connection) return c.json({ error: "unknown_connection" }, 404);
+    const body = spendBudgetInputSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "invalid_body" }, 400);
+    const metricKey = c.req.param("metricKey");
+    const metric = ctx.snapshots
+      .latest(connection.id)
+      ?.metrics.find((m) => m.kind === "spend" && m.providerMetricKey === metricKey);
+    const unit = notificationAmountUnitSchema.safeParse(metric?.unit);
+    if (!metric || !unit.success) return c.json({ error: "not_a_spend_metric" }, 409);
+    ctx.automation.setBudget(connection.id, metricKey, body.data.amount, unit.data);
+    return c.json({ budgets: ctx.automation.budgets(connection.id) });
+  });
+
+  app.delete("/:id/budgets/:metricKey", (c) => {
+    const connection = ctx.connections.get(c.req.param("id"));
+    if (!connection) return c.json({ error: "unknown_connection" }, 404);
+    ctx.automation.clearBudget(connection.id, c.req.param("metricKey"));
+    return c.json({ budgets: ctx.automation.budgets(connection.id) });
   });
 
   app.post("/:id/reconnect", async (c) => {
