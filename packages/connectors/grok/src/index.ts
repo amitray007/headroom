@@ -14,10 +14,12 @@ import {
   type RefreshResult,
   type StoredCredential,
   type SubmitInput,
+  awaitCliStep,
   classified,
   classifyUnknown,
   decodeJwt,
   expiryOf,
+  finishCliLogin,
   parseDate,
   retryAfterMs,
   throwForStatus,
@@ -91,43 +93,12 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
   const now = options.now ?? (() => Date.now());
   const runner = options.runner;
 
-  async function finishCliLogin(attemptId: string): Promise<ConnectProgress> {
-    const status = runner.status(attemptId);
-    if (!status)
-      return {
-        status: "error",
-        error: classified("approval_expired", "the sign-in process is gone"),
-      };
-    if (status.credentialsPresent) {
-      const contents = runner.readCredentials(attemptId);
-      await runner.cleanup(attemptId);
-      if (!contents)
-        return {
-          status: "error",
-          error: classified("internal_error", "credentials file vanished"),
-        };
-      try {
-        return { status: "credentials", credential: credentialFromAuthFile(contents) };
-      } catch (error) {
-        return { status: "error", error: classifyUnknown(error) };
-      }
-    }
-    if (status.state === "timed_out") {
-      await runner.cleanup(attemptId);
-      return {
-        status: "error",
-        error: classified("approval_expired", "the one-time code expired"),
-      };
-    }
-    if (status.state !== "running") {
-      await runner.cleanup(attemptId);
-      return {
-        status: "error",
-        error: classified("approval_denied", "the sign-in did not complete"),
-      };
-    }
-    return { status: "waiting", privateState: { attemptId }, pollAfterMs: 3000 };
-  }
+  const finishLogin = (attemptId: string): Promise<ConnectProgress> =>
+    finishCliLogin(runner, attemptId, {
+      parse: credentialFromAuthFile,
+      pollAfterMs: 3000,
+      expiredMessage: "the one-time code expired",
+    });
 
   return {
     provider: "grok",
@@ -154,17 +125,12 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
         credentialFile: cli.credentialFile,
         timeoutMs: Math.min(cli.timeoutMs, Math.max(1000, begin.expiresAt - now())),
       });
-      const deadline = now() + 20_000;
-      let step = parseDeviceStep(runner.status(begin.attemptId)?.output ?? "");
-      while (!step && now() < deadline) {
-        // eslint-disable-next-line no-await-in-loop -- waiting on a child process's first lines
-        await Bun.sleep(100);
-        const status = runner.status(begin.attemptId);
-        if (!status || status.state !== "running") break;
-        step = parseDeviceStep(status.output);
-      }
+      const step = await awaitCliStep(runner, begin.attemptId, {
+        parse: parseDeviceStep,
+        now,
+        timeoutMs: 20_000,
+      });
       if (!step) {
-        await runner.cleanup(begin.attemptId);
         return {
           status: "error",
           error: classified("provider_unavailable", "grok did not print a device code"),
@@ -206,7 +172,7 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
           status: "error",
           error: classified("internal_error", "attempt state missing"),
         });
-      return finishCliLogin(parsed.data.attemptId);
+      return finishLogin(parsed.data.attemptId);
     },
 
     async cancelConnect(privateState: unknown): Promise<void> {

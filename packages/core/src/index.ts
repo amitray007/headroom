@@ -93,6 +93,12 @@ export {
   type CliLoginStatus,
 } from "./cli-runner.ts";
 export {
+  awaitCliStep,
+  finishCliLogin,
+  type AwaitCliStepOptions,
+  type FinishCliLoginOptions,
+} from "./cli-login.ts";
+export {
   ChannelStore,
   generateWebhookSecret,
   webhookSecretSchema,

@@ -15,8 +15,10 @@ import {
   type ResetCreditObservation,
   type StoredCredential,
   type SubmitInput,
+  awaitCliStep,
   classified,
   classifyUnknown,
+  finishCliLogin,
   parseDate,
   retryAfterMs,
   throwForStatus,
@@ -101,40 +103,12 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
   const now = options.now ?? (() => Date.now());
   const runner = options.runner;
 
-  async function finishCliLogin(attemptId: string): Promise<ConnectProgress> {
-    const status = runner.status(attemptId);
-    if (!status)
-      return {
-        status: "error",
-        error: classified("approval_expired", "the sign-in process is gone"),
-      };
-    if (status.credentialsPresent) {
-      const contents = runner.readCredentials(attemptId);
-      await runner.cleanup(attemptId);
-      if (!contents)
-        return {
-          status: "error",
-          error: classified("internal_error", "credentials file vanished"),
-        };
-      try {
-        return { status: "credentials", credential: credentialFromCredentialsFile(contents) };
-      } catch (error) {
-        return { status: "error", error: classifyUnknown(error) };
-      }
-    }
-    if (status.state === "timed_out") {
-      await runner.cleanup(attemptId);
-      return { status: "error", error: classified("approval_expired", "the sign-in timed out") };
-    }
-    if (status.state !== "running") {
-      await runner.cleanup(attemptId);
-      return {
-        status: "error",
-        error: classified("approval_denied", "the sign-in did not complete"),
-      };
-    }
-    return { status: "waiting", privateState: { attemptId }, pollAfterMs: 2000 };
-  }
+  const finishLogin = (attemptId: string): Promise<ConnectProgress> =>
+    finishCliLogin(runner, attemptId, {
+      parse: credentialFromCredentialsFile,
+      pollAfterMs: 2000,
+      expiredMessage: "the sign-in timed out",
+    });
 
   return {
     provider: "claude",
@@ -161,17 +135,12 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
         credentialFile: cli.credentialFile,
         timeoutMs: Math.min(cli.timeoutMs, Math.max(1000, begin.expiresAt - now())),
       });
-      const deadline = now() + 30_000;
-      let url = parseAuthorizeUrl(runner.status(begin.attemptId)?.output ?? "");
-      while (!url && now() < deadline) {
-        // eslint-disable-next-line no-await-in-loop -- waiting on a child process's first lines
-        await Bun.sleep(100);
-        const status = runner.status(begin.attemptId);
-        if (!status || status.state !== "running") break;
-        url = parseAuthorizeUrl(status.output);
-      }
+      const url = await awaitCliStep(runner, begin.attemptId, {
+        parse: parseAuthorizeUrl,
+        now,
+        timeoutMs: 30_000,
+      });
       if (!url) {
-        await runner.cleanup(begin.attemptId);
         return {
           status: "error",
           error: classified("provider_unavailable", "claude did not print an authorization URL"),
@@ -222,7 +191,7 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
       }
       // The CLI exchanges the code and writes the credentials file; the next poll picks it up.
       await Bun.sleep(500);
-      const progress = await finishCliLogin(parsed.data.attemptId);
+      const progress = await finishLogin(parsed.data.attemptId);
       return progress.status === "waiting" ? { ...progress, pollAfterMs: 1000 } : progress;
     },
 
@@ -233,7 +202,7 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
           status: "error",
           error: classified("internal_error", "attempt state missing"),
         });
-      return finishCliLogin(parsed.data.attemptId);
+      return finishLogin(parsed.data.attemptId);
     },
 
     async cancelConnect(privateState: unknown): Promise<void> {
