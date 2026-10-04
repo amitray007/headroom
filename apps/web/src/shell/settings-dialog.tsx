@@ -1,9 +1,8 @@
 import { useContext, useId, useState } from "react";
 
-import type { Provider } from "@headroom/core/contracts";
+import type { NotificationKind, Provider } from "@headroom/core/contracts";
 import type { OverviewConnection } from "@headroom/view-model/overview";
 
-import type { Settings } from "../api.ts";
 import { useDevicePrefs } from "../lib/device-prefs.ts";
 import { useSettings } from "../lib/settings.tsx";
 import type { SettingsPatch } from "../lib/settings-store.ts";
@@ -195,16 +194,96 @@ function Privacy() {
 
 const leadDays = [1, 3, 7] as const;
 
+type Kind = NotificationKind;
+
+const kindGroups: readonly {
+  readonly title: string;
+  readonly rows: readonly { readonly kind: Kind; readonly title: string; readonly note: string }[];
+}[] = [
+  {
+    title: "Balances and Credits",
+    rows: [
+      {
+        kind: "balance_low",
+        title: "Balance Low",
+        note: "When a credit balance is running low.",
+      },
+      {
+        kind: "top_up_detected",
+        title: "Top-Up Detected",
+        note: "When a credit balance goes up.",
+      },
+      {
+        kind: "credits_expiring",
+        title: "Credits Expiring",
+        note: "Before credits in your Wallet expire.",
+      },
+    ],
+  },
+  {
+    title: "Spend",
+    rows: [
+      {
+        kind: "extra_usage_started",
+        title: "On-Demand Started",
+        note: "When an account starts using paid on-demand or extra usage, including Copilot.",
+      },
+      {
+        kind: "spend_near_cap",
+        title: "Near Spending Cap",
+        note: "When spend gets close to the cap the provider set.",
+      },
+      {
+        kind: "spend_cap_reached",
+        title: "Spending Cap Reached",
+        note: "When spend hits the cap the provider set.",
+      },
+      {
+        kind: "budget_near",
+        title: "Near Your Budget",
+        note: "When spend gets close to a budget you set under Automations.",
+      },
+      {
+        kind: "budget_exceeded",
+        title: "Over Your Budget",
+        note: "When spend passes a budget you set under Automations.",
+      },
+    ],
+  },
+  {
+    title: "Sign-In",
+    rows: [
+      {
+        kind: "refresh_failed",
+        title: "Refresh Failed",
+        note: "When an account fails to update twice in a row.",
+      },
+      {
+        kind: "disconnected",
+        title: "Disconnected",
+        note: "When a sign-in expires and the account needs to be reconnected.",
+      },
+    ],
+  },
+];
+
 function Notifications(props: {
   readonly change: (patch: SettingsPatch) => void;
   readonly providers: readonly Provider[];
 }) {
   const { settings } = useSettings();
   const on = settings.notifications;
-  const notify =
-    (key: Exclude<keyof Settings["notifications"], "resetLeadDays" | "mutedProviders">) =>
-    (checked: boolean) =>
-      props.change({ notifications: { [key]: checked } });
+  const notifyKind = (kind: Kind) => (checked: boolean) =>
+    props.change({ notifications: { kinds: { [kind]: checked } } });
+  const kindRow = (row: { kind: Kind; title: string; note: string }) => (
+    <SwitchRow
+      key={row.kind}
+      title={row.title}
+      note={row.note}
+      checked={on.kinds[row.kind]}
+      onChange={notifyKind(row.kind)}
+    />
+  );
   const mute = (provider: Provider) => (shown: boolean) =>
     props.change({
       notifications: {
@@ -215,60 +294,64 @@ function Notifications(props: {
     });
   return (
     <>
-      <Section title="Types">
+      <Section>
+        <p className="auto-note muted">
+          Every notice shows in the bell and goes to each channel set up under Channels.
+        </p>
+      </Section>
+      <Section title="Limits">
+        {kindRow({
+          kind: "running_low",
+          title: "Running Low",
+          note: "When a limit has little left, by your low-limit threshold.",
+        })}
+        {kindRow({
+          kind: "almost_out",
+          title: "Almost Out",
+          note: "When a limit has under 10% left.",
+        })}
         <SwitchRow
-          title="Running Low"
-          note="When a limit is running low."
-          checked={on.runningLow}
-          onChange={notify("runningLow")}
+          title="Include 5-Hour Sessions"
+          note="Off keeps weekly and monthly limits only."
+          checked={on.includeSessions}
+          onChange={(includeSessions) => props.change({ notifications: { includeSessions } })}
         />
-        <SwitchRow
-          title="Expiring Resets"
-          note="Before a saved reset expires."
-          checked={on.expiringResets}
-          onChange={notify("expiringResets")}
-        />
+      </Section>
+      <Section title="Resets">
+        {kindRow({
+          kind: "reset_expiring",
+          title: "Expiring Reset",
+          note: "When a banked reset is about to expire.",
+        })}
         <NumberRow
           title="Reset Warning"
-          note="How early to warn before a saved reset expires."
+          note="How early to warn before a banked reset expires."
           value={on.resetLeadDays}
           values={leadDays}
           format={(value) => `${value} ${value === 1 ? "Day" : "Days"}`}
           onChange={(resetLeadDays) => props.change({ notifications: { resetLeadDays } })}
         />
-        <SwitchRow
-          title="Reset Activity"
-          note="A new reset, a limit that reset early, or an auto-reset."
-          checked={on.resetActivity}
-          onChange={notify("resetActivity")}
-        />
-        <SwitchRow
-          title="Balances"
-          note="Credits running low, a top-up found, or credits expiring."
-          checked={on.balances}
-          onChange={notify("balances")}
-        />
-        <SwitchRow
-          title="Spend"
-          note="Extra spend starting, nearing a cap, or passing your budget."
-          checked={on.spend}
-          onChange={notify("spend")}
-        />
-        <SwitchRow
-          title="Refresh Failures"
-          note="When an account stops updating."
-          checked={on.refreshFailures}
-          onChange={notify("refreshFailures")}
-        />
+        {kindRow({
+          kind: "reset_granted",
+          title: "New Banked Reset",
+          note: "When an account banks a new reset.",
+        })}
+        {kindRow({
+          kind: "early_reset",
+          title: "Early Reset",
+          note: "When a limit resets before its scheduled time.",
+        })}
+        {kindRow({
+          kind: "auto_reset",
+          title: "Auto-Reset Result",
+          note: "When Headroom uses a banked reset for you, or tries and fails.",
+        })}
       </Section>
-      <Section title="Limits">
-        <SwitchRow
-          title="Include 5-Hour Sessions"
-          note="Off keeps weekly and monthly limits only."
-          checked={on.includeSessions}
-          onChange={notify("includeSessions")}
-        />
-      </Section>
+      {kindGroups.map((group) => (
+        <Section key={group.title} title={group.title}>
+          {group.rows.map(kindRow)}
+        </Section>
+      ))}
       <Section title="Providers">
         <ProviderCards
           providers={props.providers}

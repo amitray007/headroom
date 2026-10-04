@@ -2,7 +2,13 @@ import { eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import { type Db, schema } from "./db/index.ts";
-import { settingsSchema, type Settings } from "./settings-schema.ts";
+import { notificationKinds, type NotificationKind } from "./enums.ts";
+import {
+  kindSwitches,
+  settingsSchema,
+  type KindSwitches,
+  type Settings,
+} from "./settings-schema.ts";
 
 export { settingsSchema, type Settings };
 
@@ -40,17 +46,46 @@ export function defaultSettings(refreshIntervalSeconds: number): Settings {
     historyRetentionDays: 90,
     accountActions: false,
     notifications: {
-      runningLow: true,
-      expiringResets: true,
-      refreshFailures: true,
-      balances: true,
-      spend: true,
-      resetActivity: true,
+      kinds: kindSwitches(true),
       includeSessions: true,
       resetLeadDays: 3,
       mutedProviders: [],
     },
   };
+}
+
+/** The kinds each old group switch covered, for documents saved before every kind had its own. */
+const legacyGroups: Record<string, readonly NotificationKind[]> = {
+  runningLow: ["running_low", "almost_out"],
+  expiringResets: ["reset_expiring"],
+  balances: ["balance_low", "top_up_detected", "credits_expiring"],
+  spend: [
+    "spend_near_cap",
+    "spend_cap_reached",
+    "extra_usage_started",
+    "budget_near",
+    "budget_exceeded",
+  ],
+  resetActivity: ["reset_granted", "early_reset", "auto_reset"],
+  refreshFailures: ["refresh_failed", "disconnected"],
+};
+
+/** Each kind takes its own stored flag, then its old group flag, then the default. */
+function mergeKinds(saved: Record<string, unknown>, defaults: KindSwitches): KindSwitches {
+  const stored = isRecord(saved["kinds"]) ? saved["kinds"] : {};
+  const kinds = { ...defaults };
+  for (const kind of notificationKinds) {
+    const own = typeof stored[kind] === "boolean" ? stored[kind] : undefined;
+    if (own !== undefined) {
+      kinds[kind] = own;
+      continue;
+    }
+    for (const [group, covered] of Object.entries(legacyGroups)) {
+      const old = saved[group];
+      if (covered.includes(kind) && typeof old === "boolean") kinds[kind] = old;
+    }
+  }
+  return kinds;
 }
 
 function valid<T>(parser: z.ZodType<T>, value: unknown, fallback: T): T {
@@ -90,16 +125,7 @@ export function mergeSettings(stored: unknown, defaults: Settings): Settings {
     ),
     accountActions: valid(flag, source["accountActions"], defaults.accountActions),
     notifications: {
-      runningLow: valid(flag, saved["runningLow"], defaults.notifications.runningLow),
-      expiringResets: valid(flag, saved["expiringResets"], defaults.notifications.expiringResets),
-      refreshFailures: valid(
-        flag,
-        saved["refreshFailures"],
-        defaults.notifications.refreshFailures,
-      ),
-      balances: valid(flag, saved["balances"], defaults.notifications.balances),
-      spend: valid(flag, saved["spend"], defaults.notifications.spend),
-      resetActivity: valid(flag, saved["resetActivity"], defaults.notifications.resetActivity),
+      kinds: mergeKinds(saved, defaults.notifications.kinds),
       includeSessions: valid(
         flag,
         saved["includeSessions"],

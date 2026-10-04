@@ -76,13 +76,13 @@ New `notification.kind` values:
 
 | Kind | From | Tone | Switch |
 | --- | --- | --- | --- |
-| `reset_granted` | `reset_granted` event in the last 72 hours | `info` | `resetActivity` |
-| `early_reset` | `early_reset` event in the last 72 hours. `includeSessions` off skips windows of 5 hours or less | `info` | `resetActivity` |
-| `auto_reset` | `auto_reset` event in the last 72 hours | `info` when succeeded, `warn` when failed or `uncertain` | `resetActivity`. A muted provider still shows a failed or `uncertain` attempt |
-| `top_up_detected` | `top_up_detected` event in the last 72 hours | `info` | `balances` |
-| `budget_near` | Spend is at least (100 minus the low threshold)% of the owner's budget | `warn` | `spend` |
-| `budget_exceeded` | Spend is at least the budget | `bad` | `spend` |
-| `credits_expiring` | A Wallet top-up has an expiry and an alert, today is within `expiryAlertDays` of the expiry, and the expiry has not passed | `warn` | `balances` |
+| `reset_granted` | `reset_granted` event in the last 72 hours | `info` | `reset_granted` |
+| `early_reset` | `early_reset` event in the last 72 hours. `includeSessions` off skips windows of 5 hours or less | `info` | `early_reset` |
+| `auto_reset` | `auto_reset` event in the last 72 hours | `info` when succeeded, `warn` when failed or `uncertain` | `auto_reset`. A muted provider still shows a failed or `uncertain` attempt |
+| `top_up_detected` | `top_up_detected` event in the last 72 hours | `info` | `top_up_detected` |
+| `budget_near` | Spend is at least (100 minus the low threshold)% of the owner's budget | `warn` | `budget_near` |
+| `budget_exceeded` | Spend is at least the budget | `bad` | `budget_exceeded` |
+| `credits_expiring` | A Wallet top-up has an expiry and an alert, today is within `expiryAlertDays` of the expiry, and the expiry has not passed | `warn` | `credits_expiring` |
 
 `extra_usage_started` also fires when Cursor or Grok `on_demand.used`, or Claude `extra_usage.used`, is above 0.
 

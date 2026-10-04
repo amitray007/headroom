@@ -1,8 +1,10 @@
-import type {
-  AccountEvent,
-  NotificationAmountUnit,
-  NotificationEvent,
-  Provider,
+import {
+  kindSwitches,
+  type AccountEvent,
+  type NotificationAmountUnit,
+  type NotificationEvent,
+  type NotificationKind,
+  type Provider,
 } from "@headroom/core/contracts";
 
 import type { Metric, OverviewConnection } from "./overview.ts";
@@ -26,12 +28,7 @@ type NotificationTone = AppNotification["tone"];
 const day = 86_400_000;
 
 const everything: NotificationPreferences = {
-  runningLow: true,
-  expiringResets: true,
-  refreshFailures: true,
-  balances: true,
-  spend: true,
-  resetActivity: true,
+  kinds: kindSwitches(true),
   includeSessions: true,
   resetLeadDays: 7,
   mutedProviders: [],
@@ -39,12 +36,8 @@ const everything: NotificationPreferences = {
 
 /** The preferences that choose which events fire. */
 export type NotificationPreferences = {
-  readonly runningLow: boolean;
-  readonly expiringResets: boolean;
-  readonly refreshFailures: boolean;
-  readonly balances: boolean;
-  readonly spend: boolean;
-  readonly resetActivity: boolean;
+  /** One switch per kind. A kind that is off never fires, whatever else is set. */
+  readonly kinds: Readonly<Record<NotificationKind, boolean>>;
   readonly includeSessions: boolean;
   readonly resetLeadDays: 1 | 3 | 7;
   readonly mutedProviders: readonly Provider[];
@@ -599,7 +592,7 @@ function eventNotifications(
     if (detail.kind === "auto_reset") {
       // A failed or uncertain attempt matters even for a muted provider or an account that stopped updating.
       const succeeded = detail.state === "succeeded";
-      if (!on.resetActivity || (succeeded && (muted || !live))) continue;
+      if (succeeded && (muted || !live)) continue;
       found.push({
         ...eventBase(connection, event, "auto_reset"),
         tone: succeeded ? "info" : "warn",
@@ -620,7 +613,6 @@ function eventNotifications(
     }
     if (muted || !live) continue;
     if (detail.kind === "reset_granted") {
-      if (!on.resetActivity) continue;
       const banked =
         detail.available === null
           ? ""
@@ -638,7 +630,6 @@ function eventNotifications(
         message: `${banked}${expires}`,
       });
     } else if (detail.kind === "early_reset") {
-      if (!on.resetActivity) continue;
       const window = meterWindows(connection).find((item) => item.key === event.metricKey);
       if (!on.includeSessions && window?.kind === "session") continue;
       const left = Math.max(0, 100 - detail.percent);
@@ -658,7 +649,6 @@ function eventNotifications(
             : `Usage fell from ${percentText(detail.previousPercent)} to ${percentText(detail.percent)} before its scheduled reset.`,
       });
     } else {
-      if (!on.balances) continue;
       found.push({
         ...eventBase(connection, event, "top_up_detected"),
         tone: "info",
@@ -729,27 +719,27 @@ export function deriveNotifications(
     const muted = on.mutedProviders.includes(connection.provider);
     const live = connection.state === "ready" || connection.state === "partial";
     if (live && !muted) {
-      if (on.runningLow) found.push(...limitNotifications(connection, settings, now));
-      if (on.expiringResets) found.push(...expiryNotifications(connection, settings, now));
-      if (on.balances) found.push(...balanceNotifications(connection, settings));
-      if (on.spend) {
-        found.push(
-          ...spendNotifications(connection, settings),
-          ...extraUsageNotifications(connection),
-          ...budgetNotifications(connection, settings),
-        );
-      }
+      found.push(
+        ...limitNotifications(connection, settings, now),
+        ...expiryNotifications(connection, settings, now),
+        ...balanceNotifications(connection, settings),
+        ...spendNotifications(connection, settings),
+        ...extraUsageNotifications(connection),
+        ...budgetNotifications(connection, settings),
+      );
     }
-    if (!muted && on.balances) found.push(...expiringCreditNotifications(connection, topUps, now));
+    if (!muted) found.push(...expiringCreditNotifications(connection, topUps, now));
     found.push(...eventNotifications(connection, settings, now, muted, live));
-    if (on.refreshFailures) found.push(...failureNotifications(connection, muted));
+    found.push(...failureNotifications(connection, muted));
   }
-  return found.toSorted(
-    (a, b) =>
-      toneRank[a.tone] - toneRank[b.tone] ||
-      b.occurredAt - a.occurredAt ||
-      a.id.localeCompare(b.id),
-  );
+  return found
+    .filter((item) => on.kinds[item.kind])
+    .toSorted(
+      (a, b) =>
+        toneRank[a.tone] - toneRank[b.tone] ||
+        b.occurredAt - a.occurredAt ||
+        a.id.localeCompare(b.id),
+    );
 }
 
 /** Every id that exists now, whatever the owner switched off, so read marks survive a toggle. */

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { providers } from "@headroom/core/contracts";
+import { kindSwitches, providers } from "@headroom/core/contracts";
 
 import { demoOverview } from "./demo.ts";
 import { deriveNotifications, type NotificationSettings } from "./notifications.ts";
@@ -14,12 +14,7 @@ const defaultSettings: NotificationSettings = {
   timeStyle: "countdown",
   clock: "24h",
   notifications: {
-    runningLow: true,
-    expiringResets: true,
-    refreshFailures: true,
-    balances: true,
-    spend: true,
-    resetActivity: true,
+    kinds: kindSwitches(true),
     includeSessions: true,
     resetLeadDays: 3,
     mutedProviders: [],

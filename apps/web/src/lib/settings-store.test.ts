@@ -1,3 +1,4 @@
+import { kindSwitches } from "@headroom/core/contracts";
 import { describe, expect, test } from "bun:test";
 
 import type { Settings, SettingsEnvelope } from "../api.ts";
@@ -29,14 +30,17 @@ describe("applyPatch", () => {
   test("merges notifications key by key", () => {
     const next = applyPatch(defaultSettings, {
       timeStyle: "exact",
-      notifications: { runningLow: false },
+      notifications: { kinds: { running_low: false } },
     });
     expect(next.timeStyle).toBe("exact");
-    expect(next.notifications).toEqual({ ...defaultSettings.notifications, runningLow: false });
+    expect(next.notifications).toEqual({
+      ...defaultSettings.notifications,
+      kinds: { ...defaultSettings.notifications.kinds, running_low: false },
+    });
     const lead = applyPatch(defaultSettings, { notifications: { resetLeadDays: 7 } });
     expect(lead.notifications.resetLeadDays).toBe(7);
-    expect(lead.notifications.runningLow).toBe(true);
-    expect(defaultSettings.notifications.runningLow).toBe(true);
+    expect(lead.notifications.kinds.running_low).toBe(true);
+    expect(defaultSettings.notifications.kinds.running_low).toBe(true);
   });
 });
 
@@ -55,12 +59,7 @@ describe("defaults", () => {
       accountActions: false,
       walletCurrency: null,
       notifications: {
-        runningLow: true,
-        expiringResets: true,
-        refreshFailures: true,
-        balances: true,
-        spend: true,
-        resetActivity: true,
+        kinds: kindSwitches(true),
         includeSessions: true,
         resetLeadDays: 3,
         mutedProviders: [],

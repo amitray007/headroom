@@ -13,7 +13,12 @@ export {
 } from "./connector.ts";
 export type { AttemptView } from "./services/connect.ts";
 export { notificationEventSchema, type NotificationEvent } from "./notification-event.ts";
-export { settingsSchema, type Settings } from "./settings-schema.ts";
+export {
+  kindSwitches,
+  settingsSchema,
+  type KindSwitches,
+  type Settings,
+} from "./settings-schema.ts";
 export {
   costSchema,
   expiryAlertDayOptions,

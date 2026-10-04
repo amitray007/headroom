@@ -22,24 +22,24 @@ Every kind also covers sign-in and refresh problems for every provider. An unkno
 
 Tone is `bad`, `warn` or `info`. "Left" is the percent of the limit still free. The Running Low threshold is `lowThresholdPercent` (30, 20 or 15).
 
-| Kind | Trigger | Tone | Switch | Dedupe id (after the connection id) |
+| Kind | Trigger | Tone | Switch (`notifications.kinds.<key>`) | Dedupe id (after the connection id) |
 | --- | --- | --- | --- | --- |
-| `running_low` | A percent meter has less than the threshold left | `warn` | `runningLow` | `running_low:<metricKey>:<resetsAt>` |
-| `almost_out` | A percent meter has under 10% left | `bad` | `runningLow` | `almost_out:<metricKey>:<resetsAt>` |
-| `reset_expiring` | A usable banked reset expires within `resetLeadDays`. One notice, for the soonest | `info` | `expiringResets` | `reset_expiring:<creditId>:<expiresAt>` |
-| `balance_low` | Vercel balance is under the threshold of balance plus total used. Under 10% is `bad`. Only when both are reported and the total is above 0 | `warn`, `bad` | `balances` | `balance_low:credits.balance:<total>:<tone>` (a top-up changes the total) |
-| `spend_near_cap` | Spend is at least (100 - threshold)% of its cap | `warn` | `spend` | `spend_near_cap:<spendKey>:<periodEnd>` |
-| `spend_cap_reached` | Spend is at least 100% of its cap | `bad` | `spend` | `spend_cap_reached:<spendKey>:<periodEnd>` |
-| `extra_usage_started` | Copilot `extra_usage.count`, Cursor or Grok `on_demand.used`, or Claude `extra_usage.used` is above 0 | `info` | `spend` | `extra_usage_started:<metricKey>:<periodEnd>` |
-| `budget_near` | Spend on a metric the owner set a budget for is at least (100 - threshold)% of the budget | `warn` | `spend` | `budget_near:<metricKey>:<periodEnd>:<amount>` |
-| `budget_exceeded` | Spend is at least the budget | `bad` | `spend` | `budget_exceeded:<metricKey>:<periodEnd>:<amount>` |
-| `credits_expiring` | A Wallet top-up has an expiry and an alert, today (UTC) is within `expiryAlertDays` of `expiresOn`, and `expiresOn` has not passed | `warn` | `balances` | `credits_expiring:<topUpId>:<expiresOn>` |
-| `reset_granted` | A `reset_granted` event from the last 72 hours | `info` | `resetActivity` | `reset_granted:<eventId>` |
-| `early_reset` | An `early_reset` event from the last 72 hours. `includeSessions` off skips windows of 5 hours or less | `info` | `resetActivity` | `early_reset:<eventId>` |
-| `auto_reset` | An `auto_reset` event from the last 72 hours | `info` when succeeded, `warn` when failed or `uncertain` | `resetActivity` | `auto_reset:<eventId>` |
-| `top_up_detected` | A `top_up_detected` event from the last 72 hours | `info` | `balances` | `top_up_detected:<eventId>` |
-| `refresh_failed` | Two or more refreshes in a row failed (`latestRun.failureStreak`), state is not paused | `warn` | `refreshFailures` | `refresh_failed::<lastSuccessAt>` |
-| `disconnected` | Connection state is `reconnect_required` | `bad` | `refreshFailures` | `disconnected:<reconnectReason>:<lastSuccessAt>` |
+| `running_low` | A percent meter has less than the threshold left | `warn` | `running_low` | `running_low:<metricKey>:<resetsAt>` |
+| `almost_out` | A percent meter has under 10% left | `bad` | `almost_out` | `almost_out:<metricKey>:<resetsAt>` |
+| `reset_expiring` | A usable banked reset expires within `resetLeadDays`. One notice, for the soonest | `info` | `reset_expiring` | `reset_expiring:<creditId>:<expiresAt>` |
+| `balance_low` | Vercel balance is under the threshold of balance plus total used. Under 10% is `bad`. Only when both are reported and the total is above 0 | `warn`, `bad` | `balance_low` | `balance_low:credits.balance:<total>:<tone>` (a top-up changes the total) |
+| `spend_near_cap` | Spend is at least (100 - threshold)% of its cap | `warn` | `spend_near_cap` | `spend_near_cap:<spendKey>:<periodEnd>` |
+| `spend_cap_reached` | Spend is at least 100% of its cap | `bad` | `spend_cap_reached` | `spend_cap_reached:<spendKey>:<periodEnd>` |
+| `extra_usage_started` | Copilot `extra_usage.count`, Cursor or Grok `on_demand.used`, or Claude `extra_usage.used` is above 0 | `info` | `extra_usage_started` | `extra_usage_started:<metricKey>:<periodEnd>` |
+| `budget_near` | Spend on a metric the owner set a budget for is at least (100 - threshold)% of the budget | `warn` | `budget_near` | `budget_near:<metricKey>:<periodEnd>:<amount>` |
+| `budget_exceeded` | Spend is at least the budget | `bad` | `budget_exceeded` | `budget_exceeded:<metricKey>:<periodEnd>:<amount>` |
+| `credits_expiring` | A Wallet top-up has an expiry and an alert, today (UTC) is within `expiryAlertDays` of `expiresOn`, and `expiresOn` has not passed | `warn` | `credits_expiring` | `credits_expiring:<topUpId>:<expiresOn>` |
+| `reset_granted` | A `reset_granted` event from the last 72 hours | `info` | `reset_granted` | `reset_granted:<eventId>` |
+| `early_reset` | An `early_reset` event from the last 72 hours. `includeSessions` off skips windows of 5 hours or less | `info` | `early_reset` | `early_reset:<eventId>` |
+| `auto_reset` | An `auto_reset` event from the last 72 hours | `info` when succeeded, `warn` when failed or `uncertain` | `auto_reset` | `auto_reset:<eventId>` |
+| `top_up_detected` | A `top_up_detected` event from the last 72 hours | `info` | `top_up_detected` | `top_up_detected:<eventId>` |
+| `refresh_failed` | Two or more refreshes in a row failed (`latestRun.failureStreak`), state is not paused | `warn` | `refresh_failed` | `refresh_failed::<lastSuccessAt>` |
+| `disconnected` | Connection state is `reconnect_required` | `bad` | `disconnected` | `disconnected:<reconnectReason>:<lastSuccessAt>` |
 
 A rejected key or sign-in on an account that worked before is re-checked about 2 minutes later before it counts as disconnected. A revoked refresh token stays immediate.
 
@@ -60,14 +60,16 @@ The `notifications` object of [the settings document](api.md#settings):
 
 | Key | Values | Default |
 | --- | --- | --- |
-| `runningLow`, `expiringResets`, `balances`, `spend`, `resetActivity`, `refreshFailures` | boolean, one per type | true |
+| `kinds` | object with one boolean per kind in the Kinds table, keyed by the kind | all true |
 | `includeSessions` | boolean | true |
 | `resetLeadDays` | 1, 3, 7 | 3 |
 | `mutedProviders` | list of provider names | empty |
 
-`balances` also covers detected top-ups and expiring Wallet credits. `spend` also covers on-demand use starting and the owner's budgets. `resetActivity` covers a new banked reset, a limit that reset early, and auto-reset outcomes.
+Every kind has its own switch. An older stored document with the group switches `runningLow`, `expiringResets`, `balances`, `spend`, `resetActivity` and `refreshFailures` loads with each group's value applied to the kinds it covered; a key in `kinds` wins over the old flag. Switching `disconnected` off silences it even though a muted provider never does.
 
-Settings, Notifications tab: "Types" holds the six switches and the reset lead, "Limits" holds Include 5-Hour Sessions, and "Providers" holds one switch per connected provider in the saved order.
+Every notice that is on goes to the in-app bell and to every enabled channel (Telegram, webhooks). There is no per-channel choice of kind.
+
+Settings, Notifications tab: a short line saying so, then "Limits" (Running Low, Almost Out, Include 5-Hour Sessions), "Resets" (Expiring Reset, the reset lead, New Banked Reset, Early Reset, Auto-Reset Result), "Balances and Credits", "Spend" (On-Demand Started, Near Spending Cap, Spending Cap Reached, Near Your Budget, Over Your Budget), "Sign-In" (Refresh Failed, Disconnected), and "Providers" with one switch per connected provider in the saved order.
 
 ## Event schema
 

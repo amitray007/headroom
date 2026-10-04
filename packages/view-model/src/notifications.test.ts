@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 
 import {
   notificationEventSchema,
+  kindSwitches,
   type AccountEvent,
+  type NotificationKind,
   type Provider,
 } from "@headroom/core/contracts";
 
@@ -28,12 +30,7 @@ const defaultSettings: NotificationSettings = {
   timeStyle: "countdown",
   clock: "24h",
   notifications: {
-    runningLow: true,
-    expiringResets: true,
-    refreshFailures: true,
-    balances: true,
-    spend: true,
-    resetActivity: true,
+    kinds: kindSwitches(true),
     includeSessions: true,
     resetLeadDays: 3,
     mutedProviders: [],
@@ -102,7 +99,10 @@ describe("limit notifications", () => {
   test("running low can be switched off, the other kinds stay", () => {
     const off = {
       ...defaultSettings,
-      notifications: { ...defaultSettings.notifications, runningLow: false },
+      notifications: {
+        ...defaultSettings.notifications,
+        ...switchOff("running_low", "almost_out"),
+      },
     };
     expect(deriveNotifications([claude], off, now)).toEqual([]);
     expect(currentIds([claude], off, now).size).toBe(2);
@@ -177,7 +177,7 @@ describe("expiring resets", () => {
     expect(deriveNotifications([far], defaultSettings, now)).toEqual([]);
     const off = {
       ...defaultSettings,
-      notifications: { ...defaultSettings.notifications, expiringResets: false },
+      notifications: { ...defaultSettings.notifications, ...switchOff("reset_expiring") },
     };
     expect(deriveNotifications([codex], off, now)).toEqual([]);
   });
@@ -247,7 +247,10 @@ describe("failures", () => {
     expect(deriveNotifications([inProgress, partial], defaultSettings, now)).toEqual([]);
     const off = {
       ...defaultSettings,
-      notifications: { ...defaultSettings.notifications, refreshFailures: false },
+      notifications: {
+        ...defaultSettings.notifications,
+        ...switchOff("refresh_failed", "disconnected"),
+      },
     };
     const bad = connection("grok", { state: "reconnect_required" });
     expect(deriveNotifications([bad], off, now)).toEqual([]);
@@ -286,6 +289,24 @@ describe("read state", () => {
 });
 
 type Preferences = typeof defaultSettings.notifications;
+
+/** Switches the given kinds off and leaves the rest on. */
+const switchOff = (...kinds: NotificationKind[]) => ({
+  kinds: {
+    ...defaultSettings.notifications.kinds,
+    ...Object.fromEntries(kinds.map((kind) => [kind, false])),
+  },
+});
+
+const balanceKinds = ["balance_low", "top_up_detected", "credits_expiring"] as const;
+const spendKinds = [
+  "spend_near_cap",
+  "spend_cap_reached",
+  "extra_usage_started",
+  "budget_near",
+  "budget_exceeded",
+] as const;
+const resetKinds = ["reset_granted", "early_reset", "auto_reset"] as const;
 
 const withNotifications = (
   over: Partial<Preferences>,
@@ -372,7 +393,7 @@ describe("balance_low", () => {
     const first = deriveNotifications([gateway(2, 8)], defaultSettings, now)[0];
     const topped = deriveNotifications([gateway(2, 18)], defaultSettings, now)[0];
     expect(topped?.id).not.toBe(first?.id);
-    const off = withNotifications({ balances: false });
+    const off = withNotifications(switchOff(...balanceKinds));
     expect(deriveNotifications([gateway(2, 8)], off, now)).toEqual([]);
     const paused = { ...gateway(2, 8), state: "paused" } as const;
     expect(deriveNotifications([paused], defaultSettings, now)).toEqual([]);
@@ -490,7 +511,7 @@ describe("spend notices", () => {
     expect(capNotices([grokSpend(900, 0)], defaultSettings, now)).toEqual([]);
   });
   test("the switch and inactive accounts silence spend", () => {
-    const off = withNotifications({ spend: false });
+    const off = withNotifications(switchOff(...spendKinds));
     expect(capNotices([claudeSpend(50, 50)], off, now)).toEqual([]);
     const gone = { ...claudeSpend(50, 50), state: "reconnect_required" } as const;
     expect(kindsOf(capNotices([gone], defaultSettings, now))).toEqual(["disconnected"]);
@@ -536,7 +557,7 @@ describe("extra_usage_started", () => {
   test("zero and unknown are quiet; the spend switch silences it", () => {
     expect(deriveNotifications([copilotExtra(0)], defaultSettings, now)).toEqual([]);
     expect(deriveNotifications([copilotExtra(null)], defaultSettings, now)).toEqual([]);
-    const off = withNotifications({ spend: false });
+    const off = withNotifications(switchOff(...spendKinds));
     expect(deriveNotifications([copilotExtra(3)], off, now)).toEqual([]);
   });
 });
@@ -811,9 +832,11 @@ describe("reset_granted", () => {
   });
   test("follows the reset activity switch, the muted list and inactive accounts", () => {
     const items = [withEvents("codex", [granted])];
-    expect(derive(items, withNotifications({ resetActivity: false }))).toEqual([]);
+    expect(derive(items, withNotifications(switchOff(...resetKinds)))).toEqual([]);
     expect(derive(items, withNotifications({ mutedProviders: ["codex"] }))).toEqual([]);
-    const other = withNotifications({ balances: false, spend: false, runningLow: false });
+    const other = withNotifications(
+      switchOff(...balanceKinds, ...spendKinds, "running_low", "almost_out"),
+    );
     expect(derive(items, other)).toHaveLength(1);
     expect(derive([withEvents("codex", [granted], { state: "paused" })])).toEqual([]);
   });
@@ -858,7 +881,7 @@ describe("early_reset", () => {
     expect(item?.title).toBe("Claude seven_day Limit Reset Early");
   });
   test("follows the reset activity switch", () => {
-    const off = withNotifications({ resetActivity: false });
+    const off = withNotifications(switchOff(...resetKinds));
     expect(derive([claudeWithEvents([earlyEvent("seven_day")])], off)).toEqual([]);
   });
 });
@@ -898,7 +921,7 @@ describe("auto_reset", () => {
     expect(derive([paused]).map((n) => n.id)).toEqual(["x9:auto_reset:a-failed"]);
   });
   test("the reset activity switch silences all of them", () => {
-    const off = withNotifications({ resetActivity: false });
+    const off = withNotifications(switchOff(...resetKinds));
     expect(derive([withEvents("codex", [autoRan("failed"), autoRan("succeeded")])], off)).toEqual(
       [],
     );
@@ -927,8 +950,8 @@ describe("top_up_detected", () => {
   });
   test("follows the balances switch, not the reset activity one", () => {
     const items = [withEvents("codex", [detectedEvent("USD", 20, 45)])];
-    expect(derive(items, withNotifications({ balances: false }))).toEqual([]);
-    expect(derive(items, withNotifications({ resetActivity: false }))).toHaveLength(1);
+    expect(derive(items, withNotifications(switchOff(...balanceKinds)))).toEqual([]);
+    expect(derive(items, withNotifications(switchOff(...resetKinds)))).toHaveLength(1);
   });
 });
 
@@ -1023,9 +1046,9 @@ describe("budget notices", () => {
     expect(budgetOnly(derive([none]))).toEqual([]);
   });
   test("the spend switch, a muted provider and inactive accounts silence it", () => {
-    expect(budgetOnly(derive([budgetCursor(45, 50)], withNotifications({ spend: false })))).toEqual(
-      [],
-    );
+    expect(
+      budgetOnly(derive([budgetCursor(45, 50)], withNotifications(switchOff(...spendKinds)))),
+    ).toEqual([]);
     const muted = withNotifications({ mutedProviders: ["cursor"] });
     expect(budgetOnly(derive([budgetCursor(45, 50)], muted))).toEqual([]);
     expect(budgetOnly(derive([budgetCursor(45, 50, { state: "paused" })]))).toEqual([]);
@@ -1077,7 +1100,7 @@ describe("credits_expiring", () => {
     expect(runExpiring([{ ...far, expiryAlertDays: 14 }])).toEqual([]);
   });
   test("follows the balances switch and a muted provider, not account state", () => {
-    expect(runExpiring([expiringTop()], withNotifications({ balances: false }))).toEqual([]);
+    expect(runExpiring([expiringTop()], withNotifications(switchOff(...balanceKinds)))).toEqual([]);
     expect(runExpiring([expiringTop()], withNotifications({ mutedProviders: ["codex"] }))).toEqual(
       [],
     );
@@ -1094,7 +1117,7 @@ describe("credits_expiring", () => {
     expect(kept.map((item) => item.id)).toEqual(["a"]);
   });
   test("currentIds counts it even when its switch is off", () => {
-    const off = withNotifications({ balances: false });
+    const off = withNotifications(switchOff(...balanceKinds));
     const ids = currentIds([codexAccount], off, now, [expiringTop()]);
     expect(ids.has("x1:credits_expiring:t1:2025-10-09")).toBe(true);
   });
@@ -1152,7 +1175,7 @@ describe("extra_usage_started for spend", () => {
     });
     expect(derive([unknown])).toEqual([]);
     const spending = connection("cursor", { metrics: [usd("on_demand.used", 9)] });
-    expect(derive([spending], withNotifications({ spend: false }))).toEqual([]);
+    expect(derive([spending], withNotifications(switchOff(...spendKinds)))).toEqual([]);
     expect(derive([{ ...spending, state: "paused" }])).toEqual([]);
   });
   test("a new period starts a new notice", () => {

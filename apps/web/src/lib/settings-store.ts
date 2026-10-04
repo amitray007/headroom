@@ -1,3 +1,5 @@
+import { kindSwitches } from "@headroom/core/contracts";
+
 import type { Settings, SettingsEnvelope } from "../api.ts";
 
 /** The same defaults the backend uses before the owner saves anything. */
@@ -14,12 +16,7 @@ export const defaultSettings: Settings = {
   accountActions: false,
   walletCurrency: null,
   notifications: {
-    runningLow: true,
-    expiringResets: true,
-    refreshFailures: true,
-    balances: true,
-    spend: true,
-    resetActivity: true,
+    kinds: kindSwitches(true),
     includeSessions: true,
     resetLeadDays: 3,
     mutedProviders: [],
@@ -27,7 +24,9 @@ export const defaultSettings: Settings = {
 };
 
 export type SettingsPatch = Partial<Omit<Settings, "notifications">> & {
-  notifications?: Partial<Settings["notifications"]>;
+  notifications?: Partial<Omit<Settings["notifications"], "kinds">> & {
+    kinds?: Partial<Settings["notifications"]["kinds"]>;
+  };
 };
 
 export function applyPatch(settings: Settings, patch: SettingsPatch): Settings {
@@ -35,7 +34,11 @@ export function applyPatch(settings: Settings, patch: SettingsPatch): Settings {
   return {
     ...settings,
     ...rest,
-    notifications: { ...settings.notifications, ...notifications },
+    notifications: {
+      ...settings.notifications,
+      ...notifications,
+      kinds: { ...settings.notifications.kinds, ...notifications?.kinds },
+    },
   };
 }
 
