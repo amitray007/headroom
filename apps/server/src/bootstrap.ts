@@ -103,7 +103,9 @@ export function bootstrap(options: BootstrapOptions): AppContext {
   const { config } = options;
   const log = options.log ?? (() => undefined);
   const databasePath = options.databasePath ?? join(config.dataDir, "headroom.db");
-  if (databasePath !== ":memory:") mkdirSync(dirname(databasePath), { recursive: true });
+  // The database holds sessions and sealed credentials: only the app user may list its folder.
+  if (databasePath !== ":memory:")
+    mkdirSync(dirname(databasePath), { recursive: true, mode: 0o700 });
   // Opened before the keys so a missing master key can be checked against what the database holds.
   const { db, sqlite } = openDatabase({ path: databasePath });
   const keyring =
@@ -244,6 +246,7 @@ export function loadOrCreateSecretFile(
   const value = generate();
   writeFileSync(path, `${value}\n`, { mode: 0o600, flag: "wx" });
   chmodSync(path, 0o600);
-  log("warn", `created a new ${label} at ${path}; back it up, losing it loses every connection`);
+  const loss = guard ? "losing it loses every connection" : "losing it signs you out";
+  log("warn", `created a new ${label} at ${path}; back it up, ${loss}`);
   return value;
 }
