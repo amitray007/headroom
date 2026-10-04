@@ -296,11 +296,6 @@ function Notifications(props: {
     });
   return (
     <>
-      <Section>
-        <p className="auto-note muted">
-          Every notice shows in the bell and goes to each channel set up under Channels.
-        </p>
-      </Section>
       <Section title="Limits">
         {kindRow({
           kind: "running_low",

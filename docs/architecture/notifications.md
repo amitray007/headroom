@@ -69,7 +69,7 @@ Every kind has its own switch. An older stored document with the group switches 
 
 Every notice that is on goes to the in-app bell and to every enabled channel (Telegram, webhooks). There is no per-channel choice of kind.
 
-Settings, Notifications tab: a short line saying so, then "Limits" (Running Low, Almost Out, Include 5-Hour Sessions), "Resets" (Expiring Reset, the reset lead, New Banked Reset, Early Reset, Auto-Reset Result), "Balances and Credits", "Spend" (On-Demand Started, Near Spending Cap, Spending Cap Reached, Near Your Budget, Over Your Budget), "Sign-In" (Refresh Failed, Disconnected), and "Providers" with one switch per connected provider in the saved order.
+Settings, Notifications tab: "Limits" (Running Low, Almost Out, Include 5-Hour Sessions), "Resets" (Expiring Reset, the reset lead, New Banked Reset, Early Reset, Auto-Reset Result), "Balances and Credits", "Spend" (On-Demand Started, Near Spending Cap, Spending Cap Reached, Near Your Budget, Over Your Budget), "Sign-In" (Refresh Failed, Disconnected), and "Providers" with one switch per connected provider in the saved order.
 
 ## Event schema
 
