@@ -86,13 +86,14 @@ export function createApp(ctx: AppContext): Hono {
   api.use(rejectCrossSite(ctx));
 
   /** Better Auth owns everything under /api/auth, including its own origin checks and rate limits. */
-  api.on(["GET", "POST"], "/auth/*", (c) => {
+  api.on(["GET", "POST"], "/auth/*", async (c) => {
     const headers = new Headers(c.req.raw.headers);
     headers.set(
       clientIpHeader,
       clientAddress(c.req.raw, ctx.config.trustProxy, () => socketAddress(c)),
     );
-    return ctx.auth.handler(new Request(c.req.raw, { headers }));
+    const response = await ctx.auth.handler(new Request(c.req.raw, { headers }));
+    return ownerRaceLost(c.req.path, response, ctx) ? ownerClosed() : response;
   });
 
   /** The only unauthenticated read besides /healthz: whether the owner has signed up yet. */
@@ -129,8 +130,26 @@ export function createApp(ctx: AppContext): Hono {
 }
 
 /**
+ * The user table's trigger (migration 0005) is the atomic single-owner guard. Better Auth
+ * reports a trigger abort as a 422 "Failed to create user"; when an owner exists that means
+ * this sign-up lost the race, so answer like the before-create hook does.
+ */
+function ownerRaceLost(path: string, response: Response, ctx: AppContext): boolean {
+  return response.status === 422 && path.startsWith("/api/auth/sign-up/") && ownerExists(ctx.db);
+}
+
+function ownerClosed(): Response {
+  return Response.json(
+    { message: "Headroom has one owner; sign-up is closed", code: "FORBIDDEN" },
+    { status: 403 },
+  );
+}
+
+/**
  * The address Better Auth throttles on. A client-supplied value is always discarded;
  * X-Forwarded-For is honoured only when the deployment says a trusted proxy sets it.
+ * The proxy appends the address it saw, so the rightmost entry is the trusted one:
+ * earlier entries are whatever the client sent.
  */
 export function clientAddress(
   request: Request,
@@ -138,7 +157,7 @@ export function clientAddress(
   socket: () => string | null,
 ): string {
   if (trustProxy) {
-    const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    const forwarded = request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim();
     if (forwarded) return forwarded;
   }
   return socket() ?? "unknown";

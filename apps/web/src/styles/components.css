@@ -712,6 +712,11 @@ time.when {
 .hold.failed {
   color: var(--danger);
 }
+/* The provider may have consumed the reset: amber, and never offered again until the account is re-read. */
+.hold.unknown {
+  color: var(--warning);
+  border-color: color-mix(in oklab, var(--warning) 30%, var(--border));
+}
 .hold.off {
   color: var(--text-muted);
   border-color: var(--border);

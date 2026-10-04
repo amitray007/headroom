@@ -6,6 +6,7 @@ import {
   availabilitySchema,
   connectionScopeSchema,
   connectionStateSchema,
+  costSchema,
   evidenceLevelSchema,
   interfaceLabelSchema,
   nextStepPayloadSchema,
@@ -14,6 +15,9 @@ import {
   notificationDeliveryStatusSchema,
   providerSchema,
   reconnectReasonSchema,
+  settingsSchema,
+  topUpSchema,
+  type Settings,
   type SubmitInput,
 } from "@headroom/core/contracts";
 import {
@@ -23,7 +27,6 @@ import {
   type OverviewConnection,
 } from "@headroom/view-model/overview";
 import type { Cost, TopUp, WalletBook } from "@headroom/view-model/wallet";
-import { currencies } from "@headroom/view-model/wallet-money";
 import { z } from "zod";
 
 import { devicePrefs } from "./lib/device-prefs.ts";
@@ -175,61 +178,13 @@ export type OrderBody = z.infer<typeof orderSchema>;
 
 const renameSchema = z.object({ name: z.string().nullable() });
 
-const refreshIntervalSchema = z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(30)]);
-const resetLeadSchema = z.union([z.literal(1), z.literal(3), z.literal(7)]);
-const lowThresholdSchema = z.union([z.literal(30), z.literal(20), z.literal(15)]);
-/** Owner preferences kept on the server. Mirrors the backend settings document. */
-const settingsSchema = z.object({
-  limitsView: z.enum(["used", "left"]),
-  lowThresholdPercent: lowThresholdSchema,
-  refreshIntervalMinutes: refreshIntervalSchema,
-  timeStyle: z.enum(["countdown", "exact"]),
-  clock: z.enum(["24h", "12h"]),
-  density: z.enum(["comfortable", "compact"]),
-  detailedOrder: z.enum(["urgency", "provider", "custom"]),
-  keepInactiveLast: z.boolean(),
-  accountActions: z.boolean(),
-  /** The Wallet display currency; null follows the browser locale. */
-  walletCurrency: z.enum(currencies).nullable().default(null),
-  notifications: z.object({
-    runningLow: z.boolean(),
-    expiringResets: z.boolean(),
-    refreshFailures: z.boolean(),
-    balances: z.boolean(),
-    spend: z.boolean(),
-    includeSessions: z.boolean(),
-    resetLeadDays: resetLeadSchema,
-    mutedProviders: z.array(providerSchema),
-  }),
-});
-export type Settings = z.infer<typeof settingsSchema>;
+/** Owner preferences kept on the server; the schema is the backend's own. */
+export type { Settings };
 const settingsEnvelopeSchema = z.object({
   settings: settingsSchema,
 });
 export type SettingsEnvelope = z.infer<typeof settingsEnvelopeSchema>;
 
-const currencySchema = z.enum(currencies);
-const moneySchema = z.object({ minor: z.number().int().positive(), currency: currencySchema });
-const dayText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const costSchema: z.ZodType<Cost> = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("paid"),
-    price: moneySchema,
-    cycle: z.enum(["monthly", "annual"]),
-    renewsOn: dayText.nullable(),
-  }),
-  z.object({ kind: z.literal("free") }),
-  z.object({ kind: z.literal("included"), includedWith: z.string() }),
-]);
-const topUpSchema = z.object({
-  id: z.string(),
-  connectionId: z.string(),
-  date: dayText,
-  kind: z.enum(["paid", "free"]),
-  price: moneySchema.nullable(),
-  credits: z.number().nullable(),
-  note: z.string().nullable(),
-});
 /** What the owner entered in the Wallet. The display currency lives in the settings. */
 export type ServerWallet = Pick<WalletBook, "costs" | "topUps">;
 const walletSchema: z.ZodType<ServerWallet> = z.object({

@@ -704,6 +704,48 @@ describe("providerSpend", () => {
     expect(sum).toBe(summary.allIn.money.minor);
   });
 
+  test("keeps top-ups of a removed account as one part, so the ring still matches all-in", () => {
+    const summary = summarize(
+      connections,
+      [],
+      book({
+        costs: { c1: paid(usd(100)) },
+        topUps: [
+          {
+            id: "t1",
+            connectionId: "gone",
+            date: "2026-10-03",
+            kind: "paid",
+            price: usd(5),
+            credits: null,
+            note: null,
+          },
+          {
+            id: "t2",
+            connectionId: "gone2",
+            date: "2026-10-02",
+            kind: "paid",
+            price: usd(2),
+            credits: null,
+            note: null,
+          },
+        ],
+        displayCurrency: "USD",
+      }),
+      null,
+      now,
+    );
+    const parts = providerSpend(summary);
+    expect(parts.find((part) => part.provider === "removed")).toEqual({
+      provider: "removed",
+      plan: 0,
+      usage: 0,
+      topUps: 700,
+      total: 700,
+    });
+    expect(parts.reduce((acc, part) => acc + part.total, 0)).toBe(summary.allIn.money.minor);
+  });
+
   test("leaves out an amount with no rate, and a provider with nothing", () => {
     const summary = summarize(
       [codex, connection("claude", { id: "c1" })],

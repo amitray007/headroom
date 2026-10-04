@@ -1,6 +1,6 @@
 import { useId, type ReactNode } from "react";
 
-import { api, type OverviewConnection } from "../api.ts";
+import { ApiError, api, type OverviewConnection } from "../api.ts";
 import { AlertIcon, ClockIcon, PauseIcon, PlayIcon, RetryIcon } from "../icons.tsx";
 import {
   awaitingFirstRefresh,
@@ -16,6 +16,7 @@ import { presentPanel } from "@headroom/view-model/present";
 import { useSettings } from "../lib/settings.tsx";
 import { When } from "../lib/when.tsx";
 import { ActionButton } from "../ui/action-button.tsx";
+import { resetOutcome, resetOutcomeOfError } from "../ui/action-state.ts";
 import { BankedResets } from "../ui/banked-resets.tsx";
 import { ButtonLink } from "../ui/button.tsx";
 import { cx } from "../ui/cx.ts";
@@ -191,6 +192,8 @@ export function AccountPanel(props: {
                   <HoldButton
                     size="sm"
                     label="Hold to Reset Limits"
+                    // An unknown outcome re-arms only after a newer successful collection shows the real state.
+                    settleKey={connection.lastSuccessAt}
                     // Follows the Settings switch directly; the server refuses the action whenever the saved setting is off.
                     off={!actionsEnabled}
                     {...(demo ? { failedLabel: "Turn Off Demo Mode to Reset" } : {})}
@@ -198,9 +201,9 @@ export function AccountPanel(props: {
                       try {
                         const outcome = await api.consumeResetCredit(connection.id, hold.creditId);
                         setTimeout(() => void onChanged(), resetReloadMs);
-                        return outcome.action.state === "succeeded" ? "ok" : "failed";
-                      } catch {
-                        return "failed";
+                        return resetOutcome(outcome.action.state);
+                      } catch (error) {
+                        return resetOutcomeOfError(error instanceof ApiError ? error.status : null);
                       }
                     }}
                   />

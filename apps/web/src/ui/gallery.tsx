@@ -36,7 +36,14 @@ const statusKinds: readonly StatusKind[] = [
   "waiting",
 ];
 const tones: readonly BarTone[] = ["good", "warn", "bad", "neutral"];
-const holdPhases: readonly HoldPhase[] = ["idle", "holding", "requesting", "ok", "failed"];
+const holdPhases: readonly HoldPhase[] = [
+  "idle",
+  "holding",
+  "requesting",
+  "ok",
+  "failed",
+  "unknown",
+];
 
 const iconList = [
   ["ClockIcon", icons.ClockIcon],

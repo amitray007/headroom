@@ -8,10 +8,16 @@ export type Env = {
   Variables: { session: SessionInfo };
 };
 
-/** Requires a valid Better Auth session; sets `session` on the context. */
+/**
+ * Requires a valid Better Auth session; sets `session` on the context. The signed
+ * cookie cache is bypassed so sign-out and revocation take effect at once.
+ */
 export function requireSession(ctx: AppContext): MiddlewareHandler<Env> {
   return async (c, next) => {
-    const session = await ctx.auth.api.getSession({ headers: c.req.raw.headers });
+    const session = await ctx.auth.api.getSession({
+      headers: c.req.raw.headers,
+      query: { disableCookieCache: true },
+    });
     if (!session) return c.json({ error: "authentication_required" }, 401);
     c.set("session", session);
     await next();
