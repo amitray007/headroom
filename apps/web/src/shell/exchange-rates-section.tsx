@@ -41,15 +41,23 @@ export function ExchangeRatesSection() {
   const status = [
     rates.fetchedAt === null ? null : `Updated ${age(rates.fetchedAt, now).toLowerCase()}`,
     rates.date === null ? null : `ECB ${dayLabel(rates.date)}`,
-  ]
-    .filter((part) => part !== null)
-    .join(" · ");
+  ].filter((part) => part !== null);
   return (
     <Section title="Exchange Rates">
       <div className="srow">
         <Body title="Rates" note="Daily ECB rates. Wallet totals are approximate." />
         <span className="xr-status">
-          {status === "" ? null : <span className="muted">{status}</span>}
+          {status.length === 0 ? null : (
+            // Each part keeps its words together; a narrow screen moves a whole part to the next line.
+            <span className="xr-status-text muted">
+              {status.map((part, index) => (
+                <span key={part}>
+                  {index === 0 ? null : <span aria-hidden="true">· </span>}
+                  {part}
+                </span>
+              ))}
+            </span>
+          )}
           <Button
             variant="quiet"
             size="sm"

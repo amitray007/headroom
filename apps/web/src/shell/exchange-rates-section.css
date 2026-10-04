@@ -1,12 +1,27 @@
 /* Settings, General: the exchange rates block. Text wraps; nothing is cut. */
-/* The status text wraps inside its own span; the refresh button stays beside it. */
+/* The status keeps its width and the label beside it wraps first. The refresh button stays on the status line. */
 .xr-status {
   display: inline-flex;
+  flex: none;
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
   font-size: var(--text-sm);
-  text-align: right;
+}
+.xr-status-text {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  column-gap: 4px;
+}
+.xr-status-text > span {
+  white-space: nowrap;
+}
+/* On a phone the status may take two lines, a whole part at a time. */
+@media (max-width: 520px) {
+  .xr-status {
+    flex: 0 1 auto;
+  }
 }
 .xr-empty {
   margin: 0;
@@ -51,4 +66,14 @@
 .xr-code {
   font-weight: 500;
   color: var(--foreground);
+}
+/* A phone has room for each name on one line once the cells pad less. */
+@media (max-width: 520px) {
+  .xr-table th,
+  .xr-table td {
+    padding: 9px 10px;
+  }
+  .xr-table th:first-child {
+    padding-left: 12px;
+  }
 }
