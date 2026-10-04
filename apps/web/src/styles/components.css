@@ -1217,7 +1217,11 @@ time.when {
   width: min(400px, calc(100vw - 24px));
   max-height: min(560px, calc(100vh - 24px));
   overflow: auto;
+  scrollbar-width: none;
   border-radius: 20px;
+}
+.notif::-webkit-scrollbar {
+  display: none;
 }
 .notif.above {
   transform-origin: bottom right;
@@ -1370,6 +1374,11 @@ time.when {
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
+  /* Scrolls by wheel, touch and keyboard with no visible bar, even when the system always shows scroll bars. */
+  scrollbar-width: none;
+}
+.dbody::-webkit-scrollbar {
+  display: none;
 }
 .dsec {
   padding: 16px 24px 20px;
