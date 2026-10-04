@@ -188,29 +188,55 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
   app.post("/:id/refresh", async (c) => {
     const connection = ctx.connections.get(c.req.param("id"));
     if (!connection) return c.json({ error: "not_found" }, 404);
-    const outcome = await ctx.collection.run(connection.id, "manual");
+    // No fixed holder: the lease re-grants to the same holder, so a shared name would let two
+    // concurrent refreshes both collect and rotate the refresh token twice.
+    const outcome = await ctx.collection.run(connection.id);
     return c.json({ outcome, state: ctx.connections.get(connection.id)?.state });
   });
 
-  /** Disconnect: provider revocation where documented, then delete everything local. */
+  /**
+   * Disconnect: provider revocation where documented, then delete everything local. Runs under
+   * the connection's lease, waiting briefly for a collection in flight, so the delete never
+   * pulls the connection out from under it.
+   */
   app.delete("/:id", async (c) => {
     const connection = ctx.connections.get(c.req.param("id"));
     if (!connection) return c.json({ error: "not_found" }, 404);
-    const connector = ctx.registry.get(connection.provider);
-    const record = ctx.credentials.get(connection.id);
-    let revocation: "revoked" | "local_only" | "failed" = "local_only";
-    if (connector && record) {
-      try {
-        revocation = await connector.disconnect({
-          secret: record.secret,
-          expiresAt: record.expiresAt,
-        });
-      } catch {
-        revocation = "failed";
-      }
+    const holder = `disconnect:${Bun.randomUUIDv7()}`;
+    let acquired: boolean;
+    try {
+      acquired = await ctx.leases.acquireWithin(
+        connection.id,
+        holder,
+        ctx.collection.leaseTtlMs,
+        ctx.disconnectWaitMs,
+      );
+    } catch (error) {
+      // Deleted by another request while this one waited.
+      if (!ctx.connections.get(connection.id)) return c.json({ error: "not_found" }, 404);
+      throw error;
     }
-    ctx.connections.delete(connection.id);
-    return c.json({ revocation });
+    if (!acquired) return c.json({ error: "connection_busy" }, 409);
+    try {
+      const connector = ctx.registry.get(connection.provider);
+      const record = ctx.credentials.get(connection.id);
+      let revocation: "revoked" | "local_only" | "failed" = "local_only";
+      if (connector && record) {
+        try {
+          revocation = await connector.disconnect({
+            secret: record.secret,
+            expiresAt: record.expiresAt,
+          });
+        } catch {
+          revocation = "failed";
+        }
+      }
+      ctx.connections.delete(connection.id);
+      return c.json({ revocation });
+    } finally {
+      // The delete cascades to the lease row; this covers a failure before it.
+      ctx.leases.release(connection.id, holder);
+    }
   });
 
   return app;

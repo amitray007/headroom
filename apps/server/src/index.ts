@@ -49,6 +49,7 @@ ctx.log(
 const scheduler = new Scheduler({
   connections: ctx.connections,
   attempts: ctx.attempts,
+  connect: ctx.connect,
   snapshots: ctx.snapshots,
   collection: ctx.collection,
   intervalMs: () => ctx.settings.get().refreshIntervalMinutes * 60_000,
@@ -58,18 +59,39 @@ const scheduler = new Scheduler({
 scheduler.start();
 // Fetches the Wallet's exchange rates now and every 24 hours.
 ctx.exchangeRates.start();
-for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, () => {
-    scheduler.stop();
-    ctx.exchangeRates.stop();
-    ctx.log("info", `received ${signal}, shutting down`);
-    process.exit(0);
-  });
-}
 
-export default {
+const server = Bun.serve({
   port: config.port,
   // Production behaviour everywhere: no Bun error pages with stack traces.
   development: false,
   fetch: createApp(ctx).fetch,
-};
+});
+
+/** How long shutdown waits for the tick in flight, and then for open requests. Compose gives 20 s. */
+const drainMs = 10_000;
+const requestDrainMs = 5_000;
+let shuttingDown = false;
+
+/** Let a refresh in flight finish, so a rotated token is not lost, then close down in order. */
+async function shutdown(signal: string): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  ctx.log("info", `received ${signal}, shutting down`);
+  ctx.exchangeRates.stop();
+  try {
+    const drained = await Promise.race([
+      scheduler.stop().then(() => true),
+      Bun.sleep(drainMs).then(() => false),
+    ]);
+    if (!drained) ctx.log("warn", "a collection was still running at shutdown; leaving it");
+    await Promise.race([server.stop(), Bun.sleep(requestDrainMs)]);
+    ctx.sqlite.close();
+  } catch (error) {
+    ctx.log("error", `shutdown failed: ${error instanceof Error ? error.name : "unknown"}`);
+  }
+  process.exit(0);
+}
+
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => void shutdown(signal));
+}

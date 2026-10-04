@@ -96,15 +96,15 @@ describe("AttemptStore", () => {
     expect(failed.sanitizedError).toBe("approval_denied: the user denied access");
   });
 
-  test("expireOverdue expires only non-terminal attempts past their deadline", () => {
+  test("listOverdue lists only non-terminal attempts past their deadline and changes nothing", () => {
     const { attempts, advance } = setup();
     const a = attempts.create({ provider: "codex", method: "cli_login", ttlMs: 1_000 });
     const b = attempts.create({ provider: "codex", method: "cli_login", ttlMs: 10_000 });
     const c = attempts.create({ provider: "codex", method: "cli_login", ttlMs: 1_000 });
     attempts.transition(c.id, "cancelled");
     advance(2_000);
-    expect(attempts.expireOverdue()).toEqual([a.id]);
-    expect(attempts.get(a.id)?.state).toBe("expired");
+    expect(attempts.listOverdue()).toEqual([a.id]);
+    expect(attempts.get(a.id)?.state).toBe("created");
     expect(attempts.get(b.id)?.state).toBe("created");
     expect(attempts.get(c.id)?.state).toBe("cancelled");
   });

@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, isNull } from "drizzle-orm";
 
 import type { Capability, ClassifiedError, CollectResult } from "./connector.ts";
 import { type Db, schema } from "./db/index.ts";
@@ -45,6 +45,19 @@ export class SnapshotStore {
       })
       .where(eq(schema.syncRuns.id, runId))
       .run();
+  }
+
+  /**
+   * Close every run still open as `interrupted`. Called once at startup: the process that
+   * opened them is gone, and an open run would otherwise look in progress forever.
+   */
+  interruptUnfinished(): number {
+    return this.db
+      .update(schema.syncRuns)
+      .set({ finishedAt: this.now(), outcome: "interrupted" })
+      .where(isNull(schema.syncRuns.finishedAt))
+      .returning({ id: schema.syncRuns.id })
+      .all().length;
   }
 
   latestRun(connectionId: string): SyncRunRow | null {
