@@ -3,11 +3,13 @@ import { useEffect, useState } from "react";
 import { currencies, currencyName } from "@headroom/view-model/wallet-money";
 import { formatNumber } from "@headroom/view-model/present";
 import { age } from "@headroom/view-model/time";
+import { dayLabel } from "@headroom/view-model/wallet-dates";
 
+import { RetryIcon } from "../icons.tsx";
 import { refreshExchangeRates, useExchangeRates } from "../lib/exchange-rates.ts";
 import { Button } from "../ui/button.tsx";
 import { ErrorNotice } from "../ui/error-notice.tsx";
-import { Section } from "./settings-rows.tsx";
+import { Body, Section } from "./settings-rows.tsx";
 import "./exchange-rates-section.css";
 
 /** The server allows one fetch a minute; the button rests for the same time after a press. */
@@ -18,7 +20,7 @@ function rateText(rate: number): string {
   return formatNumber(rate, rate >= 100 ? 2 : 4);
 }
 
-/** Settings, General: where the Wallet's exchange rates come from, how fresh they are, and a Refresh button. */
+/** Settings, General: where the Wallet's exchange rates come from, how fresh they are, and a refresh button. */
 export function ExchangeRatesSection() {
   const rates = useExchangeRates();
   const [pressedAt, setPressedAt] = useState<number | null>(null);
@@ -36,12 +38,32 @@ export function ExchangeRatesSection() {
     setNow(at);
     void refreshExchangeRates();
   };
+  const status = [
+    rates.fetchedAt === null ? null : `Updated ${age(rates.fetchedAt, now).toLowerCase()}`,
+    rates.date === null ? null : `ECB ${dayLabel(rates.date)}`,
+  ]
+    .filter((part) => part !== null)
+    .join(" · ");
   return (
     <Section title="Exchange Rates">
-      <p className="xr-source muted">
-        European Central Bank reference rates via Frankfurter. Headroom fetches them every 24 hours
-        for the Wallet. They are daily rates, so converted totals are approximate.
-      </p>
+      <div className="srow">
+        <Body title="Rates" note="Daily ECB rates. Wallet totals are approximate." />
+        <span className="xr-status">
+          {status === "" ? null : <span className="muted">{status}</span>}
+          <Button
+            variant="quiet"
+            size="sm"
+            aria-label="Refresh Rates"
+            title={resting ? "Refreshed. Try again in a minute." : "Refresh Rates"}
+            busy={busy}
+            busyLabel="Refreshing"
+            disabled={resting}
+            onClick={press}
+          >
+            <RetryIcon />
+          </Button>
+        </span>
+      </div>
       {rates.error === null ? null : (
         <ErrorNotice inline>
           {rates.error}
@@ -51,43 +73,35 @@ export function ExchangeRatesSection() {
       {rates.perUsd === null ? (
         <p className="xr-empty muted">{busy ? "Loading rates." : "No rates yet."}</p>
       ) : (
-        <>
-          <dl className="xr-meta">
-            <div>
-              <dt className="muted">ECB date</dt>
-              <dd className="num">{rates.date ?? "Unknown"}</dd>
-            </div>
-            <div>
-              <dt className="muted">Fetched</dt>
-              <dd>{rates.fetchedAt === null ? "Unknown" : age(rates.fetchedAt, now)}</dd>
-            </div>
-          </dl>
-          <ul className="xr-grid" aria-label="Units per 1 US dollar">
-            {currencies
-              .filter((currency) => currency !== "USD")
-              .map((currency) => {
-                const rate = rates.perUsd?.[currency];
-                return (
-                  <li key={currency}>
-                    <span className="xr-code" title={currencyName(currency)}>
-                      {currency}
-                    </span>
-                    <span className="num">{rate === undefined ? "—" : rateText(rate)}</span>
-                  </li>
-                );
-              })}
-          </ul>
-          <p className="xr-unit muted">Units of each currency per 1 USD.</p>
-        </>
+        <div className="xr-card">
+          <table className="xr-table">
+            <thead>
+              <tr>
+                <th scope="col">Currency</th>
+                <th scope="col">Per 1 USD</th>
+                <th scope="col">1 Unit in USD</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currencies
+                .filter((currency) => currency !== "USD")
+                .map((currency) => {
+                  const rate = rates.perUsd?.[currency];
+                  return (
+                    <tr key={currency}>
+                      <th scope="row">
+                        <span className="xr-code">{currency}</span>
+                        <span className="muted">{currencyName(currency)}</span>
+                      </th>
+                      <td className="num">{rate === undefined ? "—" : rateText(rate)}</td>
+                      <td className="num">{rate === undefined ? "—" : rateText(1 / rate)}</td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
       )}
-      <div className="xr-actions">
-        <Button size="sm" busy={busy} busyLabel="Refreshing" disabled={resting} onClick={press}>
-          Refresh Rates
-        </Button>
-        {resting && !busy ? (
-          <span className="muted xr-rest">Wait a minute before refreshing again.</span>
-        ) : null}
-      </div>
     </Section>
   );
 }

@@ -125,7 +125,6 @@ function General(props: { readonly change: (patch: SettingsPatch) => void }) {
           onChange={(historyRetentionDays) => change({ historyRetentionDays })}
         />
       </Section>
-      <ExchangeRatesSection />
       <Section title="Time">
         <ChoiceRow
           title="Times"
@@ -167,6 +166,7 @@ function General(props: { readonly change: (patch: SettingsPatch) => void }) {
         />
       </Section>
       <AccountActions change={change} />
+      <ExchangeRatesSection />
     </>
   );
 }

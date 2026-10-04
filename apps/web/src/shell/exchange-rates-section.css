@@ -1,51 +1,54 @@
 /* Settings, General: the exchange rates block. Text wraps; nothing is cut. */
-.xr-source,
-.xr-unit,
+/* The status text wraps inside its own span; the refresh button stays beside it. */
+.xr-status {
+  display: inline-flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  text-align: right;
+}
 .xr-empty {
   margin: 0;
-  font-size: var(--text-xs);
-  line-height: 1.4;
+  font-size: var(--text-sm);
 }
-.xr-meta {
+/* The rates in one bordered card: a quiet header row, hairlines between rows, figures in tabular columns. */
+.xr-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+.xr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.xr-table th,
+.xr-table td {
+  padding: 9px 16px;
+  font-weight: 400;
+  text-align: right;
+  white-space: nowrap;
+}
+.xr-table th:first-child {
+  text-align: left;
+  white-space: normal;
+}
+.xr-table thead th {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  background: var(--surface-muted);
+}
+.xr-table tbody tr {
+  border-top: 1px solid var(--border-subtle);
+}
+.xr-table tbody th {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 24px;
-  margin: 0;
-  font-size: var(--text-sm);
-}
-.xr-meta div {
-  display: flex;
-  gap: 8px;
-}
-.xr-meta dt,
-.xr-meta dd {
-  margin: 0;
-}
-.xr-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 4px 16px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.xr-grid li {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 4px 0;
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: var(--text-sm);
+  align-items: baseline;
+  gap: 2px 8px;
 }
 .xr-code {
   font-weight: 500;
-}
-.xr-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-}
-.xr-rest {
-  font-size: var(--text-xs);
+  color: var(--foreground);
 }
