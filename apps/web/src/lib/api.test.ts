@@ -179,11 +179,31 @@ describe("demo mode guard", () => {
         price: null,
         credits: null,
         note: null,
+        expiresOn: null,
+        expiryAlertDays: null,
+      }),
+      api.updateTopUp("t1", {
+        date: "2026-10-01",
+        kind: "free",
+        price: null,
+        credits: null,
+        note: null,
+        expiresOn: null,
+        expiryAlertDays: null,
       }),
       api.removeTopUp("t1"),
+      api.setAutoReset("demo-1", {
+        enabled: true,
+        window: "weekly",
+        thresholdPercent: 100,
+        minHoursLeft: 24,
+      }),
+      api.clearAutoReset("demo-1"),
+      api.setBudget("demo-1", "on_demand.used", 50),
+      api.clearBudget("demo-1", "on_demand.used"),
     ];
     const causes = await Promise.all(refused.map((call) => call.catch((error: unknown) => error)));
-    expect(causes).toHaveLength(12);
+    expect(causes).toHaveLength(17);
     for (const cause of causes) {
       expect(cause).toMatchObject({ status: 409, code: "demo_mode", message: demoRefusal });
       expect(isDemoRefusal(cause)).toBe(true);
@@ -205,6 +225,67 @@ describe("demo mode guard", () => {
       "DELETE /api/wallet/top-ups/t1",
     ]);
     expect(calls[1]?.body).toEqual({ kind: "included", includedWith: "X Premium" });
+  });
+  test("top-up updates, auto-reset rules and budgets use their own routes and bodies", async () => {
+    const update = {
+      date: "2026-10-01",
+      kind: "paid" as const,
+      price: { minor: 1000, currency: "USD" as const },
+      credits: 40,
+      note: null,
+      expiresOn: "2026-12-01",
+      expiryAlertDays: 14 as const,
+    };
+    const wallet = stub({ costs: {}, topUps: [] });
+    await api.updateTopUp("t/1", update);
+    expect(wallet.map((call) => `${call.method} ${call.path}`)).toEqual([
+      "PUT /api/wallet/top-ups/t%2F1",
+    ]);
+    expect(wallet[0]?.body).toEqual(update);
+
+    const rule = {
+      enabled: true,
+      window: "either" as const,
+      thresholdPercent: 95 as const,
+      minHoursLeft: 12 as const,
+    };
+    const rules = stub({ autoReset: rule });
+    expect(await api.setAutoReset("c1", rule)).toEqual({ autoReset: rule });
+    stub({ autoReset: null });
+    expect(await api.clearAutoReset("c1")).toEqual({ autoReset: null });
+    expect(rules[0]).toMatchObject({
+      method: "PUT",
+      path: "/api/connections/c1/auto-reset",
+      body: rule,
+    });
+
+    const budgets = stub({ budgets: [{ metricKey: "on_demand.used", amount: 50, unit: "USD" }] });
+    expect(await api.setBudget("c1", "on_demand.used", 50)).toEqual({
+      budgets: [{ metricKey: "on_demand.used", amount: 50, unit: "USD" }],
+    });
+    await api.clearBudget("c1", "spend.30d");
+    expect(budgets.map((call) => `${call.method} ${call.path}`)).toEqual([
+      "PUT /api/connections/c1/budgets/on_demand.used",
+      "DELETE /api/connections/c1/budgets/spend.30d",
+    ]);
+    expect(budgets[0]?.body).toEqual({ amount: 50 });
+  });
+  test("an auto-reset or budget response that does not fit the contract is refused", async () => {
+    stub({ autoReset: { enabled: true } });
+    expect(
+      await failure(
+        api.setAutoReset("c1", {
+          enabled: true,
+          window: "weekly",
+          thresholdPercent: 100,
+          minHoursLeft: 24,
+        }),
+      ),
+    ).toBe("The server sent an unexpected response");
+    stub({ budgets: [{ metricKey: "x", amount: -1, unit: "USD" }] });
+    expect(await failure(api.setBudget("c1", "x", 1))).toBe(
+      "The server sent an unexpected response",
+    );
   });
   test("a wallet response that does not fit the contract is refused", async () => {
     stub({ costs: { c1: { kind: "paid", price: { minor: 0, currency: "USD" } } }, topUps: [] });

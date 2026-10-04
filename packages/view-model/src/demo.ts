@@ -1,4 +1,5 @@
 import type {
+  AccountEvent,
   AuthMethod,
   ConnectionState,
   Provider,
@@ -717,6 +718,104 @@ function vercelParts(draw: Draw, shape: "pro" | "free"): Parts {
   };
 }
 
+// ---------- detected events and automation ----------
+
+type Automation = OverviewConnection["automation"];
+
+const noAutomation: Automation = { autoReset: null, budgets: [] };
+
+/**
+ * Detected events and owner automation for a few demo accounts, so every new notice and setting has something to
+ * show: a new banked reset and an auto-reset rule on the second Codex account, a limit that reset early on the
+ * first, a detected top-up on the first Vercel AI Gateway account, and a budget on the first Cursor account.
+ */
+function automationOf(
+  account: Account,
+  id: string,
+  parts: Parts,
+  anchor: number,
+): { readonly events: AccountEvent[]; readonly automation: Automation } {
+  const key = `${account.provider}:${account.n}`;
+  if (key === "codex:2") {
+    const credit = parts.resetCredits?.find((item) => item.providerCreditId === "credit-1");
+    return {
+      events: [
+        {
+          id: `${id}-reset-granted`,
+          connectionId: id,
+          occurredAt: anchor - 9 * hour,
+          metricKey: null,
+          detail: {
+            kind: "reset_granted",
+            creditId: "credit-1",
+            expiresAt: credit?.expiresAt ?? null,
+            available: parts.resetCredits?.length ?? null,
+          },
+        },
+      ],
+      automation: {
+        autoReset: { enabled: true, window: "weekly", thresholdPercent: 95, minHoursLeft: 24 },
+        budgets: [],
+      },
+    };
+  }
+  if (key === "codex:1") {
+    return {
+      events: [
+        {
+          id: `${id}-early-reset`,
+          connectionId: id,
+          occurredAt: anchor - 26 * hour,
+          metricKey: "rate_limit.secondary_window",
+          detail: {
+            kind: "early_reset",
+            previousPercent: 41,
+            percent: 2,
+            expectedResetAt: anchor + 2 * day,
+          },
+        },
+      ],
+      automation: noAutomation,
+    };
+  }
+  if (key === "vercel_ai_gateway:1") {
+    const balance = parts.metrics.find((item) => item.providerMetricKey === "credits.balance");
+    const current = balance?.valueNum ?? 100;
+    return {
+      events: [
+        {
+          id: `${id}-top-up-detected`,
+          connectionId: id,
+          occurredAt: anchor - 30 * hour,
+          metricKey: "credits.balance",
+          detail: {
+            kind: "top_up_detected",
+            unit: "gateway_credits",
+            previous: round(Math.max(0, current - 25), 2),
+            current: round(current, 2),
+            added: round(Math.min(25, current), 2),
+            topUpId: `demo-topup-detected-${id}`,
+          },
+        },
+      ],
+      automation: noAutomation,
+    };
+  }
+  if (key === "cursor:1") {
+    const used = parts.metrics.find((item) => item.providerMetricKey === "on_demand.used");
+    // Well above the spend so far: the budget is set, and its notice is not showing.
+    const amount = Math.max(10, Math.ceil((used?.valueNum ?? 0) / 0.4 / 5) * 5);
+    return {
+      events: [],
+      automation: {
+        autoReset: null,
+        budgets: [{ metricKey: "on_demand.used", amount, unit: "USD" }],
+      },
+    };
+  }
+  return { events: [], automation: noAutomation };
+}
+
 // ---------- accounts ----------
 
 interface Account {
@@ -881,6 +980,7 @@ function connectionOf(
   const parts = account.parts({ seed, anchor, id, observedAt });
   const createdAt = anchor - timing.int(3, 14) * 7 * day - timing.int(0, day);
   const failedAt = anchor - timing.int(2, 20) * minute;
+  const extras = automationOf(account, id, parts, anchor);
   return {
     id,
     provider: account.provider,
@@ -913,6 +1013,8 @@ function connectionOf(
     snapshot: { observedAt, metrics: parts.metrics, resetCredits: parts.resetCredits ?? [] },
     // Mirrors what the provider supports. Switched off, as it is until the owner allows account actions.
     actions: { enabled: false, supported: account.supported ?? [] },
+    events: extras.events,
+    automation: extras.automation,
   };
 }
 

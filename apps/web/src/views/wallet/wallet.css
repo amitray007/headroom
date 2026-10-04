@@ -480,7 +480,7 @@ html[data-density="compact"] .w-row {
 
 /* ---------- Top-ups ---------- */
 .w-topups .w-card {
-  --w-cols: 72px minmax(0, 1.3fr) minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 1.3fr) 36px;
+  --w-cols: 88px minmax(0, 1.3fr) minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 1.3fr) 68px;
 }
 .w-topups .w-card .empty {
   border: 0;
@@ -491,6 +491,20 @@ html[data-density="compact"] .w-row {
 .w-date {
   font-size: var(--text-sm);
   color: var(--text-secondary);
+}
+/* The mark of a top-up Headroom found from a balance change, beside its date. */
+.w-detected {
+  display: inline-flex;
+  vertical-align: -3px;
+  margin-left: 6px;
+  color: var(--text-muted);
+}
+.w-detected svg {
+  width: 14px;
+  height: 14px;
+}
+.w-expiry {
+  white-space: nowrap;
 }
 .w-account {
   display: flex;

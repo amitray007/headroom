@@ -125,6 +125,9 @@ export function demoWallet(
         price: null,
         credits: null,
         note: null,
+        source: "owner",
+        expiresOn: null,
+        expiryAlertDays: null,
         ...over,
       },
     ];
@@ -140,6 +143,24 @@ export function demoWallet(
     ...topUpOn("gateway-credits", "vercel_ai_gateway:1", {
       price: usd(50),
       note: "Gateway credits",
+    }),
+    // Found by Headroom from a balance rise, so it has no price yet. Matches the demo top-up event.
+    ...topUpOn("detected-gateway", "vercel_ai_gateway:1", {
+      id: "demo-topup-detected-demo-vercel-ai-gateway-1",
+      date: isoDate(anchor - 30 * 3_600_000),
+      price: null,
+      credits: 25,
+      note: null,
+      source: "detected",
+    }),
+    // Credits that lapse soon: the 14-day alert is already inside its window.
+    ...topUpOn("codex-expiring", "codex:1", {
+      date: isoDate(anchor - 20 * day),
+      price: usd(20),
+      credits: 100,
+      note: "Seasonal credits",
+      expiresOn: isoDate(anchor + 9 * day),
+      expiryAlertDays: 14,
     }),
     ...topUpOn("promo", "codex:2", { kind: "free", credits: 100, note: "Promo credits" }),
     ...topUpOn("gateway-free", "vercel_ai_gateway:2", {

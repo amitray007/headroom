@@ -1,0 +1,86 @@
+/* Automations tab: one block per account for its auto-reset rule, and one per spend figure for its budget. */
+.auto-note {
+  margin: 0;
+  padding-bottom: var(--space-2);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+.auto-hint {
+  display: block;
+  margin: 0 0 var(--space-2);
+  padding: 8px 12px;
+  border: 1px solid color-mix(in oklab, var(--warning) 40%, transparent);
+  border-radius: var(--radius-control, 12px);
+  background: color-mix(in oklab, var(--warning) 10%, transparent);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+.auto-empty {
+  margin: 0;
+  padding: 10px 0;
+  font-size: var(--text-sm);
+}
+.auto-row {
+  display: grid;
+  gap: 8px;
+  padding: 4px 0 12px;
+}
+.auto-row + .auto-row {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+}
+.auto-row .srow {
+  padding: 6px 0;
+}
+.auto-row .srow + .srow {
+  border-top: 0;
+}
+/* The account's name carries its provider mark. */
+.auto-who {
+  max-width: none;
+}
+.auto-who b {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.auto-who b > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The three choices sit under the switch, dimmed until the rule is on, and stay editable. */
+.auto-opts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.auto-row:not([data-on]) .auto-opts {
+  opacity: 0.6;
+}
+.auto-opts .fld-label {
+  font-size: var(--text-xs);
+}
+.auto-budget {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.auto-budget > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.auto-budget .btn {
+  flex: none;
+  height: 40px;
+}
+@media (max-width: 560px) {
+  .auto-opts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .auto-budget {
+    flex-wrap: wrap;
+  }
+}

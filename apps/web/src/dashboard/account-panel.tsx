@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from "react";
 
 import { ApiError, api, type OverviewConnection } from "../api.ts";
-import { AlertIcon, ClockIcon, PauseIcon, PlayIcon, RetryIcon } from "../icons.tsx";
+import { AlertIcon, ClockIcon, PauseIcon, PlayIcon, ResetIcon, RetryIcon } from "../icons.tsx";
 import {
   awaitingFirstRefresh,
   accountName,
@@ -12,6 +12,7 @@ import {
 } from "@headroom/view-model/labels";
 import { useDevicePrefs } from "../lib/device-prefs.ts";
 import { useNow } from "../lib/now.ts";
+import { autoResetSummary } from "@headroom/view-model/automation";
 import { presentPanel } from "@headroom/view-model/present";
 import { useSettings } from "../lib/settings.tsx";
 import { When } from "../lib/when.tsx";
@@ -21,7 +22,7 @@ import { BankedResets } from "../ui/banked-resets.tsx";
 import { ButtonLink } from "../ui/button.tsx";
 import { cx } from "../ui/cx.ts";
 import { HoldButton } from "../ui/hold-button.tsx";
-import { HealthyStatus, StatusPill, StatusSlot, statusKindOf } from "../ui/pill.tsx";
+import { HealthyStatus, Pill, StatusPill, StatusSlot, statusKindOf } from "../ui/pill.tsx";
 import { href } from "../router.ts";
 import { PanelActions } from "./actions.tsx";
 import { AccountTitle } from "./account-title.tsx";
@@ -154,7 +155,10 @@ export function AccountPanel(props: {
     right = <StatusPill kind={statusKindOf(status.word)} />;
   }
 
-  const showFacts = model.facts.length > 0 || hold !== null || banked !== null || !waiting;
+  const autoRule = connection.automation.autoReset;
+  const autoOn = autoRule !== null && autoRule.enabled;
+  const showFacts =
+    model.facts.length > 0 || hold !== null || banked !== null || autoOn || !waiting;
   return (
     <div className={cx("collapse", props.closed && "closed")}>
       <section
@@ -186,7 +190,7 @@ export function AccountPanel(props: {
         )}
         {showFacts ? (
           <div className="facts">
-            {hold === null && banked === null ? null : (
+            {hold === null && banked === null && !autoOn ? null : (
               <span className="lead">
                 {hold === null ? null : (
                   <HoldButton
@@ -209,6 +213,14 @@ export function AccountPanel(props: {
                   />
                 )}
                 {banked === null ? null : <BankedResets {...banked} />}
+                {autoRule === null || !autoRule.enabled ? null : (
+                  <span className="auto-chip" title={autoResetSummary(autoRule)}>
+                    <Pill tone="quiet" icon={<ResetIcon />}>
+                      Auto-reset on
+                    </Pill>
+                    <span className="sr">{autoResetSummary(autoRule)}</span>
+                  </span>
+                )}
               </span>
             )}
             {model.facts.map((fact) => (

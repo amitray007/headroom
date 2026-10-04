@@ -14,7 +14,7 @@ import {
   type Currency,
 } from "@headroom/view-model/wallet-money";
 import { demoWallet } from "@headroom/view-model/wallet-demo";
-import { summarize } from "@headroom/view-model/wallet";
+import { summarize, type TopUp } from "@headroom/view-model/wallet";
 import { Button } from "../../ui/button.tsx";
 import { Select, type SelectOption } from "../../ui/select.tsx";
 import type { ViewProps } from "../props.ts";
@@ -48,8 +48,14 @@ export function WalletPage(props: ViewProps) {
   const rates = useExchangeRates();
   const [retrying, setRetrying] = useState(false);
   const [costFor, setCostFor] = useState<string | null>(null);
-  /** The top-up dialog: closed (null), or open on an account (its id) or on the first one (null id). */
-  const [topUpFor, setTopUpFor] = useState<{ readonly connectionId: string | null } | null>(null);
+  /**
+   * The top-up dialog: closed (null), or open to add one on an account (its id) or on the first one (null id), or
+   * to edit `editing`.
+   */
+  const [topUpFor, setTopUpFor] = useState<{
+    readonly connectionId: string | null;
+    readonly editing: TopUp | null;
+  } | null>(null);
 
   // Demo Mode keeps its own book in memory, so its edits never reach the saved one.
   const wallet = useWallet(
@@ -118,7 +124,7 @@ export function WalletPage(props: ViewProps) {
             variant="primary"
             size="sm"
             icon={<PlusIcon />}
-            onClick={() => setTopUpFor({ connectionId: null })}
+            onClick={() => setTopUpFor({ connectionId: null, editing: null })}
           >
             Add Top-Up
           </Button>
@@ -135,12 +141,13 @@ export function WalletPage(props: ViewProps) {
       <AccountsTable
         groups={summary.providers}
         onEdit={setCostFor}
-        onAddTopUp={(connectionId) => setTopUpFor({ connectionId })}
+        onAddTopUp={(connectionId) => setTopUpFor({ connectionId, editing: null })}
       />
       <TopUpsSection
         topUps={summary.topUps}
         connections={connections}
         onRemove={wallet.removeTopUp}
+        onEdit={(topUp) => setTopUpFor({ connectionId: topUp.connectionId, editing: topUp })}
       />
       <CostDialog
         account={editing ?? null}
@@ -155,7 +162,9 @@ export function WalletPage(props: ViewProps) {
         connectionId={topUpFor?.connectionId ?? null}
         defaultCurrency={display}
         today={today}
+        editing={topUpFor?.editing ?? null}
         onAdd={wallet.addTopUp}
+        onSave={wallet.updateTopUp}
         onClose={() => setTopUpFor(null)}
       />
     </div>

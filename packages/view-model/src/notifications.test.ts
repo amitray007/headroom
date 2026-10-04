@@ -1,10 +1,16 @@
 import { describe, expect, test } from "bun:test";
 
-import { notificationEventSchema } from "@headroom/core/contracts";
+import {
+  notificationEventSchema,
+  type AccountEvent,
+  type Provider,
+} from "@headroom/core/contracts";
 
 import {
   currentIds,
   deriveNotifications,
+  expiringTopUps,
+  type ExpiringTopUp,
   type NotificationSettings,
   loadRead,
   markAllRead,
@@ -27,6 +33,7 @@ const defaultSettings: NotificationSettings = {
     refreshFailures: true,
     balances: true,
     spend: true,
+    resetActivity: true,
     includeSessions: true,
     resetLeadDays: 3,
     mutedProviders: [],
@@ -419,10 +426,14 @@ const grokSpend = (used: number, cap: number) =>
     ],
   });
 
+/** Cap notices only: starting on-demand use is covered by its own tests. */
+const capNotices = (...args: Parameters<typeof deriveNotifications>) =>
+  deriveNotifications(...args).filter((item) => item.kind !== "extra_usage_started");
+
 describe("spend notices", () => {
   test("Claude: warns from 70% on the default threshold, reached at 100%, in dollars", () => {
-    expect(deriveNotifications([claudeSpend(34, 50)], defaultSettings, now)).toEqual([]);
-    const [near] = deriveNotifications([claudeSpend(35, 50)], defaultSettings, now);
+    expect(capNotices([claudeSpend(34, 50)], defaultSettings, now)).toEqual([]);
+    const [near] = capNotices([claudeSpend(35, 50)], defaultSettings, now);
     expect(near).toEqual(
       expect.objectContaining({
         kind: "spend_near_cap",
@@ -433,7 +444,7 @@ describe("spend notices", () => {
     );
     expect(near?.figures.amount).toEqual({ value: 35, unit: "USD" });
     expect(near?.figures.cap).toEqual({ value: 50, unit: "USD" });
-    const [reached] = deriveNotifications([claudeSpend(50, 50)], defaultSettings, now);
+    const [reached] = capNotices([claudeSpend(50, 50)], defaultSettings, now);
     expect(reached).toEqual(
       expect.objectContaining({
         kind: "spend_cap_reached",
@@ -444,45 +455,45 @@ describe("spend notices", () => {
   });
   test("the threshold setting moves the line", () => {
     const strict = { ...defaultSettings, lowThresholdPercent: 15 } as const;
-    expect(deriveNotifications([claudeSpend(35, 50)], strict, now)).toEqual([]);
-    expect(deriveNotifications([claudeSpend(43, 50)], strict, now)[0]?.kind).toBe("spend_near_cap");
+    expect(capNotices([claudeSpend(35, 50)], strict, now)).toEqual([]);
+    expect(capNotices([claudeSpend(43, 50)], strict, now)[0]?.kind).toBe("spend_near_cap");
   });
   test("Claude without a cap, or with unknown spend, is quiet", () => {
-    expect(deriveNotifications([claudeSpend(500, null)], defaultSettings, now)).toEqual([]);
+    expect(capNotices([claudeSpend(500, null)], defaultSettings, now)).toEqual([]);
     const unknown = connection("claude", {
       metrics: [
         usd("extra_usage.used", 0, { valueNum: null, valueText: null, availability: "unknown" }),
         usd("extra_usage.monthly_limit", 50),
       ],
     });
-    expect(deriveNotifications([unknown], defaultSettings, now)).toEqual([]);
+    expect(capNotices([unknown], defaultSettings, now)).toEqual([]);
   });
   test("a new month gets a new id", () => {
-    const first = deriveNotifications([claudeSpend(40, 50)], defaultSettings, now)[0];
+    const first = capNotices([claudeSpend(40, 50)], defaultSettings, now)[0];
     const later = connection("claude", {
       id: "c2",
       observedAt: now + 40 * 86_400_000,
       metrics: [usd("extra_usage.used", 40), usd("extra_usage.monthly_limit", 50)],
     });
-    expect(deriveNotifications([later], defaultSettings, now)[0]?.id).not.toBe(first?.id);
+    expect(capNotices([later], defaultSettings, now)[0]?.id).not.toBe(first?.id);
   });
   test("Cursor pairs spend and limit of the same scope only", () => {
-    const [item] = deriveNotifications([cursorPair("on_demand:user")], defaultSettings, now);
+    const [item] = capNotices([cursorPair("on_demand:user")], defaultSettings, now);
     expect(item?.title).toBe("Cursor On-Demand Spend Is Near Its Cap");
-    expect(deriveNotifications([cursorPair("on_demand:pooled")], defaultSettings, now)).toEqual([]);
+    expect(capNotices([cursorPair("on_demand:pooled")], defaultSettings, now)).toEqual([]);
   });
   test("Grok counts credits, never dollars, and a cap of 0 is off", () => {
-    const [item] = deriveNotifications([grokSpend(900, 1000)], defaultSettings, now);
+    const [item] = capNotices([grokSpend(900, 1000)], defaultSettings, now);
     expect(item?.message).toBe("900 of 1,000 credits used.");
     expect(item?.figures.amount).toEqual({ value: 900, unit: "grok_credits" });
     expect(item?.message).not.toContain("$");
-    expect(deriveNotifications([grokSpend(900, 0)], defaultSettings, now)).toEqual([]);
+    expect(capNotices([grokSpend(900, 0)], defaultSettings, now)).toEqual([]);
   });
   test("the switch and inactive accounts silence spend", () => {
     const off = withNotifications({ spend: false });
-    expect(deriveNotifications([claudeSpend(50, 50)], off, now)).toEqual([]);
+    expect(capNotices([claudeSpend(50, 50)], off, now)).toEqual([]);
     const gone = { ...claudeSpend(50, 50), state: "reconnect_required" } as const;
-    expect(kindsOf(deriveNotifications([gone], defaultSettings, now))).toEqual(["disconnected"]);
+    expect(kindsOf(capNotices([gone], defaultSettings, now))).toEqual(["disconnected"]);
   });
 });
 
@@ -658,5 +669,493 @@ describe("events", () => {
       expect(JSON.stringify(item)).not.toContain("owner@example.com");
     }
     expect(items.find((item) => item.kind === "disconnected")?.connection.name).toBe("Mine");
+  });
+});
+
+// ---------- detected events, budgets and expiring credits (ADR 0003) ----------
+
+const earlyEvent = (key: string, previous = 64, current = 3) =>
+  event(
+    `r-${key}`,
+    {
+      kind: "early_reset",
+      previousPercent: previous,
+      percent: current,
+      expectedResetAt: now + 86_400_000,
+    },
+    { metricKey: key },
+  );
+
+const claudeWithEvents = (events: AccountEvent[]) =>
+  withEvents("claude", events, {
+    metrics: [
+      percent("seven_day", 3, { resetsAt: now + 6 * 86_400_000 }),
+      percent("five_hour", 3, { scope: "window:18000s", resetsAt: now + 4 * hours }),
+    ],
+  });
+
+const autoRan = (state: "succeeded" | "failed" | "uncertain") =>
+  event(
+    `a-${state}`,
+    {
+      kind: "auto_reset",
+      actionId: "act-1",
+      state,
+      creditId: "rc-1",
+      percent: 99.6,
+      resetsAt: now + 86_400_000,
+    },
+    { metricKey: "rate_limit.primary_window" },
+  );
+
+const detectedEvent = (unit: "USD" | "gateway_credits", added: number, current: number) =>
+  event(
+    "t1",
+    { kind: "top_up_detected", unit, previous: current - added, current, added, topUpId: "w1" },
+    { metricKey: "credits.balance" },
+  );
+
+const budgetSet = (amount: number, unit: "USD" | "grok_credits" = "USD") => ({
+  autoReset: null,
+  budgets: [{ metricKey: "on_demand.used", amount, unit }],
+});
+
+const budgetCursor = (used: number, amount: number, over = {}) =>
+  connection("cursor", {
+    id: "k7",
+    observedAt: now,
+    metrics: [usd("on_demand.used", used, { scope: "on_demand" })],
+    automation: budgetSet(amount),
+    ...over,
+  });
+
+const budgetOnly = (items: ReturnType<typeof derive>) =>
+  items.filter((n) => n.kind.startsWith("budget"));
+
+const expiringTop = (over: Partial<ExpiringTopUp> = {}): ExpiringTopUp => ({
+  id: "t1",
+  connectionId: "x1",
+  date: "2025-09-20",
+  credits: 250,
+  expiresOn: "2025-10-09",
+  expiryAlertDays: 7,
+  ...over,
+});
+
+const hours = 3_600_000;
+const event = (
+  id: string,
+  detail: AccountEvent["detail"],
+  over: Partial<AccountEvent> = {},
+): AccountEvent => ({
+  id,
+  connectionId: "x9",
+  occurredAt: now - 2 * hours,
+  metricKey: null,
+  detail,
+  ...over,
+});
+const withEvents = (provider: Provider, events: AccountEvent[], over = {}) =>
+  connection(provider, { id: "x9", observedAt: now - 60_000, events, ...over });
+const derive = (items: Parameters<typeof deriveNotifications>[0], settings = defaultSettings) =>
+  deriveNotifications(items, settings, now);
+
+describe("reset_granted", () => {
+  const granted = event("g1", {
+    kind: "reset_granted",
+    creditId: "rc-9",
+    expiresAt: new Date(2025, 9, 20).getTime(),
+    available: 3,
+  });
+  /** How many notices show for the grant when it happened `age` milliseconds ago. */
+  const grantedCount = (age: number) =>
+    derive([withEvents("codex", [{ ...granted, occurredAt: now - age }])]).length;
+  test("says how many are banked and when the new one expires", () => {
+    const [item] = derive([withEvents("codex", [granted])]);
+    expect(item).toMatchObject({
+      id: "x9:reset_granted:g1",
+      kind: "reset_granted",
+      tone: "info",
+      occurredAt: now - 2 * hours,
+      observedAt: now - 60_000,
+      title: "Codex Banked a New Reset",
+      message: "3 banked resets available. The new one expires Oct 20.",
+      subject: { metricKey: null, label: "Banked Resets", window: null },
+      figures: { expiresAt: new Date(2025, 9, 20).getTime() },
+    });
+    expect(notificationEventSchema.safeParse(item).success).toBe(true);
+  });
+  test("an unknown count or expiry is left out of the words, never zero", () => {
+    const bare = event("g2", {
+      kind: "reset_granted",
+      creditId: "r",
+      expiresAt: null,
+      available: null,
+    });
+    const [item] = derive([withEvents("claude", [bare])]);
+    expect(item?.message).toBe("The new one has no expiry date.");
+    expect(item?.figures).toEqual({});
+    const one = event("g3", {
+      kind: "reset_granted",
+      creditId: "r",
+      expiresAt: null,
+      available: 1,
+    });
+    expect(derive([withEvents("claude", [one])])[0]?.message).toBe(
+      "1 banked reset available. The new one has no expiry date.",
+    );
+  });
+  test("stays for 72 hours, then goes", () => {
+    expect(grantedCount(72 * hours)).toBe(1);
+    expect(grantedCount(72 * hours + 1)).toBe(0);
+  });
+  test("follows the reset activity switch, the muted list and inactive accounts", () => {
+    const items = [withEvents("codex", [granted])];
+    expect(derive(items, withNotifications({ resetActivity: false }))).toEqual([]);
+    expect(derive(items, withNotifications({ mutedProviders: ["codex"] }))).toEqual([]);
+    const other = withNotifications({ balances: false, spend: false, runningLow: false });
+    expect(derive(items, other)).toHaveLength(1);
+    expect(derive([withEvents("codex", [granted], { state: "paused" })])).toEqual([]);
+  });
+  test("each event has its own id, so a second grant is a second notice", () => {
+    const second = { ...granted, id: "g9" };
+    const ids = derive([withEvents("codex", [granted, second])]).map((n) => n.id);
+    expect(ids.toSorted()).toEqual(["x9:reset_granted:g1", "x9:reset_granted:g9"]);
+  });
+});
+
+describe("early_reset", () => {
+  test("names the window and how far usage fell", () => {
+    const [item] = derive([claudeWithEvents([earlyEvent("seven_day", 63.6, 2.6)])]);
+    expect(item).toMatchObject({
+      id: "x9:early_reset:r-seven_day",
+      kind: "early_reset",
+      tone: "info",
+      title: "Claude Weekly Limit Reset Early",
+      message: "Usage fell from 64% to 3% before its scheduled reset.",
+      figures: { percentUsed: 2.6 },
+    });
+    expect(item?.figures.percentLeft).toBeCloseTo(97.4);
+    expect(notificationEventSchema.safeParse(item).success).toBe(true);
+  });
+  test("follows the used or left view", () => {
+    const left = { ...defaultSettings, limitsView: "left" } as const;
+    expect(derive([claudeWithEvents([earlyEvent("seven_day")])], left)[0]?.message).toBe(
+      "97% left, up from 36%, before its scheduled reset.",
+    );
+  });
+  test("Include 5-Hour Sessions off skips a session window only", () => {
+    const events = [earlyEvent("five_hour"), earlyEvent("seven_day")];
+    const ids = derive([claudeWithEvents(events)]).map((n) => n.id);
+    expect(ids.toSorted()).toEqual(["x9:early_reset:r-five_hour", "x9:early_reset:r-seven_day"]);
+    const off = withNotifications({ includeSessions: false });
+    expect(derive([claudeWithEvents(events)], off).map((n) => n.id)).toEqual([
+      "x9:early_reset:r-seven_day",
+    ]);
+  });
+  test("a window the reading no longer carries still gets a notice", () => {
+    const [item] = derive([withEvents("claude", [earlyEvent("seven_day")], { metrics: [] })]);
+    expect(item?.title).toBe("Claude seven_day Limit Reset Early");
+  });
+  test("follows the reset activity switch", () => {
+    const off = withNotifications({ resetActivity: false });
+    expect(derive([claudeWithEvents([earlyEvent("seven_day")])], off)).toEqual([]);
+  });
+});
+
+describe("auto_reset", () => {
+  test("a success is information", () => {
+    const [item] = derive([withEvents("codex", [autoRan("succeeded")])]);
+    expect(item).toMatchObject({
+      id: "x9:auto_reset:a-succeeded",
+      tone: "info",
+      title: "Codex Auto-Reset Used a Banked Reset",
+      message: "A limit reached 100% used, so Headroom used a banked reset.",
+      figures: { percentUsed: 99.6 },
+    });
+    expect(notificationEventSchema.safeParse(item).success).toBe(true);
+  });
+  test("a failure and an unknown outcome warn, each in its own words", () => {
+    const failed = derive([withEvents("codex", [autoRan("failed")])])[0];
+    expect(failed?.tone).toBe("warn");
+    expect(failed?.title).toBe("Codex Auto-Reset Failed");
+    expect(failed?.message).toContain("did not go through");
+    const unsure = derive([withEvents("codex", [autoRan("uncertain")])])[0];
+    expect(unsure?.tone).toBe("warn");
+    expect(unsure?.title).toBe("Codex Auto-Reset May Not Have Worked");
+    expect(unsure?.message).toContain("could not confirm");
+  });
+  test("a muted provider still shows a failed or uncertain attempt, not a success", () => {
+    const muted = withNotifications({ mutedProviders: ["codex"] });
+    const all = [autoRan("succeeded"), autoRan("failed"), autoRan("uncertain")];
+    const ids = derive([withEvents("codex", all)], muted).map((n) => n.id);
+    expect(ids.toSorted()).toEqual(["x9:auto_reset:a-failed", "x9:auto_reset:a-uncertain"]);
+  });
+  test("an account that stopped updating still reports a failed attempt", () => {
+    const paused = withEvents("codex", [autoRan("failed"), autoRan("succeeded")], {
+      state: "paused",
+    });
+    expect(derive([paused]).map((n) => n.id)).toEqual(["x9:auto_reset:a-failed"]);
+  });
+  test("the reset activity switch silences all of them", () => {
+    const off = withNotifications({ resetActivity: false });
+    expect(derive([withEvents("codex", [autoRan("failed"), autoRan("succeeded")])], off)).toEqual(
+      [],
+    );
+  });
+});
+
+describe("top_up_detected", () => {
+  test("credits never carry a dollar sign", () => {
+    const gatewayAccount = withEvents("vercel_ai_gateway", [
+      detectedEvent("gateway_credits", 25, 130.5),
+    ]);
+    const [item] = derive([gatewayAccount]);
+    expect(item).toMatchObject({
+      id: "x9:top_up_detected:t1",
+      tone: "info",
+      title: "Vercel AI Gateway Top-Up Detected",
+      message: "25 credits added. The balance is now 130.50 credits.",
+      figures: { amount: { value: 25, unit: "gateway_credits" } },
+    });
+    expect(item?.message).not.toContain("$");
+    expect(notificationEventSchema.safeParse(item).success).toBe(true);
+  });
+  test("a dollar amount reads as money", () => {
+    const [item] = derive([withEvents("codex", [detectedEvent("USD", 20, 45)])]);
+    expect(item?.message).toBe("$20.00 added. The balance is now $45.00.");
+  });
+  test("follows the balances switch, not the reset activity one", () => {
+    const items = [withEvents("codex", [detectedEvent("USD", 20, 45)])];
+    expect(derive(items, withNotifications({ balances: false }))).toEqual([]);
+    expect(derive(items, withNotifications({ resetActivity: false }))).toHaveLength(1);
+  });
+});
+
+describe("budget notices", () => {
+  test("warns at 70% of the budget with the default threshold, in dollars", () => {
+    expect(budgetOnly(derive([budgetCursor(34.99, 50)]))).toEqual([]);
+    const [item] = budgetOnly(derive([budgetCursor(35, 50)]));
+    expect(item).toMatchObject({
+      id: "k7:budget_near:on_demand.used:2025-10:50",
+      kind: "budget_near",
+      tone: "warn",
+      title: "Cursor On-Demand Spend Is Near Your Budget",
+      message: "$35.00 of your $50.00 budget spent.",
+      figures: {
+        percentUsed: 70,
+        percentLeft: 30,
+        amount: { value: 35, unit: "USD" },
+        cap: { value: 50, unit: "USD" },
+      },
+    });
+    expect(notificationEventSchema.safeParse(item).success).toBe(true);
+  });
+  test("is exceeded at the budget itself and above", () => {
+    for (const used of [50, 61.5]) {
+      const [item] = budgetOnly(derive([budgetCursor(used, 50)]));
+      expect(item).toMatchObject({
+        id: "k7:budget_exceeded:on_demand.used:2025-10:50",
+        kind: "budget_exceeded",
+        tone: "bad",
+        title: "Cursor On-Demand Spend Is Over Your Budget",
+      });
+    }
+  });
+  test("the threshold setting moves the line", () => {
+    const strict = { ...defaultSettings, lowThresholdPercent: 15 } as const;
+    expect(budgetOnly(derive([budgetCursor(41, 50)], strict))).toEqual([]);
+    expect(budgetOnly(derive([budgetCursor(42.5, 50)], strict))[0]?.kind).toBe("budget_near");
+  });
+  test("a new amount or a new month is a new notice", () => {
+    const first = budgetOnly(derive([budgetCursor(45, 50)]))[0]?.id;
+    expect(budgetOnly(derive([budgetCursor(45, 60)]))[0]?.id).not.toBe(first);
+    const later = budgetCursor(45, 50, { observedAt: now + 40 * 86_400_000 });
+    expect(budgetOnly(derive([later]))[0]?.id).not.toBe(first);
+  });
+  test("counts credits for a credit metric, with no dollar sign", () => {
+    const grok = connection("grok", {
+      id: "g7",
+      observedAt: now,
+      metrics: [
+        metric("on_demand.used", {
+          kind: "spend",
+          unit: "grok_credits",
+          valueNum: 850,
+          valueText: "850",
+        }),
+      ],
+      automation: budgetSet(1000, "grok_credits"),
+    });
+    const [item] = budgetOnly(derive([grok]));
+    expect(item?.message).toBe("850 credits of your 1,000 credits budget used.");
+    expect(item?.figures.amount).toEqual({ value: 850, unit: "grok_credits" });
+    expect(item?.message).not.toContain("$");
+  });
+  test("is independent of the provider's own cap, which still raises its own notice", () => {
+    const both = budgetCursor(48, 50, {
+      metrics: [
+        usd("on_demand.used", 48, { scope: "on_demand" }),
+        usd("on_demand.limit", 50, { scope: "on_demand" }),
+      ],
+    });
+    expect(kindsOf(derive([both])).toSorted()).toEqual([
+      "budget_near",
+      "extra_usage_started",
+      "spend_near_cap",
+    ]);
+  });
+  test("unknown, unlimited and non-spend metrics, and no budget, raise no budget notice", () => {
+    const unknown = budgetCursor(0, 50, {
+      metrics: [
+        usd("on_demand.used", 0, { valueNum: null, valueText: null, availability: "unknown" }),
+      ],
+    });
+    expect(derive([unknown])).toEqual([]);
+    const unlimited = budgetCursor(90, 50, {
+      metrics: [usd("on_demand.used", 90, { unlimited: true })],
+    });
+    expect(budgetOnly(derive([unlimited]))).toEqual([]);
+    const notSpend = budgetCursor(90, 50, { metrics: [percent("on_demand.used", 90)] });
+    expect(budgetOnly(derive([notSpend]))).toEqual([]);
+    expect(budgetOnly(derive([budgetCursor(90, 50, { metrics: [] })]))).toEqual([]);
+    const none = budgetCursor(90, 50, { automation: { autoReset: null, budgets: [] } });
+    expect(budgetOnly(derive([none]))).toEqual([]);
+  });
+  test("the spend switch, a muted provider and inactive accounts silence it", () => {
+    expect(budgetOnly(derive([budgetCursor(45, 50)], withNotifications({ spend: false })))).toEqual(
+      [],
+    );
+    const muted = withNotifications({ mutedProviders: ["cursor"] });
+    expect(budgetOnly(derive([budgetCursor(45, 50)], muted))).toEqual([]);
+    expect(budgetOnly(derive([budgetCursor(45, 50, { state: "paused" })]))).toEqual([]);
+  });
+});
+
+describe("credits_expiring", () => {
+  const codexAccount = connection("codex", { id: "x1" });
+  const runExpiring = (tops: ExpiringTopUp[], settings = defaultSettings, items = [codexAccount]) =>
+    deriveNotifications(items, settings, now, tops);
+  test("starts on the alert day and says what expires and when", () => {
+    const [item] = runExpiring([expiringTop()]);
+    expect(item).toMatchObject({
+      id: "x1:credits_expiring:t1:2025-10-09",
+      kind: "credits_expiring",
+      tone: "warn",
+      title: "Codex Credits Expire in 7 Days",
+      message: "250 credits from your Sep 20 top-up expire Oct 9.",
+      figures: {
+        expiresAt: Date.parse("2025-10-09T00:00:00Z"),
+        amount: { value: 250, unit: "codex_credits" },
+      },
+    });
+    expect(notificationEventSchema.safeParse(item).success).toBe(true);
+    expect(runExpiring([expiringTop({ expiresOn: "2025-10-10" })])).toEqual([]);
+  });
+  test("counts down, uses the singular, and says today on the day itself", () => {
+    expect(runExpiring([expiringTop({ expiresOn: "2025-10-03" })])[0]?.title).toBe(
+      "Codex Credits Expire in 1 Day",
+    );
+    const today = runExpiring([expiringTop({ expiresOn: "2025-10-02" })])[0];
+    expect(today?.title).toBe("Codex Credits Expire Today");
+    expect(today?.message).toBe("250 credits from your Sep 20 top-up expire today.");
+  });
+  test("an expiry that has passed raises nothing", () => {
+    expect(runExpiring([expiringTop({ expiresOn: "2025-10-01" })])).toEqual([]);
+  });
+  test("unknown credits are left out of the words", () => {
+    const [item] = runExpiring([expiringTop({ credits: null })]);
+    expect(item?.message).toBe("Credits from your Sep 20 top-up expire Oct 9.");
+    expect(item?.figures.amount).toBeUndefined();
+  });
+  test("a top-up of an account outside the overview is ignored", () => {
+    expect(runExpiring([expiringTop({ connectionId: "gone" })])).toEqual([]);
+  });
+  test("a longer alert window starts earlier", () => {
+    const far = expiringTop({ expiresOn: "2025-10-30", expiryAlertDays: 30 });
+    expect(runExpiring([far])[0]?.title).toBe("Codex Credits Expire in 28 Days");
+    expect(runExpiring([{ ...far, expiryAlertDays: 14 }])).toEqual([]);
+  });
+  test("follows the balances switch and a muted provider, not account state", () => {
+    expect(runExpiring([expiringTop()], withNotifications({ balances: false }))).toEqual([]);
+    expect(runExpiring([expiringTop()], withNotifications({ mutedProviders: ["codex"] }))).toEqual(
+      [],
+    );
+    const paused = connection("codex", { id: "x1", state: "paused" });
+    expect(runExpiring([expiringTop()], defaultSettings, [paused])).toHaveLength(1);
+  });
+  test("expiringTopUps keeps only the top-ups with both an expiry and an alert", () => {
+    const base = { connectionId: "x1", date: "2025-09-20", credits: null };
+    const kept = expiringTopUps([
+      { ...base, id: "a", expiresOn: "2025-10-09", expiryAlertDays: 7 },
+      { ...base, id: "b", expiresOn: "2025-10-09", expiryAlertDays: null },
+      { ...base, id: "c", expiresOn: null, expiryAlertDays: null },
+    ]);
+    expect(kept.map((item) => item.id)).toEqual(["a"]);
+  });
+  test("currentIds counts it even when its switch is off", () => {
+    const off = withNotifications({ balances: false });
+    const ids = currentIds([codexAccount], off, now, [expiringTop()]);
+    expect(ids.has("x1:credits_expiring:t1:2025-10-09")).toBe(true);
+  });
+});
+
+const spendIdAt = (observedAt: number) =>
+  derive([connection("cursor", { id: "k1", observedAt, metrics: [usd("on_demand.used", 9)] })])[0]
+    ?.id;
+
+describe("extra_usage_started for spend", () => {
+  test("Cursor and Grok on-demand use and Claude extra usage start a notice above zero", () => {
+    const cursor = connection("cursor", {
+      id: "k1",
+      observedAt: now,
+      metrics: [usd("on_demand.used", 12.5, { scope: "on_demand" })],
+    });
+    const [item] = derive([cursor]);
+    expect(item).toMatchObject({
+      id: "k1:extra_usage_started:on_demand.used:2025-10",
+      kind: "extra_usage_started",
+      tone: "info",
+      title: "Cursor Has Started On-Demand Usage",
+      message: "$12.50 spent so far.",
+      figures: { amount: { value: 12.5, unit: "USD" } },
+    });
+    expect(notificationEventSchema.safeParse(item).success).toBe(true);
+    const extra = connection("claude", { id: "c1", metrics: [usd("extra_usage.used", 3)] });
+    expect(derive([extra])[0]?.title).toBe("Claude Has Started Extra Usage");
+    const grok = connection("grok", {
+      id: "g1",
+      metrics: [
+        metric("on_demand.used", {
+          kind: "spend",
+          unit: "grok_credits",
+          valueNum: 40,
+          valueText: "40",
+        }),
+      ],
+    });
+    const grokItem = derive([grok])[0];
+    expect(grokItem?.title).toBe("Grok Has Started On-Demand Usage");
+    expect(grokItem?.message).toBe("40 credits used so far.");
+  });
+  test("zero or unknown spend, the switch, and inactive accounts raise nothing", () => {
+    const zero = connection("cursor", { metrics: [usd("on_demand.used", 0)] });
+    expect(derive([zero])).toEqual([]);
+    const unknown = connection("cursor", {
+      metrics: [
+        usd("on_demand.used", 0, {
+          valueNum: null,
+          valueText: null,
+          availability: "temporarily_unavailable",
+        }),
+      ],
+    });
+    expect(derive([unknown])).toEqual([]);
+    const spending = connection("cursor", { metrics: [usd("on_demand.used", 9)] });
+    expect(derive([spending], withNotifications({ spend: false }))).toEqual([]);
+    expect(derive([{ ...spending, state: "paused" }])).toEqual([]);
+  });
+  test("a new period starts a new notice", () => {
+    expect(spendIdAt(now)).not.toBe(spendIdAt(now + 40 * 86_400_000));
   });
 });

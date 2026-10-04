@@ -2,21 +2,21 @@
 
 Headroom tells the owner when an account needs attention. The browser builds each notification from the latest overview and the owner's settings, then shows it in the bell. The server builds the same events after each collection pass and delivers them to Telegram chats and webhooks the owner set up. Every notification is a `NotificationEvent`; read state stays in the browser.
 
-Code: `packages/view-model/src/notifications.ts` (detection, shared by the web app and the server), `packages/core/src/notification-event.ts` (event schema), `packages/core/src/settings.ts` (settings). Enumerations are in `packages/core/src/enums.ts` and [the data model](data-model.md).
+Code: `packages/view-model/src/notifications.ts` (detection, shared by the web app and the server), `packages/view-model/src/automation.ts` (what the Automations settings list), `packages/core/src/notification-event.ts` (event schema), `packages/core/src/settings.ts` (settings). Enumerations are in `packages/core/src/enums.ts` and [the data model](data-model.md). The detected events, auto-reset rule and budgets behind the newer kinds are specified in [ADR 0003](../decisions/0003-owner-automations.md).
 
 ## What is detected
 
-| Provider | Limits (Running Low, Almost Out) | Expiring Resets | Balance | Spend | Extra usage |
-| --- | --- | --- | --- | --- | --- |
-| Claude | Session, weekly, model-scoped weekly | Reset grants | None | `extra_usage.used` against `extra_usage.monthly_limit`, USD | None |
-| Codex | Primary and secondary windows | Banked reset credits | None: a credits balance has no known total | None | None |
-| Cursor | Included usage and pools | None | None | `on_demand.used` against `on_demand.limit`, same scope, USD | None |
-| Grok | Weekly pool and product shares | None | None: prepaid has no known total | `on_demand.used` against `on_demand_cap` when the cap is above 0, in `grok_credits` | None |
-| Antigravity | Quota windows | None | None | None | None |
-| Copilot | Monthly credits percent | None | None | None | `extra_usage.count` above 0 |
-| Vercel AI Gateway | None | None | `credits.balance` against balance plus `credits.total_used` | None | None |
+| Provider | Limits (Running Low, Almost Out) | Expiring Resets | Balance | Spend | Extra usage | Detected events |
+| --- | --- | --- | --- | --- | --- | --- |
+| Claude | Session, weekly, model-scoped weekly | Reset grants | None | `extra_usage.used` against `extra_usage.monthly_limit`, USD, and the owner's budget | `extra_usage.used` above 0, USD | New reset grant, early reset |
+| Codex | Primary and secondary windows | Banked reset credits | None: a credits balance has no known total | None | None | New banked reset, early reset, auto-reset, balance top-up (`credits.balance`) |
+| Cursor | Included usage and pools | None | None | `on_demand.used` against `on_demand.limit`, same scope, USD, and the owner's budget | `on_demand.used` above 0, USD | Early reset |
+| Grok | Weekly pool and product shares | None | None: prepaid has no known total | `on_demand.used` against `on_demand_cap` when the cap is above 0, in `grok_credits`, and the owner's budget | `on_demand.used` above 0, in `grok_credits` | Early reset, balance top-up (`prepaid_balance`) |
+| Antigravity | Quota windows | None | None | None | None | Early reset |
+| Copilot | Monthly credits percent | None | None | None | `extra_usage.count` above 0 | Early reset |
+| Vercel AI Gateway | None | None | `credits.balance` against balance plus `credits.total_used` | `spend.30d`, only against the owner's budget | None | Balance top-up (granted total) |
 
-Every kind also covers sign-in and refresh problems for every provider. An unknown or unavailable value raises nothing: unknown is not zero. A paused or disconnected account raises no limit, balance, spend or extra-usage notice.
+Every kind also covers sign-in and refresh problems for every provider. An unknown or unavailable value raises nothing: unknown is not zero. A paused or disconnected account raises no limit, balance, spend, extra-usage, budget or detected-event notice. Two things ignore account state: a failed or `uncertain` auto-reset (and a succeeded one, unless the provider is muted), and an expiring Wallet top-up, which is about the Wallet and not the account's connection.
 
 ## Kinds
 
@@ -30,20 +30,28 @@ Tone is `bad`, `warn` or `info`. "Left" is the percent of the limit still free. 
 | `balance_low` | Vercel balance is under the threshold of balance plus total used. Under 10% is `bad`. Only when both are reported and the total is above 0 | `warn`, `bad` | `balances` | `balance_low:credits.balance:<total>:<tone>` (a top-up changes the total) |
 | `spend_near_cap` | Spend is at least (100 - threshold)% of its cap | `warn` | `spend` | `spend_near_cap:<spendKey>:<periodEnd>` |
 | `spend_cap_reached` | Spend is at least 100% of its cap | `bad` | `spend` | `spend_cap_reached:<spendKey>:<periodEnd>` |
-| `extra_usage_started` | Copilot `extra_usage.count` is above 0 | `info` | `spend` | `extra_usage_started:extra_usage.count:<periodEnd>` |
+| `extra_usage_started` | Copilot `extra_usage.count`, Cursor or Grok `on_demand.used`, or Claude `extra_usage.used` is above 0 | `info` | `spend` | `extra_usage_started:<metricKey>:<periodEnd>` |
+| `budget_near` | Spend on a metric the owner set a budget for is at least (100 - threshold)% of the budget | `warn` | `spend` | `budget_near:<metricKey>:<periodEnd>:<amount>` |
+| `budget_exceeded` | Spend is at least the budget | `bad` | `spend` | `budget_exceeded:<metricKey>:<periodEnd>:<amount>` |
+| `credits_expiring` | A Wallet top-up has an expiry and an alert, today (UTC) is within `expiryAlertDays` of `expiresOn`, and `expiresOn` has not passed | `warn` | `balances` | `credits_expiring:<topUpId>:<expiresOn>` |
+| `reset_granted` | A `reset_granted` event from the last 72 hours | `info` | `resetActivity` | `reset_granted:<eventId>` |
+| `early_reset` | An `early_reset` event from the last 72 hours. `includeSessions` off skips windows of 5 hours or less | `info` | `resetActivity` | `early_reset:<eventId>` |
+| `auto_reset` | An `auto_reset` event from the last 72 hours | `info` when succeeded, `warn` when failed or `uncertain` | `resetActivity` | `auto_reset:<eventId>` |
+| `top_up_detected` | A `top_up_detected` event from the last 72 hours | `info` | `balances` | `top_up_detected:<eventId>` |
 | `refresh_failed` | Two or more refreshes in a row failed (`latestRun.failureStreak`), state is not paused | `warn` | `refreshFailures` | `refresh_failed::<lastSuccessAt>` |
 | `disconnected` | Connection state is `reconnect_required` | `bad` | `refreshFailures` | `disconnected:<reconnectReason>:<lastSuccessAt>` |
 
 A rejected key or sign-in on an account that worked before is re-checked about 2 minutes later before it counts as disconnected. A revoked refresh token stays immediate.
 
-`<resetsAt>`, `<expiresAt>` and `<lastSuccessAt>` are epoch milliseconds. `<periodEnd>` is the period's end when the metric or its anchor reports one (Cursor cycle end, Grok weekly reset, Copilot monthly reset). Without one it is the UTC month of the reading, `YYYY-MM`, as for Claude extra usage. An id stays the same while the situation lasts and changes for the next period, so a repeat appears again as unread.
+`<resetsAt>`, `<expiresAt>` and `<lastSuccessAt>` are epoch milliseconds. `<eventId>` is the id of the account event, so one event is one notice. `<expiresOn>` is the top-up's expiry day, `YYYY-MM-DD`. `<amount>` is the owner's budget amount, so a changed budget starts a new notice. `<periodEnd>` is the period's end when the metric or its anchor reports one (Cursor cycle end, Grok weekly reset, Copilot monthly reset). Without one it is the UTC month of the reading, `YYYY-MM`, as for Claude extra usage. An id stays the same while the situation lasts and changes for the next period, so a repeat appears again as unread.
 
 Rules that apply to every kind:
 
-- A muted provider (`mutedProviders`) raises nothing except `disconnected`. A broken sign-in still matters.
+- A muted provider (`mutedProviders`) raises nothing except `disconnected`, and an `auto_reset` that failed or ended `uncertain`. A broken sign-in and an unknown reset result still matter.
 - `includeSessions` off skips meters whose window is 5 hours or shorter.
 - Claude reports the weekly all-models limit and model-scoped weekly limits that overlap it. When the all-models limit and a scoped limit are both low with the same tone, only the tighter one is raised. With different tones, both are raised.
-- Money is in USD. Grok and Vercel figures are credits and never use a dollar sign. Units are never converted.
+- Money is in USD. Grok, Codex and Vercel figures are credits and never use a dollar sign. Units are never converted.
+- Event notices come from `connection.events` (the last 7 days, at most 20) and show for 72 hours after `occurredAt`. Budget notices come from `connection.automation.budgets`; the overview carries both, so the browser bell and server delivery derive the same notices. Expiring credits come from the Wallet's top-ups, passed to the derivation as `topUps`.
 - Read state stays in the browser. Ids of switched-off kinds are kept so a toggle does not mark them unread again.
 
 ## Settings
@@ -52,12 +60,14 @@ The `notifications` object of [the settings document](api.md#settings):
 
 | Key | Values | Default |
 | --- | --- | --- |
-| `runningLow`, `expiringResets`, `balances`, `spend`, `refreshFailures` | boolean, one per type | true |
+| `runningLow`, `expiringResets`, `balances`, `spend`, `resetActivity`, `refreshFailures` | boolean, one per type | true |
 | `includeSessions` | boolean | true |
 | `resetLeadDays` | 1, 3, 7 | 3 |
 | `mutedProviders` | list of provider names | empty |
 
-Settings, Notifications tab: "Types" holds the five switches and the reset lead, "Limits" holds Include 5-Hour Sessions, and "Providers" holds one switch per connected provider in the saved order.
+`balances` also covers detected top-ups and expiring Wallet credits. `spend` also covers on-demand use starting and the owner's budgets. `resetActivity` covers a new banked reset, a limit that reset early, and auto-reset outcomes.
+
+Settings, Notifications tab: "Types" holds the six switches and the reset lead, "Limits" holds Include 5-Hour Sessions, and "Providers" holds one switch per connected provider in the saved order.
 
 ## Event schema
 
@@ -235,6 +245,52 @@ Extra Usage Started (Copilot):
   "figures": { "amount": { "value": 3, "unit": "credits" }, "resetsAt": 1790100000000 },
   "title": "Copilot Has Started Extra Usage",
   "message": "3 extra credits used this month.",
+  "links": {}
+}
+```
+
+Reset Granted (Codex):
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "x1:reset_granted:ev-7f3a",
+  "kind": "reset_granted",
+  "tone": "info",
+  "occurredAt": 1789980000000,
+  "observedAt": 1789990000000,
+  "provider": "codex",
+  "connection": { "id": "x1", "name": "Personal", "plan": "plus" },
+  "subject": { "metricKey": null, "label": "Banked Resets", "window": null },
+  "figures": { "expiresAt": 1791500000000 },
+  "title": "Codex Banked a New Reset",
+  "message": "3 banked resets available. The new one expires Oct 9.",
+  "links": {}
+}
+```
+
+Budget Near (Cursor on-demand, owner budget of $50):
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "k1:budget_near:on_demand.used:1790600000000:50",
+  "kind": "budget_near",
+  "tone": "warn",
+  "occurredAt": 1789990000000,
+  "observedAt": 1789990000000,
+  "provider": "cursor",
+  "connection": { "id": "k1", "name": "Personal", "plan": null },
+  "subject": { "metricKey": "on_demand.used", "label": "On-Demand Spend", "window": null },
+  "figures": {
+    "percentUsed": 70,
+    "percentLeft": 30,
+    "amount": { "value": 35, "unit": "USD" },
+    "cap": { "value": 50, "unit": "USD" },
+    "resetsAt": 1790600000000
+  },
+  "title": "Cursor On-Demand Spend Is Near Your Budget",
+  "message": "$35.00 of your $50.00 budget spent.",
   "links": {}
 }
 ```

@@ -75,6 +75,7 @@ const iconList = [
   ["UnplugIcon", icons.UnplugIcon],
   ["DotsIcon", icons.DotsIcon],
   ["SparkleIcon", icons.SparkleIcon],
+  ["RadarIcon", icons.RadarIcon],
 ] as const;
 
 const dollars = (cents: number): string =>

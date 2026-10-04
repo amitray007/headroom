@@ -54,6 +54,7 @@ export function TopUpsCard(props: { readonly summary: WalletSummary }) {
   const free = inWindow.filter((topUp) => topUp.kind === "free").length;
   const minor = topUpMonths.reduce((sum, entry) => sum + entry.paid.money.minor, 0);
   const missing = topUpMonths.reduce((sum, entry) => sum + entry.paid.missing, 0);
+  const unpriced = topUpMonths.reduce((sum, entry) => sum + entry.unpriced, 0);
   const note = `Last ${topUpMonthCount} months`;
   if (inWindow.length === 0) {
     return (
@@ -73,6 +74,7 @@ export function TopUpsCard(props: { readonly summary: WalletSummary }) {
     `Total ${formatMoney({ minor, currency })}`,
     free === 0 ? null : `${free} free`,
     missing === 0 ? null : `${missing} without rate`,
+    unpriced === 0 ? null : `${unpriced} price not set`,
   ]
     .filter((part) => part !== null)
     .join(" · ");

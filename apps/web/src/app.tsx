@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense, useEffect, useState } from "react";
+import { Fragment, lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import { AuthSkeleton, SignedOutPage, Unreachable } from "./auth-pages.tsx";
 import { isDemoId } from "./api.ts";
@@ -7,6 +7,8 @@ import { ConnectSkeleton } from "./connect/skeletons.tsx";
 import { DashboardPage } from "./dashboard/page.tsx";
 import { useDemoOverview } from "./dashboard/use-demo-overview.ts";
 import { demoOwnerName } from "@headroom/view-model/demo";
+import { demoWallet } from "@headroom/view-model/wallet-demo";
+import { expiringTopUps } from "@headroom/view-model/notifications";
 import { useOverview } from "./dashboard/use-overview.ts";
 import {
   browserStorage,
@@ -22,6 +24,7 @@ import { TimelineSkeleton } from "./views/timeline/skeleton.tsx";
 import { WalletSkeleton } from "./views/wallet/skeleton.tsx";
 import { lazyNamed } from "./lib/lazy-named.ts";
 import { SettingsProvider } from "./lib/settings.tsx";
+import { useWallet } from "./lib/wallet-store.ts";
 import { groupByProvider } from "@headroom/view-model/labels";
 import { useNotifications } from "./lib/use-notifications.ts";
 import { href, useRoute, viewOf, type Route } from "./router.ts";
@@ -56,10 +59,25 @@ function SignedIn(props: { readonly name: string }) {
   const realOverview = useOverview();
   const demoView = useDemoOverview(prefs.demo, prefs.demoSeed, prefs.demoAnchor);
   const overview = demoView ?? realOverview;
+  // The Wallet's expiring credits raise notices, so the bell reads the same book the Wallet page shows.
+  const connections = overview.connections;
+  const wallet = useWallet(
+    prefs.demo && connections !== null
+      ? {
+          key: `${prefs.demoSeed}:${prefs.demoAnchor}`,
+          make: () => demoWallet(prefs.demoSeed, connections, prefs.demoAnchor),
+        }
+      : null,
+  );
+  const expiring = useMemo(
+    () => (wallet.loaded ? expiringTopUps(wallet.book.topUps) : null),
+    [wallet.loaded, wallet.book.topUps],
+  );
   const notifications = useNotifications(
-    overview.connections,
+    connections,
     overview.failed,
     prefs.demo ? prefs.demoSeed : null,
+    expiring,
   );
   // A reconnect page for a demo account has no real account behind it once Demo Mode is off.
   const strandedInDemo = !prefs.demo && requested.page === "reconnect" && isDemoId(requested.id);
@@ -86,6 +104,8 @@ function SignedIn(props: { readonly name: string }) {
       name={prefs.demo ? demoOwnerName(prefs.demoSeed) : props.name}
       notifications={notifications}
       providers={providers}
+      connections={connections}
+      onAccountsChanged={overview.reload}
     >
       <Fragment key={mode}>
         {route.page === "connect" ? (

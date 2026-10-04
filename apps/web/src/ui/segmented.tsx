@@ -8,9 +8,15 @@ export function Segmented<T extends string>(props: {
   /** Accessible name of the group. */
   readonly label: string;
   readonly full?: boolean;
+  /** Dims the options and ignores presses; the value stays shown. */
+  readonly disabled?: boolean;
 }) {
   return (
-    <fieldset className={cx("seg", props.full === true && "full")} aria-label={props.label}>
+    <fieldset
+      className={cx("seg", props.full === true && "full")}
+      aria-label={props.label}
+      disabled={props.disabled === true}
+    >
       {props.options.map((option) => (
         <button
           key={option.value}
