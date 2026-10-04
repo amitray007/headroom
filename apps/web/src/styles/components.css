@@ -1338,7 +1338,8 @@ time.when {
   color: var(--foreground);
   padding: 0;
   width: min(480px, calc(100vw - 32px));
-  max-height: calc(100vh - 32px);
+  /* Long forms scroll inside the body; the head stays put. */
+  max-height: min(720px, calc(100dvh - 32px));
   box-shadow: var(--shadow-floating);
 }
 .dlg::backdrop {
@@ -1365,6 +1366,8 @@ time.when {
   letter-spacing: -0.01em;
 }
 .dbody {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
 }
@@ -1448,6 +1451,8 @@ time.when {
 /* Settings dialog: sections of rows, each a title and one-line note on the left with a segment or switch on the right. */
 .dlg.settings {
   width: min(560px, calc(100vw - 32px));
+  /* One fixed height for every tab, so switching tabs never resizes the dialog. The rows scroll under the tabs. */
+  height: min(640px, calc(100dvh - 32px));
 }
 .dlg.settings .dsec {
   gap: 4px;
