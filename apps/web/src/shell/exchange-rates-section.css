@@ -1,0 +1,51 @@
+/* Settings, General: the exchange rates block. Text wraps; nothing is cut. */
+.xr-source,
+.xr-unit,
+.xr-empty {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+.xr-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.xr-meta div {
+  display: flex;
+  gap: 8px;
+}
+.xr-meta dt,
+.xr-meta dd {
+  margin: 0;
+}
+.xr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.xr-grid li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+}
+.xr-code {
+  font-weight: 500;
+}
+.xr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.xr-rest {
+  font-size: var(--text-xs);
+}

@@ -112,6 +112,32 @@ describe("exchange rate service", () => {
     expect((await h.service.get()).perUsd?.["EUR"]).toBe(0.89087);
   });
 
+  test("refresh fetches now, but not twice within the cooldown", async () => {
+    const h = setup([
+      ok(),
+      ok({ ...good, date: "2026-10-03" }),
+      ok({ ...good, date: "2026-10-04" }),
+    ]);
+    await h.service.get();
+    h.advance(59_999);
+    expect((await h.service.refresh()).date).toBe("2026-10-02");
+    expect(h.calls).toHaveLength(1);
+    h.advance(1);
+    expect((await h.service.refresh()).date).toBe("2026-10-03");
+    expect((await h.service.refresh()).date).toBe("2026-10-03");
+    expect(h.calls).toHaveLength(2);
+  });
+
+  test("a failed refresh keeps the old rates and records the error", async () => {
+    const h = setup([ok(), () => new Response("nope", { status: 503 })]);
+    const first = await h.service.get();
+    h.advance(60_000);
+    const view = await h.service.refresh();
+    expect(view.perUsd).toEqual(first.perUsd);
+    expect(view.date).toBe("2026-10-02");
+    expect(view.error).toBe("The rate service answered with status 503.");
+  });
+
   test("a response missing a supported currency is rejected whole", async () => {
     const { INR: _inr, ...rates } = good.rates;
     const h = setup([ok({ ...good, rates })]);

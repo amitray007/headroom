@@ -4,7 +4,7 @@ import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
 
 /**
- * The Wallet's exchange rates: read-only for the owner. The route touches no account, so Demo Mode does not
+ * The Wallet's exchange rates: the owner reads them and may ask for a fresh fetch (one per minute at most). The route touches no account, so Demo Mode does not
  * matter here. The server fetches from the outside service on its own schedule; the browser never does.
  */
 export function exchangeRateRoutes(ctx: AppContext): Hono<Env> {
@@ -12,6 +12,8 @@ export function exchangeRateRoutes(ctx: AppContext): Hono<Env> {
   app.use(requireSession(ctx));
 
   app.get("/", async (c) => c.json(await ctx.exchangeRates.get()));
+
+  app.post("/refresh", async (c) => c.json(await ctx.exchangeRates.refresh()));
 
   return app;
 }
