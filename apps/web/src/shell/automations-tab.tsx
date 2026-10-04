@@ -145,7 +145,7 @@ function AutoResetRow(props: {
           }}
         />
         <Select
-          label="Only If Reset Is More Than"
+          label="Skip If It Resets Within"
           size="sm"
           value={`${rule.minHoursLeft}` as const}
           options={hoursOptions}
@@ -174,8 +174,7 @@ function AutoResetSection(props: {
   return (
     <Section title="Auto-Reset">
       <p className="auto-note muted">
-        Uses the banked reset that expires first, at most once per limit window. It needs Allow
-        Account Actions to be on. The reset endpoint is not yet validated, so the first try may
+        Uses the reset that expires first, once per window. Not yet validated, so the first try may
         fail.
       </p>
       {waiting || settings.accountActions ? null : (
