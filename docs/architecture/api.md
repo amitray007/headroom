@@ -13,13 +13,15 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 | `GET /api/connections/:id` | One connection with capabilities, snapshot and latest run |
 | `PATCH /api/connections/:id` | Set or clear the owner-set display name |
 | `POST /api/connections/:id/{refresh,pause,reconnect,actions}` | Owner-triggered operations; actions are gated, see below |
+| `PUT /api/connections/:id/auto-reset`, `DELETE /api/connections/:id/auto-reset` | Set or clear the account's auto-reset rule, see [Automations](#automations) |
+| `PUT /api/connections/:id/budgets/:metricKey`, `DELETE /api/connections/:id/budgets/:metricKey` | Set or clear the account's budget for one spend metric |
 | `DELETE /api/connections/:id` | Disconnect and delete local data |
 | `GET /api/providers`, `/api/attempts/...` | Connect flow, see [the connection lifecycle](connections.md) |
 | `GET /api/settings`, `PUT /api/settings` | Owner preferences |
 | `PUT /api/order` | Owner-defined order of providers and of accounts within a provider |
 | `GET /api/wallet` | The owner's Wallet entries: costs and top-ups, see [Wallet](#wallet) |
 | `PUT /api/wallet/costs/:connectionId`, `DELETE /api/wallet/costs/:connectionId` | Set the cost of one connection, or clear it back to Not set |
-| `POST /api/wallet/top-ups`, `DELETE /api/wallet/top-ups/:id` | Record a top-up, or remove one |
+| `POST /api/wallet/top-ups`, `PUT /api/wallet/top-ups/:id`, `DELETE /api/wallet/top-ups/:id` | Record a top-up, edit one, or remove one |
 | `GET /api/exchange-rates` | The daily reference rates the Wallet converts with (read only) |
 | `/api/delivery/...` | Notification channels (Telegram, webhook), tests and Telegram chat discovery, see [Delivery](#delivery) |
 
@@ -33,6 +35,8 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 - `latestRun`: `{ startedAt, finishedAt, outcome, error, failureStreak }` or null. `outcome` is null while a run is in flight. `failureStreak` counts the most recent finished runs, newest first, that failed in a row (0 to 5; a run in flight is ignored).
 - `snapshot`: `{ observedAt, metrics, resetCredits }` or null. Metrics and reset credits have the same fields as in the detail route.
 - `actions`: `{ enabled, supported }`, where `enabled` is the effective gate.
+- `events`: the account's events from the last 7 days, newest first, at most 20. Each is `{ id, connectionId, occurredAt, metricKey, detail }` and `detail` is one of the `accountEventDetailSchema` shapes (`reset_granted`, `early_reset`, `top_up_detected`, `auto_reset`). They carry numbers and ids only. One query reads the events of every account.
+- `automation`: `{ autoReset, budgets }`. `autoReset` is the owner's rule `{ enabled, window, thresholdPercent, minHoursLeft }` or null. `budgets` lists `{ metricKey, amount, unit }`, one per spend metric the owner set a budget for.
 
 The response carries no provider account id or workspace id. The detail route is built field by field for the same reason.
 
@@ -59,7 +63,7 @@ The response carries no provider account id or workspace id. The detail route is
 | `notifications` | An object, see below | see below |
 | `walletCurrency` | One of the Wallet currencies, or null (follow the browser's locale) | null |
 
-`notifications` keys: `runningLow`, `expiringResets`, `refreshFailures`, `balances`, `spend` and `includeSessions` are boolean and default true. `resetLeadDays` is 1, 3 or 7 and defaults to 3 (how many days before a banked reset expires the notice appears). `mutedProviders` is a list of provider names and defaults to empty; it silences every notice for those providers except a broken sign-in. An invalid or missing key takes its default. See [Notifications](notifications.md).
+`notifications` keys: `runningLow`, `expiringResets`, `refreshFailures`, `balances`, `spend`, `resetActivity` and `includeSessions` are boolean and default true. `resetLeadDays` is 1, 3 or 7 and defaults to 3 (how many days before a banked reset expires the notice appears). `mutedProviders` is a list of provider names and defaults to empty; it silences every notice for those providers except a broken sign-in. An invalid or missing key takes its default. See [Notifications](notifications.md).
 
 `PUT /api/order` takes `{ providers, accounts }`: `providers` is a list of provider names and `accounts` maps a provider to a list of connection ids. It needs a session and returns `400 invalid_body` for a duplicate or unknown provider, or a connection id that is duplicated, unknown or on another provider. Partial input is allowed: providers not listed follow the listed ones in default order, and connections not listed follow the listed ones within their provider. All writes happen in one transaction, so a rejected request changes nothing. The response is the full effective order, `{ providers, accounts }`, with `accounts` holding every provider that has connections. A new connection has no position and lands last in its provider; reconnect and disconnect leave the other positions alone.
 
@@ -70,13 +74,23 @@ The scheduler reads `refreshIntervalMinutes` on every tick, so a change applies 
 Every Wallet route needs a session; the mutating ones also pass the cross-site guard. Each one returns the whole Wallet, `{ costs, topUps }`. `costs` maps a connection id to its cost; a connection missing from it is Not set. `topUps` lists every top-up, newest date first.
 
 - A cost is `{ kind: "paid", price, cycle, renewsOn }`, `{ kind: "free" }` or `{ kind: "included", includedWith }`. `price` is `{ minor, currency }` with a positive integer `minor`. `cycle` is `monthly` or `annual`. `renewsOn` is a `YYYY-MM-DD` day or null. `includedWith` is 1 to 80 characters.
-- A top-up is `{ id, connectionId, date, kind, price, credits, note }`. A `paid` top-up needs `price`; a `free` one has `price: null`. `credits` is a positive number or null. `note` is at most 200 characters or null. The server assigns `id`.
+- A top-up is `{ id, connectionId, date, kind, price, credits, note, source, expiresOn, expiryAlertDays }`. A `paid` top-up needs `price`, except a `detected` one, which may stay unpriced; a `free` one has `price: null`. `credits` is a positive number or null. `note` is at most 200 characters or null. `source` is `owner` or `detected`; the server sets it and a client cannot. `expiresOn` is a `YYYY-MM-DD` day or null, `expiryAlertDays` is 7, 14, 30 or null and needs `expiresOn`. The server assigns `id`.
 
-`PUT /api/wallet/costs/:connectionId` and `POST /api/wallet/top-ups` return `400 invalid_body` for a value outside these rules and `404 unknown_connection` for a connection that does not exist. The two `DELETE` routes succeed when the entry is already gone. The display currency is the `walletCurrency` setting. Demo Mode never calls these routes: its Wallet lives in the browser's memory.
+`PUT /api/wallet/costs/:connectionId` and `POST /api/wallet/top-ups` return `400 invalid_body` for a value outside these rules and `404 unknown_connection` for a connection that does not exist. `POST /api/wallet/top-ups` always records an owner entry.
+
+`PUT /api/wallet/top-ups/:id` takes `{ date, kind, price, credits, note, expiresOn, expiryAlertDays }` and replaces those fields; the account and the source stay. It answers with the whole Wallet. `400 invalid_body` covers a value outside the rules, including an owner entry that is `paid` without a price or `free` with one. An unknown id is `404 unknown_top_up`. The two `DELETE` routes succeed when the entry is already gone. The display currency is the `walletCurrency` setting. Demo Mode never calls these routes: its Wallet lives in the browser's memory.
+
+## Automations
+
+Both routes need a session and the cross-site guard. The rules and the ADR behind them are in [ADR 0003](../decisions/0003-owner-automations.md).
+
+`PUT /api/connections/:id/auto-reset` takes `{ enabled, window, thresholdPercent, minHoursLeft }`: `window` is `weekly`, `session` or `either`, `thresholdPercent` is 90, 95 or 100, `minHoursLeft` is 1, 3, 6, 12, 24 or 48. It answers `{ autoReset }`. `DELETE` answers `{ autoReset: null }`. Errors: `400 invalid_body`, `404 unknown_connection`, and `409 unsupported_action` when the provider's connector cannot consume a reset credit. A saved rule does nothing while "Allow Account Actions" is off.
+
+`PUT /api/connections/:id/budgets/:metricKey` takes `{ amount }`, a positive number up to 1,000,000,000. The unit is not in the request: the server copies it from that metric in the latest snapshot. It answers `{ budgets }`, every budget of that account. `DELETE` clears one budget and answers the same shape. Errors: `400 invalid_body`, `404 unknown_connection`, and `409 not_a_spend_metric` when the latest snapshot has no metric of kind `spend` with that key, or its unit is not a notification amount unit.
 
 ## Account actions gate
 
-Account actions are off by default and run only after the owner switches on "Allow Account Actions" in Settings (`accountActions`) and confirms each action. With the setting off, the action route answers `403 actions_disabled`. The confirm literal, connection state and usable-credit checks still apply. See [the data model](data-model.md#actions).
+Account actions are off by default and run only after the owner switches on "Allow Account Actions" in Settings (`accountActions`) and confirms each action. With the setting off, the action route answers `403 actions_disabled`. The confirm literal, connection state and usable-credit checks still apply. An owner-configured auto-reset rule goes through the same service with `origin: automation` and needs the same setting. See [the data model](data-model.md#actions).
 
 ## Delivery
 

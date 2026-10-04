@@ -1,8 +1,8 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, or } from "drizzle-orm";
 
 import type { Db } from "./db/index.ts";
 import * as schema from "./db/schema.ts";
-import type { AccountActionKind, AccountActionState } from "./enums.ts";
+import type { AccountActionKind, AccountActionOrigin, AccountActionState } from "./enums.ts";
 
 /**
  * Rows in `account_actions`: one per owner-triggered mutation. The row exists before the
@@ -18,7 +18,11 @@ export class ActionStore {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  create(connectionId: string, action: AccountActionKind): AccountActionRow {
+  create(
+    connectionId: string,
+    action: AccountActionKind,
+    origin: AccountActionOrigin = "owner",
+  ): AccountActionRow {
     const id = Bun.randomUUIDv7();
     return this.db
       .insert(schema.accountActions)
@@ -26,6 +30,7 @@ export class ActionStore {
         id,
         connectionId,
         action,
+        origin,
         idempotencyKey: id,
         state: "requested",
         requestedAt: this.now(),
@@ -79,5 +84,50 @@ export class ActionStore {
       .where(eq(schema.accountActions.connectionId, connectionId))
       .orderBy(desc(schema.accountActions.requestedAt))
       .all();
+  }
+
+  /** Automatic actions for the connection that started at or after `since`, newest first. */
+  automaticSince(connectionId: string, since: Date): AccountActionRow[] {
+    return this.db
+      .select()
+      .from(schema.accountActions)
+      .where(
+        and(
+          eq(schema.accountActions.connectionId, connectionId),
+          eq(schema.accountActions.origin, "automation"),
+          gte(schema.accountActions.requestedAt, since),
+        ),
+      )
+      .orderBy(desc(schema.accountActions.requestedAt))
+      .all();
+  }
+
+  /**
+   * Whether an action could explain a change between two readings: one that started or ended after
+   * `since` and did not fail. An action still in flight counts, because the follow-up collection
+   * of a successful action runs before the row is marked `succeeded`.
+   */
+  explainsChangeSince(connectionId: string, since: Date): boolean {
+    const row = this.db
+      .select({ id: schema.accountActions.id })
+      .from(schema.accountActions)
+      .where(
+        and(
+          eq(schema.accountActions.connectionId, connectionId),
+          inArray(schema.accountActions.state, [
+            "requested",
+            "submitted",
+            "succeeded",
+            "uncertain",
+          ]),
+          or(
+            gte(schema.accountActions.requestedAt, since),
+            gte(schema.accountActions.completedAt, since),
+          ),
+        ),
+      )
+      .limit(1)
+      .get();
+    return row !== undefined;
   }
 }

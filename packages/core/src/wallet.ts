@@ -1,12 +1,14 @@
 import { desc, eq, sql } from "drizzle-orm";
 
 import { type Db, schema } from "./db/index.ts";
+import type { TopUpSource } from "./enums.ts";
 import {
   costSchema,
   topUpSchema,
   type Cost,
   type TopUp,
   type TopUpInput,
+  type TopUpUpdate,
 } from "./wallet-schemas.ts";
 
 /**
@@ -22,9 +24,11 @@ export {
   moneySchema,
   topUpInputSchema,
   topUpSchema,
+  topUpUpdateSchema,
   type Cost,
   type TopUp,
   type TopUpInput,
+  type TopUpUpdate,
   type WalletMoney,
 } from "./wallet-schemas.ts";
 
@@ -37,6 +41,25 @@ export class UnknownConnectionError extends Error {
   constructor() {
     super("unknown connection");
     this.name = "UnknownConnectionError";
+  }
+}
+
+/** A top-up to add: the expiry fields may be left out. */
+export type NewTopUp = Omit<TopUpInput, "expiresOn" | "expiryAlertDays"> &
+  Partial<Pick<TopUpInput, "expiresOn" | "expiryAlertDays">>;
+
+export class UnknownTopUpError extends Error {
+  constructor() {
+    super("unknown top-up");
+    this.name = "UnknownTopUpError";
+  }
+}
+
+/** An owner-entered paid top-up needs a price, and a free one never has one. */
+export class TopUpPriceError extends Error {
+  constructor() {
+    super("a paid top-up needs a price; a free one has none");
+    this.name = "TopUpPriceError";
   }
 }
 
@@ -74,6 +97,9 @@ function topUpFromRow(row: TopUpRow): TopUp | null {
         : null,
     credits: row.credits,
     note: row.note,
+    source: row.source,
+    expiresOn: row.expiresOn,
+    expiryAlertDays: row.expiryAlertDays,
   });
   return parsed.success ? parsed.data : null;
 }
@@ -131,7 +157,9 @@ export class WalletStore {
       .run();
   }
 
-  addTopUp(input: TopUpInput): TopUp {
+  addTopUp(input: NewTopUp, source: TopUpSource = "owner"): TopUp {
+    const expiresOn = input.expiresOn ?? null;
+    const expiryAlertDays = input.expiryAlertDays ?? null;
     this.requireConnection(input.connectionId);
     const id = crypto.randomUUID();
     this.db
@@ -145,10 +173,44 @@ export class WalletStore {
         priceCurrency: input.price?.currency ?? null,
         credits: input.credits,
         note: input.note,
+        source,
+        expiresOn,
+        expiryAlertDays,
         createdAt: this.now(),
       })
       .run();
-    return { ...input, id };
+    return { ...input, id, source, expiresOn, expiryAlertDays };
+  }
+
+  /**
+   * Replace a top-up's editable fields. The account and the source stay, so a detected top-up
+   * keeps its mark. A paid top-up needs a price unless it was detected.
+   */
+  updateTopUp(id: string, update: TopUpUpdate): TopUp {
+    const row = this.db
+      .select()
+      .from(schema.walletTopUps)
+      .where(eq(schema.walletTopUps.id, id))
+      .get();
+    if (!row) throw new UnknownTopUpError();
+    const priceMissing = update.kind === "paid" && update.price === null;
+    if ((priceMissing && row.source !== "detected") || (update.kind === "free" && update.price))
+      throw new TopUpPriceError();
+    this.db
+      .update(schema.walletTopUps)
+      .set({
+        date: update.date,
+        kind: update.kind,
+        priceMinor: update.price?.minor ?? null,
+        priceCurrency: update.price?.currency ?? null,
+        credits: update.credits,
+        note: update.note,
+        expiresOn: update.expiresOn,
+        expiryAlertDays: update.expiryAlertDays,
+      })
+      .where(eq(schema.walletTopUps.id, id))
+      .run();
+    return { ...update, id, connectionId: row.connectionId, source: row.source };
   }
 
   /** Does nothing when the id is unknown. */

@@ -14,8 +14,11 @@ import { metricJson, ms, resetCreditJson } from "./routes/serialize.ts";
 /** What the overview rows need from the context. A narrow pick lets bootstrap call it before the context exists. */
 export type OverviewSource = Pick<
   AppContext,
-  "config" | "sqlite" | "order" | "connections" | "actions"
+  "config" | "sqlite" | "order" | "connections" | "actions" | "accountEvents" | "automation"
 >;
+
+/** How far back the overview carries account events. */
+const eventWindowMs = 7 * 24 * 60 * 60 * 1000;
 
 /** Finished runs the failure streak looks at, newest first. Matches `SnapshotStore.failureStreak`. */
 const streakRuns = 5;
@@ -205,6 +208,13 @@ export function overviewConnections(source: OverviewSource, now: number) {
   const staleAfterMs = source.config.staleAfterSeconds * 1000;
   const connections = source.order.arrange(source.connections.list());
   const { runs, snapshots, metrics, resetCredits } = loadLatest(source.sqlite);
+  // One statement each for every account's events, rule and budgets.
+  const events = grouped(
+    source.accountEvents.recent(new Date(now - eventWindowMs)),
+    (event) => event.connectionId,
+  );
+  const rules = source.automation.autoResetRules();
+  const budgets = source.automation.allBudgets();
   return connections.map((connection) => {
     const connectionRuns = runs.get(connection.id) ?? [];
     const run = connectionRuns[0];
@@ -244,6 +254,11 @@ export function overviewConnections(source: OverviewSource, now: number) {
       actions: {
         enabled: source.actions.enabled,
         supported: [...source.actions.supported(connection.provider)],
+      },
+      events: events.get(connection.id) ?? [],
+      automation: {
+        autoReset: rules.get(connection.id) ?? null,
+        budgets: budgets.get(connection.id) ?? [],
       },
     };
   });

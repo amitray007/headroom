@@ -40,14 +40,18 @@ export { SettingsStore, defaultSettings, settingsSchema, type Settings } from ".
 export {
   WalletStore,
   UnknownConnectionError,
+  UnknownTopUpError,
+  TopUpPriceError,
   calendarDaySchema,
   costSchema,
   moneySchema,
   topUpInputSchema,
   topUpSchema,
+  topUpUpdateSchema,
   type Cost,
   type TopUp,
   type TopUpInput,
+  type TopUpUpdate,
   type WalletBook,
   type WalletMoney,
 } from "./wallet.ts";
@@ -76,6 +80,41 @@ export {
 } from "./services/connect.ts";
 export { CollectionService, type CollectionOutcome } from "./services/collect.ts";
 export { ActionStore, type AccountActionRow } from "./actions.ts";
+export { AccountEventStore } from "./account-events.ts";
+export { AutomationStore } from "./automation.ts";
+export {
+  detectAccountEvents,
+  readingFromCollect,
+  readingFromStored,
+  type DetectInput,
+  type EventDraft,
+  type Reading,
+  type ReadingCredit,
+  type ReadingMetric,
+  type StoredReading,
+} from "./account-event-detection.ts";
+export {
+  AccountEventService,
+  type AccountEventServiceOptions,
+  type ObservedCollection,
+} from "./services/account-events.ts";
+export {
+  AutoResetService,
+  type AutoResetOutcome,
+  type AutoResetServiceOptions,
+} from "./services/auto-reset.ts";
+export {
+  accountEventDetailSchema,
+  accountEventSchema,
+  autoResetRuleSchema,
+  defaultAutoResetRule,
+  spendBudgetInputSchema,
+  spendBudgetSchema,
+  type AccountEvent,
+  type AccountEventDetail,
+  type AutoResetRule,
+  type SpendBudget,
+} from "./automation-schemas.ts";
 export {
   ActionService,
   ActionsDisabledError,

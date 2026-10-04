@@ -20,8 +20,11 @@ This is a logical schema for implementation planning. No database or migrations 
 | `notification_channels` | id, type, enabled, include_identity, config_ciphertext, config_nonce, key_version, label, created_at, updated_at | A server-side notification destination. The config (Telegram bot token and chat id, or webhook URL and signing secret) is sealed under the master key with aad `notification_channel:<id>`. `label` is a display summary with no secret: `@botusername` and chat title, or the URL host. `include_identity` adds the account's email or login to events for this channel |
 | `notification_deliveries` | channel_id, event_id, kind, status, attempts, failure, first_attempt_at, last_attempt_at, next_attempt_at, delivered_at | One row per channel and event id (unique): the dedupe record and retry state. Cascade-deleted with the channel, pruned after 60 days. No credential or response body |
 | `wallet_costs` | connection_id, kind, price_minor, price_currency, cycle, renews_on, included_with, updated_at | What the owner pays for one connection, entered by the owner. One row per connection, cascade-deleted with it. No row means Not set |
-| `wallet_top_ups` | id, connection_id, date, kind, price_minor, price_currency, credits, note, created_at | Credits the owner added outside a subscription. `connection_id` has no foreign key, so the record stays when the account is removed |
-| `account_actions` | id, connection_id, action, idempotency_key, state, requested_at, completed_at, provider_reference, resulting_snapshot_id, sanitized_error | Later reset or purchase operations |
+| `wallet_top_ups` | id, connection_id, date, kind, price_minor, price_currency, credits, note, source, expires_on, expiry_alert_days, created_at | Credits added outside a subscription, entered by the owner or detected from a rise in a credit balance (`source`). `expires_on` is the day the credits expire and `expiry_alert_days` how many days ahead to notify, both optional. `connection_id` has no foreign key, so the record stays when the account is removed |
+| `account_actions` | id, connection_id, action, origin, idempotency_key, state, requested_at, completed_at, provider_reference, resulting_snapshot_id, sanitized_error | Owner-triggered or automatic reset operations. `origin` says who started it |
+| `account_events` | id, connection_id, kind, occurred_at, metric_key, detail_json | What the collector noticed between two readings of an account, or an automation it ran (ADR 0003). `detail_json` holds numbers and ids only, never provider text. Cascade-deleted with the connection, pruned with sync history |
+| `auto_reset_rules` | connection_id, enabled, window, threshold_percent, min_hours_left, updated_at | The owner's auto-reset rule for one account. One row per connection, cascade-deleted with it. No row means no rule |
+| `spend_budgets` | connection_id, metric_key, amount, unit, updated_at | The owner's own budget for one `spend` metric, in that metric's unit. Primary key is the connection and metric key, cascade-deleted with the connection |
 
 `value_text` holds the exact provider value as a decimal string. `value_num` is a derived float for charts and never the source of truth. Money uses `value_text` plus an ISO currency unit.
 
@@ -43,14 +46,18 @@ This is a logical schema for implementation planning. No database or migrations 
 | `sync_runs.outcome` | `succeeded`, `partial`, `rate_limited`, `provider_unavailable`, `authentication_failed`, `invalid_response`, `interrupted` |
 | `account_actions.state` | `requested`, `submitted`, `succeeded`, `failed`, `uncertain` |
 | `account_actions.action` | `consume_reset_credit` |
+| `account_actions.origin` | `owner`, `automation` |
+| `account_events.kind` | `reset_granted`, `early_reset`, `top_up_detected`, `auto_reset` |
+| `auto_reset_rules.window` | `weekly`, `session`, `either` |
 | `notification_channels.type` | `telegram`, `webhook` |
 | `notification_deliveries.status` | `delivered`, `retrying`, `failed` (gave up) |
 | `notification_deliveries.failure` | `timeout`, `network`, `unauthorized`, `not_found`, `rate_limited`, `rejected`, `server_error`, none |
-| `notification.kind` | `almost_out`, `running_low`, `reset_expiring`, `balance_low`, `spend_near_cap`, `spend_cap_reached`, `extra_usage_started`, `refresh_failed`, `disconnected` |
+| `notification.kind` | `almost_out`, `running_low`, `reset_expiring`, `balance_low`, `spend_near_cap`, `spend_cap_reached`, `extra_usage_started`, `refresh_failed`, `disconnected`, `reset_granted`, `early_reset`, `auto_reset`, `top_up_detected`, `budget_near`, `budget_exceeded`, `credits_expiring` |
 | `notification.tone` | `bad`, `warn`, `info` |
 | `wallet_costs.kind` | `paid`, `free`, `included`; no row is Not set |
 | `wallet_costs.cycle` | `monthly`, `annual` |
 | `wallet_top_ups.kind` | `paid`, `free` |
+| `wallet_top_ups.source` | `owner`, `detected` |
 | `*.price_currency`, `settings.walletCurrency` | `USD`, `EUR`, `GBP`, `INR`, `CAD`, `AUD`, `JPY`, `SGD`, `CHF`, `BRL` |
 | `notification.amount.unit` | `USD`, `codex_credits`, `grok_credits`, `gateway_credits`, `credits` |
 
@@ -95,7 +102,15 @@ Store normalized observations only. Raw responses can contain personal data or t
 
 Read capabilities and action capabilities are separate. Redemption consumes inventory and never runs inside a refresh. Use provider idempotency keys. If a response is lost, reconcile before any retry and record `uncertain` explicitly.
 
-Implemented on 2026-10-02 for `consume_reset_credit` (Codex). Two gates sit in front of every action: the owner's `accountActions` setting ("Allow Account Actions" in Settings), off by default, which the server reads at call time so a change needs no restart; and a literal `confirm: true` the browser sends only after the owner confirmed the named credit and its expiry. The action row is created before the provider call and its id is the idempotency key; the call runs under the connection lease; a thrown request or a 5xx is `uncertain`; a success is followed by one ordinary collection whose snapshot id lands on the row. Nothing retries an action, and the scheduler never calls the action service. The first real consume is the owner's to run; agents validate the route only against fakes.
+Implemented on 2026-10-02 for `consume_reset_credit` (Codex). Two gates sit in front of every action: the owner's `accountActions` setting ("Allow Account Actions" in Settings), off by default, which the server reads at call time so a change needs no restart; and a literal `confirm: true` the browser sends only after the owner confirmed the named credit and its expiry. The action row is created before the provider call and its id is the idempotency key; the call runs under the connection lease; a thrown request or a 5xx is `uncertain`; a success is followed by one ordinary collection whose snapshot id lands on the row. Nothing retries an action, and the scheduler calls the action service only for an auto-reset rule (below). The first real consume is the owner's to run; agents validate the route only against fakes.
+
+Amended by [ADR 0003](../decisions/0003-owner-automations.md): an owner-configured auto-reset rule may start the same action. The rule goes through the same service, so the "Allow Account Actions" gate, the connection state check, the usable-credit check, the action row, the idempotency key, the lease and the `uncertain` record all apply. The row carries `origin: automation`, and the scheduler evaluates the rule after each collection that succeeded (never the other way round: a collection does not call it). An automatic action that failed or ended `uncertain` blocks another one in the same window instance. A succeeded or `uncertain` action, or one still in flight, also explains a drop in a percent limit, so the collector does not record an `early_reset` for it.
+
+## Account events
+
+On each successful collection the collector compares the new reading with the previous snapshot of the same account and writes one `account_events` row per change. Nothing is detected without a previous reading, or when the value was unknown or unavailable in either reading: unknown is not zero. The collector never fails because detection failed. The rules for each kind, the thresholds and the providers are in [ADR 0003](../decisions/0003-owner-automations.md#account-events). The detail of each kind is validated by `accountEventDetailSchema` in `packages/core/src/automation-schemas.ts`, so the `kind` column and the detail's `kind` cannot disagree.
+
+Claude derives a reset credit's id from the grant's position, so for Claude a credit counts as new only when its id and expiry both differ from every previous credit.
 
 ## Wallet
 
@@ -103,11 +118,15 @@ The Wallet holds what the owner entered. Providers do not report what an account
 
 Amounts are integers in the currency's minor unit (cents, paise, whole yen), each with its own currency. A top-up is `paid` with an amount or `free` without one, and may record the credits added in the provider's own unit. Credits never convert to money.
 
+A top-up has a `source`. `owner` rows are typed in. `detected` rows are written by the collector when a credit balance rises (ADR 0003): `paid`, no price, the rise as `credits`, dated the UTC day of the reading, with the account event naming the row. A detected top-up may stay `paid` with no price until the owner edits it; totals leave it out and count it as "price not set". An edit keeps the account and the source, so a detected row keeps its mark; the owner can also delete it, which covers a promotion or a refund. An owner entry still needs a price when it is `paid`.
+
+A top-up can carry `expires_on` and `expiry_alert_days` (7, 14 or 30). When today is within that many days of the expiry and it has not passed, the notification rules raise `credits_expiring`. An alert needs an expiry day.
+
 Totals convert to the display currency through USD with the European Central Bank's daily reference rates (D27). An amount whose currency has no rate stays out of the total and is counted as left out. Provider-reported money, such as Claude extra usage or Cursor on-demand spend, is usage spend: it comes from snapshots, not from the Wallet tables, and stays a separate figure.
 
 ## Retention
 
-Sync history is kept for `historyRetentionDays`, an owner setting of 30, 90, 180 or 365 days that defaults to 90 (D29). The scheduler prunes at its first tick after startup and then at most every six hours, reading the setting each time, so a change applies without a restart. A prune deletes `snapshots` whose `observed_at` is older than the cutoff, and `sync_runs` whose `started_at` is older, per connection. `metrics` and `reset_credits` go with their snapshot through the foreign-key cascade.
+Sync history is kept for `historyRetentionDays`, an owner setting of 30, 90, 180 or 365 days that defaults to 90 (D29). The scheduler prunes at its first tick after startup and then at most every six hours, reading the setting each time, so a change applies without a restart. A prune deletes `snapshots` whose `observed_at` is older than the cutoff, and `sync_runs` whose `started_at` is older, per connection. `metrics` and `reset_credits` go with their snapshot through the foreign-key cascade. `account_events` older than the same cutoff are deleted too, with no newest-row exemption: the overview reads only the last 7 days of events.
 
 Two rows per connection are exempt however old: the newest snapshot and the newest sync run, because the dashboard reads them. A run that still owns a surviving snapshot also stays, so the run cascade never removes one. An `account_actions` row keeps its own record when its `resulting_snapshot_id` points at a pruned snapshot; the link is set to null. The prune logs counts only.
 

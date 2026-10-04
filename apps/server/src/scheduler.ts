@@ -18,6 +18,13 @@ export interface SchedulerOptions {
   readonly connect: Pick<ConnectService, "expire">;
   readonly snapshots: SnapshotStore;
   readonly collection: CollectionService;
+  /** Account events, pruned with the same cutoff as snapshots. */
+  readonly events?: { prune(cutoff: Date): number };
+  /**
+   * Runs after a collection that succeeded, for example the auto-reset rule. Its failure is
+   * logged by class and never stops the other connections.
+   */
+  readonly afterCollect?: (connectionId: string, now: number) => Promise<unknown>;
   /** A getter lets a settings change apply at the next tick without a restart. */
   readonly intervalMs: number | (() => number);
   readonly tickMs?: number;
@@ -110,6 +117,14 @@ export class Scheduler {
           this.deps.log?.("debug", `collected ${connection.id}: ${outcome.status}`);
           if (outcome.status === "collected" || outcome.status === "failed")
             collected.push(connection.id);
+          if (outcome.status === "collected" && this.deps.afterCollect) {
+            try {
+              // eslint-disable-next-line no-await-in-loop -- a rule may act on the account before the next one is collected
+              await this.deps.afterCollect(connection.id, this.now().getTime());
+            } catch (error) {
+              this.deps.log?.("error", `after-collect hook failed: ${errorClass(error)}`);
+            }
+          }
         } catch (error) {
           // The class only: the message could carry provider text.
           this.deps.log?.("error", `collecting ${connection.id} failed: ${errorClass(error)}`);
@@ -130,10 +145,12 @@ export class Scheduler {
     // Set before the work, so a failing prune waits for the next window instead of every tick.
     this.lastPruneAt = now;
     try {
-      const pruned = this.deps.snapshots.prune(new Date(now - days() * dayMs));
+      const cutoff = new Date(now - days() * dayMs);
+      const pruned = this.deps.snapshots.prune(cutoff);
+      const events = this.deps.events?.prune(cutoff) ?? 0;
       this.deps.log?.(
         "info",
-        `pruned history: ${pruned.snapshots} snapshots, ${pruned.syncRuns} runs`,
+        `pruned history: ${pruned.snapshots} snapshots, ${pruned.syncRuns} runs, ${events} events`,
       );
     } catch (error) {
       this.deps.log?.("error", `history prune failed: ${errorClass(error)}`);

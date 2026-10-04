@@ -1,7 +1,7 @@
 import type { AccountActionRow, ActionStore } from "../actions.ts";
 import type { ActionResult } from "../connector.ts";
 import type { CredentialStore } from "../credentials.ts";
-import type { AccountActionKind } from "../enums.ts";
+import type { AccountActionKind, AccountActionOrigin } from "../enums.ts";
 import { LeaseHeldError, type LeaseStore } from "../leases.ts";
 import type { ConnectionStore } from "../lifecycle.ts";
 import type { SnapshotStore } from "../snapshots.ts";
@@ -37,6 +37,8 @@ export interface PerformActionInput {
   readonly creditId?: string;
   /** Must be true; the browser sets it only after the owner confirmed the named credit. */
   readonly confirm: boolean;
+  /** `automation` only from an owner-configured rule (ADR 0003). Defaults to `owner`. */
+  readonly origin?: AccountActionOrigin;
 }
 
 export interface ActionOutcome {
@@ -107,7 +109,7 @@ export class ActionService {
     if (!record) throw new Error("connection has no credentials");
     const credential = { secret: record.secret, expiresAt: record.expiresAt };
 
-    const row = this.deps.actions.create(connection.id, input.action);
+    const row = this.deps.actions.create(connection.id, input.action, input.origin ?? "owner");
     let result: ActionResult;
     try {
       result = await this.deps.leases.withLease(

@@ -29,6 +29,7 @@ describe("settings", () => {
         refreshFailures: true,
         balances: true,
         spend: true,
+        resetActivity: true,
         includeSessions: true,
         resetLeadDays: 3,
         mutedProviders: [],

@@ -5,6 +5,7 @@ import type {
   DeliveryStore,
   NotificationDeliveryFailure,
   Settings,
+  TopUp,
 } from "@headroom/core";
 import { type NotificationEvent, notificationEventSchema } from "@headroom/core/contracts";
 
@@ -19,6 +20,7 @@ export type DeriveNotifications = (
   connections: OverviewConnectionLike[],
   settings: Settings,
   now: number,
+  topUps: readonly TopUp[],
 ) => NotificationEvent[];
 
 export interface DispatcherOptions {
@@ -27,6 +29,8 @@ export interface DispatcherOptions {
   readonly overview: (now: number) => OverviewConnectionLike[];
   readonly settings: () => Settings;
   readonly derive: DeriveNotifications;
+  /** The Wallet's top-ups, for expiry notices. Absent means none. */
+  readonly topUps?: () => readonly TopUp[];
   /** The dashboard URL for the `links.dashboard` field, or null when the owner set no public URL. */
   readonly dashboardUrl: string | null;
   readonly fetch: Fetch;
@@ -69,7 +73,7 @@ export class NotificationDispatcher {
       const settings = { ...this.deps.settings(), timeStyle: "countdown" as const };
       const dashboardUrl = this.deps.dashboardUrl;
       const events = this.deps
-        .derive(connections, settings, now)
+        .derive(connections, settings, now, this.deps.topUps?.() ?? [])
         .map((event) =>
           dashboardUrl ? Object.assign({}, event, { links: { dashboard: dashboardUrl } }) : event,
         );

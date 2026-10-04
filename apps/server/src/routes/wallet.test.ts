@@ -48,8 +48,9 @@ describe("/api/wallet", () => {
       h.send("DELETE", `/costs/${h.id}`, undefined, false),
       h.send("POST", "/top-ups", {}, false),
       h.send("DELETE", "/top-ups/x", undefined, false),
+      h.send("PUT", "/top-ups/x", {}, false),
     ]);
-    expect(calls.map((r) => r.status)).toEqual([401, 401, 401, 401, 401]);
+    expect(calls.map((r) => r.status)).toEqual([401, 401, 401, 401, 401, 401]);
   });
 
   test("an empty book", async () => {
@@ -99,7 +100,14 @@ describe("/api/wallet", () => {
       .parse(await added.json());
     expect(book.topUps).toHaveLength(1);
     const id = book.topUps[0]?.id ?? "";
-    expect(book.topUps[0]).toEqual({ ...body, note: "refill", id });
+    expect(book.topUps[0]).toEqual({
+      ...body,
+      note: "refill",
+      id,
+      source: "owner",
+      expiresOn: null,
+      expiryAlertDays: null,
+    });
     const removed = await h.send("DELETE", `/top-ups/${id}`);
     expect(removed.status).toBe(200);
     expect(await removed.json()).toEqual({ costs: {}, topUps: [] });
@@ -132,5 +140,77 @@ describe("/api/wallet", () => {
       method: "PUT",
     });
     expect(response.status).toBe(403);
+  });
+
+  test("PUT /top-ups/:id edits a top-up, keeps its source and enforces the price rule", async () => {
+    const h = await harness();
+    const added = z.object({ topUps: z.array(z.object({ id: z.string() }).loose()) }).parse(
+      await (
+        await h.send("POST", "/top-ups", {
+          connectionId: h.id,
+          date: "2026-10-01",
+          kind: "free",
+          price: null,
+          credits: 5,
+          note: null,
+        })
+      ).json(),
+    );
+    const id = added.topUps[0]?.id ?? "";
+    const edit = {
+      date: "2026-10-02",
+      kind: "paid",
+      price: { minor: 900, currency: "USD" },
+      credits: 6,
+      note: null,
+      expiresOn: "2026-12-01",
+      expiryAlertDays: 14,
+    };
+    const ok = await h.send("PUT", `/top-ups/${id}`, edit);
+    expect(ok.status).toBe(200);
+    const book = z
+      .object({ topUps: z.array(z.record(z.string(), z.unknown())) })
+      .parse(await ok.json());
+    expect(book.topUps[0]).toMatchObject({
+      id,
+      connectionId: h.id,
+      source: "owner",
+      credits: 6,
+      expiresOn: "2026-12-01",
+      expiryAlertDays: 14,
+    });
+    // An owner entry cannot be paid without a price.
+    expect((await h.send("PUT", `/top-ups/${id}`, { ...edit, price: null })).status).toBe(400);
+    expect((await h.send("PUT", `/top-ups/${id}`, { ...edit, kind: "nope" })).status).toBe(400);
+    const missing = await h.send("PUT", "/top-ups/missing", edit);
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({ error: "unknown_top_up" });
+  });
+
+  test("a detected paid top-up may stay unpriced after an edit and keeps its mark", async () => {
+    const h = await harness();
+    const topUp = h.ctx.wallet.addTopUp(
+      {
+        connectionId: h.id,
+        date: "2026-10-01",
+        kind: "paid",
+        price: null,
+        credits: 3,
+        note: null,
+      },
+      "detected",
+    );
+    const response = await h.send("PUT", `/top-ups/${topUp.id}`, {
+      date: "2026-10-01",
+      kind: "paid",
+      price: null,
+      credits: 3,
+      note: "from an invoice",
+      expiresOn: null,
+      expiryAlertDays: null,
+    });
+    expect(response.status).toBe(200);
+    const [row] = h.ctx.wallet.book().topUps;
+    expect(row).toMatchObject({ source: "detected", note: "from an invoice", price: null });
   });
 });

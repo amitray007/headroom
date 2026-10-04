@@ -2,8 +2,11 @@ import { Hono } from "hono";
 
 import {
   costSchema,
+  TopUpPriceError,
   topUpInputSchema,
+  topUpUpdateSchema,
   UnknownConnectionError,
+  UnknownTopUpError,
   type WalletBook,
 } from "@headroom/core";
 
@@ -49,6 +52,20 @@ export function walletRoutes(ctx: AppContext): Hono<Env> {
     } catch (error) {
       if (error instanceof UnknownConnectionError)
         return c.json({ error: "unknown_connection" }, 404);
+      throw error;
+    }
+    return c.json(book());
+  });
+
+  /** Replace a top-up's editable fields. A detected top-up may stay paid with no price. */
+  app.put("/top-ups/:id", async (c) => {
+    const body = topUpUpdateSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "invalid_body" }, 400);
+    try {
+      ctx.wallet.updateTopUp(c.req.param("id"), body.data);
+    } catch (error) {
+      if (error instanceof UnknownTopUpError) return c.json({ error: "unknown_top_up" }, 404);
+      if (error instanceof TopUpPriceError) return c.json({ error: "invalid_body" }, 400);
       throw error;
     }
     return c.json(book());
