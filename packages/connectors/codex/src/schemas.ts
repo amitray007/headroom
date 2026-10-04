@@ -36,8 +36,6 @@ export const idTokenClaimsSchema = z.object({
     .optional(),
 });
 
-export const accessTokenClaimsSchema = z.object({ exp: z.number().int() });
-
 export const refreshResponseSchema = z.object({
   access_token: z.string().min(1),
   refresh_token: z.string().min(1).optional(),

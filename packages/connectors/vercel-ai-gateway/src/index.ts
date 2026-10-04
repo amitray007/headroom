@@ -22,7 +22,9 @@ import {
   type RefreshResult,
   type StoredCredential,
   type SubmitInput,
+  classified,
   classifyUnknown,
+  timeoutFetch,
 } from "@headroom/core";
 
 import { keyPageUrl } from "./endpoints.ts";
@@ -49,8 +51,15 @@ export function createVercelConnector(options: VercelConnectorOptions = {}): Con
   const now = options.now ?? (() => Date.now());
   const spendDays = options.spendDays ?? 30;
 
+  // A hung gateway request must not outlive the collection lease. The SDK's fetch type also carries
+  // Bun's `preconnect`, which it never calls.
+  const timedFetch: FetchLike = Object.assign(
+    timeoutFetch(options.fetch ?? ((input, init) => fetch(input, init))),
+    { preconnect: (): void => undefined },
+  );
+
   function gateway(apiKey: string) {
-    return createGateway({ apiKey, ...(options.fetch ? { fetch: options.fetch } : {}) });
+    return createGateway({ apiKey, fetch: timedFetch });
   }
 
   return {
@@ -188,8 +197,7 @@ export function createVercelConnector(options: VercelConnectorOptions = {}): Con
           scope: "team",
           valueText: null,
           unit: "USD",
-          availability:
-            failure.category === "rate_limited" ? "temporarily_unavailable" : "not_authorized",
+          availability: spendAvailability(failure),
           interface: "official",
         });
       }
@@ -249,8 +257,15 @@ function classify(error: unknown): ClassifiedError {
   );
 }
 
-function classified(category: ClassifiedError["category"], message: string): ClassifiedError {
-  return new ConnectorError(category, message).toClassified();
+/**
+ * Why the spend report is missing. Only a definitive refusal or a missing permission hides it as
+ * not authorized; an outage or rate limit is temporary, and a changed response shape is unknown.
+ */
+function spendAvailability(failure: ClassifiedError): MetricObservation["availability"] {
+  if (failure.category === "permission_denied" || failure.class === "definitive")
+    return "not_authorized";
+  if (failure.class === "transient") return "temporarily_unavailable";
+  return "unknown";
 }
 
 function isoDate(date: Date): string {

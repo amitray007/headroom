@@ -230,5 +230,8 @@ export class ConnectorError extends Error {
 /** Default classification for an unknown thrown value: transient, so state never changes by accident. */
 export function classifyUnknown(error: unknown): ClassifiedError {
   if (error instanceof ConnectorError) return error.toClassified();
+  // A request that timed out or was aborted says nothing about the account; retry it later.
+  if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError"))
+    return classified("provider_unavailable", "the provider request timed out");
   return classified("internal_error", "unexpected connector failure");
 }

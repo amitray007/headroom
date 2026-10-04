@@ -18,7 +18,13 @@ import {
   type ResetCreditObservation,
   type StoredCredential,
   type SubmitInput,
+  classified,
   classifyUnknown,
+  decodeJwt,
+  expiryOf,
+  retryAfterMs,
+  throwForStatus,
+  timeoutFetch,
 } from "@headroom/core";
 
 import {
@@ -33,7 +39,6 @@ import {
   usageUrl,
 } from "./endpoints.ts";
 import {
-  accessTokenClaimsSchema,
   authFileSchema,
   codexCredentialSchema,
   idTokenClaimsSchema,
@@ -86,7 +91,7 @@ export function credentialFromAuthFile(contents: string): StoredCredential {
 }
 
 export function createCodexConnector(options: CodexConnectorOptions): Connector {
-  const http: FetchLike = options.fetch ?? ((input, init) => fetch(input, init));
+  const http: FetchLike = options.fetch ?? timeoutFetch();
   const now = options.now ?? (() => Date.now());
   const runner = options.runner;
 
@@ -108,7 +113,7 @@ export function createCodexConnector(options: CodexConnectorOptions): Connector 
       try {
         return { status: "credentials", credential: credentialFromAuthFile(contents) };
       } catch (error) {
-        return { status: "error", error: classify(error) };
+        return { status: "error", error: classifyUnknown(error) };
       }
     }
     if (status.state === "timed_out") {
@@ -194,7 +199,7 @@ export function createCodexConnector(options: CodexConnectorOptions): Connector 
           credential: credentialFromAuthFile(input.contents),
         });
       } catch (error) {
-        return Promise.resolve({ status: "error", error: classify(error) });
+        return Promise.resolve({ status: "error", error: classifyUnknown(error) });
       }
     },
 
@@ -274,19 +279,19 @@ export function createCodexConnector(options: CodexConnectorOptions): Connector 
       const response = await http(usageUrl, {
         headers: usageHeaders(secret.accessToken, secret.accountId),
       });
-      await throwForStatus(response, "usage");
+      throwForStatus(response, "usage");
       const usage = usageResponseSchema.safeParse(await response.json().catch(() => null));
       if (!usage.success)
         throw new ConnectorError("invalid_response", "usage response shape changed");
       const observedAt = now();
-      const metrics = metricsFrom(usage.data);
+      const metrics = metricsFrom(usage.data, observedAt);
       const failures: ClassifiedError[] = [];
       let resetCredits: ResetCreditObservation[] | undefined;
       try {
         const credits = await http(resetCreditsUrl, {
           headers: resetCreditsHeaders(secret.accessToken, secret.accountId),
         });
-        await throwForStatus(credits, "reset credits");
+        throwForStatus(credits, "reset credits");
         const parsed = resetCreditsResponseSchema.safeParse(await credits.json().catch(() => null));
         if (!parsed.success)
           throw new ConnectorError("invalid_response", "reset credits shape changed");
@@ -304,7 +309,7 @@ export function createCodexConnector(options: CodexConnectorOptions): Connector 
           parsed.data.available_count ?? usage.data.rate_limit_reset_credits?.available_count;
         if (count !== undefined) metrics.push(resetInventoryMetric(count));
       } catch (error) {
-        const failure = classify(error);
+        const failure = classifyUnknown(error);
         // The usage body carries the count; the detail route is best effort and never definitive here.
         failures.push(
           failure.class === "definitive" ? { ...failure, class: "capability" } : failure,
@@ -373,20 +378,13 @@ export function createCodexConnector(options: CodexConnectorOptions): Connector 
       ) {
         return {
           status: "rejected",
-          error: classified(
-            "authentication_required",
-            `refresh rejected: ${code || response.status}`,
-          ),
+          error: classified("authentication_required", refreshRejection(code, response.status)),
         };
       }
       if (response.status === 429) {
         return {
           status: "transient",
-          error: classified(
-            "rate_limited",
-            "token endpoint rate limited",
-            retryAfterFrom(response),
-          ),
+          error: classified("rate_limited", "token endpoint rate limited", retryAfterMs(response)),
         };
       }
       return {
@@ -448,7 +446,7 @@ export function createCodexConnector(options: CodexConnectorOptions): Connector 
       if (response.status === 429)
         return {
           status: "failed",
-          error: classified("rate_limited", "consume returned 429", retryAfterFrom(response)),
+          error: classified("rate_limited", "consume returned 429", retryAfterMs(response)),
         };
       if (response.status >= 500)
         return {
@@ -466,39 +464,22 @@ export function createCodexConnector(options: CodexConnectorOptions): Connector 
       return Promise.resolve("local_only");
     },
 
-    classify,
+    classify: classifyUnknown,
   };
 }
 
-function classify(error: unknown): ClassifiedError {
-  return classifyUnknown(error);
-}
+/** Fixed wording for the refresh error codes Codex sends; the provider's own text never reaches the owner. */
+const refreshRejections: Readonly<Record<string, string>> = {
+  invalid_grant: "refresh rejected: the refresh token is no longer valid",
+  refresh_token_expired: "refresh rejected: the refresh token expired",
+  refresh_token_reused: "refresh rejected: the refresh token was already used",
+  refresh_token_invalidated: "refresh rejected: the refresh token was revoked",
+};
 
-function classified(
-  category: ClassifiedError["category"],
-  message: string,
-  retryAfterMs?: number,
-): ClassifiedError {
-  return new ConnectorError(category, message, retryAfterMs).toClassified();
-}
-
-async function throwForStatus(response: Response, what: string): Promise<void> {
-  if (response.ok) return;
-  if (response.status === 401)
-    throw new ConnectorError("authentication_required", `${what} returned 401`);
-  if (response.status === 403)
-    throw new ConnectorError("permission_denied", `${what} returned 403`);
-  if (response.status === 429)
-    throw new ConnectorError("rate_limited", `${what} returned 429`, retryAfterFrom(response));
-  if (response.status >= 500)
-    throw new ConnectorError("provider_unavailable", `${what} returned ${response.status}`);
-  throw new ConnectorError("invalid_response", `${what} returned ${response.status}`);
-}
-
-function retryAfterFrom(response: Response): number {
-  const header = response.headers.get("retry-after");
-  const seconds = header ? Number(header) : Number.NaN;
-  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 60_000;
+function refreshRejection(code: string, status: number): string {
+  return Object.hasOwn(refreshRejections, code)
+    ? refreshRejections[code]!
+    : `refresh rejected: ${status}`;
 }
 
 /** Parse the two lines the CLI prints: a verification URL and a one-time code. */
@@ -508,7 +489,7 @@ export function parseDeviceStep(output: string): { url: string; code: string } |
   return url && code ? { url, code } : null;
 }
 
-function metricsFrom(usage: UsageResponse): MetricObservation[] {
+function metricsFrom(usage: UsageResponse, observedAt: number): MetricObservation[] {
   const metrics: MetricObservation[] = [];
   const windows: [string, UsageResponse["rate_limit"]][] = [["rate_limit", usage.rate_limit]];
   for (const extra of usage.additional_rate_limits ?? []) {
@@ -526,12 +507,7 @@ function metricsFrom(usage: UsageResponse): MetricObservation[] {
         scope: seconds === undefined ? "window" : `window:${seconds}s`,
         valueText: window.used_percent === undefined ? null : String(window.used_percent),
         unit: "percent",
-        resetsAt:
-          window.reset_at === undefined
-            ? window.reset_after_seconds === undefined
-              ? null
-              : null
-            : window.reset_at * 1000,
+        resetsAt: resetsAtOf(window, observedAt),
         availability: window.used_percent === undefined ? "unknown" : "available",
         interface: "private",
       });
@@ -554,6 +530,17 @@ function metricsFrom(usage: UsageResponse): MetricObservation[] {
   return metrics;
 }
 
+/** `reset_at` is an epoch second; when only `reset_after_seconds` is sent, it counts from when we observed. */
+function resetsAtOf(
+  window: { reset_at?: number | undefined; reset_after_seconds?: number | undefined },
+  observedAt: number,
+): number | null {
+  if (window.reset_at !== undefined) return window.reset_at * 1000;
+  if (window.reset_after_seconds !== undefined)
+    return observedAt + window.reset_after_seconds * 1000;
+  return null;
+}
+
 function resetInventoryMetric(count: number): MetricObservation {
   return {
     providerMetricKey: "reset_credits.available_count",
@@ -564,23 +551,6 @@ function resetInventoryMetric(count: number): MetricObservation {
     availability: "available",
     interface: "private",
   };
-}
-
-export function decodeJwt(token: string): unknown {
-  const payload = token.split(".")[1];
-  if (!payload) return null;
-  try {
-    return JSON.parse(
-      Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"),
-    );
-  } catch {
-    return null;
-  }
-}
-
-function expiryOf(accessToken: string): number | null {
-  const claims = accessTokenClaimsSchema.safeParse(decodeJwt(accessToken));
-  return claims.success ? claims.data.exp * 1000 : null;
 }
 
 function accountIdFromIdToken(idToken: string): string | null {

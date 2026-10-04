@@ -320,6 +320,26 @@ describe("Claude connector", () => {
       expect(count).toMatchObject({ valueText: "0", availability: "available" });
     });
 
+    test("a missing count is unknown, not zero, and the inventory metric says so", async () => {
+      const { result } = await collectGrants({
+        eligible: true,
+        grants: [grant({}), grant({ resets_left: undefined, label: null })],
+      });
+      const count = result.metrics.find((m) => m.providerMetricKey === "reset_grants.available");
+      expect(count).toMatchObject({ valueText: null, availability: "unknown" });
+      expect(result.resetCredits?.map((c) => c.usable)).toEqual([true, false]);
+      expect(result.resetCredits?.[1]?.rawLabel).toBe("count unknown");
+    });
+
+    test("a missing count on a paused grant does not blur the total", async () => {
+      const { result } = await collectGrants({
+        eligible: true,
+        grants: [grant({}), grant({ resets_left: undefined, paused: true })],
+      });
+      const count = result.metrics.find((m) => m.providerMetricKey === "reset_grants.available");
+      expect(count).toMatchObject({ valueText: "1", availability: "available" });
+    });
+
     test("ineligible surface emits no count and no rows", async () => {
       const { result } = await collectGrants({
         eligible: false,
@@ -392,5 +412,21 @@ describe("Claude connector", () => {
     expect(await rejected.refresh(credentialFromCredentialsFile(credentialsFile))).toMatchObject({
       status: "rejected",
     });
+  });
+
+  test("a rate-limited refresh honours Retry-After and never echoes the provider body", async () => {
+    const limited = createClaudeConnector({
+      runner: new FakeRunner(),
+      fetch: () =>
+        Promise.resolve(
+          new Response("MARKER-synthetic", { status: 429, headers: { "retry-after": "300" } }),
+        ),
+    });
+    const result = await limited.refresh(credentialFromCredentialsFile(credentialsFile));
+    expect(result).toMatchObject({
+      status: "transient",
+      error: { category: "rate_limited", retryAfterMs: 300_000 },
+    });
+    expect(JSON.stringify(result)).not.toContain("MARKER");
   });
 });

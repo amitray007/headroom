@@ -15,7 +15,14 @@ import {
   type MetricObservation,
   type RefreshResult,
   type StoredCredential,
+  classified,
   classifyUnknown,
+  decodeJwt,
+  expiryOf,
+  parseDate,
+  retryAfterMs,
+  throwForStatus,
+  timeoutFetch,
 } from "@headroom/core";
 
 import {
@@ -65,7 +72,7 @@ export function buildLoginUrl(challenge: string, uuid: string): string {
 }
 
 export function createCursorConnector(options: CursorConnectorOptions = {}): Connector {
-  const http: FetchLike = options.fetch ?? ((input, init) => fetch(input, init));
+  const http: FetchLike = options.fetch ?? timeoutFetch();
   const now = options.now ?? (() => Date.now());
   const randomness =
     options.randomness ??
@@ -184,7 +191,7 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
         headers: rpcHeaders(secret.accessToken),
         body: "{}",
       });
-      await throwForStatus(response, "usage");
+      throwForStatus(response, "usage");
       const usage = periodUsageSchema.safeParse(await response.json().catch(() => null));
       if (!usage.success)
         throw new ConnectorError("invalid_response", "usage response shape changed");
@@ -200,14 +207,14 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
         // An account without Grok Bot answers 403 or 404: it has no meter, which is not a failure.
         if (grokBot.status === 403 || grokBot.status === 404)
           return { observedAt: now(), metrics, failures };
-        await throwForStatus(grokBot, "grok bot usage");
+        throwForStatus(grokBot, "grok bot usage");
         const parsed = grokBotUsageSchema.safeParse(await grokBot.json().catch(() => null));
         if (!parsed.success)
           throw new ConnectorError("invalid_response", "grok bot usage response shape changed");
         const meter = grokBotMetric(parsed.data);
         if (meter !== null) metrics.push(meter);
       } catch (error) {
-        failures.push(classify(error));
+        failures.push(classifyUnknown(error));
       }
       return { observedAt: now(), metrics, failures };
     },
@@ -257,7 +264,7 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
       if (response.status === 429)
         return {
           status: "transient",
-          error: classified("rate_limited", "refresh rate limited", 60_000),
+          error: classified("rate_limited", "refresh rate limited", retryAfterMs(response)),
         };
       return {
         status: "transient",
@@ -269,7 +276,7 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
       return Promise.resolve("local_only");
     },
 
-    classify,
+    classify: classifyUnknown,
   };
 }
 
@@ -379,54 +386,6 @@ export function grokBotMetric(usage: GrokBotUsage): MetricObservation | null {
     availability: "available",
     interface: "private",
   };
-}
-
-function classify(error: unknown): ClassifiedError {
-  return classifyUnknown(error);
-}
-
-function classified(
-  category: ClassifiedError["category"],
-  message: string,
-  retryAfterMs?: number,
-): ClassifiedError {
-  return new ConnectorError(category, message, retryAfterMs).toClassified();
-}
-
-async function throwForStatus(response: Response, what: string): Promise<void> {
-  if (response.ok) return;
-  if (response.status === 401)
-    throw new ConnectorError("authentication_required", `${what} returned 401`);
-  if (response.status === 403)
-    throw new ConnectorError("permission_denied", `${what} returned 403`);
-  if (response.status === 429)
-    throw new ConnectorError("rate_limited", `${what} returned 429`, 60_000);
-  if (response.status >= 500)
-    throw new ConnectorError("provider_unavailable", `${what} returned ${response.status}`);
-  throw new ConnectorError("invalid_response", `${what} returned ${response.status}`);
-}
-
-export function decodeJwt(token: string): unknown {
-  const payload = token.split(".")[1];
-  if (!payload) return null;
-  try {
-    return JSON.parse(
-      Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"),
-    );
-  } catch {
-    return null;
-  }
-}
-
-function expiryOf(token: string): number | null {
-  const claims = jwtClaimsSchema.safeParse(decodeJwt(token));
-  return claims.success && claims.data.exp !== undefined ? claims.data.exp * 1000 : null;
-}
-
-function parseDate(value: string | undefined): number | null {
-  if (!value) return null;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
 }
 
 function cents(value: number): string {

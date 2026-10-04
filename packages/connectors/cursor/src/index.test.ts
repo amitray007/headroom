@@ -243,4 +243,16 @@ describe("Cursor connector", () => {
     });
     expect(await rejected.refresh(credential)).toMatchObject({ status: "rejected" });
   });
+
+  test("a rate-limited refresh honours Retry-After", async () => {
+    const connector = createCursorConnector({
+      fetch: fakeFetch({
+        [refreshUrl]: () => new Response("", { status: 429, headers: { "retry-after": "600" } }),
+      }).fetch,
+    });
+    expect(await connector.refresh(credential)).toMatchObject({
+      status: "transient",
+      error: { category: "rate_limited", retryAfterMs: 600_000 },
+    });
+  });
 });
