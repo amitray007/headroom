@@ -421,6 +421,32 @@ describe("AutoResetService", () => {
     expect(actionCalls(h)).toHaveLength(1);
   });
 
+  test("with either, a failed weekly attempt also blocks a spent 5-hour window", async () => {
+    const h = setup();
+    h.automation.setAutoReset(h.connection.id, { ...rule, window: "either", minHoursLeft: 1 });
+    await h.read(reading(base, [weekly(100, base + 3 * day)], [usable("rc-1", base + week)]));
+    h.connector.actionQueue.push({
+      status: "failed",
+      error: { category: "provider_unavailable", class: "transient", message: "down" },
+    });
+    expect((await h.autoReset.evaluate(h.connection.id, base)).status).toBe("fired");
+    // Six hours later the weekly limit is still spent and a fresh 5-hour window is spent too.
+    const later = base + 6 * hour;
+    h.setNow(later);
+    await h.read(
+      reading(
+        later,
+        [weekly(100, base + 3 * day), session(100, later + 4 * hour)],
+        [usable("rc-1", base + week)],
+      ),
+    );
+    expect(await h.autoReset.evaluate(h.connection.id, later)).toEqual({
+      status: "skipped",
+      reason: "already_attempted",
+    });
+    expect(actionCalls(h)).toHaveLength(1);
+  });
+
   test("after a success the next window instance may fire again", async () => {
     const h = await armed({ credits: [usable("rc-1"), usable("rc-2")] });
     // The reset worked, then the next window filled up again.

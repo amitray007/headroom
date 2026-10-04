@@ -21,8 +21,8 @@ The collector compares each new reading with the previous one for the same accou
 
 | Kind | Fires when | Providers |
 | --- | --- | --- |
-| `reset_granted` | A usable reset credit appears whose id was not in the previous reading, and the usable count rose | Codex, Claude |
-| `early_reset` | A percent limit fell from 10% used or more to 5% or less, a drop of at least 10 points, while the previous reading still put its reset more than 10 minutes away. An owner or automatic action that succeeded or ended `uncertain` since the previous reading explains the drop, so it is skipped | Every provider with percent limits |
+| `reset_granted` | A usable reset credit appears whose id was not in the previous reading, the usable count rose, and both readings report the inventory. Claude grant ids are positional, so for Claude a grant is new only when its expiry is new too | Codex, Claude |
+| `early_reset` | A percent limit fell from 10% used or more to 5% or less, a drop of at least 10 points, while the previous reading still put its reset more than 10 minutes away. Any action since the previous reading that has not failed explains the drop, so the event is skipped. That includes an action still in flight, because its follow-up collection runs before the row is marked `succeeded` | Every provider with percent limits |
 | `top_up_detected` | A credit balance rose by at least 0.01 of its unit. Headroom also records a Wallet top-up for it | Codex `credits.balance`, Grok `prepaid_balance`, Vercel AI Gateway: the granted total (`credits.balance` plus `credits.total_used`), else `credits.balance` |
 | `auto_reset` | An auto-reset rule fired. The detail names the action and its final state | Codex |
 
@@ -53,7 +53,7 @@ After each scheduled collection that succeeded, the scheduler evaluates the rule
 2. The connection is `ready` or `partial`.
 3. A watched `rate_limit.*` window is at least `thresholdPercent` used, and its own reset is known and more than `minHoursLeft` hours away. Model-specific limits are not watched.
 4. A reset credit is usable. The one that expires first is used, and one with no expiry goes last.
-5. No automatic action for this account started inside the current window instance, which runs from `resetsAt` minus the window length. A failed or `uncertain` attempt therefore blocks retries until the window resets on its own. A successful reset starts a new instance.
+5. No automatic action for this account started inside the current instance of any qualifying window. An instance runs from `resetsAt` minus the window length. When several windows qualify, the longest is reported. A failed or `uncertain` attempt therefore blocks retries until the window resets on its own. A successful reset starts a new instance.
 
 The rule calls the action service with `origin: "automation"`. The service creates the action row, uses its id as the idempotency key, holds the lease, and records `uncertain` explicitly. After the action, Headroom writes an `auto_reset` event.
 

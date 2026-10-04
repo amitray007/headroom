@@ -99,14 +99,17 @@ export class AutoResetService {
     if (!credit) return { status: "skipped", reason: "no_credit" };
 
     // One automatic attempt per window instance, which runs from resetsAt minus the window length.
-    const window = candidates.find(
+    // An attempt inside any qualifying window blocks, so a failed weekly attempt is not retried on
+    // every 5-hour window while the weekly limit stays spent.
+    const attempted = candidates.some(
       (candidate) =>
         this.deps.actionRows.automaticSince(
           connectionId,
           new Date(candidate.resetsAt - candidate.seconds * 1000),
-        ).length === 0,
+        ).length > 0,
     );
-    if (!window) return { status: "skipped", reason: "already_attempted" };
+    const window = candidates[0];
+    if (attempted || !window) return { status: "skipped", reason: "already_attempted" };
 
     let outcome;
     try {
