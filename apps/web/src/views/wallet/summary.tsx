@@ -244,6 +244,87 @@ function UsageSpendPopover(props: { readonly summary: WalletSummary; readonly ca
   );
 }
 
+/** Paid subscriptions in a popover: who, cycle and renewal, the monthly figure with the billed one beneath. */
+function SubscriptionsPopover(props: {
+  readonly summary: WalletSummary;
+  readonly caption: string;
+}) {
+  const { summary } = props;
+  const paid = summary.providers
+    .flatMap((provider) => provider.accounts)
+    .filter((account) => account.cost?.kind === "paid");
+  const { free, included } = summary.counts;
+  const left = [
+    free > 0 ? `${free} free` : null,
+    included > 0 ? `${included} included` : null,
+  ].filter((part) => part !== null);
+  return (
+    <Popover
+      label={`Subscriptions: ${props.caption}`}
+      panelLabel="Paid subscriptions by account"
+      panelClassName="notif w-topups-pop"
+      triggerClassName="w-cap-trigger"
+      align="start"
+      trigger={
+        <>
+          {props.caption}
+          <ChevronDownIcon />
+        </>
+      }
+      openOnHover
+    >
+      <p className="w-pop-head">
+        <span>Per month</span>
+        <span>{plural(paid.length, "paid account", "paid accounts")}</span>
+      </p>
+      <ul className="w-pop-list">
+        {paid.map((account) => {
+          const { connection, cost, monthly, billed } = account;
+          const who = accountName(connection);
+          const note = monthly === null ? null : originalNote(monthly, " / month");
+          const annual = cost?.kind === "paid" && cost.cycle === "annual";
+          const detail = [
+            annual ? "Annual" : "Monthly",
+            annual && billed !== null ? `${figureText(billed)} / year` : null,
+            account.nextRenewal === null ? null : `renews ${dayLabel(account.nextRenewal)}`,
+          ]
+            .filter((part) => part !== null)
+            .join(" · ");
+          return (
+            <li key={connection.id}>
+              <BrandMark provider={connection.provider} />
+              <span className="w-pop-text">
+                <span className="w-pop-name">
+                  {providerName(connection.provider)}
+                  {" · "}
+                  <span className={who.includes("@") ? "who" : undefined}>{who}</span>
+                </span>
+                <span className="w-pop-sub">{detail}</span>
+              </span>
+              <span className="w-pop-amount num">
+                <span className="w-pop-name">{monthly === null ? "—" : figureText(monthly)}</span>
+                {note === null ? null : <span className="w-pop-sub">{note}</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="w-pop-total">
+        <span>Total per month</span>
+        <span className="num">{formatMoney(summary.monthly.money)}</span>
+      </p>
+      {summary.monthly.missing === 0 ? null : (
+        <p className="w-pop-note">
+          {plural(summary.monthly.missing, "amount has", "amounts have")} no rate.
+        </p>
+      )}
+      {left.length === 0 ? null : (
+        <p className="w-pop-note">{left.join(" · ")} not shown: they add nothing to the total.</p>
+      )}
+    </Popover>
+  );
+}
+
 /** The four stats in one bordered group, split by hairlines. */
 export function SummaryBand(
   props: AttentionFixes & {
@@ -281,7 +362,11 @@ export function SummaryBand(
           unit="/ month"
           attention={<Attention title="Subscriptions" items={subscriptions} />}
         >
-          <Line>{counts.paid === 0 ? "None paid" : `${counts.paid} paid`}</Line>
+          {counts.paid === 0 ? (
+            <Line>None paid</Line>
+          ) : (
+            <SubscriptionsPopover summary={summary} caption={`${counts.paid} paid`} />
+          )}
         </Stat>
       ) : (
         <Stat label="Subscriptions" value={null} empty="Not Set">

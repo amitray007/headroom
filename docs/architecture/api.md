@@ -22,7 +22,7 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 | `GET /api/wallet` | The owner's Wallet entries: costs and top-ups, see [Wallet](#wallet) |
 | `PUT /api/wallet/costs/:connectionId`, `DELETE /api/wallet/costs/:connectionId` | Set the cost of one connection, or clear it back to Not set |
 | `POST /api/wallet/top-ups`, `PUT /api/wallet/top-ups/:id`, `DELETE /api/wallet/top-ups/:id` | Record a top-up, edit one, or remove one |
-| `GET /api/exchange-rates` | The daily reference rates the Wallet converts with (read only) |
+| `GET /api/exchange-rates`, `POST /api/exchange-rates/refresh` | The daily reference rates the Wallet converts with; the POST fetches them again now, at most once a minute, and touches no account |
 | `/api/delivery/...` | Notification channels (Telegram, webhook), tests and Telegram chat discovery, see [Delivery](#delivery) |
 
 ## Overview

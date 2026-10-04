@@ -347,6 +347,7 @@ export const api = {
   ),
   // Reading rates and asking the server to fetch them again touch no account, so Demo Mode allows both.
   exchangeRates: () => request("GET", "/api/exchange-rates", exchangeRatesSchema),
+  refreshExchangeRates: () => request("POST", "/api/exchange-rates/refresh", exchangeRatesSchema),
   wallet: () => request("GET", "/api/wallet", walletSchema),
   setCost: changesAccount((connectionId: string, cost: Cost) =>
     request("PUT", `/api/wallet/costs/${encodeURIComponent(connectionId)}`, walletSchema, cost),

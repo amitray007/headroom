@@ -76,14 +76,21 @@ describe("exchange rate routes", () => {
     });
   });
 
-  test("the owner has no refresh route", async () => {
+  test("POST /refresh needs a signed-in owner and respects the cooldown", async () => {
     const h = harness();
-    const cookie = await signedIn(h.ctx, h.app);
-    const response = await h.app.request(
+    const anonymous = await h.app.request(
       url(h.ctx, "/api/exchange-rates/refresh"),
-      jsonPost(h.ctx, {}, { cookie }),
+      jsonPost(h.ctx, {}),
     );
-    expect(response.status).toBe(404);
+    expect(anonymous.status).toBe(401);
     expect(h.calls()).toBe(0);
+    const cookie = await signedIn(h.ctx, h.app);
+    const post = () =>
+      h.app.request(url(h.ctx, "/api/exchange-rates/refresh"), jsonPost(h.ctx, {}, { cookie }));
+    const first = await post();
+    expect(first.status).toBe(200);
+    expect(await first.json()).toMatchObject({ date: "2026-10-02" });
+    await post();
+    expect(h.calls()).toBe(1);
   });
 });

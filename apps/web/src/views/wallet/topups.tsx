@@ -11,6 +11,7 @@ import { Button } from "../../ui/button.tsx";
 import { EmptyState } from "../../ui/empty-state.tsx";
 import { Pill } from "../../ui/pill.tsx";
 import { figureText, originalNote } from "./amount.ts";
+import { keepsCount, nextCount, pageSize } from "./paging.ts";
 
 const askMs = 6000;
 const detectedLabel = "Detected automatically from a balance change";
@@ -152,6 +153,32 @@ export function TopUpsSection(props: {
   readonly onEdit: (topUp: WalletTopUp) => void;
 }) {
   const [failed, setFailed] = useState(false);
+  const [limit, setLimit] = useState(pageSize);
+  const sentinel = useRef<HTMLDivElement>(null);
+  const [seen, setSeen] = useState<readonly string[]>([]);
+  const total = props.topUps.length;
+  const ids = props.topUps.map((topUp) => topUp.id);
+  // A different book starts over at the first page; one top-up more or less keeps the place.
+  if (ids.length !== seen.length || ids.some((id, index) => id !== seen[index])) {
+    setSeen(ids);
+    if (!keepsCount(seen, ids)) setLimit(pageSize);
+  }
+  const shown = Math.min(limit, total);
+  // Scrolling near the end loads the next page. The Show More button covers keyboards and no observer.
+  useEffect(() => {
+    const node = sentinel.current;
+    if (node === null || shown >= total || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setLimit((count) => nextCount(Math.min(count, total), total));
+        }
+      },
+      { rootMargin: "240px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [shown, total]);
   const byId = new Map(props.connections.map((connection) => [connection.id, connection]));
   return (
     <section className="provider w-topups" aria-labelledby="w-topups-title">
@@ -180,7 +207,7 @@ export function TopUpsSection(props: {
             <span />
           </div>
           <ul className="w-rows">
-            {props.topUps.map((topUp) => (
+            {props.topUps.slice(0, shown).map((topUp) => (
               <TopUpRow
                 key={topUp.id}
                 topUp={topUp}
@@ -198,6 +225,21 @@ export function TopUpsSection(props: {
               />
             ))}
           </ul>
+          {total <= pageSize ? null : (
+            <div className="w-more" ref={sentinel}>
+              <span className="muted num">
+                Showing {shown} of {total}
+              </span>
+              {shown >= total ? null : (
+                <Button
+                  size="sm"
+                  onClick={() => setLimit((count) => nextCount(Math.min(count, total), total))}
+                >
+                  Show More
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </section>

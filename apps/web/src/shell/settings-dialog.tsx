@@ -14,6 +14,7 @@ import { SlideSwap, type SwapDirection } from "../ui/slide-swap.tsx";
 import { Tabs } from "../ui/tabs.tsx";
 import { AutomationsTab } from "./automations-tab.tsx";
 import { ChannelsTab } from "./delivery/tab.tsx";
+import { ExchangeRatesSection } from "./exchange-rates-section.tsx";
 import { ProviderCards } from "./provider-cards.tsx";
 import { Body, Section, SwitchRow, WaitingContext } from "./settings-rows.tsx";
 
@@ -124,6 +125,7 @@ function General(props: { readonly change: (patch: SettingsPatch) => void }) {
           onChange={(historyRetentionDays) => change({ historyRetentionDays })}
         />
       </Section>
+      <ExchangeRatesSection />
       <Section title="Time">
         <ChoiceRow
           title="Times"

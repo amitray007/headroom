@@ -99,6 +99,12 @@ export class ExchangeRateService {
     return this.view();
   }
 
+  /** The owner's Refresh: fetches now, unless a fetch ran within the cooldown. Returns the view either way. */
+  async refresh(): Promise<ExchangeRatesView> {
+    if (this.inFlight !== null || this.cooledDown(this.now())) await this.fetchNow();
+    return this.view();
+  }
+
   private now(): number {
     return this.deps.now().getTime();
   }
