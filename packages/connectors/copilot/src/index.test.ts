@@ -101,7 +101,7 @@ describe("Copilot connector", () => {
     });
     expect(
       credentialFromAppsFile(
-        JSON.stringify({ "github.com:Iv1.x": { user: "amit", oauth_token: "gho_file" } }),
+        JSON.stringify({ "github.com:Iv1.x": { user: "octocat", oauth_token: "gho_file" } }),
       ),
     ).toEqual({
       secret: { token: "gho_file" },
@@ -112,14 +112,14 @@ describe("Copilot connector", () => {
 
   test("identity comes from /user; usage headers use the token scheme and editor identity", async () => {
     const http = fakeFetch({
-      [userUrl]: () => json({ id: 42, login: "amit" }),
+      [userUrl]: () => json({ id: 42, login: "octocat" }),
       [usageUrl]: () => json(paid),
     });
     const connector = createCopilotConnector({ fetch: http.fetch });
     expect(await connector.identity(credential)).toEqual({
       providerAccountId: "42",
       workspaceId: null,
-      label: "amit (Copilot)",
+      label: "octocat (Copilot)",
       assurance: "strong",
     });
     await connector.collect(credential, identity);

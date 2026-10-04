@@ -122,7 +122,7 @@ def top(page="panels"):
         </div></span>
       <span class="menu-anchor"><button class="avatar" type="button" aria-label="Account Menu" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">{AVATAR}</button>
         <div class="menu" id="account-menu" role="menu">
-          <div class="who">Signed in as<b>maverick</b></div>
+          <div class="who">Signed in as<b>alex</b></div>
           <div class="theme"><span class="seg" role="group" aria-label="Appearance"><button type="button" data-scheme="system" aria-pressed="true">System</button><button type="button" data-scheme="light" aria-pressed="false">Light</button><button type="button" data-scheme="dark" aria-pressed="false">Dark</button></span></div>
           <label class="item switchrow"><span class="lbl">{I["eye"]}Hide Details</span><span class="switch"><input type="checkbox" id="privacy" role="switch" checked><span class="track"><span class="thumb"></span></span></span></label>
           <button class="item" role="menuitem" type="button" data-open="settings">{I["gear"]}Settings</button>
@@ -255,20 +255,20 @@ HOLD_HINT = '<span id="hold-hint" class="sr">Press and hold for 1.2 seconds to c
 kv = lambda k, v: f'        <span class="kv">{k} <b>{v}</b></span>\n'
 
 # ---------- accounts page: the seven real connections ----------
-claude = panel("a-claude", "Personal", "Max", status("ok", when("12 min ago", "Today · 14:02")), "", who="maverick@example.com", cells=
+claude = panel("a-claude", "Personal", "Max", status("ok", when("12 min ago", "Today · 14:02")), "", who="alex@example.com", cells=
   meter("Session", "5 hours", 49, "Resets in <b>" + when("1 h 12 min", "Today · 15:26") + "</b>") +
   meter("Weekly", "all models", 78, "Resets in <b>" + when("52 min", "Today · 15:06") + "</b>") +
   meter("Weekly", "Fable", 91, "Resets in <b>" + when("52 min", "Today · 15:06") + "</b>"),
   facts=kv("Reset Grants", "0"))
 
-codex_personal = panel("a-codex", "Personal", "Pro", status("ok", when("12 min ago", "Today · 14:02")), "", who="maverick@example.com", cells=
+codex_personal = panel("a-codex", "Personal", "Pro", status("ok", when("12 min ago", "Today · 14:02")), "", who="alex@example.com", cells=
   meter("Weekly", "7 days", 23, "Resets in <b>" + when("5 days 18 h", "Wed, Oct 8 · 08:14") + "</b>", key="weekly") +
   cell("Credits", "balance", value(61068, "credits"), "Not time-bound", fact=True) +
   cell("Reset Credits", "banked", value(3, "", of="full resets"), 'First expires in <b>' + when("2 days 16 h", "Sun, Oct 5 · 06:25") + '</b><span class="info"><button class="infobtn" type="button" aria-label="All reset expiry times" aria-describedby="resets-tip">' + I["info"] + '</button><span class="tip" id="resets-tip" role="tooltip"><b>Banked Resets</b><span>Reset 1 · expires Sunday, Oct 5 at 06:25</span><span>Reset 2 · expires Wed, Oct 22 at 14:39</span><span>Reset 3 · expires Wed, Oct 29 at 13:00</span></span></span>', fact=True, key="resets"),
   lead=hold("off") + HOLD_HINT)
 
 # A second Codex account is synthetic: it shows how several accounts under one provider read.
-codex_work = panel("a-codex-2", "Work", "Business", status("paused", "Paused"), "", who="maverick@acme.example", cells=
+codex_work = panel("a-codex-2", "Work", "Business", status("paused", "Paused"), "", who="alex@acme.example", cells=
   meter("Weekly", "7 days", 12, "Resets in <b>" + when("1 day 6 h", "Fri, Oct 3 · 20:15") + "</b> · as of " + when("1 day 5 h ago", "Wed, Oct 1 · 09:14")),
   notice=notice("neutral", "pause", "Paused. Headroom is not refreshing this account.", '<button class="btn sm" type="button">Resume</button>'), paused=True)
 
@@ -282,11 +282,11 @@ grok = panel("a-grok", "Personal", "X Premium", status("ok", when("7 min ago", "
   meter("Weekly Pool", "7 days", 0, "Resets in <b>" + when("6 days 17 h", "Thu, Oct 9 · 07:20") + "</b>"),
   facts=kv("On-Demand", "Off") + kv("Prepaid Balance", "0 credits"))
 
-anti = panel("a-ag", "Personal", "Starter", status("ok", when("1 min ago", "Today · 14:13")), "", who="maverick@example.com", cells=
+anti = panel("a-ag", "Personal", "Starter", status("ok", when("1 min ago", "Today · 14:13")), "", who="alex@example.com", cells=
   meter("Gemini", "weekly", 0, "Resets in <b>" + when("6 days 23 h", "Thu, Oct 9 · 14:13") + "</b>") +
   meter("Claude and GPT", "weekly", 0, "Resets in <b>" + when("6 days 23 h", "Thu, Oct 9 · 14:13") + "</b>"))
 
-copilot = panel("a-copilot", "Personal", "Pro", status("ok", when("7 min ago", "Today · 14:07")), "", who="maverick", cells=
+copilot = panel("a-copilot", "Personal", "Pro", status("ok", when("7 min ago", "Today · 14:07")), "", who="alex", cells=
   meter("AI Credits", "monthly", 0.8, "Resets in <b>" + when("29 days", "Sat, Nov 1 · 00:00") + "</b>", decimals=1),
   facts=kv("Credits Used", "1") + kv("Extra Usage", "0") + kv("Chat", "Unlimited") + kv("Completions", "Unlimited"))
 

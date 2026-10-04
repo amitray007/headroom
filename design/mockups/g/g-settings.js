@@ -306,7 +306,7 @@ function mountMenu() {
   menu.setAttribute("role", "menu");
   menu.setAttribute("popover", "");
   menu.innerHTML = `
-    <div class="menu-who"><span class="menu-who-face"><img src="avatar.svg" alt="" width="32" height="32" /></span><span class="menu-who-line">Signed in as <b>maverick</b></span></div>
+    <div class="menu-who"><span class="menu-who-face"><img src="avatar.svg" alt="" width="32" height="32" /></span><span class="menu-who-line">Signed in as <b>alex</b></span></div>
     <button class="item" role="menuitem" type="button" data-open-settings style="--i:0">${gear}Settings</button>
     <hr class="menu-sep" />
     <button class="item danger" role="menuitem" type="button" style="--i:1">${signOut}Sign Out</button>`;

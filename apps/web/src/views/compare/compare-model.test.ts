@@ -6,6 +6,7 @@ import {
   balanceKey,
   columnLeft,
   columnsOf,
+  slotOf,
   defaultSort,
   driversOf,
   limitingName,
@@ -92,9 +93,9 @@ describe("sortRows", () => {
 
   test("by a window column, unknown sorts last", () => {
     const blank = rowOf(connection("claude", { id: "u", name: "Blank", metrics: [] }));
-    const sorted = sortRows([blank, ...rows], { key: "five_hour", dir: "desc" });
+    const sorted = sortRows([blank, ...rows], { key: "Session|5 hours", dir: "desc" });
     expect(sorted.map((row) => row.name)).toEqual(["Alpha", "Bravo", "Blank", "Charlie"]);
-    const asc = sortRows([blank, ...rows], { key: "five_hour", dir: "asc" });
+    const asc = sortRows([blank, ...rows], { key: "Session|5 hours", dir: "asc" });
     expect(asc.map((row) => row.name)).toEqual(["Bravo", "Alpha", "Blank", "Charlie"]);
   });
 
@@ -125,8 +126,33 @@ describe("columns and drivers", () => {
       }),
     );
     const keys = columnsOf([extra, ...rows]).map((column) => column.key);
-    expect(keys[0]).toBe("five_hour");
-    expect(keys).toEqual(["five_hour", "seven_day", "limits.fable"]);
+    expect(keys).toEqual(["Session|5 hours", "Weekly|all models", "Weekly|fable"]);
+    expect(extra.windows.map(slotOf)).toContain("Weekly|fable");
+  });
+
+  test("a weekly limit in the slot another plan uses for its session joins the weekly column", () => {
+    // Codex reports a Pro account's only limit, weekly, as its primary window: Plus uses that slot for 5 hours.
+    const plus = rowOf(
+      connection("codex", {
+        id: "plus",
+        metrics: [
+          percent("rate_limit.primary_window", 40, { scope: "window:18000s" }),
+          percent("rate_limit.secondary_window", 60, { scope: "window:604800s" }),
+        ],
+      }),
+    );
+    const pro = rowOf(
+      connection("codex", {
+        id: "pro",
+        metrics: [percent("rate_limit.primary_window", 30, { scope: "window:604800s" })],
+      }),
+    );
+    const columns = columnsOf([plus, pro]);
+    expect(columns).toHaveLength(2);
+    const [session, weekly] = columns;
+    expect(columnLeft(pro, session?.key ?? "")).toBeNull();
+    expect(columnLeft(pro, weekly?.key ?? "")).toBe(70);
+    expect(columnLeft(plus, weekly?.key ?? "")).toBe(40);
   });
 
   test("a model window is a chip only when it limits", () => {

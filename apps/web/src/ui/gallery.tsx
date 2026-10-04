@@ -282,7 +282,7 @@ function AccountMenu(props: {
 }) {
   return (
     <Menu label="Account Menu" trigger={<Avatar />} triggerClassName="avatar">
-      <MenuWho lead="Signed in as" name="maverick" />
+      <MenuWho lead="Signed in as" name="owner" />
       <MenuBlock>
         <Segmented
           full
@@ -630,7 +630,7 @@ export function Gallery() {
                 </button>
               </h3>
               <div className="ident">
-                <span className="who">maverick@example.com</span>
+                <span className="who">alex@example.com</span>
               </div>
             </div>
             <div className="right">

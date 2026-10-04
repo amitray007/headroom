@@ -21,7 +21,7 @@ export const accounts = [
     provider: "claude",
     name: "Personal",
     plan: "Max",
-    identity: "maverick@example.com",
+    identity: "alex@example.com",
     status: "active",
     refreshed: -6,
     meters: [
@@ -43,7 +43,7 @@ export const accounts = [
     provider: "claude",
     name: "Work",
     plan: "Team",
-    identity: "maverick@acme.example",
+    identity: "alex@acme.example",
     status: "active",
     refreshed: -4,
     meters: [
@@ -93,7 +93,7 @@ export const accounts = [
     provider: "codex",
     name: "Personal",
     plan: "Pro",
-    identity: "maverick@example.com",
+    identity: "alex@example.com",
     status: "active",
     refreshed: -11,
     meters: [
@@ -115,7 +115,7 @@ export const accounts = [
     provider: "codex",
     name: "Work",
     plan: "Business",
-    identity: "maverick@acme.example",
+    identity: "alex@acme.example",
     status: "paused",
     refreshed: -1640,
     meters: [
@@ -173,7 +173,7 @@ export const accounts = [
     provider: "cursor",
     name: "Teams Seat",
     plan: "Teams",
-    identity: "maverick@acme.example",
+    identity: "alex@acme.example",
     status: "active",
     refreshed: -7,
     meters: [
@@ -230,7 +230,7 @@ export const accounts = [
     provider: "grok",
     name: "Work",
     plan: "SuperGrok",
-    identity: "maverick@acme.example",
+    identity: "alex@acme.example",
     status: "active",
     refreshed: -5,
     meters: [
@@ -250,7 +250,7 @@ export const accounts = [
     provider: "antigravity",
     name: "Personal",
     plan: "Starter Quota",
-    identity: "maverick@example.com",
+    identity: "alex@example.com",
     status: "active",
     refreshed: -8,
     meters: [
@@ -270,7 +270,7 @@ export const accounts = [
     provider: "copilot",
     name: "Personal",
     plan: null,
-    identity: "maverick-gh",
+    identity: "alex-gh",
     status: "disconnected",
     refreshed: -2 * 1440,
     meters: [

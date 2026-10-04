@@ -6,7 +6,14 @@ import { When } from "../../lib/when.tsx";
 import { Bar } from "../../ui/bar.tsx";
 import { cx } from "../../ui/cx.ts";
 import { VerifiedSeal } from "../../ui/verified-seal.tsx";
-import { balanceKey, limitingName, type Column, type Row, type Sort } from "./compare-model.ts";
+import {
+  balanceKey,
+  limitingName,
+  slotOf,
+  type Column,
+  type Row,
+  type Sort,
+} from "./compare-model.ts";
 import { figureOfRoom, figureOfWindow, type Figure, type Look } from "./figure.ts";
 import { LimitTag, ResetLine } from "./parts.tsx";
 
@@ -100,7 +107,7 @@ function WindowCell(props: { readonly row: Row; readonly column: Column; readonl
       />
     );
   }
-  const window = row.windows.find((entry) => entry.key === column.key);
+  const window = row.windows.find((entry) => slotOf(entry) === column.key);
   if (window === undefined) {
     return (
       <div className="cmp-mc none">

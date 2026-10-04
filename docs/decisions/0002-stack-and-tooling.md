@@ -35,7 +35,7 @@ Workspace packages export TypeScript source directly; Bun runs it without a buil
 
 ## Authentication (D22, added 2026-10-01)
 
-Amit chose Better Auth over the hand-written owner store so the dashboard gets username, password and passkey sign-in from a maintained library. Decisions taken with it:
+The maintainer chose Better Auth over the hand-written owner store so the dashboard gets username, password and passkey sign-in from a maintained library. Decisions taken with it:
 
 - `better-auth` 1.7.7 with the `username` plugin and `@better-auth/passkey`, on the Drizzle SQLite adapter. Its tables (`user`, `session`, `account`, `verification`, `passkey`) are generated into `packages/core/src/db/auth-schema.ts` by `bun run auth:generate` and migrated with the rest of the schema.
 - Single owner: a `user.create.before` hook refuses a second sign-up with 403. `/api/setup` tells the UI whether the owner exists.
@@ -55,6 +55,6 @@ Amit chose Better Auth over the hand-written owner store so the dashboard gets u
 
 ## Rejected
 
-- Biome, ESLint and Prettier: Oxlint and Oxfmt cover the same ground faster and are already Amit's direction.
+- Biome, ESLint and Prettier: Oxlint and Oxfmt cover the same ground faster and are already the maintainer's direction.
 - Vitest: `bun test` is built in and sufficient.
 - Lefthook or other Git hooks: CI is the gate; hooks can be added if review shows unformatted commits.

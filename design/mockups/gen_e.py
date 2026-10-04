@@ -71,7 +71,7 @@ def top(summary, page="panels"):
     <nav aria-label="Page"><span class="summary muted">{summary}</span>{connect}
       <span class="menu-anchor"><button class="avatar" type="button" aria-label="Account menu" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">M</button>
         <div class="menu" id="account-menu" role="menu">
-          <div class="who">Signed in as<b>maverick</b></div>
+          <div class="who">Signed in as<b>alex</b></div>
           <div class="theme"><span>Appearance</span><span class="seg" role="group" aria-label="Appearance"><button type="button" data-scheme="system" aria-pressed="true">System</button><button type="button" data-scheme="light" aria-pressed="false">Light</button><button type="button" data-scheme="dark" aria-pressed="false">Dark</button></span></div>
           <a class="item" role="menuitem" href="#">{I["key"]}Passkeys and password</a>
           <button class="item danger" role="menuitem" type="button">{I["out"]}Sign out</button>

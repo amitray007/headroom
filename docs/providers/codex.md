@@ -94,7 +94,7 @@ A further fallback runs the official Codex app-server per connection with its ow
 | Device user code request | ChatGPT device authorization endpoint, per CLIProxyAPI `codex_device.go` | `private` | Begin sign-in. Exact URL pinned during validation. |
 | Device token poll | ChatGPT device token endpoint, per CLIProxyAPI `codex_device.go` | `private` | Poll at the returned interval. |
 
-The direct HTTP consume route is implemented as the `consume_reset_credit` action and stays unvalidated until Amit triggers it from the dashboard; agents never run it with live credentials.
+The direct HTTP consume route is implemented as the `consume_reset_credit` action and stays unvalidated until the owner triggers it from the dashboard; agents never run it with live credentials.
 
 ### App-server reference
 

@@ -1,6 +1,6 @@
 # Provider findings
 
-Research baseline: 2026-10-01. Headroom has no implemented connectors. This matrix summarizes source-backed candidates, not a production support promise. Connection methods follow [ADR 0001](../decisions/0001-direct-provider-clients.md): an official CLI may run once for sign-in, collection is always direct HTTP.
+Research baseline: 2026-10-01. All seven connectors are implemented; each dossier records which findings are validated against a live account and which are not. The matrix is a map of the evidence, not a support promise. Connection methods follow [ADR 0001](../decisions/0001-direct-provider-clients.md): an official CLI may run once for sign-in, collection is always direct HTTP.
 
 ## Connection matrix
 

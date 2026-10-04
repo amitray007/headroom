@@ -1,6 +1,6 @@
 # ADR 0001: Direct provider clients in one TypeScript service
 
-Status: proposed on 2026-10-01, revised the same day after review with Amit, awaiting his confirmation. Supersedes the official-CLI worker design in D08 and the TypeScript and Go stack proposals in D09.
+Status: accepted. Proposed on 2026-10-01, revised the same day after the maintainer's review, and implemented. Supersedes the official-CLI worker design in D08 and the TypeScript and Go stack proposals in D09.
 
 ## Context
 
@@ -21,7 +21,7 @@ Two reference projects show the alternative. [CLIProxyAPI](https://github.com/ro
 5. **Credential import.** A user who already has a laptop login can paste that CLI's auth file (Codex `auth.json`, Claude `.credentials.json`, Grok `auth.json`, or a CLIProxyAPI auth file) into Headroom once. It is validated, re-encrypted and treated like any other connection.
 6. **TypeScript on Bun, single binary, SQLite.** Hono for HTTP, Drizzle on SQLite, Zod at every provider boundary, `bun build --compile` for one binary, Docker as the deployment unit. The UI in M5 shares types with the backend. Credentials are encrypted at rest with a key file outside the database.
 7. **Single owner first.** One dashboard owner, strict per-connection isolation, no multi-user tenancy.
-8. **Codex is the first connector.** Its CLI device login, credentials file and usage probe are the best understood of the set, and it is the account Amit uses most.
+8. **Codex is the first connector.** Its CLI device login, credentials file and usage probe are the best understood of the set, and it is the account the maintainer uses most.
 
 ## Rejected
 
