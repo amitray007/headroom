@@ -72,7 +72,10 @@ Headroom signs in to each account once, refreshes them in the background, and sh
 | Antigravity | Google sign-in, then paste the redirect | Gemini and Claude/GPT quota pools | Private |
 | Vercel AI Gateway | API key | Credit balance, credits used, spend | Official |
 
-Private means the endpoint the provider's own app or CLI calls, not a published API. It can change without notice, and every metric shows its interface label. Providers are switched on with `HEADROOM_ENABLED_PROVIDERS`: the Docker setup enables all seven, a bare binary only Codex. The [provider dossiers](docs/providers/README.md) record what is validated and what is not.
+- **Private:** the endpoint the provider's own app or CLI calls. It can change without notice.
+- **Official:** a published API.
+- **Enable providers** with `HEADROOM_ENABLED_PROVIDERS`. Docker turns on all seven; a bare binary only Codex.
+- **Evidence:** the [provider dossiers](docs/providers/README.md) record what is validated.
 
 ## How it works
 
@@ -161,4 +164,9 @@ Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the [documentation index](docs
 
 ## License
 
-[MIT](LICENSE). Headroom is an independent project, not affiliated with or endorsed by Anthropic, OpenAI, Anysphere, GitHub, xAI, Google or Vercel. Product names are trademarks of their owners. It is built for personal self-hosted use: it reads your own accounts with your own credentials, and the provider terms you agreed to still apply.
+[MIT](LICENSE).
+
+> [!NOTE]
+> Headroom is an independent project, not affiliated with any provider listed above. Product names are trademarks of their owners.
+>
+> It is for personal self-hosted use. It reads your own accounts with your own credentials, and each provider's terms still apply.
