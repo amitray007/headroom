@@ -177,6 +177,9 @@ const topUp = (id: string, over: Partial<TopUp>): TopUp => ({
   price: usd(10),
   credits: null,
   note: null,
+  source: "owner",
+  expiresOn: null,
+  expiryAlertDays: null,
   ...over,
 });
 const rolled = (renewsOn: string, cycle: "monthly" | "annual", at = now) =>
@@ -670,6 +673,9 @@ describe("providerSpend", () => {
             price: usd(10),
             credits: null,
             note: null,
+            source: "owner",
+            expiresOn: null,
+            expiryAlertDays: null,
           },
           {
             id: "t2",
@@ -679,6 +685,9 @@ describe("providerSpend", () => {
             price: usd(99),
             credits: null,
             note: null,
+            source: "owner",
+            expiresOn: null,
+            expiryAlertDays: null,
           },
         ],
         displayCurrency: "USD",
@@ -719,6 +728,9 @@ describe("providerSpend", () => {
             price: usd(5),
             credits: null,
             note: null,
+            source: "owner",
+            expiresOn: null,
+            expiryAlertDays: null,
           },
           {
             id: "t2",
@@ -728,6 +740,9 @@ describe("providerSpend", () => {
             price: usd(2),
             credits: null,
             note: null,
+            source: "owner",
+            expiresOn: null,
+            expiryAlertDays: null,
           },
         ],
         displayCurrency: "USD",
@@ -845,5 +860,72 @@ describe("creditsOf", () => {
     expect(creditBalanceText({ value: null, unlimited: true })).toBe("Unlimited credits");
     expect(bankedText(2)).toBe("2 resets banked");
     expect(bankedText(1)).toBe("1 reset banked");
+  });
+});
+
+describe("detected top-ups with no price", () => {
+  const topUps = [
+    topUp("a", { date: "2026-10-01", price: usd(25) }),
+    topUp("b", { date: "2026-10-02", price: null, source: "detected", credits: 40 }),
+    topUp("c", { date: "2026-10-03", price: null, source: "detected", credits: 15 }),
+    topUp("d", { date: "2026-09-12", price: null, source: "detected" }),
+    topUp("e", { date: "2026-10-04", kind: "free", price: null, source: "detected" }),
+  ];
+  test("are left out of the money total and counted as not priced, apart from missing rates", () => {
+    const summary = summarize(
+      [codex],
+      [],
+      book({ topUps, displayCurrency: "USD" }),
+      { USD: 1 },
+      now,
+    );
+    expect(summary.topUpsThisMonth.paid).toEqual({ money: usd(25), missing: 0 });
+    expect(summary.topUpsThisMonth.paidCount).toBe(3);
+    expect(summary.topUpsThisMonth.unpriced).toBe(2);
+    expect(summary.topUpsThisMonth.freeCount).toBe(1);
+    expect(summary.allIn.money).toEqual(usd(25));
+    expect(summary.allIn.missing).toBe(0);
+  });
+  test("are counted in their own month of the six-month series", () => {
+    const result = summarize(
+      [codex],
+      [],
+      book({ topUps, displayCurrency: "USD" }),
+      null,
+      now,
+    ).topUpMonths;
+    expect(result.map((entry) => [entry.month, entry.unpriced])).toEqual([
+      ["2026-05", 0],
+      ["2026-06", 0],
+      ["2026-07", 0],
+      ["2026-08", 0],
+      ["2026-09", 1],
+      ["2026-10", 2],
+    ]);
+    expect(result[5]?.paid).toEqual({ money: usd(25), missing: 0 });
+  });
+  test("the top-up keeps its source and its expiry", () => {
+    const [first] = summarize(
+      [codex],
+      [],
+      book({
+        topUps: [
+          topUp("x", {
+            source: "detected",
+            price: null,
+            expiresOn: "2026-12-01",
+            expiryAlertDays: 14,
+          }),
+        ],
+      }),
+      null,
+      now,
+    ).topUps;
+    expect(first).toMatchObject({
+      source: "detected",
+      expiresOn: "2026-12-01",
+      expiryAlertDays: 14,
+      amount: null,
+    });
   });
 });

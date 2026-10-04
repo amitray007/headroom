@@ -15,6 +15,18 @@ export function withTopUp(book: WalletBook, topUp: TopUp): WalletBook {
   return { ...book, topUps: [...book.topUps, topUp] };
 }
 
+/** Replace the editable fields of one top-up; its account, source and id stay. */
+export function withUpdatedTopUp(
+  book: WalletBook,
+  id: string,
+  update: Omit<TopUp, "id" | "source" | "connectionId">,
+): WalletBook {
+  return {
+    ...book,
+    topUps: book.topUps.map((topUp) => (topUp.id === id ? { ...topUp, ...update } : topUp)),
+  };
+}
+
 export function withoutTopUp(book: WalletBook, id: string): WalletBook {
   return { ...book, topUps: book.topUps.filter((topUp) => topUp.id !== id) };
 }

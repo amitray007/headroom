@@ -5,16 +5,22 @@ import { accountName, providerName } from "@headroom/view-model/labels";
 import type { OverviewConnection } from "@headroom/view-model/overview";
 import { dayLabel, monthLong } from "@headroom/view-model/wallet-dates";
 import { formatMoney } from "@headroom/view-model/wallet-money";
-import type { Total, WalletSummary, WalletTopUp } from "@headroom/view-model/wallet";
+import type { WalletSummary, WalletTopUp } from "@headroom/view-model/wallet";
 
-import { prefersReducedMotion } from "../../ui/motion.ts";
 import { Pill } from "../../ui/pill.tsx";
 import { Popover } from "../../ui/menu.tsx";
 import { figureText, originalNote } from "./amount.ts";
+import { Attention } from "./attention.tsx";
+import {
+  subscriptionIssues,
+  topUpIssues,
+  usageIssues,
+  type AttentionFixes,
+} from "./attention-items.ts";
 
-/** One caption line. `warn` is the quiet amber line for something that needs the owner. */
-function Line(props: { readonly warn?: boolean; readonly children: ReactNode }) {
-  return <span className={props.warn === true ? "warn" : undefined}>{props.children}</span>;
+/** One caption part. */
+function Line(props: { readonly children: ReactNode }) {
+  return <span>{props.children}</span>;
 }
 
 function Stat(props: {
@@ -24,7 +30,9 @@ function Stat(props: {
   /** What shows in place of a missing figure. */
   readonly empty?: string;
   readonly unit?: string;
-  /** Short parts of the one caption line under the figure; a dot splits them. */
+  /** The attention icon beside the label, when the figure leaves something out. */
+  readonly attention?: ReactNode;
+  /** Short parts of the caption under the figure; a dot splits them. */
   readonly children: ReactNode;
 }) {
   const { value } = props;
@@ -42,7 +50,10 @@ function Stat(props: {
   );
   return (
     <div className="w-stat">
-      <dt>{props.label}</dt>
+      <dt>
+        <span>{props.label}</span>
+        {props.attention}
+      </dt>
       <dd className={value === null ? "w-num unknown" : "w-num"}>
         {value ?? props.empty ?? "—"}
         {props.unit === undefined || value === null ? null : (
@@ -56,44 +67,6 @@ function Stat(props: {
 
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
-}
-
-/** The caption part for amounts a missing rate kept out of a total, or nothing. */
-function leftOut(total: Total): ReactNode {
-  const { missing } = total;
-  return missing === 0 ? null : <Line warn>{missing} without rate</Line>;
-}
-
-const attentionMs = 2500;
-let attentionTimer: ReturnType<typeof setTimeout> | undefined;
-
-/**
- * Scroll to the first account with no cost, highlight every such row for a moment and focus the first Set Cost
- * button. Pressing again restarts the highlight.
- */
-function showFirstUnpriced(): void {
-  const buttons = [...document.querySelectorAll<HTMLElement>("[data-set-cost]")];
-  const [first] = buttons;
-  if (first === undefined) return;
-  const rows = buttons.flatMap((button) => {
-    const row = button.closest<HTMLElement>("li.w-row");
-    return row === null ? [] : [row];
-  });
-  clearTimeout(attentionTimer);
-  for (const row of document.querySelectorAll("[data-attention]")) {
-    row.removeAttribute("data-attention");
-  }
-  // Reading layout restarts the CSS animation when a row gets the attribute again.
-  void document.body.offsetWidth;
-  for (const row of rows) row.setAttribute("data-attention", "");
-  attentionTimer = setTimeout(() => {
-    for (const row of rows) row.removeAttribute("data-attention");
-  }, attentionMs);
-  (rows[0] ?? first).scrollIntoView({
-    block: "center",
-    behavior: prefersReducedMotion() ? "auto" : "smooth",
-  });
-  first.focus({ preventScroll: true });
 }
 
 /** One top-up: provider and account, date and credits, then the amount with what was billed beneath it. */
@@ -132,8 +105,10 @@ function TopUpRow(props: {
         <span className="w-pop-sub">{detail}</span>
       </span>
       <span className="w-pop-amount num">
-        {topUp.amount === null ? (
+        {topUp.kind === "free" ? (
           <Pill tone="quiet">Free</Pill>
+        ) : topUp.amount === null ? (
+          <span className="w-pop-sub">Price not set</span>
         ) : (
           <span className="w-pop-name">{figureText(topUp.amount)}</span>
         )}
@@ -149,7 +124,7 @@ function TopUpsPopover(props: {
   readonly connections: ReadonlyMap<string, OverviewConnection>;
   readonly caption: string;
 }) {
-  const { items, paid, paidCount } = props.summary.topUpsThisMonth;
+  const { items, paid, paidCount, unpriced } = props.summary.topUpsThisMonth;
   return (
     <Popover
       label={`Top-ups this month: ${props.caption}`}
@@ -191,6 +166,12 @@ function TopUpsPopover(props: {
       </p>
       {paid.missing === 0 ? null : (
         <p className="w-pop-note">{plural(paid.missing, "amount has", "amounts have")} no rate.</p>
+      )}
+      {unpriced === 0 ? null : (
+        <p className="w-pop-note">
+          {plural(unpriced, "top-up has", "top-ups have")} no price yet and{" "}
+          {unpriced === 1 ? "is" : "are"} left out of the total.
+        </p>
       )}
     </Popover>
   );
@@ -263,11 +244,94 @@ function UsageSpendPopover(props: { readonly summary: WalletSummary; readonly ca
   );
 }
 
-/** The four stats in one bordered group, split by hairlines. */
-export function SummaryBand(props: {
+/** Paid subscriptions in a popover: who, cycle and renewal, the monthly figure with the billed one beneath. */
+function SubscriptionsPopover(props: {
   readonly summary: WalletSummary;
-  readonly connections: readonly OverviewConnection[];
+  readonly caption: string;
 }) {
+  const { summary } = props;
+  const paid = summary.providers
+    .flatMap((provider) => provider.accounts)
+    .filter((account) => account.cost?.kind === "paid");
+  const { free, included } = summary.counts;
+  const left = [
+    free > 0 ? `${free} free` : null,
+    included > 0 ? `${included} included` : null,
+  ].filter((part) => part !== null);
+  return (
+    <Popover
+      label={`Subscriptions: ${props.caption}`}
+      panelLabel="Paid subscriptions by account"
+      panelClassName="notif w-topups-pop"
+      triggerClassName="w-cap-trigger"
+      align="start"
+      trigger={
+        <>
+          {props.caption}
+          <ChevronDownIcon />
+        </>
+      }
+      openOnHover
+    >
+      <p className="w-pop-head">
+        <span>Per month</span>
+        <span>{plural(paid.length, "paid account", "paid accounts")}</span>
+      </p>
+      <ul className="w-pop-list">
+        {paid.map((account) => {
+          const { connection, cost, monthly, billed } = account;
+          const who = accountName(connection);
+          const note = monthly === null ? null : originalNote(monthly, " / month");
+          const annual = cost?.kind === "paid" && cost.cycle === "annual";
+          const detail = [
+            annual ? "Annual" : "Monthly",
+            annual && billed !== null ? `${figureText(billed)} / year` : null,
+            account.nextRenewal === null ? null : `renews ${dayLabel(account.nextRenewal)}`,
+          ]
+            .filter((part) => part !== null)
+            .join(" · ");
+          return (
+            <li key={connection.id}>
+              <BrandMark provider={connection.provider} />
+              <span className="w-pop-text">
+                <span className="w-pop-name">
+                  {providerName(connection.provider)}
+                  {" · "}
+                  <span className={who.includes("@") ? "who" : undefined}>{who}</span>
+                </span>
+                <span className="w-pop-sub">{detail}</span>
+              </span>
+              <span className="w-pop-amount num">
+                <span className="w-pop-name">{monthly === null ? "—" : figureText(monthly)}</span>
+                {note === null ? null : <span className="w-pop-sub">{note}</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="w-pop-total">
+        <span>Total per month</span>
+        <span className="num">{formatMoney(summary.monthly.money)}</span>
+      </p>
+      {summary.monthly.missing === 0 ? null : (
+        <p className="w-pop-note">
+          {plural(summary.monthly.missing, "amount has", "amounts have")} no rate.
+        </p>
+      )}
+      {left.length === 0 ? null : (
+        <p className="w-pop-note">{left.join(" · ")} not shown: they add nothing to the total.</p>
+      )}
+    </Popover>
+  );
+}
+
+/** The four stats in one bordered group, split by hairlines. */
+export function SummaryBand(
+  props: AttentionFixes & {
+    readonly summary: WalletSummary;
+    readonly connections: readonly OverviewConnection[];
+  },
+) {
   const { summary } = props;
   const byId = new Map(props.connections.map((connection) => [connection.id, connection]));
   const { counts } = summary;
@@ -285,23 +349,24 @@ export function SummaryBand(props: {
     .filter((part) => part !== null)
     .join(" · ");
 
+  const subscriptions = subscriptionIssues(summary, props);
+  const usage = usageIssues(summary);
+  const topUpItems = topUpIssues(summary, byId, props);
+
   return (
     <dl className="w-band">
       {priced ? (
-        <Stat label="Subscriptions" value={formatMoney(summary.monthly.money)} unit="/ month">
-          <Line>{counts.paid === 0 ? "None paid" : `${counts.paid} paid`}</Line>
-          {counts.notSet === 0 ? null : (
-            <button
-              type="button"
-              className="w-cap-trigger warn"
-              title="Go to the first account with no cost"
-              onClick={showFirstUnpriced}
-            >
-              {/* Worded as the fix, in the same terms as the Set Cost button it leads to. */}
-              Set {plural(counts.notSet, "missing cost", "missing costs")}
-            </button>
+        <Stat
+          label="Subscriptions"
+          value={formatMoney(summary.monthly.money)}
+          unit="/ month"
+          attention={<Attention title="Subscriptions" items={subscriptions} />}
+        >
+          {counts.paid === 0 ? (
+            <Line>None paid</Line>
+          ) : (
+            <SubscriptionsPopover summary={summary} caption={`${counts.paid} paid`} />
           )}
-          {leftOut(summary.monthly)}
         </Stat>
       ) : (
         <Stat label="Subscriptions" value={null} empty="Not Set">
@@ -313,25 +378,39 @@ export function SummaryBand(props: {
           <Line>No account reports spend</Line>
         </Stat>
       ) : (
-        <Stat label="Usage Spend" value={formatMoney(summary.usageSpend.money)}>
+        <Stat
+          label="Usage Spend"
+          value={formatMoney(summary.usageSpend.money)}
+          attention={<Attention title="Usage Spend" items={usage} />}
+        >
           <UsageSpendPopover
             summary={summary}
             caption={`From ${plural(spenders, "provider", "providers")}`}
           />
-          {leftOut(summary.usageSpend)}
         </Stat>
       )}
-      <Stat label="Top-Ups This Month" value={formatMoney(topUps.paid.money)}>
+      <Stat
+        label="Top-Ups This Month"
+        value={formatMoney(topUps.paid.money)}
+        attention={<Attention title="Top-Ups This Month" items={topUpItems} />}
+      >
         {topUps.items.length === 0 ? (
           <Line>None this month</Line>
         ) : (
           <TopUpsPopover summary={summary} connections={byId} caption={topUpCaption} />
         )}
-        {leftOut(topUps.paid)}
       </Stat>
-      <Stat label="All-In This Month" value={formatMoney(summary.allIn.money)}>
+      <Stat
+        label="All-In This Month"
+        value={formatMoney(summary.allIn.money)}
+        attention={
+          <Attention
+            title="All-In This Month"
+            items={[...(priced ? subscriptions : []), ...usage, ...topUpItems]}
+          />
+        }
+      >
         <Line>Plans, usage and top-ups</Line>
-        {leftOut(summary.allIn)}
       </Stat>
     </dl>
   );

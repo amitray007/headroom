@@ -11,7 +11,9 @@ import {
 } from "drizzle-orm/sqlite-core";
 
 import {
+  accountActionOrigins,
   accountActionStates,
+  accountEventKinds,
   attemptStates,
   authMethods,
   availabilities,
@@ -31,6 +33,8 @@ import {
   refreshStates,
   syncRunOutcomes,
   topUpKinds,
+  topUpSources,
+  autoResetWindows,
   walletCostKinds,
 } from "../enums.ts";
 
@@ -211,6 +215,8 @@ export const accountActions = sqliteTable(
       .notNull()
       .references(() => connections.id, { onDelete: "cascade" }),
     action: text("action").notNull(),
+    /** `automation` when an owner-configured rule started it (ADR 0003). */
+    origin: text("origin", { enum: accountActionOrigins }).notNull().default("owner"),
     idempotencyKey: text("idempotency_key").notNull(),
     state: text("state", { enum: accountActionStates }).notNull(),
     requestedAt: integer("requested_at", { mode: "timestamp_ms" }).notNull(),
@@ -319,7 +325,59 @@ export const walletTopUps = sqliteTable(
     priceCurrency: text("price_currency", { enum: currencies }),
     credits: real("credits"),
     note: text("note"),
+    /** `detected` when Headroom recorded it from a rise in a credit balance (ADR 0003). */
+    source: text("source", { enum: topUpSources }).notNull().default("owner"),
+    /** `YYYY-MM-DD` the credits expire, when they do. */
+    expiresOn: text("expires_on"),
+    /** Days before `expires_on` to notify: 7, 14 or 30. Null for no notice. */
+    expiryAlertDays: integer("expiry_alert_days"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
   },
   (t) => [index("wallet_top_ups_date").on(t.date)],
+);
+
+/**
+ * What Headroom noticed between two readings of an account, or an automation it ran (ADR 0003).
+ * `detail_json` holds numbers and ids only, never provider text. Pruned with sync history.
+ */
+export const accountEvents = sqliteTable(
+  "account_events",
+  {
+    id: text("id").primaryKey(),
+    connectionId: text("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: accountEventKinds }).notNull(),
+    occurredAt: integer("occurred_at", { mode: "timestamp_ms" }).notNull(),
+    metricKey: text("metric_key"),
+    detailJson: text("detail_json").notNull(),
+  },
+  (t) => [index("account_events_connection").on(t.connectionId, t.occurredAt)],
+);
+
+/** The owner's auto-reset rule for one account. No row means no rule. */
+export const autoResetRules = sqliteTable("auto_reset_rules", {
+  connectionId: text("connection_id")
+    .primaryKey()
+    .references(() => connections.id, { onDelete: "cascade" }),
+  enabled: integer("enabled", { mode: "boolean" }).notNull(),
+  window: text("window", { enum: autoResetWindows }).notNull(),
+  thresholdPercent: integer("threshold_percent").notNull(),
+  minHoursLeft: integer("min_hours_left").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+
+/** The owner's own budget for one spend metric of one account, in that metric's unit. */
+export const spendBudgets = sqliteTable(
+  "spend_budgets",
+  {
+    connectionId: text("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    metricKey: text("metric_key").notNull(),
+    amount: real("amount").notNull(),
+    unit: text("unit").notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+  },
+  (t) => [primaryKey({ columns: [t.connectionId, t.metricKey] })],
 );

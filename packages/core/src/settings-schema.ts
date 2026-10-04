@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { currencySchema, providerSchema } from "./enums.ts";
+import {
+  currencySchema,
+  notificationKindSchema,
+  notificationKinds,
+  providerSchema,
+} from "./enums.ts";
 
 /**
  * The owner-settings document's shape, with no database import so the browser can use it through
@@ -16,6 +21,17 @@ const historyRetentionDays = z.union([
   z.literal(180),
   z.literal(365),
 ]);
+
+/** One boolean per notification kind. Zod checks that every kind is present. */
+const kindSwitchesSchema = z.record(notificationKindSchema, z.boolean());
+export type KindSwitches = z.infer<typeof kindSwitchesSchema>;
+
+/** Every kind set to one value. */
+export function kindSwitches(value: boolean): KindSwitches {
+  return kindSwitchesSchema.parse(
+    Object.fromEntries(notificationKinds.map((kind) => [kind, value])),
+  );
+}
 
 export const settingsSchema = z.object({
   limitsView: z.enum(["used", "left"]),
@@ -36,13 +52,8 @@ export const settingsSchema = z.object({
   /** The owner's half of the account-actions gate; the server flag is the other half. */
   accountActions: z.boolean(),
   notifications: z.object({
-    runningLow: z.boolean(),
-    expiringResets: z.boolean(),
-    refreshFailures: z.boolean(),
-    /** Vercel AI Gateway credits running low. */
-    balances: z.boolean(),
-    /** Spend near or at its cap. */
-    spend: z.boolean(),
+    /** One switch per notification kind. Every kind goes to the bell and to each enabled channel. */
+    kinds: kindSwitchesSchema,
     /** Limits on 5-hour session windows raise notices. Weekly and other windows always can. */
     includeSessions: z.boolean(),
     /** How many days before a banked reset expires the notice appears. */

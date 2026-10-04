@@ -34,6 +34,6 @@ Out of scope: an attacker with root on the host or read access to both the datab
 - One owner account. Sign-up closes atomically after the first account. Sessions are checked against the database on every API call.
 - Provider requests time out after 20 seconds. A redirect to another host drops every credential header, and a downgrade to plain HTTP is refused.
 - Provider errors become fixed messages. Raw responses are never stored or shown, and CLI sign-in output is redacted.
-- Monitoring is read-only. The one account action, using a banked Codex reset, needs an owner setting and a press-and-hold.
+- Monitoring is read-only. The one account action, using a banked Codex reset, needs an owner setting plus a press-and-hold or an auto-reset rule the owner configured. Headroom never buys credits.
 
 Details: [Deployment and credential storage](docs/architecture/deployment.md) and [Connections](docs/architecture/connections.md).

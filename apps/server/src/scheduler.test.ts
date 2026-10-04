@@ -70,12 +70,63 @@ describe("Scheduler", () => {
     expect(logs.join("\n")).not.toContain("secret");
   });
 
+  test("afterCollect runs only after a collection, and its failure never stops the next connection", async () => {
+    const { ctx, connector, connection, advance } = setup();
+    const second = ctx.connections.create({
+      provider: "codex",
+      identity: {
+        providerAccountId: "acct-2",
+        workspaceId: null,
+        label: "Fake two",
+        assurance: "strong",
+      },
+      scope: "individual",
+      authMethod: "import",
+      interface: "private",
+      connectorVersion: "fake-1",
+    });
+    ctx.credentials.put(second.id, credentialFixture());
+    const seen: string[] = [];
+    const logs: string[] = [];
+    const scheduler = new Scheduler({
+      connections: ctx.connections,
+      attempts: ctx.attempts,
+      connect: ctx.connect,
+      snapshots: ctx.snapshots,
+      collection: ctx.collection,
+      intervalMs: 900_000,
+      now: ctx.now,
+      afterCollect: (id) => {
+        seen.push(id);
+        return Promise.reject(new Error("boom with https://example.com/secret"));
+      },
+      log: (_level, message) => logs.push(message),
+    });
+    expect((await scheduler.tick()).toSorted()).toEqual([connection.id, second.id].toSorted());
+    expect(seen.toSorted()).toEqual([connection.id, second.id].toSorted());
+    expect(logs.join("\n")).toContain("after-collect hook failed: Error");
+    expect(logs.join("\n")).not.toContain("secret");
+    // A failed collection does not call the hook.
+    seen.length = 0;
+    connector.collectQueue.push(rateLimitError(), rateLimitError());
+    advance(2_000_000);
+    await scheduler.tick();
+    expect(seen).toEqual([]);
+  });
+
   test("prunes on the first tick, then at most every six hours, with the current setting", async () => {
     const { ctx, advance } = setup();
     const cutoffs: number[] = [];
     ctx.snapshots.prune = (cutoff) => {
       cutoffs.push(cutoff.getTime());
       return { snapshots: 3, syncRuns: 2 };
+    };
+    const eventCutoffs: number[] = [];
+    const events = {
+      prune: (cutoff: Date) => {
+        eventCutoffs.push(cutoff.getTime());
+        return 4;
+      },
     };
     let days = 90;
     const logs: string[] = [];
@@ -86,6 +137,7 @@ describe("Scheduler", () => {
       snapshots: ctx.snapshots,
       collection: ctx.collection,
       intervalMs: 900_000,
+      events,
       retentionDays: () => days,
       now: ctx.now,
       log: (_level, message) => logs.push(message),
@@ -93,7 +145,8 @@ describe("Scheduler", () => {
     const start = ctx.now().getTime();
     await scheduler.tick();
     expect(cutoffs).toEqual([start - 90 * 86_400_000]);
-    expect(logs).toContain("pruned history: 3 snapshots, 2 runs");
+    expect(eventCutoffs).toEqual(cutoffs);
+    expect(logs).toContain("pruned history: 3 snapshots, 2 runs, 4 events");
     advance(pruneEveryMs - 1);
     await scheduler.tick();
     expect(cutoffs).toHaveLength(1);

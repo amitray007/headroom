@@ -1,9 +1,10 @@
-import type { ClassifiedError, Connector, Identity } from "../connector.ts";
+import type { ClassifiedError, CollectResult, Connector, Identity } from "../connector.ts";
 import type { CredentialRecord, CredentialStore } from "../credentials.ts";
 import type { ReconnectReason, SyncRunOutcome } from "../enums.ts";
 import { LeaseHeldError, type LeaseStore } from "../leases.ts";
 import type { ConnectionRow, ConnectionStore } from "../lifecycle.ts";
 import type { SnapshotStore, SyncRunRow } from "../snapshots.ts";
+import type { AccountEventService } from "./account-events.ts";
 import type { ConnectorRegistry } from "./connect.ts";
 import { defaultRefreshLeadMs, outcomeFor, refreshAndStore } from "./connect.ts";
 
@@ -24,6 +25,8 @@ export interface CollectionServiceOptions {
   readonly leaseTtlMs?: number;
   /** Re-check this long after the first rejection of a key that worked before. */
   readonly confirmRejectionMs?: number;
+  /** Compares each new reading with the previous one. Its failure never fails a collection. */
+  readonly observer?: Pick<AccountEventService, "observe">;
   readonly now?: () => Date;
 }
 
@@ -152,7 +155,10 @@ export class CollectionService {
       }
     }
 
+    // Read before recording: the new snapshot would be the newest.
+    const previousReading = this.deps.observer ? this.deps.snapshots.latest(connection.id) : null;
     this.deps.snapshots.record(connection.id, runId, result, connector.version);
+    this.observe(connection, previousReading, result);
     const partial =
       result.failures.length > 0 || result.metrics.some((m) => m.availability !== "available");
     const outcome = partial ? "partial" : "succeeded";
@@ -163,6 +169,24 @@ export class CollectionService {
     );
     this.deps.snapshots.finishRun(runId, outcome);
     return { status: "collected", outcome };
+  }
+
+  private observe(
+    connection: ConnectionRow,
+    previous: ReturnType<SnapshotStore["latest"]>,
+    result: CollectResult,
+  ): void {
+    try {
+      this.deps.observer?.observe({
+        connectionId: connection.id,
+        provider: connection.provider,
+        previous,
+        result,
+      });
+    } catch {
+      // Detection is a side effect of monitoring. A failure here must not fail the collection,
+      // and its message could carry provider text, so it is dropped.
+    }
   }
 
   private async refresh(

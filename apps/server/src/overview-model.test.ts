@@ -50,6 +50,13 @@ function legacyOverview(source: AppContext, now: number) {
         enabled: source.actions.enabled,
         supported: [...source.actions.supported(connection.provider)],
       },
+      events: source.accountEvents
+        .recent(new Date(now - 7 * 86_400_000))
+        .filter((event) => event.connectionId === connection.id),
+      automation: {
+        autoReset: source.automation.autoReset(connection.id),
+        budgets: source.automation.budgets(connection.id),
+      },
     };
   });
 }
@@ -101,6 +108,16 @@ function collect(observedAt: number, percent: string, extra = false): CollectRes
     failures: [],
   };
 }
+
+const detail = (added: number) =>
+  ({
+    kind: "top_up_detected",
+    unit: "codex_credits",
+    previous: 1,
+    current: 1 + added,
+    added,
+    topUpId: null,
+  }) as const;
 
 function fixture() {
   let clock = 1_700_000_000_000;
@@ -172,6 +189,34 @@ describe("overviewConnections", () => {
     expect(byName(failing.id)?.latestRun?.failureStreak).toBe(3);
     expect(byName(tied.id)?.snapshot?.metrics).toHaveLength(1);
     expect(byName(withSnapshot.id)?.snapshot?.resetCredits).toHaveLength(2);
+  });
+
+  test("carries each account's recent events, rule and budgets", () => {
+    const { ctx, add, now } = fixture();
+    const a = add("codex", "a", "a@example.com");
+    const b = add("codex", "b", "b@example.com");
+    const at = now();
+    ctx.accountEvents.record(a.id, at - 8 * 86_400_000, "credits.balance", detail(1));
+    ctx.accountEvents.record(a.id, at - 2000, "credits.balance", detail(2));
+    ctx.accountEvents.record(a.id, at - 1000, "credits.balance", detail(3));
+    const rule = {
+      enabled: true,
+      window: "weekly",
+      thresholdPercent: 95,
+      minHoursLeft: 12,
+    } as const;
+    ctx.automation.setAutoReset(a.id, rule);
+    ctx.automation.setBudget(a.id, "on_demand.used", 50, "USD");
+    const rows = overviewConnections(ctx, at);
+    const first = rows.find((row) => row.id === a.id);
+    expect(first?.events.map((e) => e.occurredAt)).toEqual([at - 1000, at - 2000]);
+    expect(first?.automation).toEqual({
+      autoReset: rule,
+      budgets: [{ metricKey: "on_demand.used", amount: 50, unit: "USD" }],
+    });
+    const second = rows.find((row) => row.id === b.id);
+    expect(second?.events).toEqual([]);
+    expect(second?.automation).toEqual({ autoReset: null, budgets: [] });
   });
 
   test("runs a constant number of statements however many connections there are", () => {

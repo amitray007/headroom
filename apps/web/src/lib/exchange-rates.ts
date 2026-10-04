@@ -27,6 +27,7 @@ const unreachable = "Could not reach the server.";
 
 interface RatesClient {
   exchangeRates: () => Promise<ExchangeRatesPayload>;
+  refreshExchangeRates: () => Promise<ExchangeRatesPayload>;
 }
 
 /** The slice of `document` the store watches: tests pass a fake, a server render passes none. */
@@ -38,6 +39,8 @@ interface Visibility {
 
 export interface ExchangeRatesStore {
   getState: () => ExchangeRates;
+  /** Ask the server to fetch the rates again now. Never rejects: a failure lands in `error`. */
+  refresh: () => Promise<void>;
   subscribe: (listener: () => void) => () => void;
 }
 
@@ -117,6 +120,7 @@ export function createExchangeRatesStore(
 
   return {
     getState: () => state,
+    refresh: () => reading ?? run(client.refreshExchangeRates),
     subscribe(listener) {
       listeners.add(listener);
       if (listeners.size === 1) {
@@ -133,6 +137,8 @@ export function createExchangeRatesStore(
 }
 
 const store = createExchangeRatesStore();
+
+export const refreshExchangeRates = store.refresh;
 
 export function useExchangeRates(): ExchangeRates {
   return useSyncExternalStore(store.subscribe, store.getState, store.getState);

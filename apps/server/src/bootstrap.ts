@@ -3,9 +3,13 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { dirname, join } from "node:path";
 
 import {
+  AccountEventService,
+  AccountEventStore,
   ActionService,
   ActionStore,
   AttemptStore,
+  AutomationStore,
+  AutoResetService,
   CliLoginRunner,
   type Auth,
   baseUrl,
@@ -33,7 +37,7 @@ import { ExchangeRateService } from "./exchange-rates.ts";
 import { type DeriveNotifications, NotificationDispatcher } from "./notify/dispatcher.ts";
 import type { Fetch } from "./notify/http.ts";
 import { overviewConnections } from "./overview-model.ts";
-import { deriveNotifications } from "@headroom/view-model/notifications";
+import { deriveNotifications, expiringTopUps } from "@headroom/view-model/notifications";
 
 import { createRegistry } from "./registry.ts";
 
@@ -53,11 +57,16 @@ export interface AppContext {
   readonly settings: SettingsStore;
   readonly order: OrderStore;
   readonly wallet: WalletStore;
+  /** Account events the collector noticed, and the owner's automation settings (ADR 0003). */
+  readonly accountEvents: AccountEventStore;
+  readonly automation: AutomationStore;
   readonly registry: ConnectorRegistry;
   readonly runner: CliLoginRunner;
   readonly connect: ConnectService;
   readonly collection: CollectionService;
   readonly actions: ActionService;
+  /** Evaluates each account's auto-reset rule after a collection that succeeded. */
+  readonly autoReset: AutoResetService;
   readonly channels: ChannelStore;
   readonly deliveries: DeliveryStore;
   readonly dispatcher: NotificationDispatcher;
@@ -142,12 +151,16 @@ export function bootstrap(options: BootstrapOptions): AppContext {
       ? options.connectors(runner)
       : (options.connectors ?? []);
   const registry = createRegistry(available, config.enabledProviders);
+  const actionStore = new ActionStore(db, now);
+  const accountEvents = new AccountEventStore(db, now);
+  const automation = new AutomationStore(db, now);
   const collection = new CollectionService({
     registry,
     connections,
     credentials,
     snapshots,
     leases,
+    observer: new AccountEventService({ events: accountEvents, wallet, actions: actionStore }),
     now,
   });
   const channels = new ChannelStore(db, keyring, now);
@@ -160,9 +173,17 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     connections,
     credentials,
     snapshots,
-    actions: new ActionStore(db, now),
+    actions: actionStore,
     leases,
     collection,
+  });
+  const autoReset = new AutoResetService({
+    automation,
+    connections,
+    snapshots,
+    actionRows: actionStore,
+    events: accountEvents,
+    actions,
   });
   const context: Omit<AppContext, "dispatcher" | "exchangeRates"> = {
     config,
@@ -185,11 +206,14 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     settings,
     order,
     wallet,
+    accountEvents,
+    automation,
     registry,
     runner,
     connect: new ConnectService({ registry, attempts, connections, credentials, snapshots, now }),
     collection,
     actions,
+    autoReset,
     channels,
     deliveries,
     fetch: fetchFn,
@@ -203,7 +227,11 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     deliveries,
     overview: (at) => overviewConnections(context, at),
     settings: () => settings.get(),
-    derive: options.derive ?? deriveNotifications,
+    derive:
+      options.derive ??
+      ((rows, current, at, topUps) =>
+        deriveNotifications(rows, current, at, expiringTopUps(topUps))),
+    topUps: () => wallet.book().topUps,
     dashboardUrl: config.publicUrl ? origin : null,
     fetch: fetchFn,
     log,

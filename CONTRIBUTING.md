@@ -42,7 +42,7 @@ A connector lives in `packages/connectors/<provider>` with an endpoints file, Zo
 
 - Collection is direct HTTP from TypeScript. An official CLI may run once, for sign-in only ([ADR 0001](docs/decisions/0001-direct-provider-clients.md)).
 - Label every metric `official` or `private`, and keep the evidence labels in the dossier: documented, source-inspected, prior observation, validated, unvalidated.
-- Monitoring must never send a model request, redeem a reset or buy credits. A mutating action needs its own explicit user action.
+- Monitoring must never send a model request, redeem a reset or buy credits. A mutating action needs an explicit owner action: a confirmed press, or a rule the owner configured ([ADR 0003](docs/decisions/0003-owner-automations.md)).
 - Separate authentication from data access. One failing endpoint must not turn other values into zero.
 - Code ported from another project keeps its license attribution in the file header.
 

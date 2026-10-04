@@ -119,6 +119,29 @@ export const accountActionKinds = ["consume_reset_credit"] as const;
 export const accountActionKindSchema = z.enum(accountActionKinds);
 export type AccountActionKind = z.infer<typeof accountActionKindSchema>;
 
+/** Who started an account action: the owner from the dashboard, or an owner-configured automation rule (ADR 0003). */
+export const accountActionOrigins = ["owner", "automation"] as const;
+export const accountActionOriginSchema = z.enum(accountActionOrigins);
+export type AccountActionOrigin = z.infer<typeof accountActionOriginSchema>;
+
+/**
+ * Changes Headroom noticed between two readings of one account, or an automation it ran.
+ * See docs/decisions/0003-owner-automations.md.
+ */
+export const accountEventKinds = [
+  "reset_granted",
+  "early_reset",
+  "top_up_detected",
+  "auto_reset",
+] as const;
+export const accountEventKindSchema = z.enum(accountEventKinds);
+export type AccountEventKind = z.infer<typeof accountEventKindSchema>;
+
+/** Which limit windows an auto-reset rule watches: weekly or longer, 5-hour or shorter, or both. */
+export const autoResetWindows = ["weekly", "session", "either"] as const;
+export const autoResetWindowSchema = z.enum(autoResetWindows);
+export type AutoResetWindow = z.infer<typeof autoResetWindowSchema>;
+
 export const metricKinds = [
   "quota_percentage",
   "absolute_quota",
@@ -191,6 +214,13 @@ export const notificationKinds = [
   "extra_usage_started",
   "refresh_failed",
   "disconnected",
+  "reset_granted",
+  "early_reset",
+  "auto_reset",
+  "top_up_detected",
+  "budget_near",
+  "budget_exceeded",
+  "credits_expiring",
 ] as const;
 export const notificationKindSchema = z.enum(notificationKinds);
 export type NotificationKind = z.infer<typeof notificationKindSchema>;
@@ -261,6 +291,11 @@ export type BillingCycle = z.infer<typeof billingCycleSchema>;
 export const topUpKinds = ["paid", "free"] as const;
 export const topUpKindSchema = z.enum(topUpKinds);
 export type TopUpKind = z.infer<typeof topUpKindSchema>;
+
+/** Who recorded a top-up: the owner, or Headroom from a rise in a credit balance (ADR 0003). */
+export const topUpSources = ["owner", "detected"] as const;
+export const topUpSourceSchema = z.enum(topUpSources);
+export type TopUpSource = z.infer<typeof topUpSourceSchema>;
 
 /** What disconnecting a credential achieved at the provider. `local_only` means the provider offers no revoke. */
 export const disconnectResults = ["revoked", "local_only", "failed"] as const;

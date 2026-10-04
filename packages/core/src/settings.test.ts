@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { openDatabase } from "./db/index.ts";
+import { kindSwitches } from "./settings-schema.ts";
 import {
   defaultSettings,
   mergeSettings,
@@ -24,11 +25,7 @@ describe("settings", () => {
       historyRetentionDays: 90,
       accountActions: false,
       notifications: {
-        runningLow: true,
-        expiringResets: true,
-        refreshFailures: true,
-        balances: true,
-        spend: true,
+        kinds: kindSwitches(true),
         includeSessions: true,
         resetLeadDays: 3,
         mutedProviders: [],
@@ -78,7 +75,7 @@ describe("settings", () => {
 
   test("unknown stored keys are dropped, missing and invalid ones take defaults", () => {
     const merged = mergeSettings(
-      { clock: "12h", density: "tiny", legacy: true, notifications: { runningLow: false } },
+      { clock: "12h", density: "tiny", legacy: true, notifications: { includeSessions: false } },
       defaultSettings(900),
     );
     expect(merged.clock).toBe("12h");
@@ -87,10 +84,45 @@ describe("settings", () => {
     expect(merged.keepInactiveLast).toBe(true);
     expect(merged.notifications).toEqual({
       ...defaultSettings(900).notifications,
-      runningLow: false,
+      includeSessions: false,
     });
     expect("legacy" in merged).toBe(false);
     expect(mergeSettings("junk", defaultSettings(900))).toEqual(defaultSettings(900));
+  });
+
+  test("old group switches carry over to the kinds they covered", () => {
+    const merged = mergeSettings(
+      {
+        notifications: {
+          runningLow: false,
+          spend: false,
+          refreshFailures: false,
+          kinds: { almost_out: true, budget_near: true },
+        },
+      },
+      defaultSettings(900),
+    );
+    const off = Object.entries(merged.notifications.kinds)
+      .filter(([, on]) => !on)
+      .map(([kind]) => kind)
+      .toSorted();
+    expect(off).toEqual(
+      [
+        "running_low",
+        "spend_near_cap",
+        "spend_cap_reached",
+        "extra_usage_started",
+        "budget_exceeded",
+        "refresh_failed",
+        "disconnected",
+      ].toSorted(),
+    );
+    expect(merged.notifications.kinds.almost_out).toBe(true);
+    expect(merged.notifications.kinds.budget_near).toBe(true);
+    expect("runningLow" in merged.notifications).toBe(false);
+    expect(mergeSettings({}, defaultSettings(900)).notifications.kinds).toEqual(
+      defaultSettings(900).notifications.kinds,
+    );
   });
 
   test("the notification keys keep valid stored values and drop invalid ones", () => {
@@ -100,8 +132,7 @@ describe("settings", () => {
           includeSessions: false,
           resetLeadDays: 7,
           mutedProviders: ["codex", "grok"],
-          balances: false,
-          spend: "yes",
+          kinds: { balance_low: false, budget_near: "yes", nonsense: false },
           extra: 1,
         },
       },
@@ -112,8 +143,9 @@ describe("settings", () => {
       includeSessions: false,
       resetLeadDays: 7,
       mutedProviders: ["codex", "grok"],
-      balances: false,
+      kinds: { ...defaultSettings(900).notifications.kinds, balance_low: false },
     });
+    expect("nonsense" in merged.notifications.kinds).toBe(false);
     const bad = mergeSettings(
       { notifications: { resetLeadDays: 2, mutedProviders: ["codex", "nope"] } },
       defaultSettings(900),

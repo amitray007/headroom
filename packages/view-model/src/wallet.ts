@@ -41,11 +41,20 @@ export interface TopUp {
   /** `YYYY-MM-DD`. */
   readonly date: string;
   readonly kind: "paid" | "free";
-  /** Set for a paid top-up, null for a free one. */
+  /**
+   * Set for a paid top-up, null for a free one. A paid top-up Headroom detected has no price until the owner enters
+   * one: unknown, never zero, and left out of every money total.
+   */
   readonly price: Money | null;
   /** Credits added in the provider's own unit, when the owner knows it. */
   readonly credits: number | null;
   readonly note: string | null;
+  /** Who recorded it: the owner, or Headroom from a rise in a credit balance (ADR 0003). */
+  readonly source: "owner" | "detected";
+  /** `YYYY-MM-DD` the credits expire, or null when they do not. */
+  readonly expiresOn: string | null;
+  /** Days before `expiresOn` to raise a notice, or null for none. */
+  readonly expiryAlertDays: 7 | 14 | 30 | null;
 }
 
 /** Everything the owner entered. */
@@ -167,6 +176,8 @@ export interface MonthTotal {
   /** `YYYY-MM`. */
   readonly month: string;
   readonly paid: Total;
+  /** Paid top-ups of the month with no price entered. They are left out of `paid`. */
+  readonly unpriced: number;
 }
 
 /** A paid account's next renewal inside a window of days. `price` is what the renewal bills, per its cycle. */
@@ -201,6 +212,8 @@ export interface WalletSummary {
   readonly topUpsThisMonth: {
     readonly paid: Total;
     readonly paidCount: number;
+    /** Paid top-ups with no price entered, counted in `paidCount` and left out of `paid`. */
+    readonly unpriced: number;
     readonly freeCount: number;
     readonly items: readonly WalletTopUp[];
   };
@@ -452,10 +465,13 @@ export function topUpMonths(
   return Array.from({ length: count }, (_, index) => {
     const month = shiftMonth(current, index - (count - 1));
     const sum = new Sum(currency);
+    let unpriced = 0;
     for (const topUp of topUps) {
-      if (topUp.kind === "paid" && topUp.date.startsWith(month)) sum.add(topUp.amount);
+      if (topUp.kind !== "paid" || !topUp.date.startsWith(month)) continue;
+      if (topUp.price === null) unpriced += 1;
+      else sum.add(topUp.amount);
     }
-    return { month, paid: sum.total() };
+    return { month, paid: sum.total(), unpriced };
   });
 }
 
@@ -621,10 +637,13 @@ export function summarize(
   const thisMonth = topUps.filter((topUp) => topUp.date.startsWith(month));
   const topUpTotal = new Sum(currency);
   let paidCount = 0;
+  let unpriced = 0;
   for (const topUp of thisMonth) {
     if (topUp.kind === "free") continue;
     paidCount += 1;
-    topUpTotal.add(topUp.amount);
+    // A detected top-up with no price is unknown, not zero and not a missing rate: it is counted apart.
+    if (topUp.price === null) unpriced += 1;
+    else topUpTotal.add(topUp.amount);
   }
 
   const monthlyTotal = monthly.total();
@@ -649,6 +668,7 @@ export function summarize(
     topUpsThisMonth: {
       paid: paidTopUps,
       paidCount,
+      unpriced,
       freeCount: thisMonth.length - paidCount,
       items: thisMonth,
     },

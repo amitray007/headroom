@@ -33,7 +33,7 @@ function client(results: (() => Promise<ExchangeRatesPayload>)[]) {
     const result = results.shift();
     return result ? result() : Promise.reject(new Error("unexpected"));
   };
-  return { calls, exchangeRates: next("get") };
+  return { calls, exchangeRates: next("get"), refreshExchangeRates: next("refresh") };
 }
 
 const settle = () => Bun.sleep(0);

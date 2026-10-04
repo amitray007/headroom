@@ -1,4 +1,5 @@
 import type { Provider } from "@headroom/core/contracts";
+import type { OverviewConnection } from "@headroom/view-model/overview";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 
 import type { ViewId } from "../router.ts";
@@ -39,6 +40,10 @@ export function Shell(props: {
   readonly notifications: NotificationsView;
   /** Providers with a connected account, in the saved order, for the notification settings. */
   readonly providers: readonly Provider[];
+  /** The accounts to show and automate (made-up ones in Demo Mode); null until the overview loads. */
+  readonly connections: readonly OverviewConnection[] | null;
+  /** Reload the overview after an automation setting changed. */
+  readonly onAccountsChanged: () => Promise<void>;
   readonly children: ReactNode;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -81,6 +86,8 @@ export function Shell(props: {
           <SettingsDialog
             open={settingsOpen}
             providers={props.providers}
+            connections={props.connections}
+            onAccountsChanged={props.onAccountsChanged}
             onClose={() => setSettingsOpen(false)}
           />
         ) : null}

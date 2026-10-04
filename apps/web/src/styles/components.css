@@ -542,6 +542,12 @@ time.when {
 .facts > .lead .hold.sm {
   min-width: 0;
 }
+/* "Auto-reset on": a quiet pill beside the banked resets; its words are in the tooltip and for screen readers. */
+.auto-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+}
 
 @media (max-width: 720px) {
   .facts > .lead {
@@ -1025,6 +1031,12 @@ time.when {
   padding: 0;
   font-size: var(--text-sm);
 }
+.seg:disabled {
+  opacity: 0.5;
+}
+.seg:disabled button {
+  cursor: default;
+}
 
 /* View switcher: a segmented row of links with a pill that slides to the active one. */
 .view-switch {
@@ -1205,7 +1217,11 @@ time.when {
   width: min(400px, calc(100vw - 24px));
   max-height: min(560px, calc(100vh - 24px));
   overflow: auto;
+  scrollbar-width: none;
   border-radius: 20px;
+}
+.notif::-webkit-scrollbar {
+  display: none;
 }
 .notif.above {
   transform-origin: bottom right;
@@ -1326,7 +1342,8 @@ time.when {
   color: var(--foreground);
   padding: 0;
   width: min(480px, calc(100vw - 32px));
-  max-height: calc(100vh - 32px);
+  /* Long forms scroll inside the body; the head stays put. */
+  max-height: min(720px, calc(100dvh - 32px));
   box-shadow: var(--shadow-floating);
 }
 .dlg::backdrop {
@@ -1353,8 +1370,15 @@ time.when {
   letter-spacing: -0.01em;
 }
 .dbody {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
+  /* Scrolls by wheel, touch and keyboard with no visible bar, even when the system always shows scroll bars. */
+  scrollbar-width: none;
+}
+.dbody::-webkit-scrollbar {
+  display: none;
 }
 .dsec {
   padding: 16px 24px 20px;
@@ -1436,6 +1460,8 @@ time.when {
 /* Settings dialog: sections of rows, each a title and one-line note on the left with a segment or switch on the right. */
 .dlg.settings {
   width: min(560px, calc(100vw - 32px));
+  /* One fixed height for every tab, so switching tabs never resizes the dialog. The rows scroll under the tabs. */
+  height: min(640px, calc(100dvh - 32px));
 }
 .dlg.settings .dsec {
   gap: 4px;

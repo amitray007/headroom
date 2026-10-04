@@ -147,7 +147,7 @@ function AccountRow(props: {
       </div>
       <div className="w-act">
         {account.cost === null ? (
-          <Button variant="quiet" size="sm" data-set-cost={connection.id} onClick={props.onEdit}>
+          <Button variant="quiet" size="sm" onClick={props.onEdit}>
             Set Cost
           </Button>
         ) : (

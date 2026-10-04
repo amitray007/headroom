@@ -3,6 +3,7 @@ import {
   accountActionStateSchema,
   attemptStateSchema,
   authMethodSchema,
+  autoResetRuleSchema,
   availabilitySchema,
   connectionScopeSchema,
   connectionStateSchema,
@@ -17,7 +18,9 @@ import {
   providerSchema,
   reconnectReasonSchema,
   settingsSchema,
+  spendBudgetSchema,
   topUpSchema,
+  type AutoResetRule,
   type Settings,
   type SubmitInput,
 } from "@headroom/core/contracts";
@@ -192,8 +195,13 @@ const walletSchema: z.ZodType<ServerWallet> = z.object({
   costs: z.record(z.string(), costSchema),
   topUps: z.array(topUpSchema),
 });
-/** A top-up the owner is adding; the server assigns the id. */
-export type TopUpInput = Omit<TopUp, "id">;
+/** A top-up the owner is adding; the server assigns the id and records it as the owner's own. */
+export type TopUpInput = Omit<TopUp, "id" | "source">;
+/** The fields of a top-up the owner can change. The account and the source stay. */
+export type TopUpUpdate = Omit<TopUpInput, "connectionId">;
+
+const autoResetEnvelopeSchema = z.object({ autoReset: autoResetRuleSchema.nullable() });
+const budgetsEnvelopeSchema = z.object({ budgets: z.array(spendBudgetSchema) });
 
 const actionOutcomeSchema = z.object({
   action: z.object({
@@ -339,6 +347,7 @@ export const api = {
   ),
   // Reading rates and asking the server to fetch them again touch no account, so Demo Mode allows both.
   exchangeRates: () => request("GET", "/api/exchange-rates", exchangeRatesSchema),
+  refreshExchangeRates: () => request("POST", "/api/exchange-rates/refresh", exchangeRatesSchema),
   wallet: () => request("GET", "/api/wallet", walletSchema),
   setCost: changesAccount((connectionId: string, cost: Cost) =>
     request("PUT", `/api/wallet/costs/${encodeURIComponent(connectionId)}`, walletSchema, cost),
@@ -348,6 +357,9 @@ export const api = {
   ),
   addTopUp: changesAccount((input: TopUpInput) =>
     request("POST", "/api/wallet/top-ups", walletSchema, input),
+  ),
+  updateTopUp: changesAccount((id: string, update: TopUpUpdate) =>
+    request("PUT", `/api/wallet/top-ups/${encodeURIComponent(id)}`, walletSchema, update),
   ),
   removeTopUp: changesAccount((id: string) =>
     request("DELETE", `/api/wallet/top-ups/${encodeURIComponent(id)}`, walletSchema),
@@ -370,6 +382,36 @@ export const api = {
   ),
   disconnect: changesAccount((id: string) =>
     request("DELETE", `/api/connections/${id}`, revocationSchema),
+  ),
+  setAutoReset: changesAccount((id: string, rule: AutoResetRule) =>
+    request(
+      "PUT",
+      `/api/connections/${encodeURIComponent(id)}/auto-reset`,
+      autoResetEnvelopeSchema,
+      rule,
+    ),
+  ),
+  clearAutoReset: changesAccount((id: string) =>
+    request(
+      "DELETE",
+      `/api/connections/${encodeURIComponent(id)}/auto-reset`,
+      autoResetEnvelopeSchema,
+    ),
+  ),
+  setBudget: changesAccount((id: string, metricKey: string, amount: number) =>
+    request(
+      "PUT",
+      `/api/connections/${encodeURIComponent(id)}/budgets/${encodeURIComponent(metricKey)}`,
+      budgetsEnvelopeSchema,
+      { amount },
+    ),
+  ),
+  clearBudget: changesAccount((id: string, metricKey: string) =>
+    request(
+      "DELETE",
+      `/api/connections/${encodeURIComponent(id)}/budgets/${encodeURIComponent(metricKey)}`,
+      budgetsEnvelopeSchema,
+    ),
   ),
   consumeResetCredit: changesAccount((id: string, creditId: string) =>
     request("POST", `/api/connections/${id}/actions`, actionOutcomeSchema, {

@@ -69,7 +69,7 @@ describe("demoWallet", () => {
     for (const seed of seeds) {
       const { topUps } = build(seed).book;
       expect(topUps.length).toBeGreaterThanOrEqual(2);
-      expect(topUps.length).toBeLessThanOrEqual(4);
+      expect(topUps.length).toBeLessThanOrEqual(6);
       expect(topUps.some((topUp) => topUp.kind === "paid" && topUp.price?.currency === "USD")).toBe(
         true,
       );
@@ -107,5 +107,31 @@ describe("demoWallet", () => {
       summarize(overview.connections, overview.providerOrder, book, null, anchor, locale).currency;
     expect(at("en-IN")).toBe("INR");
     expect(at("en-US")).toBe("USD");
+  });
+
+  test("one top-up was detected with no price, and one expires inside its alert window", () => {
+    for (const seed of seeds) {
+      const { topUps } = build(seed).book;
+      const detected = topUps.filter((topUp) => topUp.source === "detected");
+      expect(detected).toHaveLength(1);
+      expect(detected[0]?.kind).toBe("paid");
+      expect(detected[0]?.price).toBeNull();
+      expect(
+        topUps.filter((topUp) => topUp.source === "owner" && topUp.kind === "paid"),
+      ).not.toEqual([]);
+      const expiring = topUps.filter((topUp) => topUp.expiresOn !== null);
+      expect(expiring).toHaveLength(1);
+      const left = (Date.parse(`${expiring[0]?.expiresOn}T00:00:00Z`) - Date.UTC(2026, 9, 3)) / day;
+      expect(left).toBeGreaterThan(0);
+      expect(left).toBeLessThanOrEqual(expiring[0]?.expiryAlertDays ?? 0);
+    }
+  });
+
+  test("the detected top-up is left out of money totals and counted as not priced", () => {
+    const { overview, book } = build(1);
+    const summary = summarize(overview.connections, overview.providerOrder, book, null, anchor);
+    expect(summary.topUpsThisMonth.unpriced).toBe(1);
+    expect(summary.topUpsThisMonth.paid.missing).toBe(0);
+    expect(summary.topUpMonths.at(-1)?.unpriced).toBe(1);
   });
 });
