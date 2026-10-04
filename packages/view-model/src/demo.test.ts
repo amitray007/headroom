@@ -19,6 +19,7 @@ const defaultSettings: NotificationSettings = {
     refreshFailures: true,
     balances: true,
     spend: true,
+    resetActivity: true,
     includeSessions: true,
     resetLeadDays: 3,
     mutedProviders: [],
@@ -313,15 +314,15 @@ describe("demoOverview", () => {
     }
   });
 
-  test("the default settings give 2 to 4 notifications for any seed", () => {
+  test("the default settings give 6 to 9 notifications for any seed", () => {
     for (const seed of seeds) {
       const found = deriveNotifications(
         demoOverview(seed, anchor).connections,
         defaultSettings,
         anchor,
       );
-      expect(found.length).toBeGreaterThanOrEqual(2);
-      expect(found.length).toBeLessThanOrEqual(4);
+      expect(found.length).toBeGreaterThanOrEqual(6);
+      expect(found.length).toBeLessThanOrEqual(9);
     }
   });
 
@@ -329,11 +330,47 @@ describe("demoOverview", () => {
     const found = deriveNotifications(connections, defaultSettings, anchor);
     expect(found.map((item) => item.kind).toSorted()).toEqual([
       "disconnected",
+      "early_reset",
+      "extra_usage_started",
+      "extra_usage_started",
+      "extra_usage_started",
       "reset_expiring",
+      "reset_granted",
       "running_low",
+      "top_up_detected",
     ]);
     const disconnected = connections.find((c) => c.state === "reconnect_required");
     expect(disconnected?.reconnectReason).toBe("refresh_rejected");
     expect(disconnected?.provider).toBe("antigravity");
+  });
+
+  const at = (provider: string, n: number) =>
+    connections.filter((c) => c.provider === provider)[n - 1];
+
+  test("events, an auto-reset rule and a budget sit on the accounts they are meant for", () => {
+    expect(at("codex", 2)?.events.map((e) => e.detail.kind)).toEqual(["reset_granted"]);
+    expect(at("codex", 1)?.events.map((e) => e.detail.kind)).toEqual(["early_reset"]);
+    expect(at("vercel_ai_gateway", 1)?.events.map((e) => e.detail.kind)).toEqual([
+      "top_up_detected",
+    ]);
+    expect(at("codex", 2)?.automation.autoReset).toEqual({
+      enabled: true,
+      window: "weekly",
+      thresholdPercent: 95,
+      minHoursLeft: 24,
+    });
+    const budget = at("cursor", 1)?.automation.budgets[0];
+    expect(budget?.metricKey).toBe("on_demand.used");
+    const spent = at("cursor", 1)?.snapshot?.metrics.find(
+      (m) => m.providerMetricKey === "on_demand.used",
+    )?.valueNum;
+    // The budget is set above the spend, so no budget notice is showing.
+    expect(budget?.amount).toBeGreaterThan((spent ?? 0) / 0.5);
+    for (const connection of connections) {
+      for (const event of connection.events) {
+        expect(event.connectionId).toBe(connection.id);
+        expect(anchor - event.occurredAt).toBeLessThan(72 * 60 * minute);
+      }
+    }
   });
 });

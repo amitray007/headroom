@@ -160,6 +160,16 @@ export const SparkleIcon = stroke(
   <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.2 2.2M16.2 16.2l2.2 2.2M5.6 18.4l2.2-2.2M16.2 7.8l2.2-2.2" />,
 );
 
+/** A radar sweep: something Headroom found by watching, such as a top-up seen as a balance change. */
+export const RadarIcon = stroke(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="4.5" />
+    <path d="M12 12 18.4 5.6" />
+    <circle cx="12" cy="12" r="0.6" fill="currentColor" />
+  </>,
+);
+
 type Mark =
   | { readonly kind: "image"; readonly url: string }
   | { readonly kind: "inline"; readonly svg: string };

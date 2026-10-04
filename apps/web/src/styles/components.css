@@ -542,6 +542,12 @@ time.when {
 .facts > .lead .hold.sm {
   min-width: 0;
 }
+/* "Auto-reset on": a quiet pill beside the banked resets; its words are in the tooltip and for screen readers. */
+.auto-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+}
 
 @media (max-width: 720px) {
   .facts > .lead {
@@ -1024,6 +1030,12 @@ time.when {
   height: 32px;
   padding: 0;
   font-size: var(--text-sm);
+}
+.seg:disabled {
+  opacity: 0.5;
+}
+.seg:disabled button {
+  cursor: default;
 }
 
 /* View switcher: a segmented row of links with a pill that slides to the active one. */

@@ -58,10 +58,28 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-/** The caption part for amounts a missing rate kept out of a total, or nothing. */
-function leftOut(total: Total): ReactNode {
-  const { missing } = total;
-  return missing === 0 ? null : <Line warn>{missing} without rate</Line>;
+/**
+ * The caption part for amounts kept out of a total, or nothing: those with no rate into the display currency, and
+ * paid top-ups with no price entered yet (`unpriced`).
+ */
+function leftOut(total: Total, unpriced = 0): ReactNode {
+  // An array, not a fragment: the stat's caption flattens its children, so an empty result adds no separator dot.
+  const parts: ReactNode[] = [];
+  if (total.missing > 0) {
+    parts.push(
+      <Line key="rate" warn>
+        {total.missing} without rate
+      </Line>,
+    );
+  }
+  if (unpriced > 0) {
+    parts.push(
+      <Line key="price" warn>
+        {unpriced} price not set
+      </Line>,
+    );
+  }
+  return parts;
 }
 
 const attentionMs = 2500;
@@ -132,8 +150,10 @@ function TopUpRow(props: {
         <span className="w-pop-sub">{detail}</span>
       </span>
       <span className="w-pop-amount num">
-        {topUp.amount === null ? (
+        {topUp.kind === "free" ? (
           <Pill tone="quiet">Free</Pill>
+        ) : topUp.amount === null ? (
+          <span className="w-pop-sub">Price not set</span>
         ) : (
           <span className="w-pop-name">{figureText(topUp.amount)}</span>
         )}
@@ -149,7 +169,7 @@ function TopUpsPopover(props: {
   readonly connections: ReadonlyMap<string, OverviewConnection>;
   readonly caption: string;
 }) {
-  const { items, paid, paidCount } = props.summary.topUpsThisMonth;
+  const { items, paid, paidCount, unpriced } = props.summary.topUpsThisMonth;
   return (
     <Popover
       label={`Top-ups this month: ${props.caption}`}
@@ -191,6 +211,12 @@ function TopUpsPopover(props: {
       </p>
       {paid.missing === 0 ? null : (
         <p className="w-pop-note">{plural(paid.missing, "amount has", "amounts have")} no rate.</p>
+      )}
+      {unpriced === 0 ? null : (
+        <p className="w-pop-note">
+          {plural(unpriced, "top-up has", "top-ups have")} no price yet and{" "}
+          {unpriced === 1 ? "is" : "are"} left out of the total.
+        </p>
       )}
     </Popover>
   );
@@ -327,11 +353,11 @@ export function SummaryBand(props: {
         ) : (
           <TopUpsPopover summary={summary} connections={byId} caption={topUpCaption} />
         )}
-        {leftOut(topUps.paid)}
+        {leftOut(topUps.paid, topUps.unpriced)}
       </Stat>
       <Stat label="All-In This Month" value={formatMoney(summary.allIn.money)}>
         <Line>Plans, usage and top-ups</Line>
-        {leftOut(summary.allIn)}
+        {leftOut(summary.allIn, topUps.unpriced)}
       </Stat>
     </dl>
   );

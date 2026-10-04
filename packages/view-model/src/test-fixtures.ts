@@ -73,6 +73,8 @@ export function connection(
       resetCredits: resetCredits ?? [],
     },
     actions: { enabled: false, supported: [] },
+    events: [],
+    automation: { autoReset: null, budgets: [] },
     ...rest,
   };
 }

@@ -3,8 +3,15 @@ import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import { emptyBook, type Cost, type WalletBook } from "@headroom/view-model/wallet";
 import type { Currency } from "@headroom/view-model/wallet-money";
 
-import { api, type ServerWallet, type TopUpInput } from "../api.ts";
-import { withCost, withDisplay, withoutTopUp, withTopUp, newId } from "../views/wallet/book.ts";
+import { api, type ServerWallet, type TopUpInput, type TopUpUpdate } from "../api.ts";
+import {
+  withCost,
+  withDisplay,
+  withoutTopUp,
+  withTopUp,
+  withUpdatedTopUp,
+  newId,
+} from "../views/wallet/book.ts";
 import { useSettings } from "./settings.tsx";
 
 /**
@@ -16,6 +23,7 @@ export interface WalletClient {
   setCost: (connectionId: string, cost: Cost) => Promise<ServerWallet>;
   clearCost: (connectionId: string) => Promise<ServerWallet>;
   addTopUp: (input: TopUpInput) => Promise<ServerWallet>;
+  updateTopUp: (id: string, update: TopUpUpdate) => Promise<ServerWallet>;
   removeTopUp: (id: string) => Promise<ServerWallet>;
 }
 
@@ -35,6 +43,7 @@ export interface WalletStore {
   /** Set a cost, or clear it with null. Rejects, with the state unchanged, when the server refuses. */
   setCost: (connectionId: string, cost: Cost | null) => Promise<void>;
   addTopUp: (input: TopUpInput) => Promise<void>;
+  updateTopUp: (id: string, update: TopUpUpdate) => Promise<void>;
   removeTopUp: (id: string) => Promise<void>;
   /** The in-memory Demo Mode book for `key`, made on first use. A new key starts a new book. */
   demo: (key: string, make: () => WalletBook) => WalletBook;
@@ -82,6 +91,7 @@ export function createWalletStore(client: WalletClient): WalletStore {
         cost === null ? client.clearCost(connectionId) : client.setCost(connectionId, cost),
       ),
     addTopUp: (input) => mutate(() => client.addTopUp(input)),
+    updateTopUp: (id, update) => mutate(() => client.updateTopUp(id, update)),
     removeTopUp: (id) => mutate(() => client.removeTopUp(id)),
     demo(key, make) {
       if (demo?.key !== key) demo = { key, book: make() };
@@ -115,6 +125,7 @@ export interface Wallet {
   /** Set a cost, or clear it with null. Rejects when it could not be saved. */
   readonly setCost: (connectionId: string, cost: Cost | null) => Promise<void>;
   readonly addTopUp: (input: TopUpInput) => Promise<void>;
+  readonly updateTopUp: (id: string, update: TopUpUpdate) => Promise<void>;
   readonly removeTopUp: (id: string) => Promise<void>;
   readonly setDisplayCurrency: (currency: Currency) => Promise<void>;
 }
@@ -162,7 +173,11 @@ export function useWallet(demo: DemoSource | null): Wallet {
       setCost: (connectionId, cost) =>
         real ? store.setCost(connectionId, cost) : edit((b) => withCost(b, connectionId, cost)),
       addTopUp: (input) =>
-        real ? store.addTopUp(input) : edit((b) => withTopUp(b, { ...input, id: newId() })),
+        real
+          ? store.addTopUp(input)
+          : edit((b) => withTopUp(b, { ...input, id: newId(), source: "owner" })),
+      updateTopUp: (id, fields) =>
+        real ? store.updateTopUp(id, fields) : edit((b) => withUpdatedTopUp(b, id, fields)),
       removeTopUp: (id) => (real ? store.removeTopUp(id) : edit((b) => withoutTopUp(b, id))),
       setDisplayCurrency: (currency) =>
         real ? update({ walletCurrency: currency }) : edit((b) => withDisplay(b, currency)),

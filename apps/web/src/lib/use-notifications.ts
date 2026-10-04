@@ -10,6 +10,7 @@ import {
   pruneRead,
   saveRead,
   type AppNotification,
+  type ExpiringTopUp,
 } from "@headroom/view-model/notifications";
 import { browserStorage } from "./device-prefs.ts";
 import { useNow } from "./now.ts";
@@ -34,15 +35,17 @@ const noneRead: ReadonlySet<string> = new Set();
  * Notifications for the current overview. Pass null until the overview has loaded, and `failed` when it could
  * not load. Nothing is derived before the settings are in either, so the badge never changes after it shows.
  * Pass `demoSeed` while Demo Mode is on: the read state then lives in memory for that seed alone, and the saved
- * read set is neither read nor changed.
+ * read set is neither read nor changed. `topUps` are the Wallet top-ups that carry an expiry alert; pass null
+ * until the Wallet has loaded, so the badge does not change after it shows.
  */
 export function useNotifications(
   connections: readonly OverviewConnection[] | null,
   failed = false,
   demoSeed: number | null = null,
+  topUps: readonly ExpiringTopUp[] | null = [],
 ): NotificationsView {
   const { settings, loaded } = useSettings();
-  const ready = connections !== null && loaded;
+  const ready = connections !== null && loaded && topUps !== null;
   const now = useNow();
   const [stored, setStored] = useState<ReadonlySet<string>>(() => {
     const store = browserStorage();
@@ -55,13 +58,13 @@ export function useNotifications(
   const demo = demoSeed !== null;
   const kept = demo ? (demoRead?.seed === demoSeed ? demoRead.read : noneRead) : stored;
   const derived = useMemo(
-    () => (ready ? deriveNotifications(connections, settings, now) : []),
-    [ready, connections, settings, now],
+    () => (ready ? deriveNotifications(connections, settings, now, topUps) : []),
+    [ready, connections, settings, now, topUps],
   );
   // Ids that no longer exist drop out of the read set; the stored copy catches up in an effect.
   const read = useMemo(
-    () => (ready ? pruneRead(kept, currentIds(connections, settings, now)) : kept),
-    [ready, connections, settings, now, kept],
+    () => (ready ? pruneRead(kept, currentIds(connections, settings, now, topUps)) : kept),
+    [ready, connections, settings, now, topUps, kept],
   );
   useEffect(() => {
     if (demo || read.size === stored.size) return;

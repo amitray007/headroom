@@ -1,6 +1,7 @@
 import { useContext, useId, useState } from "react";
 
 import type { Provider } from "@headroom/core/contracts";
+import type { OverviewConnection } from "@headroom/view-model/overview";
 
 import type { Settings } from "../api.ts";
 import { useDevicePrefs } from "../lib/device-prefs.ts";
@@ -12,6 +13,7 @@ import { Segmented } from "../ui/segmented.tsx";
 import { Sk } from "../ui/skeleton.tsx";
 import { SlideSwap, type SwapDirection } from "../ui/slide-swap.tsx";
 import { Tabs } from "../ui/tabs.tsx";
+import { AutomationsTab } from "./automations-tab.tsx";
 import { ChannelsTab } from "./delivery/tab.tsx";
 import { ProviderCards } from "./provider-cards.tsx";
 import { Body, Section, SwitchRow, WaitingContext } from "./settings-rows.tsx";
@@ -80,6 +82,7 @@ const retentions = [30, 90, 180, 365] as const;
 const tabs = [
   { value: "general", label: "General" },
   { value: "notifications", label: "Notifications" },
+  { value: "automations", label: "Automations" },
   { value: "channels", label: "Channels" },
   { value: "privacy", label: "Privacy" },
 ] as const;
@@ -234,14 +237,20 @@ function Notifications(props: {
           onChange={(resetLeadDays) => props.change({ notifications: { resetLeadDays } })}
         />
         <SwitchRow
+          title="Reset Activity"
+          note="A new reset, a limit that reset early, or an auto-reset."
+          checked={on.resetActivity}
+          onChange={notify("resetActivity")}
+        />
+        <SwitchRow
           title="Balances"
-          note="When prepaid credits are running low."
+          note="Credits running low, a top-up found, or credits expiring."
           checked={on.balances}
           onChange={notify("balances")}
         />
         <SwitchRow
           title="Spend"
-          note="When extra spend nears or hits its cap."
+          note="Extra spend starting, nearing a cap, or passing your budget."
           checked={on.spend}
           onChange={notify("spend")}
         />
@@ -290,6 +299,10 @@ export function SettingsDialog(props: {
   readonly open: boolean;
   /** Providers with a connected account, in the saved order. */
   readonly providers: readonly Provider[];
+  /** The accounts the Automations tab lists; null until the overview loads. */
+  readonly connections: readonly OverviewConnection[] | null;
+  /** Reload the overview after an automation changed. */
+  readonly onAccountsChanged: () => Promise<void>;
   readonly onClose: () => void;
 }) {
   const store = useSettings();
@@ -351,6 +364,12 @@ export function SettingsDialog(props: {
               {tab === "general" ? <General change={change} /> : null}
               {tab === "notifications" ? (
                 <Notifications change={change} providers={props.providers} />
+              ) : null}
+              {tab === "automations" ? (
+                <AutomationsTab
+                  connections={props.connections}
+                  onChanged={props.onAccountsChanged}
+                />
               ) : null}
               {tab === "channels" ? <ChannelsTab /> : null}
               {tab === "privacy" ? <Privacy /> : null}

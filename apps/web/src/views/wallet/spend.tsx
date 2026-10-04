@@ -102,6 +102,9 @@ export function SpendByProvider(props: { readonly summary: WalletSummary }) {
     summary.allIn.missing === 0
       ? null
       : `${plural(summary.allIn.missing, "amount", "amounts")} without a rate left out`,
+    summary.topUpsThisMonth.unpriced === 0
+      ? null
+      : `${plural(summary.topUpsThisMonth.unpriced, "top-up", "top-ups")} with no price left out`,
   ].filter((part) => part !== null);
 
   return (

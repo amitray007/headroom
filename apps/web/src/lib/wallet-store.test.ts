@@ -33,7 +33,12 @@ function fakeClient(options: { reject?: (what: string) => Error | null } = {}) {
     addTopUp: (input) =>
       run(`add ${input.connectionId}`, (b) => ({
         ...b,
-        topUps: [{ id: `s${b.topUps.length + 1}`, ...input }, ...b.topUps],
+        topUps: [{ id: `s${b.topUps.length + 1}`, source: "owner", ...input }, ...b.topUps],
+      })),
+    updateTopUp: (id, update) =>
+      run(`update ${id}`, (b) => ({
+        ...b,
+        topUps: b.topUps.map((t) => (t.id === id ? { ...t, ...update } : t)),
       })),
     removeTopUp: (id) =>
       run(`remove ${id}`, (b) => ({ ...b, topUps: b.topUps.filter((t) => t.id !== id) })),
@@ -64,12 +69,31 @@ describe("wallet store", () => {
       price: null,
       credits: null,
       note: null,
+      expiresOn: null,
+      expiryAlertDays: null,
     });
     expect(store.getState().topUps.map((t) => t.id)).toEqual(["s1"]);
+    await store.updateTopUp("s1", {
+      date: "2026-10-02",
+      kind: "free",
+      price: null,
+      credits: 5,
+      note: "Bonus",
+      expiresOn: "2026-11-01",
+      expiryAlertDays: 7,
+    });
+    expect(store.getState().topUps[0]).toMatchObject({
+      id: "s1",
+      connectionId: "a",
+      source: "owner",
+      date: "2026-10-02",
+      credits: 5,
+      expiryAlertDays: 7,
+    });
     await store.removeTopUp("s1");
     await store.setCost("a", null);
     expect(store.getState()).toMatchObject({ costs: {}, topUps: [] });
-    expect(calls).toEqual(["set a", "add a", "remove s1", "clear a"]);
+    expect(calls).toEqual(["set a", "add a", "update s1", "remove s1", "clear a"]);
   });
   test("a refused mutation rejects and leaves the state alone", async () => {
     const { client } = fakeClient({
