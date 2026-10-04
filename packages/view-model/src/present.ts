@@ -410,6 +410,8 @@ function cursor(context: Context): Built {
       window: "billing cycle",
       resetWords: "with_cycle",
     }),
+    // Grok Bot has its own allowance with its own reset, apart from the billing-cycle pools above.
+    ...meterFor(context, "grok_bot.used_percent", { label: "Grok Bot", window: "weekly" }),
   ];
   const facts: Fact[] = [];
   const spend = take(context, "on_demand.used");

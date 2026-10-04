@@ -289,6 +289,35 @@
   opacity: 0.55;
 }
 
+/* A wide table (a Cursor account with three pools and Grok Bot) fits the card without a sideways scroll: each header
+   puts its window on a second line, captions may wrap, and the cells take a little less room. Phones keep their own
+   layout below. */
+@media (min-width: 721px) {
+  .cmp-matrix:has(thead th:nth-child(6)) :is(th, td):not(:first-child, :last-child) {
+    padding-inline: var(--space-2);
+  }
+  .cmp-matrix:has(thead th:nth-child(6)) thead .cmp-sort {
+    display: inline-grid;
+    grid-template-columns: auto auto;
+    justify-items: start;
+    column-gap: 6px;
+    white-space: normal;
+  }
+  .cmp-matrix:has(thead th:nth-child(6)) thead .cmp-sort .window {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+  .cmp-matrix:has(thead th:nth-child(6)) .cmp-mc {
+    min-width: 124px;
+  }
+  .cmp-matrix:has(thead th:nth-child(6)) .cmp-mc.lg {
+    min-width: 140px;
+  }
+  .cmp-matrix:has(thead th:nth-child(6)) .cmp-mc .cap {
+    white-space: normal;
+  }
+}
+
 /* A mini cell: figure, thin bar, one line of words. */
 .cmp-mc {
   --tone: var(--success);

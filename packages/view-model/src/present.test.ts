@@ -314,6 +314,29 @@ describe("cursor", () => {
       resetWords: "cycle_end",
     });
   });
+  test("Grok Bot is its own weekly meter after the pools, and never the account's headline", () => {
+    const weekEnd = cycleStart + 5 * 24 * 3_600_000;
+    const withBot = presentPanel(
+      connection("cursor", {
+        metrics: [
+          percent("included.total_percent", 17.02, cycle),
+          percent("grok_bot.used_percent", 88, {
+            scope: "window:604800s",
+            windowStart: weekEnd - 7 * 24 * 3_600_000,
+            windowEnd: weekEnd,
+            resetsAt: weekEnd,
+          }),
+        ],
+      }),
+    );
+    expect(meters(withBot.cells)).toEqual([
+      ["Included", "billing cycle", 17.02],
+      ["Grok Bot", "weekly", 88],
+    ]);
+    const bot = withBot.cells.find((cell) => cell.key === "grok_bot.used_percent");
+    expect(bot).toMatchObject({ resetsAt: weekEnd, resetWords: "resets" });
+    expect(withBot.tightest?.label).toBe("Included Usage");
+  });
 });
 
 describe("grok", () => {

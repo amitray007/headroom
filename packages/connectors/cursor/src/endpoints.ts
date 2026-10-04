@@ -7,6 +7,9 @@ export const loginUrl = "https://cursor.com/loginDeepControl";
 export const pollUrl = "https://api2.cursor.sh/auth/poll";
 export const refreshUrl = "https://api2.cursor.sh/auth/exchange_user_api_key";
 export const usageUrl = "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage";
+/** Grok Bot ("Sand" inside Cursor): its own weekly allowance on the same account. Route from OpenUsage (source-inspected). */
+export const grokBotUsageUrl =
+  "https://api2.cursor.sh/aiserver.v1.DashboardService/GetSandUsageStatus";
 
 export function rpcHeaders(accessToken: string): Record<string, string> {
   return {

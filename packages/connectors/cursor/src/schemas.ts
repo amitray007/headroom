@@ -36,6 +36,22 @@ const spendLimitSchema = z
   })
   .loose();
 
+/**
+ * `DashboardService/GetSandUsageStatus`: the Grok Bot allowance. Accounts on a pooled enterprise allowance or with no
+ * included limit have no personal meter.
+ */
+export const grokBotUsageSchema = z
+  .object({
+    usagePercent: z.number().optional(),
+    nextResetTimestampUtc: z.string().optional(),
+    currentPeriodStart: z.string().optional(),
+    usesPooledEnterpriseAllowance: z.boolean().optional(),
+    hasNonZeroIncludedLimit: z.boolean().optional(),
+    includedLimitZero: z.boolean().optional(),
+  })
+  .loose();
+export type GrokBotUsage = z.infer<typeof grokBotUsageSchema>;
+
 /** `DashboardService/GetCurrentPeriodUsage`. Money fields are cents. */
 export const periodUsageSchema = z
   .object({

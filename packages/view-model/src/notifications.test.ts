@@ -56,6 +56,18 @@ describe("limit notifications", () => {
     expect(found[0]?.kind).toBe("almost_out");
     expect(found[1]?.occurredAt).toBe(now - 720_000);
   });
+  test("Cursor's Grok Bot allowance raises its own notice, named after it", () => {
+    const cursor = connection("cursor", {
+      id: "u1",
+      metrics: [
+        percent("included.total_percent", 20, { scope: "billing_cycle", resetsAt: reset }),
+        percent("grok_bot.used_percent", 92, { scope: "window:604800s", resetsAt: reset }),
+      ],
+    });
+    expect(
+      deriveNotifications([cursor], defaultSettings, now).map((n) => [n.tone, n.title]),
+    ).toEqual([["bad", "Cursor Is Almost Out of Its Grok Bot Limit"]]);
+  });
   test("ids carry the connection, kind, metric and reset instant", () => {
     expect(found[1]?.id).toBe(`c1:running_low:seven_day:${reset}`);
     const next = deriveNotifications(

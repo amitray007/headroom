@@ -27,7 +27,8 @@ The official `agent login` CLI is the fallback for members.
 | Member sign-in: PKCE verifier and challenge, `https://cursor.com/loginDeepControl` in CLI redirect mode, polling `https://api2.cursor.sh/auth/poll`, refresh via `/auth/exchange_user_api_key` | source-inspected | [S6] (pi-cursor) |
 | `POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage` returns member usage | source-inspected | [S6]; not run here |
 | `GET https://cursor.com/api/usage-summary` returns the Cursor Models and Other Models pools, plan, reset, and on-demand spend and limit | source-inspected | [S7] (ai-usagebar) |
-| Member primary route is Connect RPC on `api2.cursor.sh` (`DashboardService/GetSandUsageStatus`); the dashboard request refreshes the token and retries once after 401 or 403 | source-inspected | [S8] (OpenUsage) |
+| OpenUsage reads dashboard usage over Connect RPC on `api2.cursor.sh`; the request refreshes the token and retries once after 401 or 403 | source-inspected | [S8] (OpenUsage) |
+| `POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetSandUsageStatus` (body `{}`, same Bearer token and Connect header) returns the Grok Bot allowance: `usagePercent`, `currentPeriodStart`, `nextResetTimestampUtc`, and `usesPooledEnterpriseAllowance`, `hasNonZeroIncludedLimit`, `includedLimitZero`, which mark an account with no personal meter | source-inspected | [S8][S9] (OpenUsage); implemented 2026-10-04 against a synthetic fixture, not yet run against a real account |
 | REST fallbacks for Enterprise and team accounts: `GET https://cursor.com/api/usage` and `GET https://cursor.com/api/usage-summary`; a Stripe balance route `cursor.com/api/auth/stripe`; a usage-events CSV export at `cursor.com/api/dashboard/export-usage-events-csv` | source-inspected | [S8] |
 | The REST fallback combines the included request allowance with structured percentages and user-scoped on-demand spend; neither REST response alone is the whole snapshot | source-inspected | [S8] |
 | `@rahularya01/pi-cursor` `src/index.ts` re-exports its auth and usage modules, and they run without the pi runtime | unvalidated | Default export takes the pi `ExtensionAPI`; verify the modules, otherwise port them |
@@ -42,6 +43,7 @@ The official `agent login` CLI is the fallback for members.
 | Session limit | Not a documented subscription metric | Not available | Agent telemetry is not a stable account allowance. |
 | Weekly limit | Not documented | Not available | Do not synthesize it. |
 | Model or pool limit | `unknown` until validated | Cursor Models and Other Models pools from `usage-summary` [S7]; total, Auto and API percentages from `GetCurrentPeriodUsage` [S6] | `private`. Plan behavior comes from [S4]. Do not equate pool names across responses. The REST fallback also adds `usage` request allowance and the Stripe balance [S8]. |
+| Grok Bot allowance | Source-inspected; eligible accounts only | Percent used of a separate weekly allowance, with its reset, from `GetSandUsageStatus` [S9] | `private`. Not part of the included pools. An account without a personal allowance shows no meter, never 0%. |
 | Monthly included usage | `unknown` until validated | Member endpoints above; resets with billing cycle | `private`. Unused usage does not roll over. |
 | On-demand usage and limit | `unknown` until validated | `usage-summary` on-demand spend and limit [S7] | `private`. Separate from included usage. |
 | Team spend | Available to admins | `POST /teams/spend` | `official`. Separate from member usage. |
@@ -81,7 +83,7 @@ If the direct member flow fails validation, run `agent login` in a short-lived w
 | Member sign-in | Open `https://cursor.com/loginDeepControl` in the user's browser | `private` | PKCE approval page [S6]. |
 | Member poll | `https://api2.cursor.sh/auth/poll` | `private` | Poll with the verifier [S6]. Method not recorded in the source notes; confirm at implementation. |
 | Member refresh | `/auth/exchange_user_api_key` on `api2.cursor.sh` | `private` | Refresh the token [S6]. Confirm method and host at implementation. |
-| Member usage, primary | Connect RPC on `api2.cursor.sh`, `DashboardService/GetSandUsageStatus` | `private` | Dashboard usage. Refresh the token and retry once after 401 or 403 [S8]. |
+| Grok Bot allowance | `POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetSandUsageStatus` | `private` | Optional, after the usage call: `grok_bot.used_percent`, a weekly meter with its reset. 403, 404 or an ineligible account give no meter; any other failure is recorded and keeps the rest of the snapshot [S8][S9]. |
 | Member usage, same RPC family | `POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage` | `private` | Total, Auto and API percentages, cycle boundaries, included and bonus spend [S6]. |
 | Member usage, REST fallback | `GET https://cursor.com/api/usage` and `GET https://cursor.com/api/usage-summary` | `private` | Enterprise and team accounts. Pools, plan, reset, request allowance, on-demand spend and limit [S7][S8]. |
 | Member balance | `cursor.com/api/auth/stripe` | `private` | Stripe balance [S8]. |
@@ -147,4 +149,5 @@ Earlier research observed a private dashboard response with a billing-cycle rang
 5. [S5: Cursor usage-based charges](https://prod.cursor.com/help/account-and-billing/overages) - included versus on-demand usage. Reviewed 2026-10-01.
 6. [S6: pi-cursor community implementation, MIT TypeScript](https://github.com/Rahularya01/pi-cursor) - private sign-in, polling, refresh and usage package. Reviewed 2026-10-01.
 7. [S7: ai-usagebar vendor endpoints, community](https://github.com/akitaonrails/ai-usagebar/blob/main/docs/vendor-endpoints.md) - `usage-summary` endpoint reference. Reviewed 2026-10-01.
-8. [S8: OpenUsage Cursor provider notes, community](https://github.com/robinebers/openusage/blob/main/docs/providers/cursor.md) - member RPC, REST fallbacks, balance and export routes. Reviewed 2026-10-01.
+8. [S8: OpenUsage Cursor provider notes, community](https://github.com/robinebers/openusage/blob/main/docs/providers/cursor.md) - member RPC, REST fallbacks, balance and export routes. Reviewed 2026-10-01; Grok Bot section reviewed 2026-10-04.
+9. [S9: OpenUsage Cursor mapper, community, MIT Swift](https://github.com/robinebers/openusage/blob/ae49de04a2b7fc1b3cc334fcc1009276c46d82ad/Sources/OpenUsage/Providers/Cursor/CursorUsageMapper.swift) - `mapGrokBotUsage`: the Grok Bot fields and eligibility checks. Reviewed 2026-10-04.

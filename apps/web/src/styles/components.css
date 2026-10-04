@@ -349,6 +349,18 @@ html[data-privacy] .who:focus-visible {
   gap: var(--space-2);
   align-content: start;
 }
+/* Four meters (a Cursor card with Grok Bot, a Claude card with two model limits) never leave one stretched alone on
+   a row: one row of four on a wide card, two rows of two on a medium one. Phones keep one per row. */
+@media (min-width: 1001px) {
+  .cells:has(> .cell:nth-child(4):last-child) > .cell {
+    flex-basis: calc((100% - 3 * var(--space-6)) / 4);
+  }
+}
+@media (min-width: 721px) and (max-width: 1000px) {
+  .cells:has(> .cell:nth-child(4):last-child) > .cell {
+    flex-basis: calc((100% - var(--space-6)) / 2);
+  }
+}
 .cell .label {
   font-size: var(--text-base);
   font-weight: 500;

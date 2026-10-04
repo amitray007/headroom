@@ -18,13 +18,22 @@ import {
   classifyUnknown,
 } from "@headroom/core";
 
-import { loginUrl, pollUrl, refreshUrl, rpcHeaders, usageUrl } from "./endpoints.ts";
+import {
+  grokBotUsageUrl,
+  loginUrl,
+  pollUrl,
+  refreshUrl,
+  rpcHeaders,
+  usageUrl,
+} from "./endpoints.ts";
 import {
   cursorCredentialSchema,
+  grokBotUsageSchema,
   jwtClaimsSchema,
   periodUsageSchema,
   tokenResponseSchema,
   type CursorCredential,
+  type GrokBotUsage,
   type PeriodUsage,
 } from "./schemas.ts";
 
@@ -157,6 +166,8 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
         { metricOrAction: "included.auto_percent", availability: "available", ...validated },
         { metricOrAction: "included.api_percent", availability: "available", ...validated },
         { metricOrAction: "on_demand", availability: "available", ...validated },
+        // Only accounts with a personal Grok Bot allowance report it; the rest show no meter.
+        { metricOrAction: "grok_bot.used_percent", availability: "available", ...sourceInspected },
         {
           metricOrAction: "team_admin",
           availability: "unsupported",
@@ -177,7 +188,28 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
       const usage = periodUsageSchema.safeParse(await response.json().catch(() => null));
       if (!usage.success)
         throw new ConnectorError("invalid_response", "usage response shape changed");
-      return { observedAt: now(), metrics: metricsFrom(usage.data), failures: [] };
+      const metrics = metricsFrom(usage.data);
+      const failures: ClassifiedError[] = [];
+      // Grok Bot is optional: a failure here is recorded but never stops the Cursor usage above.
+      try {
+        const grokBot = await http(grokBotUsageUrl, {
+          method: "POST",
+          headers: rpcHeaders(secret.accessToken),
+          body: "{}",
+        });
+        // An account without Grok Bot answers 403 or 404: it has no meter, which is not a failure.
+        if (grokBot.status === 403 || grokBot.status === 404)
+          return { observedAt: now(), metrics, failures };
+        await throwForStatus(grokBot, "grok bot usage");
+        const parsed = grokBotUsageSchema.safeParse(await grokBot.json().catch(() => null));
+        if (!parsed.success)
+          throw new ConnectorError("invalid_response", "grok bot usage response shape changed");
+        const meter = grokBotMetric(parsed.data);
+        if (meter !== null) metrics.push(meter);
+      } catch (error) {
+        failures.push(classify(error));
+      }
+      return { observedAt: now(), metrics, failures };
     },
 
     async refresh(credential: StoredCredential): Promise<RefreshResult> {
@@ -317,6 +349,36 @@ function metricsFrom(usage: PeriodUsage): MetricObservation[] {
     });
   }
   return metrics;
+}
+
+const week = 7 * 24 * 60 * 60_000;
+
+/**
+ * The Grok Bot allowance as a weekly percentage, or null when the account has none of its own (a pooled enterprise
+ * allowance, or no included limit). The window is the reported period; it is a week when the period is missing.
+ */
+export function grokBotMetric(usage: GrokBotUsage): MetricObservation | null {
+  if (usage.usesPooledEnterpriseAllowance === true) return null;
+  if (usage.hasNonZeroIncludedLimit === false || usage.includedLimitZero === true) return null;
+  const percent = usage.usagePercent;
+  if (percent === undefined || !Number.isFinite(percent) || percent < 0) return null;
+  const resetsAt = parseDate(usage.nextResetTimestampUtc);
+  const reported = parseDate(usage.currentPeriodStart);
+  const start = reported !== null && resetsAt !== null && resetsAt > reported ? reported : null;
+  const seconds =
+    start === null || resetsAt === null ? week / 1000 : Math.round((resetsAt - start) / 1000);
+  return {
+    providerMetricKey: "grok_bot.used_percent",
+    kind: "quota_percentage",
+    scope: `window:${seconds}s`,
+    valueText: String(Math.round(Math.min(percent, 100) * 100) / 100),
+    unit: "percent",
+    windowStart: start ?? (resetsAt === null ? null : resetsAt - week),
+    windowEnd: resetsAt,
+    resetsAt,
+    availability: "available",
+    interface: "private",
+  };
 }
 
 function classify(error: unknown): ClassifiedError {

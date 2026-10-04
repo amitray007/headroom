@@ -616,6 +616,8 @@ function cursorParts(draw: Draw, shape: "pro" | "pro_plus"): Parts {
     }),
     pool("included.auto_percent", 0.8, 1.2),
     pool("included.api_percent", 0.2, 1),
+    // Grok Bot: its own weekly allowance, apart from the billing-cycle pools.
+    usedWindow(draw, "grok_bot.used_percent", weeklyWindow, 12, healthyMax, 0),
     metricOf({
       key: "included.limit",
       kind: "spending_cap",
