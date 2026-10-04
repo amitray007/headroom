@@ -11,6 +11,7 @@ import {
   providerName,
   statusOf,
 } from "@headroom/view-model/labels";
+import { connectionBusyMessage, isConnectionBusy } from "../lib/connection-busy.ts";
 import { messageOf } from "../lib/load.ts";
 import {
   applyOrder,
@@ -306,7 +307,7 @@ export function AccountsTable(props: {
       reload();
       return true;
     } catch (cause) {
-      setError(messageOf(cause));
+      setError(isConnectionBusy(cause) ? connectionBusyMessage : messageOf(cause));
       // The table note shows the refusal, so the confirm does not sit open over it.
       if (isDemoRefusal(cause)) setConfirming(null);
       return false;

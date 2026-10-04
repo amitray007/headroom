@@ -1,13 +1,18 @@
 import type { Provider } from "@headroom/core/contracts";
-import { useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 
 import type { ViewId } from "../router.ts";
 import { useSettings } from "../lib/settings.tsx";
+import { lazyNamed } from "../lib/lazy-named.ts";
 import { ErrorNotice } from "../ui/error-notice.tsx";
 import type { NotificationsView } from "../lib/use-notifications.ts";
-import { AccountDialog } from "./account-dialog.tsx";
-import { SettingsDialog } from "./settings-dialog.tsx";
 import { TopBar } from "./top-bar.tsx";
+
+// The dialogs are rarely opened, so their code loads on first use and is fetched ahead once the page is idle.
+const loadSettings = () => import("./settings-dialog.tsx");
+const loadAccount = () => import("./account-dialog.tsx");
+const SettingsDialog = lazyNamed(loadSettings, "SettingsDialog");
+const AccountDialog = lazyNamed(loadAccount, "AccountDialog");
 
 /** The settings could not load. The pages show the defaults until they do. */
 function SettingsFailed() {
@@ -38,24 +43,51 @@ export function Shell(props: {
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  // A dialog is mounted from its first open on, so closing it keeps the exit and the focus return.
+  const [settingsUsed, setSettingsUsed] = useState(false);
+  const [accountUsed, setAccountUsed] = useState(false);
   const { loadFailed } = useSettings();
+  useEffect(() => {
+    const prefetch = (): void => {
+      void loadSettings();
+      void loadAccount();
+    };
+    if (typeof requestIdleCallback === "function") {
+      const handle = requestIdleCallback(prefetch);
+      return () => cancelIdleCallback(handle);
+    }
+    const handle = setTimeout(prefetch, 2000);
+    return () => clearTimeout(handle);
+  }, []);
   return (
     <div className="page">
       <TopBar
         view={props.view}
         name={props.name}
         notifications={props.notifications}
-        onSettings={() => setSettingsOpen(true)}
-        onAccount={() => setAccountOpen(true)}
+        onSettings={() => {
+          setSettingsUsed(true);
+          setSettingsOpen(true);
+        }}
+        onAccount={() => {
+          setAccountUsed(true);
+          setAccountOpen(true);
+        }}
       />
       {loadFailed ? <SettingsFailed /> : null}
       {props.children}
-      <SettingsDialog
-        open={settingsOpen}
-        providers={props.providers}
-        onClose={() => setSettingsOpen(false)}
-      />
-      <AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} />
+      <Suspense fallback={null}>
+        {settingsUsed ? (
+          <SettingsDialog
+            open={settingsOpen}
+            providers={props.providers}
+            onClose={() => setSettingsOpen(false)}
+          />
+        ) : null}
+        {accountUsed ? (
+          <AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} />
+        ) : null}
+      </Suspense>
     </div>
   );
 }

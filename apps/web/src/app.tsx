@@ -3,7 +3,7 @@ import { Fragment, lazy, Suspense, useEffect, useState } from "react";
 import { AuthSkeleton, SignedOutPage, Unreachable } from "./auth-pages.tsx";
 import { isDemoId } from "./api.ts";
 import { authClient } from "./auth.ts";
-import { ConnectPage } from "./connect-page.tsx";
+import { ConnectSkeleton } from "./connect/skeletons.tsx";
 import { DashboardPage } from "./dashboard/page.tsx";
 import { useDemoOverview } from "./dashboard/use-demo-overview.ts";
 import { demoOwnerName } from "@headroom/view-model/demo";
@@ -16,10 +16,11 @@ import {
   saveView,
   useDevicePrefs,
 } from "./lib/device-prefs.ts";
-import { ComparePage } from "./views/compare/page.tsx";
-import { DetailedPage } from "./views/detailed/page.tsx";
-import { TimelinePage } from "./views/timeline/page.tsx";
-import { WalletPage } from "./views/wallet/page.tsx";
+import { CompareSkeleton } from "./views/compare/skeleton.tsx";
+import { DetailedSkeleton } from "./views/detailed/skeleton.tsx";
+import { TimelineSkeleton } from "./views/timeline/skeleton.tsx";
+import { WalletSkeleton } from "./views/wallet/skeleton.tsx";
+import { lazyNamed } from "./lib/lazy-named.ts";
 import { SettingsProvider } from "./lib/settings.tsx";
 import { groupByProvider } from "@headroom/view-model/labels";
 import { useNotifications } from "./lib/use-notifications.ts";
@@ -27,11 +28,21 @@ import { href, useRoute, viewOf, type Route } from "./router.ts";
 import { BootFrame } from "./shell/boot.tsx";
 import { Shell } from "./shell/shell.tsx";
 
-// Development only: the component gallery lives at #/dev/ui.
-const Gallery = lazy(async () => {
-  const { Gallery: component } = await import("./ui/gallery.tsx");
-  return { default: component };
-});
+// Everything but the Overview loads on demand. Each fallback is the page's own skeleton, which is also what the
+// page draws while the overview loads, so the swap does not move anything.
+const ConnectPage = lazyNamed(() => import("./connect-page.tsx"), "ConnectPage");
+const DetailedPage = lazyNamed(() => import("./views/detailed/page.tsx"), "DetailedPage");
+const ComparePage = lazyNamed(() => import("./views/compare/page.tsx"), "ComparePage");
+const TimelinePage = lazyNamed(() => import("./views/timeline/page.tsx"), "TimelinePage");
+const WalletPage = lazyNamed(() => import("./views/wallet/page.tsx"), "WalletPage");
+
+// Development only: the component gallery lives at #/dev/ui. Production builds leave it out entirely.
+const Gallery = import.meta.env.DEV
+  ? lazy(async () => {
+      const { Gallery: component } = await import("./ui/gallery.tsx");
+      return { default: component };
+    })
+  : null;
 
 function SignedIn(props: { readonly name: string }) {
   // The boot frame draws this owner's avatar on the next visit before the session is known.
@@ -77,15 +88,37 @@ function SignedIn(props: { readonly name: string }) {
       providers={providers}
     >
       <Fragment key={mode}>
-        {route.page === "connect" ? <ConnectPage overview={overview} /> : null}
+        {route.page === "connect" ? (
+          <Suspense fallback={<ConnectSkeleton />}>
+            <ConnectPage overview={overview} />
+          </Suspense>
+        ) : null}
         {route.page === "reconnect" ? (
-          <ConnectPage key={route.id} reconnectId={route.id} overview={overview} />
+          <Suspense fallback={<ConnectSkeleton />}>
+            <ConnectPage key={route.id} reconnectId={route.id} overview={overview} />
+          </Suspense>
         ) : null}
         {route.page === "overview" ? <DashboardPage overview={overview} /> : null}
-        {route.page === "detailed" ? <DetailedPage overview={overview} /> : null}
-        {route.page === "compare" ? <ComparePage overview={overview} /> : null}
-        {route.page === "timeline" ? <TimelinePage overview={overview} /> : null}
-        {route.page === "wallet" ? <WalletPage overview={overview} /> : null}
+        {route.page === "detailed" ? (
+          <Suspense fallback={<DetailedSkeleton />}>
+            <DetailedPage overview={overview} />
+          </Suspense>
+        ) : null}
+        {route.page === "compare" ? (
+          <Suspense fallback={<CompareSkeleton />}>
+            <ComparePage overview={overview} />
+          </Suspense>
+        ) : null}
+        {route.page === "timeline" ? (
+          <Suspense fallback={<TimelineSkeleton />}>
+            <TimelinePage overview={overview} />
+          </Suspense>
+        ) : null}
+        {route.page === "wallet" ? (
+          <Suspense fallback={<WalletSkeleton />}>
+            <WalletPage overview={overview} />
+          </Suspense>
+        ) : null}
       </Fragment>
     </Shell>
   );
@@ -108,7 +141,7 @@ export function App() {
     const storage = browserStorage();
     if (storage !== null) saveSessionHint(storage, signedIn);
   }, [signedIn, session.error]);
-  if (import.meta.env.DEV && route.page === "gallery") {
+  if (Gallery !== null && route.page === "gallery") {
     return (
       <Suspense fallback={null}>
         <Gallery />
