@@ -71,14 +71,24 @@ export interface Column {
   readonly window: string | null;
 }
 
+/**
+ * The column a window belongs in: what it measures and over how long, not the provider's metric key. Codex
+ * reports a Pro account's weekly limit in the slot a Plus account uses for its 5-hour session, so keying by
+ * metric would put a weekly figure under "Session".
+ */
+export function slotOf(window: MeterWindow): string {
+  return `${window.label}|${window.window ?? ""}`;
+}
+
 /** Every window any of the accounts reports, session windows first, then in the order first seen. */
 export function columnsOf(rows: readonly Row[]): Column[] {
   const seen = new Map<string, Column & { readonly session: boolean }>();
   for (const row of rows) {
     for (const window of row.windows) {
-      if (!seen.has(window.key)) {
-        seen.set(window.key, {
-          key: window.key,
+      const slot = slotOf(window);
+      if (!seen.has(slot)) {
+        seen.set(slot, {
+          key: slot,
           label: window.label,
           window: window.window,
           session: window.kind === "session",
@@ -105,7 +115,7 @@ export function columnsOf(rows: readonly Row[]): Column[] {
 /** The room an account has in one column; null when unknown, unlimited or not reported. */
 export function columnLeft(row: Row, key: string): number | null {
   if (key === balanceKey) return row.balance === null ? null : row.room.left;
-  const window = row.windows.find((entry) => entry.key === key);
+  const window = row.windows.find((entry) => slotOf(entry) === key);
   return window === undefined || window.unlimited ? null : leftOf(window);
 }
 
