@@ -73,7 +73,7 @@ Account cards, independent quota buckets, balance and spend views, reset countdo
 
 Status: the Codex `consume_reset_credit` action is built on 2026-10-02 behind the "Allow Account Actions" setting (the env flag was removed the same day) with an action row, idempotency key, confirmation naming the credit and expiry, `uncertain` handling and a follow-up snapshot. The route is source-inspected and stays unvalidated until Amit runs one from the dashboard (D23). Release readiness items are not started.
 
-Codex reset redemption with an action row, idempotency key, confirmation naming the credit, outcome reconciliation and a follow-up snapshot. No generic retry after an uncertain mutation. Disconnect with provider revocation where documented. Retention, backup and restore verification. Optional callback bridge on provider localhost ports for the direct-client fallbacks.
+Codex reset redemption with an action row, idempotency key, confirmation naming the credit, outcome reconciliation and a follow-up snapshot. No generic retry after an uncertain mutation. Disconnect with provider revocation where documented. History retention is built (D29). Backup and restore verification. Optional callback bridge on provider localhost ports for the direct-client fallbacks.
 
 Before any public release: dependency licenses, CLI redistribution terms, attribution for any ported CLIProxyAPI or OpenUsage logic, private-interface labels, deployment instructions, security reporting channel. Creating a remote, committing, pushing, publishing and deploying remain separate actions.
 

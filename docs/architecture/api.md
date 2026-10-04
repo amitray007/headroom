@@ -54,6 +54,7 @@ The response carries no provider account id or workspace id. The detail route is
 | `density` | `comfortable`, `compact` | `comfortable` |
 | `detailedOrder` | `urgency`, `provider`, `custom` (how the Detailed view sorts by default; provider and custom orders come from the saved display order, `PUT /api/order`, not from settings) | `urgency` |
 | `keepInactiveLast` | boolean (the Detailed view keeps paused and disconnected accounts at the bottom) | true |
+| `historyRetentionDays` | 30, 90, 180, 365 (how long snapshots and sync runs are kept; the newest of each per connection is always kept) | 90 |
 | `accountActions` | boolean | false |
 | `notifications` | An object, see below | see below |
 | `walletCurrency` | One of the Wallet currencies, or null (follow the browser's locale) | null |
@@ -62,7 +63,7 @@ The response carries no provider account id or workspace id. The detail route is
 
 `PUT /api/order` takes `{ providers, accounts }`: `providers` is a list of provider names and `accounts` maps a provider to a list of connection ids. It needs a session and returns `400 invalid_body` for a duplicate or unknown provider, or a connection id that is duplicated, unknown or on another provider. Partial input is allowed: providers not listed follow the listed ones in default order, and connections not listed follow the listed ones within their provider. All writes happen in one transaction, so a rejected request changes nothing. The response is the full effective order, `{ providers, accounts }`, with `accounts` holding every provider that has connections. A new connection has no position and lands last in its provider; reconnect and disconnect leave the other positions alone.
 
-The scheduler reads `refreshIntervalMinutes` on every tick, so a change applies without a restart. The overview reports it as `refreshIntervalMs`.
+The scheduler reads `refreshIntervalMinutes` on every tick, so a change applies without a restart. The overview reports it as `refreshIntervalMs`. It reads `historyRetentionDays` each time it prunes, so that change needs no restart either (D29).
 
 ## Wallet
 

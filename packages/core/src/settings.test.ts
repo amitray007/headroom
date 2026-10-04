@@ -21,6 +21,7 @@ describe("settings", () => {
       detailedOrder: "urgency",
       keepInactiveLast: true,
       walletCurrency: null,
+      historyRetentionDays: 90,
       accountActions: false,
       notifications: {
         runningLow: true,
@@ -45,6 +46,34 @@ describe("settings", () => {
     expect(mergeSettings({ walletCurrency: "XXX" }, defaults).walletCurrency).toBeNull();
     expect(mergeSettings({ walletCurrency: "EUR" }, defaults).walletCurrency).toBe("EUR");
     expect(settingsSchema.safeParse({ ...defaults, walletCurrency: "INR" }).success).toBe(true);
+  });
+
+  test("history retention defaults to 90 days, also for a document stored before the field", () => {
+    const defaults = defaultSettings(900);
+    expect(mergeSettings({ clock: "12h" }, defaults).historyRetentionDays).toBe(90);
+    expect(mergeSettings({ historyRetentionDays: 45 }, defaults).historyRetentionDays).toBe(90);
+    expect(mergeSettings({ historyRetentionDays: 365 }, defaults).historyRetentionDays).toBe(365);
+    for (const days of [30, 90, 180, 365]) {
+      expect(settingsSchema.safeParse({ ...defaults, historyRetentionDays: days }).success).toBe(
+        true,
+      );
+    }
+    for (const days of [0, 7, 45, "90", null]) {
+      expect(settingsSchema.safeParse({ ...defaults, historyRetentionDays: days }).success).toBe(
+        false,
+      );
+    }
+  });
+
+  test("a stored document without the field loads with 90 days", () => {
+    const { db, sqlite } = openDatabase({ path: ":memory:" });
+    const store = new SettingsStore(db, 900);
+    const { historyRetentionDays: _drop, ...older } = store.get();
+    store.put({ ...older, historyRetentionDays: 180 });
+    expect(store.get().historyRetentionDays).toBe(180);
+    sqlite.run("UPDATE settings SET json = ?", [JSON.stringify(older)]);
+    expect(store.get().historyRetentionDays).toBe(90);
+    sqlite.close();
   });
 
   test("unknown stored keys are dropped, missing and invalid ones take defaults", () => {

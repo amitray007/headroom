@@ -50,6 +50,6 @@ The first milestone is a real connect-and-refresh proof, not a chart-filled mock
 
 - Final public name and domain.
 - Whether the first deployment supports only one owner or multiple dashboard users. Account isolation remains required in either case.
-- History retention and alert thresholds.
+- Alert thresholds beyond the current settings. History retention is D29.
 - Which private-interface connectors ship enabled by default. Current proposal: all off except Codex; Claude requires an explicit opt-in.
 - Public release channel and support policy.

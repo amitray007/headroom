@@ -10,6 +10,12 @@ import { currencySchema, providerSchema } from "./enums.ts";
 const refreshIntervalMinutes = z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(30)]);
 const lowThresholdPercent = z.union([z.literal(30), z.literal(20), z.literal(15)]);
 const resetLeadDays = z.union([z.literal(1), z.literal(3), z.literal(7)]);
+const historyRetentionDays = z.union([
+  z.literal(30),
+  z.literal(90),
+  z.literal(180),
+  z.literal(365),
+]);
 
 export const settingsSchema = z.object({
   limitsView: z.enum(["used", "left"]),
@@ -25,6 +31,8 @@ export const settingsSchema = z.object({
   keepInactiveLast: z.boolean(),
   /** Currency the Wallet totals in. Null until the owner picks one. */
   walletCurrency: currencySchema.nullable(),
+  /** How long refresh history is kept. The newest reading of each account is kept whatever its age. */
+  historyRetentionDays,
   /** The owner's half of the account-actions gate; the server flag is the other half. */
   accountActions: z.boolean(),
   notifications: z.object({

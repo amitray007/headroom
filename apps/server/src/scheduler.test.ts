@@ -7,7 +7,7 @@ import {
   rateLimitError,
 } from "@headroom/core/testing";
 
-import { Scheduler } from "./scheduler.ts";
+import { pruneEveryMs, Scheduler } from "./scheduler.ts";
 import { testContext } from "./test-helpers.ts";
 
 function setup() {
@@ -67,6 +67,65 @@ describe("Scheduler", () => {
     expect(await scheduler.tick()).toEqual([]);
     expect(seen).toHaveLength(2);
     expect(logs.join("\n")).toContain("after-tick hook failed: Error");
+    expect(logs.join("\n")).not.toContain("secret");
+  });
+
+  test("prunes on the first tick, then at most every six hours, with the current setting", async () => {
+    const { ctx, advance } = setup();
+    const cutoffs: number[] = [];
+    ctx.snapshots.prune = (cutoff) => {
+      cutoffs.push(cutoff.getTime());
+      return { snapshots: 3, syncRuns: 2 };
+    };
+    let days = 90;
+    const logs: string[] = [];
+    const scheduler = new Scheduler({
+      connections: ctx.connections,
+      attempts: ctx.attempts,
+      connect: ctx.connect,
+      snapshots: ctx.snapshots,
+      collection: ctx.collection,
+      intervalMs: 900_000,
+      retentionDays: () => days,
+      now: ctx.now,
+      log: (_level, message) => logs.push(message),
+    });
+    const start = ctx.now().getTime();
+    await scheduler.tick();
+    expect(cutoffs).toEqual([start - 90 * 86_400_000]);
+    expect(logs).toContain("pruned history: 3 snapshots, 2 runs");
+    advance(pruneEveryMs - 1);
+    await scheduler.tick();
+    expect(cutoffs).toHaveLength(1);
+    days = 30;
+    advance(1);
+    await scheduler.tick();
+    expect(cutoffs).toEqual([start - 90 * 86_400_000, start + pruneEveryMs - 30 * 86_400_000]);
+  });
+
+  test("a failing prune never breaks the tick and waits for the next window", async () => {
+    const { ctx, connection } = setup();
+    let calls = 0;
+    ctx.snapshots.prune = () => {
+      calls += 1;
+      throw new Error("boom with https://example.com/secret");
+    };
+    const logs: string[] = [];
+    const scheduler = new Scheduler({
+      connections: ctx.connections,
+      attempts: ctx.attempts,
+      connect: ctx.connect,
+      snapshots: ctx.snapshots,
+      collection: ctx.collection,
+      intervalMs: 900_000,
+      retentionDays: () => 90,
+      now: ctx.now,
+      log: (_level, message) => logs.push(message),
+    });
+    expect(await scheduler.tick()).toEqual([connection.id]);
+    await scheduler.tick();
+    expect(calls).toBe(1);
+    expect(logs.join("\n")).toContain("history prune failed: Error");
     expect(logs.join("\n")).not.toContain("secret");
   });
 

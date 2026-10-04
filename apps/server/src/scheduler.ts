@@ -23,15 +23,23 @@ export interface SchedulerOptions {
   readonly tickMs?: number;
   /** Runs after each tick that did its work, for example to deliver notifications. Its failure never stops the scheduler. */
   readonly afterTick?: (now: number) => Promise<void> | void;
+  /** Days of history to keep. A getter, so a settings change applies at the next prune. Absent means never prune. */
+  readonly retentionDays?: () => number;
   readonly now?: () => Date;
   readonly log?: (level: "debug" | "info" | "warn" | "error", message: string) => void;
 }
+
+/** How often old history is pruned. The first prune runs on the first tick after startup. */
+export const pruneEveryMs = 6 * 60 * 60_000;
+
+const dayMs = 86_400_000;
 
 export class Scheduler {
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
   private stopped = false;
   private current: Promise<string[]> | null = null;
+  private lastPruneAt: number | null = null;
   private readonly now: () => Date;
 
   constructor(private readonly deps: SchedulerOptions) {
@@ -113,7 +121,27 @@ export class Scheduler {
     return collected;
   }
 
+  /** Delete history past the retention period, at most every six hours. Logs counts only and never throws. */
+  private prune(): void {
+    const days = this.deps.retentionDays;
+    if (!days) return;
+    const now = this.now().getTime();
+    if (this.lastPruneAt !== null && now - this.lastPruneAt < pruneEveryMs) return;
+    // Set before the work, so a failing prune waits for the next window instead of every tick.
+    this.lastPruneAt = now;
+    try {
+      const pruned = this.deps.snapshots.prune(new Date(now - days() * dayMs));
+      this.deps.log?.(
+        "info",
+        `pruned history: ${pruned.snapshots} snapshots, ${pruned.syncRuns} runs`,
+      );
+    } catch (error) {
+      this.deps.log?.("error", `history prune failed: ${errorClass(error)}`);
+    }
+  }
+
   private async runAfterTick(): Promise<void> {
+    this.prune();
     if (!this.deps.afterTick) return;
     try {
       await this.deps.afterTick(this.now().getTime());

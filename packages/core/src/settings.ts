@@ -37,6 +37,7 @@ export function defaultSettings(refreshIntervalSeconds: number): Settings {
     detailedOrder: "urgency",
     keepInactiveLast: true,
     walletCurrency: null,
+    historyRetentionDays: 90,
     accountActions: false,
     notifications: {
       runningLow: true,
@@ -81,6 +82,11 @@ export function mergeSettings(stored: unknown, defaults: Settings): Settings {
     detailedOrder: valid(shape.detailedOrder, source["detailedOrder"], defaults.detailedOrder),
     keepInactiveLast: valid(flag, source["keepInactiveLast"], defaults.keepInactiveLast),
     walletCurrency: valid(shape.walletCurrency, source["walletCurrency"], defaults.walletCurrency),
+    historyRetentionDays: valid(
+      shape.historyRetentionDays,
+      source["historyRetentionDays"],
+      defaults.historyRetentionDays,
+    ),
     accountActions: valid(flag, source["accountActions"], defaults.accountActions),
     notifications: {
       runningLow: valid(flag, saved["runningLow"], defaults.notifications.runningLow),
