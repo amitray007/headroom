@@ -36,7 +36,7 @@ API billing is a separate connection with the next step `api_key`, not part of t
 | SuperGrok collector with `GetRemainingResets` parsing | source-inspected | ai-usagebar [S2]; secondary reference, private contract |
 | `GET https://management-api.x.ai/v1/billing/teams/{team}/prepaid/balance` returns the prepaid balance with a management API key | unvalidated | Official management API, documented by reference. Less needed now: the CLI billing body itself carries `prepaidBalance.val` (validated 2026-10-01) |
 | Headless `grok login --device-auth` on Linux writes `auth.json` without a keyring | unvalidated | Needs the Linux proof in the checklist |
-| Billing routes work for every Grok plan | validated for one plan | `GET /v1/billing?format=credits` answered 200 on 2026-10-01 for Amit's individual plan with `config.currentPeriod` (weekly), `creditUsagePercent`, `onDemandCap.val`, `onDemandUsed.val`, `prepaidBalance.val`, `productUsage[].{product, usagePercent}` and `isUnifiedBillingUser`; `/v1/settings` returned `subscription_tier_display`. Team logins (412) remain unobserved |
+| Billing routes work for every Grok plan | validated for one plan | `GET /v1/billing?format=credits` answered 200 on 2026-10-01 for the maintainer's individual plan with `config.currentPeriod` (weekly), `creditUsagePercent`, `onDemandCap.val`, `onDemandUsed.val`, `prepaidBalance.val`, `productUsage[].{product, usagePercent}` and `isUnifiedBillingUser`; `/v1/settings` returned `subscription_tier_display`. Team logins (412) remain unobserved |
 
 Earlier research reviewed community collectors and a prior account observation. That is not a fresh account check. No quota percentage, plan name, account id or credential is present here.
 

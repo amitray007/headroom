@@ -13,7 +13,7 @@ export const resetCreditsUrl = "https://chatgpt.com/backend-api/wham/rate-limit-
  * Consumes one earned reset credit. Source-inspected in the pinned CLI (0.159.3) next to the read
  * route; the app-server call that fronts it takes creditId, creditType and idempotencyKey. Body
  * field names below are the serde names found in the binary (`credit_type` with the variants
- * `usage_limit` and `credits`). Unvalidated: Amit runs the first real consume from the dashboard.
+ * `usage_limit` and `credits`). Unvalidated: the owner runs the first real consume from the dashboard.
  */
 export const consumeResetCreditUrl = `${resetCreditsUrl}/consume`;
 export function consumeResetCreditBody(creditId: string, idempotencyKey: string): string {

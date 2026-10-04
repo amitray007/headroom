@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { z } from "zod";
 
 import { clientAddress, createApp } from "./app.ts";
@@ -28,7 +32,36 @@ describe("public routes", () => {
     const csp = response.headers.get("content-security-policy") ?? "";
     expect(csp).toContain("frame-ancestors 'self' http://localhost:8080 https://app.example.com");
     expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("img-src 'self' data: https://api.dicebear.com;");
+    expect(csp).toContain("connect-src 'self';");
     expect(response.headers.get("x-frame-options")).toBeNull();
+  });
+});
+
+describe("built web UI", () => {
+  test("brand files are served as files; other paths fall back to index.html", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "headroom-web-"));
+    try {
+      writeFileSync(join(dir, "index.html"), "<!doctype html><title>shell</title>");
+      writeFileSync(join(dir, "favicon.ico"), "ico");
+      writeFileSync(join(dir, "favicon.svg"), "<svg/>");
+      writeFileSync(join(dir, "manifest.webmanifest"), '{"name":"Headroom"}');
+      const ctx = testContext({ HEADROOM_WEB_DIR: dir });
+      const app = createApp(ctx);
+
+      const ico = await app.request(url(ctx, "/favicon.ico"));
+      expect(ico.status).toBe(200);
+      expect(await ico.text()).toBe("ico");
+      const svg = await app.request(url(ctx, "/favicon.svg"));
+      expect(svg.headers.get("content-type")).toContain("image/svg+xml");
+      const manifest = await app.request(url(ctx, "/manifest.webmanifest"));
+      expect(await manifest.text()).toContain("Headroom");
+
+      const route = await app.request(url(ctx, "/settings"));
+      expect(await route.text()).toContain("shell");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -51,6 +84,31 @@ describe("owner sign-up and sign-in", () => {
       jsonPost(ctx, { ...owner, email: "second@example.com", username: "second" }),
     );
     expect(second.status).toBe(403);
+  });
+
+  test("concurrent first sign-ups create exactly one owner", async () => {
+    const ctx = testContext();
+    const app = createApp(ctx);
+    const attempt = async (username: string) =>
+      app.request(
+        url(ctx, "/api/auth/sign-up/email"),
+        jsonPost(ctx, { ...owner, email: `${username}@example.com`, username }),
+      );
+    const responses = await Promise.all(["one", "two", "three", "four"].map(attempt));
+    expect(responses.map((r) => r.status).toSorted((a, b) => a - b)).toEqual([200, 403, 403, 403]);
+    const users = ctx.sqlite.query<{ n: number }, []>("SELECT count(*) AS n FROM user").get();
+    expect(users?.n).toBe(1);
+  });
+
+  test("the database refuses a second user even when the hook is bypassed", () => {
+    const ctx = testContext();
+    const insert = (id: string) =>
+      ctx.sqlite.run(
+        "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?, 'x', ?, 0, 0, 0)",
+        [id, `${id}@example.com`],
+      );
+    insert("a");
+    expect(() => insert("b")).toThrow("owner_exists");
   });
 
   test("short passwords are refused", async () => {
@@ -83,6 +141,8 @@ describe("owner sign-up and sign-in", () => {
       headers: { cookie: cookiesFrom(out) || cookie },
     });
     expect(after.status).toBe(401);
+    // The original cookies must stop working at once, not when the cookie cache expires.
+    expect((await app.request(url(ctx, "/api/me"), { headers: { cookie } })).status).toBe(401);
   });
 
   test("passkey registration options require a session", async () => {
@@ -177,11 +237,12 @@ describe("client address", () => {
   test("ignores forwarded headers unless the proxy is trusted; never trusts the internal header", () => {
     const request = new Request("http://localhost/", {
       headers: {
-        "x-forwarded-for": "198.51.100.9, 10.0.0.1",
+        "x-forwarded-for": "192.0.2.1, 198.51.100.9",
         "x-headroom-client-ip": "203.0.113.1",
       },
     });
     expect(clientAddress(request, false, () => "127.0.0.1")).toBe("127.0.0.1");
+    // The proxy appends the address it saw; earlier entries are client-supplied.
     expect(clientAddress(request, true, () => "127.0.0.1")).toBe("198.51.100.9");
     expect(clientAddress(new Request("http://localhost/"), true, () => null)).toBe("unknown");
   });

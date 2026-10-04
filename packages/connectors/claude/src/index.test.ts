@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import type { CliLoginStatus, LoginRunner } from "@headroom/core";
 
-import { profileUrl, tokenUrl, usageUrl } from "./endpoints.ts";
+import { claudeCodeUserAgent, profileUrl, tokenUrl, usageUrl } from "./endpoints.ts";
 import usageLiveShape from "./fixtures/usage-live-shape.json";
 import usageMinimal from "./fixtures/usage-minimal.json";
 import usageFixture from "./fixtures/usage.json";
@@ -86,6 +86,18 @@ const identity = {
   label: "x",
   assurance: "strong" as const,
 };
+
+const grant = (over: Record<string, unknown>) => ({
+  label: "Synthetic grant",
+  resets_total: 1,
+  resets_left: 1,
+  starts_at: "2026-09-01T00:00:00Z",
+  ends_at: "2026-10-20T00:00:00Z",
+  paused: false,
+  usable_now: true,
+  clears: ["five_hour", "seven_day"],
+  ...over,
+});
 
 describe("Claude connector", () => {
   test("parses the authorization URL and normalizes pasted codes and redirect URLs", () => {
@@ -236,7 +248,7 @@ describe("Claude connector", () => {
     expect(result.failures).toEqual([]);
   });
 
-  test("missing utilization is unknown, disabled extra usage emits nothing, ineligible grants count zero", async () => {
+  test("missing utilization is unknown, disabled extra usage emits nothing, ineligible grants emit no count", async () => {
     const connector = createClaudeConnector({
       runner: new FakeRunner(),
       fetch: fakeFetch({ [usageUrl]: () => json(usageMinimal) }).fetch,
@@ -249,7 +261,128 @@ describe("Claude connector", () => {
     expect(byKey["five_hour"]).toMatchObject({ valueText: null, availability: "unknown" });
     expect(byKey["seven_day"]).toMatchObject({ valueText: "0", availability: "available" });
     expect(Object.keys(byKey)).not.toContain("extra_usage.used");
-    expect(byKey["reset_grants.available"]).toMatchObject({ valueText: "0" });
+    expect(byKey["reset_grants.available"]).toBeUndefined();
+  });
+
+  describe("banked reset grants", () => {
+    const observed = Date.parse("2026-10-02T12:00:00Z");
+    async function collectGrants(cedar: unknown) {
+      const http = fakeFetch({
+        [usageUrl]: () => json({ seven_day: { utilization: 1 }, cedar_ember: cedar }),
+      });
+      const connector = createClaudeConnector({
+        runner: new FakeRunner(),
+        fetch: http.fetch,
+        now: () => observed,
+      });
+      const result = await connector.collect(
+        credentialFromCredentialsFile(credentialsFile),
+        identity,
+      );
+      return { result, http };
+    }
+
+    test("an eligible usable grant counts and is listed", async () => {
+      const { result } = await collectGrants({ eligible: true, grants: [grant({})] });
+      const count = result.metrics.find((m) => m.providerMetricKey === "reset_grants.available");
+      expect(count).toMatchObject({ valueText: "1", kind: "reset_inventory", unit: "resets" });
+      expect(result.resetCredits).toEqual([
+        {
+          providerCreditId: "grant-0",
+          eligible: true,
+          usable: true,
+          expiresAt: Date.parse("2026-10-20T00:00:00Z"),
+          rawLabel: "Synthetic grant",
+        },
+      ]);
+    });
+
+    test("a paused, expired or not-yet-started grant is listed but not counted", async () => {
+      const { result } = await collectGrants({
+        eligible: true,
+        grants: [
+          grant({ paused: true }),
+          grant({ ends_at: "2026-10-01T00:00:00Z" }),
+          grant({ starts_at: "2026-10-03T00:00:00Z" }),
+          grant({ resets_left: 0 }),
+          grant({ resets_left: 2, label: null }),
+        ],
+      });
+      const count = result.metrics.find((m) => m.providerMetricKey === "reset_grants.available");
+      expect(count?.valueText).toBe("2");
+      expect(result.resetCredits?.map((c) => c.usable)).toEqual([false, false, false, false, true]);
+      expect(result.resetCredits?.[4]?.rawLabel).toBe("2 left");
+    });
+
+    test("eligible with no usable grant is a real zero", async () => {
+      const { result } = await collectGrants({ eligible: true, grants: [grant({ paused: true })] });
+      const count = result.metrics.find((m) => m.providerMetricKey === "reset_grants.available");
+      expect(count).toMatchObject({ valueText: "0", availability: "available" });
+    });
+
+    test("a missing count is unknown, not zero, and the inventory metric says so", async () => {
+      const { result } = await collectGrants({
+        eligible: true,
+        grants: [grant({}), grant({ resets_left: undefined, label: null })],
+      });
+      const count = result.metrics.find((m) => m.providerMetricKey === "reset_grants.available");
+      expect(count).toMatchObject({ valueText: null, availability: "unknown" });
+      expect(result.resetCredits?.map((c) => c.usable)).toEqual([true, false]);
+      expect(result.resetCredits?.[1]?.rawLabel).toBe("count unknown");
+    });
+
+    test("a missing count on a paused grant does not blur the total", async () => {
+      const { result } = await collectGrants({
+        eligible: true,
+        grants: [grant({}), grant({ resets_left: undefined, paused: true })],
+      });
+      const count = result.metrics.find((m) => m.providerMetricKey === "reset_grants.available");
+      expect(count).toMatchObject({ valueText: "1", availability: "available" });
+    });
+
+    test("ineligible surface emits no count and no rows", async () => {
+      const { result } = await collectGrants({
+        eligible: false,
+        ineligible_reason: "surface",
+        grants: [],
+      });
+      expect(result.metrics.some((m) => m.providerMetricKey === "reset_grants.available")).toBe(
+        false,
+      );
+      expect(result.resetCredits).toEqual([]);
+    });
+
+    test("the usage request sends the Claude Code user agent", async () => {
+      const { http } = await collectGrants({ eligible: false, grants: [] });
+      const headers = z.record(z.string(), z.string()).parse(http.calls[0]?.init?.headers);
+      expect(headers["user-agent"]).toBe(claudeCodeUserAgent);
+      expect(claudeCodeUserAgent).toStartWith("claude-cli/");
+    });
+  });
+
+  test("a scoped limit with percent null is unknown, never the string null", async () => {
+    const connector = createClaudeConnector({
+      runner: new FakeRunner(),
+      fetch: fakeFetch({
+        [usageUrl]: () =>
+          json({
+            limits: [
+              {
+                kind: "weekly_scoped",
+                percent: null,
+                resets_at: null,
+                scope: { model: { display_name: "Fable" } },
+              },
+            ],
+          }),
+      }).fetch,
+    });
+    const result = await connector.collect(
+      credentialFromCredentialsFile(credentialsFile),
+      identity,
+    );
+    const metric = result.metrics.find((m) => m.providerMetricKey === "limits.Fable");
+    expect(metric).toMatchObject({ valueText: null, availability: "unknown" });
   });
 
   test("refresh posts JSON with the public client id; rejections are definitive", async () => {
@@ -279,5 +412,21 @@ describe("Claude connector", () => {
     expect(await rejected.refresh(credentialFromCredentialsFile(credentialsFile))).toMatchObject({
       status: "rejected",
     });
+  });
+
+  test("a rate-limited refresh honours Retry-After and never echoes the provider body", async () => {
+    const limited = createClaudeConnector({
+      runner: new FakeRunner(),
+      fetch: () =>
+        Promise.resolve(
+          new Response("MARKER-synthetic", { status: 429, headers: { "retry-after": "300" } }),
+        ),
+    });
+    const result = await limited.refresh(credentialFromCredentialsFile(credentialsFile));
+    expect(result).toMatchObject({
+      status: "transient",
+      error: { category: "rate_limited", retryAfterMs: 300_000 },
+    });
+    expect(JSON.stringify(result)).not.toContain("MARKER");
   });
 });

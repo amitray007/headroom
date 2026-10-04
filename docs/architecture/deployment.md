@@ -5,14 +5,14 @@ The target is one Bun-compiled binary, one SQLite file, one key file and three p
 ## Shape
 
 - One process serves the web interface, the API, the scheduler and every connector.
-- The image installs pinned CLIs for sign-in only: `@openai/codex` 0.159.3 and `@anthropic-ai/claude-code` 2.1.286 from npm, and `grok` from the vendor installer. The image has no browser and no `open`; the runner's shims make that explicit on every host. Check each binary's redistribution terms; where they forbid bundling, install at container build time from the vendor's channel and record the version. No CLI runs on the refresh path. The `Dockerfile` runs as an unprivileged user with the data directory and secret files on two volumes.
+- The image installs pinned CLIs for sign-in only: `@openai/codex` 0.159.3 and `@anthropic-ai/claude-code` 2.1.286 from npm, and `grok` 1.0.46, a static binary the `Dockerfile` downloads directly from `https://x.ai/cli/` for the build architecture and checks against a pinned SHA-256 per architecture (the vendor installer tracks the latest release and checks nothing; the server publishes no checksum file). To bump grok, read `https://x.ai/cli/stable`, download both binaries, and update the version and both hashes together. The image has no browser and no `open`; the runner's shims make that explicit on every host. Check each binary's redistribution terms; where they forbid bundling, install at container build time from the vendor's channel and record the version. No CLI runs on the refresh path. The `Dockerfile` runs as an unprivileged user with the data directory and secret files on two volumes.
 - `HEADROOM_DATA_DIR` holds `headroom.db` in WAL mode and nothing else that must be backed up.
 - `HEADROOM_MASTER_KEY_FILE` points at a 32-byte hex key outside the data directory. Losing it loses every connection, and the user reconnects. Document that plainly.
 - `HEADROOM_AUTH_SECRET_FILE` holds the session signing secret, created on first run with mode 0600. Rotating it signs the owner out.
 - `HEADROOM_PUBLIC_URL` is the public origin. It fixes the passkey relying party, Secure cookies and HSTS. `HEADROOM_TRUSTED_ORIGINS` adds origins allowed to call the API and embed the UI.
-- `HEADROOM_TRUST_PROXY=true` makes Headroom take the client address from `X-Forwarded-For` for sign-in throttling. Leave it off unless a reverse proxy you control sets that header; otherwise the socket address is used and any client-supplied header is discarded.
-- `HEADROOM_ENABLED_PROVIDERS` lists the connectors that exist at runtime, default `codex`. `HEADROOM_REFRESH_INTERVAL_SECONDS` and `HEADROOM_STALE_AFTER_SECONDS` tune collection and the stale notice.
-- `HEADROOM_ENABLE_ACTIONS=true` allows owner-triggered account mutations such as consuming a Codex reset credit. Off by default; with it off the route answers 403 and the button is disabled. Every action also needs the owner's confirmation in the browser.
+- `HEADROOM_TRUST_PROXY=true` makes Headroom take the client address from the last entry of `X-Forwarded-For`, the one the proxy appended, for sign-in throttling. Leave it off unless a reverse proxy you control sets that header; otherwise the socket address is used and any client-supplied header is discarded.
+- `HEADROOM_ENABLED_PROVIDERS` lists the connectors that exist at runtime, default `codex`. `HEADROOM_REFRESH_INTERVAL_SECONDS` sets the default of the owner's refresh-interval setting (the nearest of 5, 10, 15 or 30 minutes), which then wins. `HEADROOM_STALE_AFTER_SECONDS` tunes the stale notice.
+- No environment variable controls account actions. They are off by default and run only after the owner switches on "Allow Account Actions" in Settings and confirms each action; until then the route answers 403 and the button is disabled.
 - TLS terminates at a reverse proxy. Headroom listens on one HTTP port and sets secure cookies when it sees a trusted forwarded scheme.
 - A long-running process is required. Serverless request lifetimes cannot own a device-code poll or a token refresh.
 
@@ -44,4 +44,4 @@ Back up the database file with the SQLite backup API or a WAL-safe copy. Restore
 
 Logs contain connection ids, endpoint names, status codes and sanitized error classes. They never contain response bodies, tokens, URLs with codes or emails. Metrics track refresh outcomes and durations without identities.
 
-No hosting platform, domain, public tunnel, TLS configuration or production environment has been provisioned.
+The supported self-hosting setup is a private tailnet: [Self-hosting on a tailnet](../operations/tailscale.md). No public hosting, domain or tunnel is provided.

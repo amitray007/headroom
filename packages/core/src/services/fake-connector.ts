@@ -7,14 +7,13 @@ import type {
   CollectResult,
   ConnectProgress,
   Connector,
-  DisconnectResult,
   Identity,
   RefreshResult,
   SubmitInput,
 } from "../connector.ts";
 import { classifyUnknown, ConnectorError } from "../connector.ts";
 import type { StoredCredential } from "../credentials.ts";
-import type { Provider } from "../enums.ts";
+import type { DisconnectResult, Provider } from "../enums.ts";
 
 /**
  * Scriptable connector for service tests. Each method consumes the next queued

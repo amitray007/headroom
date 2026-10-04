@@ -2,10 +2,11 @@ import { describe, expect, test } from "bun:test";
 
 import { z } from "zod";
 
-import { pollUrl, refreshUrl, usageUrl } from "./endpoints.ts";
+import { grokBotUsageUrl, pollUrl, refreshUrl, usageUrl } from "./endpoints.ts";
+import grokBotUsage from "./fixtures/grok-bot-usage.json";
 import periodUsageLiveShape from "./fixtures/period-usage-live-shape.json";
 import periodUsage from "./fixtures/period-usage.json";
-import { buildLoginUrl, createCursorConnector, pkce } from "./index.ts";
+import { buildLoginUrl, createCursorConnector, grokBotMetric, pkce } from "./index.ts";
 
 function b64(value: unknown): string {
   return Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -154,6 +155,77 @@ describe("Cursor connector", () => {
     });
   });
 
+  test("Grok Bot usage is a weekly meter beside the Cursor usage", async () => {
+    const http = fakeFetch({
+      [usageUrl]: () => json(periodUsage),
+      [grokBotUsageUrl]: () => json(grokBotUsage),
+    });
+    const connector = createCursorConnector({ fetch: http.fetch });
+    const result = await connector.collect(credential, identity);
+    expect(http.calls.map((call) => call.url)).toEqual([usageUrl, grokBotUsageUrl]);
+    const headers = z.record(z.string(), z.string()).parse(http.calls[1]?.init?.headers);
+    expect(headers["authorization"]).toBe(`Bearer ${access}`);
+    expect(result.failures).toEqual([]);
+    expect(result.metrics.find((m) => m.providerMetricKey === "grok_bot.used_percent")).toEqual({
+      providerMetricKey: "grok_bot.used_percent",
+      kind: "quota_percentage",
+      scope: "window:604800s",
+      valueText: "41.67",
+      unit: "percent",
+      windowStart: Date.parse("2026-09-28T00:00:00Z"),
+      windowEnd: Date.parse("2026-10-05T00:00:00Z"),
+      resetsAt: Date.parse("2026-10-05T00:00:00Z"),
+      availability: "available",
+      interface: "private",
+    });
+  });
+
+  test("no Grok Bot meter for an account without its own allowance, and no failure either", async () => {
+    expect(grokBotMetric({ ...grokBotUsage, usesPooledEnterpriseAllowance: true })).toBeNull();
+    expect(grokBotMetric({ ...grokBotUsage, hasNonZeroIncludedLimit: false })).toBeNull();
+    expect(grokBotMetric({ ...grokBotUsage, includedLimitZero: true })).toBeNull();
+    expect(grokBotMetric({ hasNonZeroIncludedLimit: true })).toBeNull();
+    const results = await Promise.all(
+      [403, 404].map((status) =>
+        createCursorConnector({
+          fetch: fakeFetch({
+            [usageUrl]: () => json(periodUsage),
+            [grokBotUsageUrl]: () => json({}, status),
+          }).fetch,
+        }).collect(credential, identity),
+      ),
+    );
+    for (const result of results) {
+      expect(result.failures).toEqual([]);
+      expect(result.metrics.some((m) => m.providerMetricKey === "grok_bot.used_percent")).toBe(
+        false,
+      );
+    }
+  });
+
+  test("a Grok Bot failure is recorded but keeps the Cursor usage", async () => {
+    const connector = createCursorConnector({
+      fetch: fakeFetch({
+        [usageUrl]: () => json(periodUsage),
+        [grokBotUsageUrl]: () => json({}, 503),
+      }).fetch,
+    });
+    const result = await connector.collect(credential, identity);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]).toMatchObject({ category: "provider_unavailable" });
+    expect(result.metrics.some((m) => m.providerMetricKey === "included.total_percent")).toBe(true);
+  });
+
+  test("a Grok Bot period without a start falls back to a week ending at the reset", () => {
+    expect(
+      grokBotMetric({ usagePercent: 120, nextResetTimestampUtc: "2026-10-05T00:00:00Z" }),
+    ).toMatchObject({
+      scope: "window:604800s",
+      valueText: "100",
+      windowStart: Date.parse("2026-09-28T00:00:00Z"),
+    });
+  });
+
   test("refresh exchanges the refresh token as a Bearer; rejections are definitive", async () => {
     const http = fakeFetch({
       [refreshUrl]: () =>
@@ -170,5 +242,17 @@ describe("Cursor connector", () => {
       fetch: fakeFetch({ [refreshUrl]: () => json({ error: "Invalid User API Key" }, 401) }).fetch,
     });
     expect(await rejected.refresh(credential)).toMatchObject({ status: "rejected" });
+  });
+
+  test("a rate-limited refresh honours Retry-After", async () => {
+    const connector = createCursorConnector({
+      fetch: fakeFetch({
+        [refreshUrl]: () => new Response("", { status: 429, headers: { "retry-after": "600" } }),
+      }).fetch,
+    });
+    expect(await connector.refresh(credential)).toMatchObject({
+      status: "transient",
+      error: { category: "rate_limited", retryAfterMs: 600_000 },
+    });
   });
 });

@@ -9,7 +9,10 @@
   },
   "dependencies": {
     "@better-auth/passkey": "1.7.7",
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/geist-mono": "5.3.0",
     "@headroom/core": "workspace:*",
+    "@headroom/view-model": "workspace:*",
     "better-auth": "1.7.7",
     "react": "19.3.0",
     "react-dom": "19.3.0",

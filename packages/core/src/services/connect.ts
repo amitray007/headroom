@@ -8,9 +8,16 @@ import type {
   NextStepPayload,
   SubmitInput,
 } from "../connector.ts";
+import type { RefreshResult } from "../connector.ts";
 import { classifyUnknown, nextStepPayloadSchema } from "../connector.ts";
 import type { CredentialStore, StoredCredential } from "../credentials.ts";
-import type { AttemptState, AuthMethod, ConnectionScope, Provider } from "../enums.ts";
+import {
+  type AttemptState,
+  type AuthMethod,
+  type ConnectionScope,
+  type Provider,
+  terminalAttemptStates,
+} from "../enums.ts";
 import {
   type AttemptRow,
   type AttemptStore,
@@ -57,15 +64,22 @@ export interface ConnectServiceOptions {
   readonly credentials: CredentialStore;
   readonly snapshots: SnapshotStore;
   readonly attemptTtlMs?: number;
+  /** Refresh an imported credential this long before it expires, before its first collection. */
+  readonly refreshLeadMs?: number;
   readonly now?: () => Date;
 }
 
+/** Refresh this long before a credential expires. Shared by collection and first validation. */
+export const defaultRefreshLeadMs = 5 * 60 * 1000;
+
 export class ConnectService {
   private readonly attemptTtlMs: number;
+  private readonly refreshLeadMs: number;
   private readonly now: () => Date;
 
   constructor(private readonly deps: ConnectServiceOptions) {
     this.attemptTtlMs = deps.attemptTtlMs ?? 15 * 60 * 1000;
+    this.refreshLeadMs = deps.refreshLeadMs ?? defaultRefreshLeadMs;
     this.now = deps.now ?? (() => new Date());
   }
 
@@ -132,7 +146,8 @@ export class ConnectService {
     if (!attempt) throw new Error("attempt not found");
     if (!this.polls(attempt)) return this.view(attemptId);
     if (attempt.expiresAt.getTime() <= this.now().getTime()) {
-      this.deps.attempts.transition(attemptId, "expired");
+      // The attempt is expired even if the connector's cleanup throws; the sweep at startup is the backstop.
+      await this.expire(attemptId).catch(() => undefined);
       return this.view(attemptId);
     }
     const envelope = this.envelope(attemptId);
@@ -154,6 +169,26 @@ export class ConnectService {
       this.deps.attempts.transition(attemptId, "cancelled");
     }
     return this.view(attemptId);
+  }
+
+  /**
+   * Expire an attempt past its deadline. The connector cleans up first, with the private state
+   * read before the terminal transition wipes it: a CLI sign-in leaves a plaintext credentials
+   * file in its attempt directory until the connector removes it.
+   */
+  async expire(attemptId: string): Promise<void> {
+    const attempt = this.deps.attempts.get(attemptId);
+    if (!attempt || (terminalAttemptStates as readonly AttemptState[]).includes(attempt.state))
+      return;
+    try {
+      const connector = this.deps.registry.get(attempt.provider);
+      if (connector) await connector.cancelConnect(this.envelope(attemptId).connector);
+    } finally {
+      // A poll may have expired it while the cleanup ran.
+      const current = this.deps.attempts.get(attemptId);
+      if (current && !(terminalAttemptStates as readonly AttemptState[]).includes(current.state))
+        this.deps.attempts.transition(attemptId, "expired");
+    }
   }
 
   view(attemptId: string): AttemptView {
@@ -229,6 +264,8 @@ export class ConnectService {
     }
 
     let connectionId: string;
+    // Only a connection this attempt created is deleted when its first collection fails.
+    let created = false;
     try {
       if (attempt.connectionId) {
         connectionId = this.deps.connections.reconnected(
@@ -254,6 +291,7 @@ export class ConnectService {
               interface: connector.interface,
               connectorVersion: connector.version,
             }).id;
+        created = existing === null;
       }
     } catch (error) {
       if (error instanceof IdentityMismatchError) {
@@ -271,9 +309,23 @@ export class ConnectService {
 
     const run = this.deps.snapshots.startRun(connectionId);
     try {
-      const capabilities = await connector.capabilities(credential, identity);
+      // An imported file may hold an expired access token with a live refresh token.
+      let usable = credential;
+      if (
+        credential.expiresAt !== null &&
+        credential.expiresAt - this.refreshLeadMs <= this.now().getTime()
+      ) {
+        const refreshed = await refreshAndStore(
+          this.deps.credentials,
+          connectionId,
+          connector,
+          credential,
+        );
+        if (refreshed.status === "refreshed") usable = refreshed.credential;
+      }
+      const capabilities = await connector.capabilities(usable, identity);
       this.deps.snapshots.setCapabilities(connectionId, capabilities);
-      const result = await connector.collect(credential, identity);
+      const result = await connector.collect(usable, identity);
       this.deps.snapshots.record(connectionId, run.id, result, connector.version);
       const partial =
         result.failures.length > 0 || result.metrics.some((m) => m.availability !== "available");
@@ -288,7 +340,8 @@ export class ConnectService {
       this.deps.snapshots.finishRun(run.id, outcomeFor(classifiedError), classifiedError);
       if (classifiedError.class === "definitive") {
         this.deps.credentials.delete(connectionId);
-        if (!attempt.connectionId) this.deps.connections.delete(connectionId);
+        if (created) this.deps.connections.delete(connectionId);
+        else this.deps.connections.requireReconnect(connectionId, "token_rejected");
         this.fail(attemptId, classifiedError);
         return;
       }
@@ -359,6 +412,41 @@ function safeClassify(connector: Connector, error: unknown): ClassifiedError {
   } catch {
     return classifyUnknown(error);
   }
+}
+
+/**
+ * One refresh call and its persistence. A rotated credential is stored before anyone uses it,
+ * and the stored refresh state follows the result. A throw counts as a transient failure.
+ */
+export async function refreshAndStore(
+  credentials: CredentialStore,
+  connectionId: string,
+  connector: Connector,
+  credential: StoredCredential,
+): Promise<RefreshResult> {
+  let result: RefreshResult;
+  try {
+    result = await connector.refresh(credential);
+  } catch (error) {
+    result = { status: "transient", error: safeClassify(connector, error) };
+  }
+  switch (result.status) {
+    case "refreshed":
+      credentials.put(connectionId, result.credential, "fresh");
+      break;
+    case "not_refreshable":
+      credentials.setRefreshState(connectionId, "not_refreshable");
+      break;
+    case "transient":
+      credentials.setRefreshState(connectionId, "refresh_due");
+      break;
+    case "rejected":
+      credentials.setRefreshState(connectionId, "refresh_failed");
+      break;
+    default:
+      return assertNever(result);
+  }
+  return result;
 }
 
 export function outcomeFor(

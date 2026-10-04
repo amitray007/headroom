@@ -1,34 +1,55 @@
 # Contributing to Headroom
 
-Headroom is in the specification stage. The next implementation task is the Codex connection proof described in [the roadmap](docs/roadmap.md).
+Thanks for helping. Bug reports, provider evidence, fixes and new connectors are all welcome.
 
-## Documentation changes
+## Before you start
 
-1. Read the relevant provider dossier and its cited sources.
-2. State the product surface: subscription, API billing, personal account or organization account.
-3. Label evidence as documented, source-inspected, prior observation or unvalidated.
-4. Record the review date and direct source links. Pin source revisions when implementing an adapter.
-5. Update [the documentation index](docs/README.md) if a path changes.
-6. Run `mise run check`.
+- Search the [issues](https://github.com/amitray007/headroom/issues) first. For a larger change, open an issue to agree on the approach before writing code.
+- Never paste tokens, cookies, authorization codes, raw provider responses or personal account details into an issue, a pull request, a fixture or a log. Use synthetic values. Report security problems privately as described in [SECURITY.md](SECURITY.md).
+- Follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+- Read [AGENTS.md](AGENTS.md). It is short, and it holds the project rules for people and coding agents alike.
 
-Keep one provider dossier per integration family. Put shared behavior in the architecture docs instead of repeating it in every provider file.
+## Set up
 
-## Code changes
+Tool versions are pinned in `mise.toml`. Install [mise](https://mise.jdx.dev), then:
 
-Read [ADR 0002](docs/decisions/0002-stack-and-tooling.md) for the toolchain. `mise run check` must pass. Every connector module ships an endpoints file, a Zod schema file and synthetic fixtures for success, partial response and schema drift. No `any`, no unhandled promise, no console output in library code, no default export outside the server entry.
+```sh
+mise install && mise run install
+mise run dev                  # API server with reload on :8080
+mise exec -- bun run web:dev  # web app on :5173, proxying /api
+```
 
-## Connector changes
+Demo Mode (account menu) fills every view with synthetic data, so most UI work needs no provider account.
 
-A connector must pass [the validation plan](docs/validation.md) before it is presented as supported. Use synthetic responses for automated tests. An account owner's approval is required before a live sign-in or account mutation.
+## Make a change
 
-Separate authentication from data access. Record each available metric independently; one missing endpoint must not turn other values into zero. Use provider identity and workspace information to verify that snapshots belong to the expected connection. Use the state and enumeration names from the data model; the docs check rejects invented ones.
+1. Branch from `main`.
+2. Keep the change focused. Match the surrounding code: naming, comment density and idioms.
+3. Add or update tests next to the code you change (`*.test.ts`, run by `bun test`). Fixtures are synthetic.
+4. Run `mise run check`. It covers docs, format, type-aware lint, typecheck, Knip and tests, and CI runs the same gate.
+5. Open a pull request that says what changed, why, and how you verified it.
 
-Do not add a model request just to obtain usage data. Never redeem resets or buy credits during an ordinary refresh.
+Rules the check cannot catch:
 
-## Dependency selection
+- **Unknown is not zero.** A metric a provider does not report is unknown. Keep money, credits and percentages in separate units.
+- **Enumerations live in [`packages/core/src/enums.ts`](packages/core/src/enums.ts)** and in [the data model](docs/architecture/data-model.md), always together.
+- **Pin dependencies** to an exact version. Fix lint and type errors at their cause. A disable directive needs a one-line reason.
+- **Record material choices** in [the decision register](docs/decisions/README.md).
 
-Prefer documented account APIs. Where a connector calls the endpoint an official CLI uses, label it `private` and keep it behind a flag. Code ported from CLIProxyAPI or another MIT project keeps its attribution in the file header and in a NOTICE entry. Verify the license before copying code. The research catalog is a candidate list, not an installed dependency list.
+## Connectors
 
-## Scope of this repository
+A connector lives in `packages/connectors/<provider>` with an endpoints file, Zod schemas, synthetic fixtures and tests. Before you start, read the provider's dossier in [`docs/providers/`](docs/providers/README.md), [the connector contract](docs/architecture/connector-contract.md) and [the validation plan](docs/validation.md).
 
-The setup contains no provider credentials or production service. There is no public issue tracker or published release yet. Commits, remotes, publication and deployment are separate maintainer actions.
+- Collection is direct HTTP from TypeScript. An official CLI may run once, for sign-in only ([ADR 0001](docs/decisions/0001-direct-provider-clients.md)).
+- Label every metric `official` or `private`, and keep the evidence labels in the dossier: documented, source-inspected, prior observation, validated, unvalidated.
+- Monitoring must never send a model request, redeem a reset or buy credits. A mutating action needs its own explicit user action.
+- Separate authentication from data access. One failing endpoint must not turn other values into zero.
+- Code ported from another project keeps its license attribution in the file header.
+
+## Documentation
+
+Docs are part of the product. When a path or behaviour changes, update the owning document and [the documentation index](docs/README.md). `mise run check` validates internal links, anchors and canonical state names.
+
+## License
+
+By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).

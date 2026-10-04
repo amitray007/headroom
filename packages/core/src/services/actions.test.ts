@@ -50,7 +50,7 @@ function setup(enabled: boolean) {
     now: clock,
   });
   const service = new ActionService({
-    enabled,
+    enabled: () => enabled,
     registry,
     connections,
     credentials,

@@ -1,0 +1,210 @@
+/* Spend by Provider: a share ring beside a breakdown table of plans, usage and top-ups per provider. */
+.sp-body {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-5);
+}
+
+/* The ring with its readout in the middle: all-in at rest, the hovered provider otherwise. */
+.sp-chart {
+  position: relative;
+  width: 220px;
+  aspect-ratio: 1;
+}
+.sp-ring {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.sp-ring path {
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.sp-ring path[data-dim] {
+  opacity: 0.35;
+}
+.sp-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 2px;
+  text-align: center;
+  pointer-events: none;
+}
+.sp-center-label {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.sp-center-value {
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.sp-center-meta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* The breakdown table: provider, the mix bar, the three kinds, total and share. */
+.sp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.sp-table th,
+.sp-table td {
+  padding: 9px 0 9px var(--space-4);
+  text-align: right;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.sp-table th:first-child,
+.sp-table td:first-child,
+.sp-table tbody th {
+  padding-left: 0;
+  text-align: left;
+}
+.sp-table thead th {
+  padding-top: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.sp-table tbody tr {
+  border-top: 1px solid var(--border-subtle);
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.sp-table tbody tr[data-dim] {
+  opacity: 0.5;
+}
+.sp-who {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--foreground);
+}
+.sp-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.sp-table .sp-mix-head,
+.sp-table .sp-mix {
+  width: 34%;
+  text-align: left;
+}
+.sp-keys,
+.sp-legend {
+  display: flex;
+  gap: var(--space-3);
+}
+/* Beside the ring the table header carries the key; the separate key shows only when the two stack. */
+.sp-legend {
+  display: none;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.sp-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+/* The bar for one row: the provider's hue at full strength for plans, then weaker for usage and top-ups. */
+.sp-stack {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  min-width: 6px;
+}
+.sp-stack i,
+.sp-key i {
+  display: block;
+  border-radius: 999px;
+}
+.sp-stack i {
+  height: 100%;
+  min-width: 4px;
+}
+.sp-key i {
+  width: 8px;
+  height: 8px;
+  color: var(--text-secondary);
+}
+.sp-stack i[data-kind="plan"],
+.sp-key i[data-kind="plan"] {
+  background: currentColor;
+}
+.sp-stack i[data-kind="usage"],
+.sp-key i[data-kind="usage"] {
+  background: color-mix(in oklab, currentColor 55%, transparent);
+}
+.sp-stack i[data-kind="topup"],
+.sp-key i[data-kind="topup"] {
+  background: color-mix(in oklab, currentColor 28%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 55%, transparent);
+}
+.sp-table .sp-total {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.sp-table .sp-share {
+  color: var(--text-secondary);
+}
+.sp-table .muted {
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-ring path,
+  .sp-table tbody tr {
+    transition: none;
+  }
+}
+/* Narrower: the ring sits above the table, and the three kind columns give way to the bar alone. */
+@media (max-width: 900px) {
+  .sp-body {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+  .sp-table {
+    justify-self: stretch;
+  }
+  .sp-legend {
+    display: flex;
+    margin-top: calc(var(--space-2) * -1);
+  }
+  .sp-keys {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .sp-table .sp-n,
+  .sp-table td.num:not(.sp-total, .sp-share) {
+    display: none;
+  }
+  .sp-table .sp-mix-head,
+  .sp-table .sp-mix {
+    width: 40%;
+  }
+}
+@media (max-width: 520px) {
+  .sp-table th,
+  .sp-table td {
+    padding-left: var(--space-3);
+  }
+  .sp-table tbody th {
+    white-space: normal;
+  }
+  .sp-table .sp-mix-head,
+  .sp-table .sp-mix {
+    width: 28%;
+  }
+  /* The footer wraps rather than cutting off a fact. */
+  .w-spend .w-card-foot {
+    white-space: normal;
+  }
+}

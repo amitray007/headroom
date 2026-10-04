@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Headroom · Overview</title>
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="g-views.css" />
+  </head>
+  <body>
+    <div class="page g-page">
+      <header class="top"></header>
+      <main id="panels" aria-busy="true"></main>
+    </div>
+    <script type="module">
+      import { renderShell } from "./g-shell.js";
+
+      renderShell({ active: "overview" });
+
+      // The approved panel view (mockup F) under the shared top bar. Its top bar is dropped;
+      // provider sections and the add link come across as they are.
+      const html = await (await fetch("../f-panels.html")).text();
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const page = doc.querySelector(".page");
+      const main = document.getElementById("panels");
+      for (const node of page ? [...page.children] : []) {
+        if (node.matches("header.top, script, dialog")) continue;
+        main.append(document.importNode(node, true));
+      }
+      main.setAttribute("aria-busy", "false");
+    </script>
+  </body>
+</html>

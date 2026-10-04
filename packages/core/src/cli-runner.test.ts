@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { CliLoginRunner, stripAnsi } from "./cli-runner.ts";
+import { CliLoginRunner, redactOutput, stripAnsi } from "./cli-runner.ts";
 
 /** A stand-in CLI: prints a URL and code with ANSI colour, then writes auth.json when it reads "ok" on stdin. */
 const fakeCli = `
@@ -125,5 +125,76 @@ process.stdout.write(\`open=\${open.exitCode} xdg=\${xdg.exitCode} find=\${find.
     const runner = new CliLoginRunner({ attemptsDir: "/tmp/never-used" });
     expect(() => runner.attemptDir("../etc")).toThrow();
     expect(stripAnsi("\u001B[94mhttps://x\u001B[0m \u001B[1;32mok\u001B[0m")).toBe("https://x ok");
+  });
+});
+
+describe("redactOutput", () => {
+  const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzeW50aGV0aWMifQ.c2lnbmF0dXJlLXN5bnRoZXRpYw";
+
+  test("masks bearer tokens, JWTs, long hex and base64 secrets, and token members", () => {
+    const text = [
+      "Authorization: Bearer abc123.def456-ghi789",
+      `id ${jwt}`,
+      "key 0123456789abcdef0123456789abcdef0123",
+      "blob QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVowMTIzNDU2Nzg5",
+      '{"access_token": "synthetic-a", "refresh_token":"synthetic-r", "expires_in": 3600}',
+      "id_token=synthetic-i&next=1",
+    ].join("\n");
+    const out = redactOutput(text);
+    for (const secret of [
+      "abc123.def456",
+      "eyJhbGci",
+      "0123456789abcdef0123456789abcdef0123",
+      "QUJDREVG",
+      "synthetic-a",
+      "synthetic-r",
+      "synthetic-i",
+    ])
+      expect(out).not.toContain(secret);
+    expect(out).toContain("Bearer [redacted]");
+    expect(out).toContain('"expires_in": 3600');
+    expect(out).toContain("&next=1");
+  });
+
+  test("keeps sign-in URLs and user codes whole", () => {
+    const claude =
+      "https://claude.com/cai/oauth/authorize?code=true&client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e&state=dGhpc2lzYXN5bnRoZXRpY3N0YXRlMDEyMzQ1Njc4OWFiY2RlZg&code_challenge=Zm9vYmFyYmF6cXV4c3ludGhldGljY2hhbGxlbmdlMDEyMw";
+    const grok = "https://accounts.x.ai/oauth2/device?user_code=ABCD-EFGH";
+    const text = `visit: ${claude}\n${grok}\ncode ABCD-1234`;
+    expect(redactOutput(text)).toBe(text);
+  });
+
+  test("masks a token member inside a URL but leaves the rest of it", () => {
+    expect(redactOutput("see https://x.test/cb?access_token=synthetic&state=keep")).toBe(
+      "see https://x.test/cb?access_token=[redacted]&state=keep",
+    );
+  });
+
+  test("the runner serves redacted output with the sign-in details intact", async () => {
+    const base = mkdtempSync(join(tmpdir(), "headroom-runner-"));
+    try {
+      const script = join(base, "leaky.ts");
+      writeFileSync(
+        script,
+        `process.stdout.write("https://example.com/device\\ncode ABCD-EFGH\\n{\\"refresh_token\\":\\"synthetic-r\\"}\\n");
+await Bun.sleep(5000);`,
+      );
+      const runner = new CliLoginRunner({ attemptsDir: join(base, "attempts") });
+      runner.start({
+        attemptId: "attempt-3",
+        command: [process.execPath, script],
+        homeVariable: "FAKE_HOME",
+        credentialFile: "auth.json",
+        timeoutMs: 10_000,
+      });
+      await until(() => (runner.status("attempt-3")?.output ?? "").includes("refresh_token"));
+      const output = runner.status("attempt-3")?.output ?? "";
+      expect(output).toContain("https://example.com/device");
+      expect(output).toContain("ABCD-EFGH");
+      expect(output).not.toContain("synthetic-r");
+      await runner.cleanup("attempt-3");
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
   });
 });

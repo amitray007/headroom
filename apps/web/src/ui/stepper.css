@@ -1,0 +1,56 @@
+/* Stepper: numbered words that show where a guided flow stands. */
+.stepper {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.stepper li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  padding: 4px 10px 4px 4px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  transition:
+    color var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-fast) var(--ease-standard);
+}
+.stepper li .n {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.stepper li.current {
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--foreground) 8%, var(--surface));
+}
+.stepper li.current .n {
+  background: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
+}
+.stepper li.done {
+  color: var(--text-secondary);
+}
+.stepper li.done .n {
+  background: color-mix(in oklab, var(--success) 14%, var(--surface));
+  color: var(--success);
+  border-color: color-mix(in oklab, var(--success) 30%, var(--border));
+}
+.stepper li.failed .n {
+  background: color-mix(in oklab, var(--danger) 14%, var(--surface));
+  color: var(--danger);
+  border-color: color-mix(in oklab, var(--danger) 30%, var(--border));
+}

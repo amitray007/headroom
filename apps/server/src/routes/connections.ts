@@ -1,25 +1,29 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { accountActionKindSchema, authMethodSchema } from "@headroom/core";
+import { accountActionKindSchema, authMethodSchema, type DisconnectResult } from "@headroom/core";
 
 import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
 import { handleServiceError } from "./errors.ts";
+import { metricJson, ms, resetCreditJson } from "./serialize.ts";
 
 const reconnectBody = z.object({ method: authMethodSchema });
 const pauseBody = z.object({ paused: z.boolean() });
+const maxNameLength = 40;
+const renameBody = z.object({
+  name: z
+    .string()
+    .nullable()
+    .transform((value) => (value === null ? null : value.trim()))
+    .refine((value) => value === null || value.length <= maxNameLength),
+});
 /** `confirm` must be literally true: the browser sets it after the owner confirmed the named credit. */
 const actionBody = z.object({
   action: accountActionKindSchema,
   creditId: z.string().min(1).optional(),
   confirm: z.literal(true),
 });
-
-/** Every instant leaves the API as epoch milliseconds; the web client's schemas expect numbers, not ISO strings. */
-function ms(value: Date | null | undefined): number | null {
-  return value?.getTime() ?? null;
-}
 
 export function connectionRoutes(ctx: AppContext): Hono<Env> {
   const app = new Hono<Env>();
@@ -28,7 +32,7 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
   app.get("/", (c) => {
     const now = ctx.now().getTime();
     const staleAfterMs = ctx.config.staleAfterSeconds * 1000;
-    const rows = ctx.connections.list().map((connection) => {
+    const rows = ctx.order.arrange(ctx.connections.list()).map((connection) => {
       const run = ctx.snapshots.latestRun(connection.id);
       const latest = ctx.snapshots.latest(connection.id);
       const lastSuccessAt = connection.lastSuccessAt?.getTime() ?? null;
@@ -36,6 +40,7 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
         id: connection.id,
         provider: connection.provider,
         label: connection.label,
+        name: connection.displayName,
         scope: connection.scope,
         state: connection.state,
         reconnectReason: connection.reconnectReason,
@@ -58,11 +63,20 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
     const latest = ctx.snapshots.latest(connection.id);
     const run = ctx.snapshots.latestRun(connection.id);
     return c.json({
+      // Built field by field: the stored row also holds providerAccountId and workspaceId.
       connection: {
-        ...connection,
+        id: connection.id,
+        provider: connection.provider,
+        label: connection.label,
+        name: connection.displayName,
+        scope: connection.scope,
+        state: connection.state,
+        reconnectReason: connection.reconnectReason,
+        interface: connection.interface,
+        authMethod: connection.authMethod,
+        lastSuccessAt: ms(connection.lastSuccessAt),
         createdAt: connection.createdAt.getTime(),
         updatedAt: connection.updatedAt.getTime(),
-        lastSuccessAt: ms(connection.lastSuccessAt),
       },
       capabilities: ctx.snapshots.capabilities(connection.id).map((row) => ({
         metricOrAction: row.metricOrAction,
@@ -77,28 +91,8 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
             observedAt: latest.snapshot.observedAt.getTime(),
             receivedAt: latest.snapshot.receivedAt.getTime(),
             connectorVersion: latest.snapshot.connectorVersion,
-            metrics: latest.metrics.map((metric) => ({
-              providerMetricKey: metric.providerMetricKey,
-              kind: metric.kind,
-              scope: metric.scope,
-              valueText: metric.valueText,
-              valueNum: metric.valueNum,
-              unit: metric.unit,
-              unlimited: metric.unlimited,
-              windowStart: ms(metric.windowStart),
-              windowEnd: ms(metric.windowEnd),
-              resetsAt: ms(metric.resetsAt),
-              availability: metric.availability,
-              interface: metric.interface,
-            })),
-            resetCredits: latest.resetCredits.map((credit) => ({
-              providerCreditId: credit.providerCreditId,
-              eligible: credit.eligible,
-              usable: credit.usable,
-              expiresAt: ms(credit.expiresAt),
-              cooldownUntil: ms(credit.cooldownUntil),
-              rawLabel: credit.rawLabel,
-            })),
+            metrics: latest.metrics.map(metricJson),
+            resetCredits: latest.resetCredits.map(resetCreditJson),
           }
         : null,
       latestRun: run
@@ -118,7 +112,7 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
 
   /**
    * Owner-triggered account mutation, for example consuming a Codex reset credit. Gated by
-   * HEADROOM_ENABLE_ACTIONS and by the literal confirm flag; never called by the scheduler.
+   * the owner's accountActions setting and by the literal confirm flag; never called by the scheduler.
    */
   app.post("/:id/actions", async (c) => {
     const connection = ctx.connections.get(c.req.param("id"));
@@ -170,6 +164,17 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
     }
   });
 
+  /** Owner-set display name. Empty or null clears it. */
+  app.patch("/:id", async (c) => {
+    const connection = ctx.connections.get(c.req.param("id"));
+    if (!connection) return c.json({ error: "not_found" }, 404);
+    const body = renameBody.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "invalid_body" }, 400);
+    const name = body.data.name === "" ? null : body.data.name;
+    ctx.connections.setDisplayName(connection.id, name);
+    return c.json({ name });
+  });
+
   app.post("/:id/pause", async (c) => {
     const connection = ctx.connections.get(c.req.param("id"));
     if (!connection) return c.json({ error: "not_found" }, 404);
@@ -183,29 +188,55 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
   app.post("/:id/refresh", async (c) => {
     const connection = ctx.connections.get(c.req.param("id"));
     if (!connection) return c.json({ error: "not_found" }, 404);
-    const outcome = await ctx.collection.run(connection.id, "manual");
+    // No fixed holder: the lease re-grants to the same holder, so a shared name would let two
+    // concurrent refreshes both collect and rotate the refresh token twice.
+    const outcome = await ctx.collection.run(connection.id);
     return c.json({ outcome, state: ctx.connections.get(connection.id)?.state });
   });
 
-  /** Disconnect: provider revocation where documented, then delete everything local. */
+  /**
+   * Disconnect: provider revocation where documented, then delete everything local. Runs under
+   * the connection's lease, waiting briefly for a collection in flight, so the delete never
+   * pulls the connection out from under it.
+   */
   app.delete("/:id", async (c) => {
     const connection = ctx.connections.get(c.req.param("id"));
     if (!connection) return c.json({ error: "not_found" }, 404);
-    const connector = ctx.registry.get(connection.provider);
-    const record = ctx.credentials.get(connection.id);
-    let revocation: "revoked" | "local_only" | "failed" = "local_only";
-    if (connector && record) {
-      try {
-        revocation = await connector.disconnect({
-          secret: record.secret,
-          expiresAt: record.expiresAt,
-        });
-      } catch {
-        revocation = "failed";
-      }
+    const holder = `disconnect:${Bun.randomUUIDv7()}`;
+    let acquired: boolean;
+    try {
+      acquired = await ctx.leases.acquireWithin(
+        connection.id,
+        holder,
+        ctx.collection.leaseTtlMs,
+        ctx.disconnectWaitMs,
+      );
+    } catch (error) {
+      // Deleted by another request while this one waited.
+      if (!ctx.connections.get(connection.id)) return c.json({ error: "not_found" }, 404);
+      throw error;
     }
-    ctx.connections.delete(connection.id);
-    return c.json({ revocation });
+    if (!acquired) return c.json({ error: "connection_busy" }, 409);
+    try {
+      const connector = ctx.registry.get(connection.provider);
+      const record = ctx.credentials.get(connection.id);
+      let revocation: DisconnectResult = "local_only";
+      if (connector && record) {
+        try {
+          revocation = await connector.disconnect({
+            secret: record.secret,
+            expiresAt: record.expiresAt,
+          });
+        } catch {
+          revocation = "failed";
+        }
+      }
+      ctx.connections.delete(connection.id);
+      return c.json({ revocation });
+    } finally {
+      // The delete cascades to the lease row; this covers a failure before it.
+      ctx.leases.release(connection.id, holder);
+    }
   });
 
   return app;

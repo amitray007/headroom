@@ -7,6 +7,7 @@ import resetCreditsFixture from "./fixtures/reset-credits.json";
 import usagePartial from "./fixtures/usage-partial.json";
 import usageFixture from "./fixtures/usage.json";
 import usageLiveShape from "./fixtures/usage-live-shape.json";
+import usageNulls from "./fixtures/usage-nulls.json";
 import { createCodexConnector, credentialFromAuthFile, parseDeviceStep } from "./index.ts";
 import {
   accessToken,
@@ -247,6 +248,45 @@ describe("identity and collection", () => {
     expect(result.failures).toHaveLength(1);
   });
 
+  test("reset_after_seconds counts from the observation when reset_at is absent", async () => {
+    const observed = 1_700_000_000_000;
+    const http = fakeFetch({
+      [usageUrl]: () =>
+        json({
+          rate_limit: {
+            primary_window: {
+              used_percent: 10,
+              limit_window_seconds: 18_000,
+              reset_after_seconds: 90,
+            },
+            secondary_window: { used_percent: 20, limit_window_seconds: 604_800 },
+          },
+        }),
+      [resetCreditsUrl]: () => json({ detail: "not found" }, 404),
+    });
+    const connector = createCodexConnector({
+      runner: new FakeRunner(),
+      fetch: http.fetch,
+      now: () => observed,
+    });
+    const result = await connector.collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["rate_limit.primary_window"]?.resetsAt).toBe(observed + 90_000);
+    expect(byKey["rate_limit.secondary_window"]?.resetsAt).toBeNull();
+  });
+
+  test("null parts of the usage body read as missing, so the refresh still succeeds", async () => {
+    const http = fakeFetch({
+      [usageUrl]: () => json(usageNulls),
+      [resetCreditsUrl]: () => json({ detail: "not found" }, 404),
+    });
+    const connector = createCodexConnector({ runner: new FakeRunner(), fetch: http.fetch });
+    const result = await connector.collect(credential, await connector.identity(credential));
+    const keys = result.metrics.map((m) => m.providerMetricKey);
+    expect(keys).toEqual(["rate_limit.primary_window"]);
+    expect(result.metrics[0]).toMatchObject({ valueText: "12", availability: "available" });
+  });
+
   test("missing percentages are unknown, not zero; a failing reset-credits route is a capability failure", async () => {
     const http = fakeFetch({
       [usageUrl]: () => json(usagePartial),
@@ -269,11 +309,11 @@ describe("identity and collection", () => {
     });
     expect(
       await rejection(
-        usageConnector(429, {}, { "retry-after": "30" }).collect(credential, identity),
+        usageConnector(429, {}, { "retry-after": "300" }).collect(credential, identity),
       ),
     ).toMatchObject({
       category: "rate_limited",
-      retryAfterMs: 30_000,
+      retryAfterMs: 300_000,
     });
     expect(
       await rejection(
@@ -323,6 +363,28 @@ describe("refresh", () => {
     ).toMatchObject({
       status: "transient",
     });
+  });
+
+  test("rejection text is fixed wording: a provider error field never reaches the message", async () => {
+    const known = await tokenConnector(() => json({ error: "invalid_grant" }, 400)).refresh(
+      credential,
+    );
+    expect(known).toMatchObject({
+      status: "rejected",
+      error: { message: "refresh rejected: the refresh token is no longer valid" },
+    });
+    const unknown = await tokenConnector(() =>
+      json({ error: "MARKER-synthetic", error_description: "MARKER-synthetic" }, 400),
+    ).refresh(credential);
+    expect(unknown).toMatchObject({
+      status: "rejected",
+      error: { message: "refresh rejected: 400" },
+    });
+    expect(JSON.stringify(unknown)).not.toContain("MARKER");
+    const limited = await tokenConnector(() =>
+      json({ error: "MARKER-synthetic" }, 429, { "retry-after": "120" }),
+    ).refresh(credential);
+    expect(limited).toMatchObject({ status: "transient", error: { retryAfterMs: 120_000 } });
   });
 
   test("consume sends the credit id and idempotency key with the desktop headers; 5xx and network loss are uncertain", async () => {

@@ -1,0 +1,25 @@
+.verified-seal {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--success);
+}
+.verified-seal svg {
+  width: 100%;
+  height: 100%;
+}
+.verified-seal svg path:first-child {
+  fill: color-mix(in oklab, var(--success) 14%, var(--surface));
+}
+.verified-seal.sm {
+  width: 18px;
+  height: 18px;
+}
+.verified-seal.muted {
+  color: var(--text-muted);
+}
+.verified-seal.muted svg path:first-child {
+  fill: none;
+}

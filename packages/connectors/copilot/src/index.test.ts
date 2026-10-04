@@ -101,7 +101,7 @@ describe("Copilot connector", () => {
     });
     expect(
       credentialFromAppsFile(
-        JSON.stringify({ "github.com:Iv1.x": { user: "amit", oauth_token: "gho_file" } }),
+        JSON.stringify({ "github.com:Iv1.x": { user: "octocat", oauth_token: "gho_file" } }),
       ),
     ).toEqual({
       secret: { token: "gho_file" },
@@ -112,14 +112,14 @@ describe("Copilot connector", () => {
 
   test("identity comes from /user; usage headers use the token scheme and editor identity", async () => {
     const http = fakeFetch({
-      [userUrl]: () => json({ id: 42, login: "amit" }),
+      [userUrl]: () => json({ id: 42, login: "octocat" }),
       [usageUrl]: () => json(paid),
     });
     const connector = createCopilotConnector({ fetch: http.fetch });
     expect(await connector.identity(credential)).toEqual({
       providerAccountId: "42",
       workspaceId: null,
-      label: "amit (Copilot)",
+      label: "octocat (Copilot)",
       assurance: "strong",
     });
     await connector.collect(credential, identity);
@@ -191,13 +191,50 @@ describe("Copilot connector", () => {
       category: "authentication_required",
     });
     const limited = createCopilotConnector({
-      fetch: fakeFetch({ [usageUrl]: () => json({}, 403, { "retry-after": "30" }) }).fetch,
+      fetch: fakeFetch({ [usageUrl]: () => json({}, 403, { "retry-after": "300" }) }).fetch,
     });
     expect(await rejection(limited.collect(credential, identity))).toMatchObject({
       category: "rate_limited",
-      retryAfterMs: 30_000,
+      retryAfterMs: 300_000,
+    });
+    const exhausted = createCopilotConnector({
+      fetch: fakeFetch({ [usageUrl]: () => json({}, 403, { "x-ratelimit-remaining": "0" }) }).fetch,
+    });
+    expect(await rejection(exhausted.collect(credential, identity))).toMatchObject({
+      category: "rate_limited",
+      retryAfterMs: 60_000,
     });
     expect(await unauthorized.refresh(credential)).toEqual({ status: "not_refreshable" });
     expect(await unauthorized.disconnect(credential)).toBe("local_only");
+  });
+
+  test("a bare 403 is permission_denied, never a rate limit", async () => {
+    const bare = createCopilotConnector({
+      fetch: fakeFetch({ [usageUrl]: () => json({}, 403) }).fetch,
+    });
+    expect(await rejection(bare.collect(credential, identity))).toMatchObject({
+      category: "permission_denied",
+    });
+    const remaining = createCopilotConnector({
+      fetch: fakeFetch({ [usageUrl]: () => json({}, 403, { "x-ratelimit-remaining": "42" }) })
+        .fetch,
+    });
+    expect(await rejection(remaining.collect(credential, identity))).toMatchObject({
+      category: "permission_denied",
+    });
+  });
+
+  test("an unrecognised device-flow error never reaches the message", async () => {
+    const connector = createCopilotConnector({
+      fetch: fakeFetch({
+        [accessTokenUrl]: () => json({ error: "MARKER-synthetic", error_description: "MARKER" }),
+      }).fetch,
+    });
+    const result = await connector.pollConnect({ deviceCode: "dev", intervalMs: 5000 });
+    expect(result).toMatchObject({
+      status: "error",
+      error: { category: "provider_unavailable", message: "GitHub refused the sign-in (HTTP 200)" },
+    });
+    expect(JSON.stringify(result)).not.toContain("MARKER");
   });
 });

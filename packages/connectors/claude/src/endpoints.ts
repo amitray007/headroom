@@ -14,13 +14,21 @@ export const profileUrl = "https://api.anthropic.com/api/oauth/profile";
 /** `cedar_ember=1` asks for the reset-grant block alongside the usage windows. */
 export const usageUrl = "https://api.anthropic.com/api/oauth/usage?cedar_ember=1";
 
+/**
+ * Client identity sent to the OAuth endpoints. The usage endpoint withholds the reset-grant block
+ * (`cedar_ember.eligible: false`, `ineligible_reason: "surface"`) unless the user agent looks like the
+ * Claude Code CLI, and it enforces a version floor (`ineligible_reason: "cli_version"`). Bump this
+ * to a current Claude Code release if Anthropic raises the floor. Validated 2026-10-02.
+ */
+export const claudeCodeUserAgent = "claude-cli/2.1.285 (external, cli)";
+
 export function oauthHeaders(accessToken: string): Record<string, string> {
   return {
     authorization: `Bearer ${accessToken}`,
     accept: "application/json",
     "content-type": "application/json",
     "anthropic-beta": "oauth-2025-04-20",
-    "user-agent": "Headroom",
+    "user-agent": claudeCodeUserAgent,
   };
 }
 

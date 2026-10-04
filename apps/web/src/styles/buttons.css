@@ -1,0 +1,359 @@
+/*
+ * Arc UI button family: button, action button, split button, copy button. Loaded after components.css.
+ * Ported from Arc's registry values to plain CSS: 36px/30px heights, pill-leaning radius, 14/500 labels, press
+ * scale on a spring release, colour feedback on press, a soft lift on hover, disabled at .52. Focus rings stay.
+ * "Live" means neither disabled nor aria-disabled (a busy button stays focusable but ignores presses).
+ */
+.btn {
+  --lift: 0 1px 2px light-dark(oklch(0% 0 0 / 0.07), oklch(0% 0 0 / 0.45));
+  font: 500 var(--text-base) / 20px var(--font);
+  letter-spacing: -0.005em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  height: 36px;
+  padding: 0 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+/* The hold button sets its own colour, radius, border and transition in components.css. */
+.btn:not(.hold) {
+  color: var(--foreground);
+  border-color: var(--border);
+  border-radius: var(--radius-control);
+  transition:
+    scale var(--dur-spring) var(--ease-spring),
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    box-shadow var(--dur-fast) var(--ease-standard),
+    opacity var(--dur-fast) var(--ease-standard);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.btn svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.btn.primary {
+  background: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
+}
+.btn.primary svg {
+  color: var(--background);
+}
+.btn.quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+  padding: 0 12px;
+}
+.btn.danger {
+  color: var(--danger);
+}
+.btn.sm {
+  height: 30px;
+  padding: 0 12px;
+  font-size: var(--text-sm);
+  border-radius: 15px;
+}
+.btn .label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity var(--dur-instant) var(--ease-standard);
+}
+.btn .label.fading {
+  opacity: 0;
+}
+.btn .label .spin {
+  width: 12px;
+  height: 12px;
+}
+
+/* Press: the whole button scales in 120ms and releases on the spring. Icon-only buttons press deeper. */
+.btn:active:not(:disabled, [aria-disabled="true"]) {
+  scale: 0.97;
+  transition-duration: var(--dur-instant);
+}
+.btn.icon-only:active:not(:disabled, [aria-disabled="true"]) {
+  scale: 0.96;
+}
+/* Colour answers the press too, so touch (no hover) still reads. */
+.btn.primary:active:not(:disabled, [aria-disabled="true"]) {
+  opacity: 0.84;
+}
+.btn:not(.primary, .hold):active:not(:disabled, [aria-disabled="true"]) {
+  background: color-mix(in oklab, var(--surface-muted), var(--border) 55%);
+}
+.btn.danger:not(.quiet):active:not(:disabled, [aria-disabled="true"]) {
+  border-color: var(--danger);
+}
+
+/* Disabled dims; busy stays full strength with a progress cursor. */
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+.btn[aria-busy="true"] {
+  opacity: 1;
+  cursor: progress;
+  color: var(--text-secondary);
+}
+.btn.primary[aria-busy="true"] {
+  color: var(--background);
+  opacity: 0.8;
+}
+.btn.danger[aria-busy="true"] {
+  color: var(--danger);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled, [aria-disabled="true"]) {
+    background: var(--surface-muted);
+    border-color: var(--border-strong);
+    box-shadow: var(--lift);
+  }
+  .btn.primary:hover:not(:disabled, [aria-disabled="true"]) {
+    background: var(--foreground);
+    border-color: var(--foreground);
+    opacity: 0.91;
+  }
+  .btn.quiet:hover:not(:disabled, [aria-disabled="true"]) {
+    color: var(--foreground);
+    border-color: transparent;
+    box-shadow: none;
+  }
+  .btn.danger:hover:not(:disabled, [aria-disabled="true"]) {
+    border-color: var(--danger);
+    background: var(--surface-muted);
+  }
+  .btn.danger.quiet:hover:not(:disabled, [aria-disabled="true"]) {
+    color: var(--danger);
+    border-color: transparent;
+    background: color-mix(in oklab, var(--danger) 8%, var(--surface));
+  }
+}
+
+/* Face and text cells shared by the action button and the copy button. The text cell reserves its widest label. */
+.face-slot {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.face-slot .swap {
+  place-items: center;
+}
+.morph-face {
+  display: grid;
+  place-items: center;
+}
+.face-slot .spin {
+  width: 14px;
+  height: 14px;
+}
+.text-cell {
+  display: inline-grid;
+  justify-items: start;
+}
+.acts .btn.action {
+  min-width: 0;
+}
+.text-cell > * {
+  grid-area: 1 / 1;
+}
+.text-cell .measure {
+  visibility: hidden;
+  white-space: nowrap;
+}
+.text-cell .swap {
+  justify-self: start;
+}
+.morph-text {
+  white-space: nowrap;
+}
+/* Icons trade places in one soft breath: the old glyph shrinks into a blur while the new one grows out of it. */
+@keyframes face-in {
+  from {
+    opacity: 0;
+    scale: 0.6;
+    filter: blur(2px);
+  }
+}
+@keyframes face-out {
+  to {
+    opacity: 0;
+    scale: 0.6;
+    filter: blur(2px);
+  }
+}
+.morph-face.swap-in {
+  animation: face-in var(--dur-standard) var(--ease-enter) both;
+}
+.morph-face.swap-out {
+  animation: face-out var(--dur-fast) var(--ease-standard) both;
+}
+/* The tick draws itself from its short stroke. */
+.drawn-check path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw-check 380ms var(--ease-standard) 60ms forwards;
+}
+@keyframes draw-check {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.btn[data-phase="success"] .face-slot,
+.btn[data-phase="copied"] .face-slot {
+  color: var(--success);
+}
+.btn[data-phase="failed"] .face-slot,
+.btn[data-phase="error"] .face-slot {
+  color: var(--danger);
+}
+/* Copy feedback is unhurried: longer, softer swaps than a status change. */
+.btn.copy .morph-face.swap-in {
+  animation-duration: 360ms;
+}
+.btn.copy .morph-text.swap-in {
+  animation-duration: 360ms;
+}
+.btn.copy.sm.icon-only {
+  width: 30px;
+  padding: 0;
+}
+
+/* Split button: one pill, two actions. The pill presses in for the main action; the menu half never scales. */
+.split {
+  --split-radius: var(--radius-control);
+  display: inline-flex;
+  align-items: stretch;
+  color: var(--foreground);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--split-radius);
+  transition:
+    scale var(--dur-spring) var(--ease-spring),
+    box-shadow var(--dur-fast) var(--ease-standard);
+}
+.split.sm {
+  --split-radius: 15px;
+}
+.split.primary {
+  color: var(--background);
+  background: var(--foreground);
+  border-color: var(--foreground);
+}
+.split:has(> .split-main:active:not([aria-disabled="true"], :disabled)) {
+  scale: 0.97;
+  transition-duration: var(--dur-instant);
+}
+.split .menu-anchor {
+  display: flex;
+}
+.split .btn {
+  background: transparent;
+  color: inherit;
+  border: 0;
+  box-shadow: none;
+  scale: 1;
+  opacity: 1;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    opacity var(--dur-fast) var(--ease-standard);
+}
+.split:not(.sm) .btn {
+  height: 34px;
+}
+.split.sm .btn {
+  height: 28px;
+}
+.split .btn:disabled,
+.split .btn[aria-disabled="true"] {
+  opacity: 0.52;
+}
+.split .btn svg {
+  color: inherit;
+}
+.acts .split .btn {
+  min-width: 0;
+}
+.split .split-main {
+  border-radius: calc(var(--split-radius) - 1px) 0 0 calc(var(--split-radius) - 1px);
+  padding: 0 14px 0 12px;
+}
+.split .split-trigger {
+  padding: 0 8px;
+  border-radius: 0 calc(var(--split-radius) - 1px) calc(var(--split-radius) - 1px) 0;
+  border-left: 1px solid color-mix(in oklab, currentColor 16%, transparent);
+}
+.split .chevron {
+  width: 14px;
+  height: 14px;
+  transition: rotate var(--dur-spring) var(--ease-spring);
+}
+.split .split-trigger[aria-expanded="true"] .chevron {
+  rotate: 180deg;
+}
+.split .btn:active:not(:disabled, [aria-disabled="true"]),
+.split .split-trigger[aria-expanded="true"] {
+  scale: 1;
+  background: color-mix(in oklab, var(--surface-muted), var(--border) 55%);
+}
+.split.primary .btn:active:not(:disabled, [aria-disabled="true"]),
+.split.primary .split-trigger[aria-expanded="true"] {
+  background: color-mix(in oklab, var(--foreground) 78%, var(--background));
+}
+.split .btn:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .split:hover:not(:has(:disabled)) {
+    box-shadow: var(--lift, 0 1px 2px oklch(0% 0 0 / 0.08));
+  }
+  .split .btn:hover:not(:disabled, [aria-disabled="true"]) {
+    background: var(--surface-muted);
+    box-shadow: none;
+  }
+  .split.primary .btn:hover:not(:disabled, [aria-disabled="true"]) {
+    background: color-mix(in oklab, var(--foreground) 88%, var(--background));
+    color: var(--background);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:active:not(:disabled, [aria-disabled="true"]),
+  .split:has(> .split-main:active) {
+    scale: 1;
+  }
+  .drawn-check path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .split .chevron {
+    transition: none;
+  }
+}
+
+/* A finger needs more than a mouse: on a touch screen the small button is as tall as the default one. */
+@media (pointer: coarse) {
+  .btn.sm {
+    height: 36px;
+    border-radius: 18px;
+  }
+}

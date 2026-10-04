@@ -1,4 +1,6 @@
 import { Database } from "bun:sqlite";
+import { chmodSync, existsSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { drizzle, type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 
 import { migrationFiles } from "./migrations/index.ts";
@@ -17,13 +19,23 @@ export interface OpenDatabaseOptions {
  * migration not yet recorded in headroom_migrations. Safe to call on every start.
  */
 export function openDatabase(options: OpenDatabaseOptions): { db: Db; sqlite: Database } {
+  const onDisk = options.path !== ":memory:";
+  // The file holds sessions and sealed credentials: keep its directory and files owner-only.
+  if (onDisk) mkdirSync(dirname(options.path), { recursive: true, mode: 0o700 });
   const sqlite = new Database(options.path, { create: true, strict: true });
   sqlite.run("PRAGMA journal_mode = WAL");
   sqlite.run("PRAGMA foreign_keys = ON");
   sqlite.run("PRAGMA busy_timeout = 5000");
   sqlite.run("PRAGMA synchronous = NORMAL");
   applyMigrations(sqlite);
+  if (onDisk) restrictToOwner(options.path);
   return { db: drizzle(sqlite, { schema }), sqlite };
+}
+
+/** chmod 0600 the database and its WAL sidecars, which exist once the pragmas and migrations have written. */
+function restrictToOwner(path: string): void {
+  for (const file of [path, `${path}-wal`, `${path}-shm`])
+    if (existsSync(file)) chmodSync(file, 0o600);
 }
 
 function applyMigrations(sqlite: Database): void {

@@ -5,7 +5,6 @@ import { z } from "zod";
 import {
   type BeginConnectOptions,
   type Capability,
-  type ClassifiedError,
   type CollectResult,
   type ConnectProgress,
   type Connector,
@@ -16,7 +15,11 @@ import {
   type RefreshResult,
   type StoredCredential,
   type SubmitInput,
+  classified,
   classifyUnknown,
+  parseDate,
+  retryAfterMs,
+  timeoutFetch,
 } from "@headroom/core";
 
 import {
@@ -83,7 +86,7 @@ export function codeFromInput(input: SubmitInput): { code: string; state: string
 }
 
 export function createAntigravityConnector(options: AntigravityConnectorOptions = {}): Connector {
-  const http: FetchLike = options.fetch ?? ((input, init) => fetch(input, init));
+  const http: FetchLike = options.fetch ?? timeoutFetch();
   const now = options.now ?? (() => Date.now());
   const randomState = options.randomState ?? (() => randomBytes(24).toString("base64url"));
 
@@ -112,7 +115,7 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
     if (response.status === 403)
       throw new ConnectorError("permission_denied", `${path} returned 403`);
     if (response.status === 429)
-      throw new ConnectorError("rate_limited", `${path} returned 429`, 60_000);
+      throw new ConnectorError("rate_limited", `${path} returned 429`, retryAfterMs(response));
     if (response.ok) return response.json().catch(() => null);
     if (response.status >= 500) return cloudCode(path, accessToken, body, hostIndex + 1);
     throw new ConnectorError("invalid_response", `${path} returned ${response.status}`);
@@ -371,7 +374,7 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
       if (response.status === 429)
         return {
           status: "transient",
-          error: classified("rate_limited", "token endpoint rate limited", 60_000),
+          error: classified("rate_limited", "token endpoint rate limited", retryAfterMs(response)),
         };
       return {
         status: "transient",
@@ -394,24 +397,6 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
       }
     },
 
-    classify,
+    classify: classifyUnknown,
   };
-}
-
-function classify(error: unknown): ClassifiedError {
-  return classifyUnknown(error);
-}
-
-function classified(
-  category: ClassifiedError["category"],
-  message: string,
-  retryAfterMs?: number,
-): ClassifiedError {
-  return new ConnectorError(category, message, retryAfterMs).toClassified();
-}
-
-function parseDate(value: string | null | undefined): number | null {
-  if (!value) return null;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
 }

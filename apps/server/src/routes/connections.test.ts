@@ -158,6 +158,12 @@ describe("providers and attempts", () => {
   });
 });
 
+/** A promise opened from outside, to hold a fake connector call until the test says so. */
+function gate() {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  return { promise, open: resolve };
+}
+
 async function connected() {
   const h = await harness();
   h.connector.beginQueue.push({ status: "credentials", credential: credentialFixture() });
@@ -220,5 +226,66 @@ describe("connection actions", () => {
     expect(ctx.connections.get(connectionId)).toBeNull();
     expect(ctx.credentials.get(connectionId)).toBeNull();
     expect(ctx.snapshots.latest(connectionId)).toBeNull();
+  });
+
+  test("two concurrent manual refreshes collect once; the second finds the lease held", async () => {
+    const { connector, post, connectionId } = await connected();
+    // Connecting ran one collection already.
+    connector.calls.length = 0;
+    const started = gate();
+    const finish = gate();
+    connector.collect = () => {
+      connector.calls.push("collect");
+      started.open();
+      return finish.promise.then(() => okCollect());
+    };
+    const first = post(`/api/connections/${connectionId}/refresh`);
+    await started.promise;
+    const second = await post(`/api/connections/${connectionId}/refresh`);
+    expect(await second.json()).toMatchObject({
+      outcome: { status: "skipped", reason: "lease_held" },
+    });
+    finish.open();
+    expect((await first).status).toBe(200);
+    expect(connector.calls.filter((call) => call === "collect")).toHaveLength(1);
+  });
+
+  test("disconnect waits for a collection in flight instead of failing it", async () => {
+    const { connector, ctx, app, cookie, post, connectionId } = await connected();
+    connector.calls.length = 0;
+    const started = gate();
+    const finish = gate();
+    connector.collect = () => {
+      connector.calls.push("collect");
+      started.open();
+      return finish.promise.then(() => okCollect());
+    };
+    const refresh = post(`/api/connections/${connectionId}/refresh`);
+    await started.promise;
+    const disconnect = app.request(url(ctx, `/api/connections/${connectionId}`), {
+      method: "DELETE",
+      headers: { cookie, origin: url(ctx, "") },
+    });
+    await Bun.sleep(30);
+    expect(ctx.connections.get(connectionId)).not.toBeNull();
+    finish.open();
+    expect((await refresh).status).toBe(200);
+    expect((await disconnect).status).toBe(200);
+    expect(ctx.connections.get(connectionId)).toBeNull();
+  });
+
+  test("disconnect answers 409 connection_busy when the lease stays held", async () => {
+    const { ctx, cookie, connector, connectionId } = await connected();
+    const busy = { ...ctx, disconnectWaitMs: 40 };
+    const busyApp = createApp(busy);
+    expect(ctx.leases.acquire(connectionId, "collect:other", 60_000)).toBe(true);
+    const response = await busyApp.request(url(ctx, `/api/connections/${connectionId}`), {
+      method: "DELETE",
+      headers: { cookie, origin: url(ctx, "") },
+    });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "connection_busy" });
+    expect(ctx.connections.get(connectionId)).not.toBeNull();
+    expect(connector.calls).not.toContain("disconnect");
   });
 });

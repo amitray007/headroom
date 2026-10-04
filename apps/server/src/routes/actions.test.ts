@@ -32,6 +32,11 @@ async function connectedCodex(env: Record<string, string>) {
   return { ctx, app, cookie, connector, connectionId: attempt.connectionId };
 }
 
+/** The owner switches account actions on in Settings; that is the only gate. */
+function allowActions(ctx: ReturnType<typeof testContext>): void {
+  ctx.settings.put({ ...ctx.settings.get(), accountActions: true });
+}
+
 describe("account actions route", () => {
   test("the detail payload says whether actions are on and what the connector supports", async () => {
     const off = await connectedCodex({});
@@ -60,7 +65,8 @@ describe("account actions route", () => {
   });
 
   test("with actions on, a confirmed consume runs once and is followed by a collection", async () => {
-    const s = await connectedCodex({ HEADROOM_ENABLE_ACTIONS: "true" });
+    const s = await connectedCodex({});
+    allowActions(s.ctx);
     const unconfirmed = await s.app.request(
       url(s.ctx, `/api/connections/${s.connectionId}/actions`),
       jsonPost(
@@ -99,8 +105,29 @@ describe("account actions route", () => {
     expect(s.connector.calls.filter((c) => c === "collect")).toHaveLength(2);
   });
 
+  test("the owner setting is the only gate: off answers 403, switching it on allows the action", async () => {
+    const s = await connectedCodex({});
+    const send = () =>
+      s.app.request(
+        url(s.ctx, `/api/connections/${s.connectionId}/actions`),
+        jsonPost(
+          s.ctx,
+          { action: "consume_reset_credit", creditId: "credit-1", confirm: true },
+          { cookie: s.cookie },
+        ),
+      );
+    const blocked = await send();
+    expect(blocked.status).toBe(403);
+    expect(await blocked.json()).toEqual({ error: "actions_disabled" });
+    expect(s.connector.calls.some((c) => c.startsWith("action:"))).toBe(false);
+
+    allowActions(s.ctx);
+    expect((await send()).status).toBe(200);
+    expect(s.connector.calls.filter((c) => c.startsWith("action:"))).toHaveLength(1);
+  });
+
   test("a signed-out caller cannot trigger an action", async () => {
-    const s = await connectedCodex({ HEADROOM_ENABLE_ACTIONS: "true" });
+    const s = await connectedCodex({});
     const response = await s.app.request(
       url(s.ctx, `/api/connections/${s.connectionId}/actions`),
       jsonPost(s.ctx, { action: "consume_reset_credit", creditId: "credit-1", confirm: true }),

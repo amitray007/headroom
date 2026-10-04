@@ -1,369 +1,200 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { NextStepPayload, SubmitInput } from "@headroom/core/contracts";
+import type { Provider } from "@headroom/core/contracts";
 
-import { api, type Attempt } from "./api.ts";
-import { ErrorText } from "./components.tsx";
-import { formatTimeLeft } from "./format.ts";
-import { messageOf, useLoad, useNow } from "./hooks.ts";
-import {
-  acceptsLabel,
-  attemptStateLabel,
-  isTerminal,
-  methodLabel,
-  pasteInputKind,
-  shouldPoll,
-  stepForm,
-} from "./labels.ts";
-import { href } from "./router.ts";
+import { api, demoRefusal } from "./api.ts";
+import { AccountsTable } from "./connect/accounts-table.tsx";
+import "./connect/connect.css";
+import { ConnectFlow } from "./connect/flow.tsx";
+import { CardsSkeleton } from "./connect/skeletons.tsx";
+import { useLoad } from "./lib/load.ts";
+import { BrandMark, PlugIcon } from "./icons.tsx";
+import { providerName } from "@headroom/view-model/labels";
+import { useSettings } from "./lib/settings.tsx";
+import { cx } from "./ui/cx.ts";
+import { EmptyState } from "./ui/empty-state.tsx";
+import { ErrorNotice } from "./ui/error-notice.tsx";
+import { prefersReducedMotion } from "./ui/motion.ts";
+import { Sk } from "./ui/skeleton.tsx";
+import type { ViewProps } from "./views/props.ts";
 
-function CopyButton(props: { readonly text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        navigator.clipboard.writeText(props.text).then(
-          () => setCopied(true),
-          () => setCopied(false),
-        );
-      }}
-    >
-      {copied ? "Copied" : "Copy code"}
-    </button>
-  );
+/** Card order, as in the approved mockup. */
+const cardOrder: readonly Provider[] = [
+  "claude",
+  "codex",
+  "cursor",
+  "copilot",
+  "grok",
+  "antigravity",
+  "vercel_ai_gateway",
+];
+
+function orderOf(provider: Provider): number {
+  return cardOrder.indexOf(provider);
 }
 
-function ExternalLink(props: { readonly url: string; readonly children: string }) {
-  return (
-    <a href={props.url} target="_blank" rel="noreferrer noopener">
-      {props.children}
-    </a>
-  );
-}
-
-/** Input forms for steps that need the user to paste or choose something. Clears itself on submit. */
-function StepInput(props: {
-  readonly step: NextStepPayload;
-  readonly busy: boolean;
-  readonly onSubmit: (input: SubmitInput) => void;
-}) {
-  const { step } = props;
-  const [value, setValue] = useState("");
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [selected, setSelected] = useState("");
-
-  function submit(event: FormEvent<HTMLFormElement>, build: () => SubmitInput): void {
-    event.preventDefault();
-    const input = build();
-    setValue("");
-    setValues({});
-    props.onSubmit(input);
-  }
-
-  switch (step.kind) {
-    case "open_url":
-      return (
-        <p>
-          <ExternalLink url={step.url}>Open the sign-in page</ExternalLink> and finish there.
-        </p>
-      );
-    case "device_code":
-      return (
-        <div>
-          <p>
-            Open <ExternalLink url={step.verificationUrl}>{step.verificationUrl}</ExternalLink> and
-            enter this code.
-          </p>
-          <p className="row">
-            <code className="device-code">{step.userCode}</code>
-            <CopyButton text={step.userCode} />
-          </p>
-        </div>
-      );
-    case "paste_redirect": {
-      const label = acceptsLabel(step.accepts);
-      return (
-        <form
-          onSubmit={(event) =>
-            submit(event, () => ({
-              kind: pasteInputKind(step.accepts, value),
-              value: value.trim(),
-            }))
-          }
-        >
-          <p>
-            <ExternalLink url={step.url}>Open the sign-in page</ExternalLink>, approve access, then
-            come back.
-          </p>
-          <label>
-            {label}
-            <input
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
-              autoComplete="off"
-              spellCheck={false}
-              required
-            />
-          </label>
-          <button type="submit" disabled={props.busy}>
-            Submit
-          </button>
-        </form>
-      );
-    }
-    case "select_account":
-      return (
-        <form onSubmit={(event) => submit(event, () => ({ kind: "selection", id: selected }))}>
-          <fieldset>
-            <legend>Choose an account</legend>
-            {step.options.map((option) => (
-              <label key={option.id} className="inline">
-                <input
-                  type="radio"
-                  name="account"
-                  value={option.id}
-                  checked={selected === option.id}
-                  onChange={() => setSelected(option.id)}
-                  required
-                />
-                {option.label}
-              </label>
-            ))}
-          </fieldset>
-          <button type="submit" disabled={props.busy || selected === ""}>
-            Continue
-          </button>
-        </form>
-      );
-    case "api_key":
-      return (
-        <form onSubmit={(event) => submit(event, () => ({ kind: "api_key", values }))}>
-          <p>
-            Create a key on the <ExternalLink url={step.keyPageUrl}>provider key page</ExternalLink>
-            .
-          </p>
-          {step.fields.map((field) => (
-            <label key={field.name}>
-              {field.label}
-              <input
-                type={field.secret ? "password" : "text"}
-                value={values[field.name] ?? ""}
-                onChange={(event) => setValues({ ...values, [field.name]: event.target.value })}
-                autoComplete="off"
-                spellCheck={false}
-                required
-              />
-            </label>
-          ))}
-          <button type="submit" disabled={props.busy}>
-            Submit
-          </button>
-        </form>
-      );
-    case "paste_file":
-      return (
-        <form onSubmit={(event) => submit(event, () => ({ kind: "file", contents: value }))}>
-          <p>{step.hint}</p>
-          <label>
-            Contents of {step.expectedFileName}
-            <textarea
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
-              rows={8}
-              autoComplete="off"
-              spellCheck={false}
-              required
-            />
-          </label>
-          <button type="submit" disabled={props.busy}>
-            Submit
-          </button>
-        </form>
-      );
-  }
-}
-
-function AttemptView(props: {
-  readonly attempt: Attempt;
-  readonly onUpdate: (attempt: Attempt) => void;
-  readonly onRestart: () => void;
-}) {
-  const { attempt } = props;
-  const now = useNow(1000);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const { onUpdate } = props;
-
-  useEffect(() => {
-    if (attempt.pollAfterMs <= 0 && !shouldPoll(attempt.state)) return;
-    const timer = setTimeout(
-      () => {
-        api.attempt(attempt.id).then(onUpdate, (cause: unknown) => setError(messageOf(cause)));
-      },
-      Math.max(attempt.pollAfterMs, 1000),
-    );
-    return () => clearTimeout(timer);
-  }, [attempt, onUpdate]);
-
-  async function call(action: () => Promise<Attempt>): Promise<void> {
-    setBusy(true);
-    setError(null);
-    try {
-      onUpdate(await action());
-    } catch (cause) {
-      setError(messageOf(cause));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const terminal = isTerminal(attempt.state);
-  const form = attempt.nextStep === null ? "none" : stepForm(attempt.nextStep);
-  return (
-    <section aria-live="polite">
-      <h2>
-        {attempt.provider}: {attemptStateLabel(attempt.state)}
-      </h2>
-      {attempt.state === "succeeded" ? (
-        <p>
-          Connected.{" "}
-          {attempt.connectionId === null ? null : (
-            <a href={href({ page: "detail", id: attempt.connectionId })}>View the connection</a>
-          )}
-        </p>
-      ) : null}
-      {terminal && attempt.state !== "succeeded" ? (
-        <>
-          <p>{attempt.error ?? `The attempt ${attempt.state}.`}</p>
-          <button type="button" onClick={props.onRestart}>
-            Try again
-          </button>
-        </>
-      ) : null}
-      {!terminal && attempt.nextStep !== null ? (
-        <StepInput
-          key={attempt.nextStep.kind}
-          step={attempt.nextStep}
-          busy={busy}
-          onSubmit={(input) => void call(() => api.submitInput(attempt.id, input))}
-        />
-      ) : null}
-      {!terminal && shouldPoll(attempt.state) && form === "none" ? (
-        <p className="row">
-          <span className="spinner" aria-hidden="true" />
-          Waiting. Time left {formatTimeLeft(attempt.expiresAt, now)}.
-        </p>
-      ) : null}
-      {!terminal ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void call(() => api.cancelAttempt(attempt.id))}
-        >
-          Cancel
-        </button>
-      ) : null}
-      <ErrorText message={error} />
-    </section>
-  );
-}
-
-/** Pick a provider and method, start an attempt, then follow its steps. With `reconnectId`, re-signs an existing connection. */
-export function ConnectPage(props: { readonly reconnectId?: string }) {
-  const { reconnectId } = props;
+/** Pick a provider and sign in, then see every connected account. With `reconnectId`, signs an existing account in again. */
+export function ConnectPage(
+  props: ViewProps & {
+    readonly reconnectId?: string;
+  },
+) {
+  const { reconnectId, overview } = props;
   const providers = useLoad(() => api.providers(), "providers");
   const existing = useLoad(
     () => (reconnectId === undefined ? Promise.resolve(null) : api.connection(reconnectId)),
     `reconnect:${reconnectId ?? ""}`,
   );
-  const [attempt, setAttempt] = useState<Attempt | null>(null);
-  const [provider, setProvider] = useState("");
-  const [method, setMethod] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [picked, setPicked] = useState<Provider | null>(null);
+  // Choosing a card again starts a fresh sign-in, so each choice gets its own run number.
+  const [run, setRun] = useState(0);
+  const flowRef = useRef<HTMLDivElement>(null);
+  const cardsRef = useRef<HTMLDivElement>(null);
+  // The one overview the dashboard views share, so an account added or changed here shows everywhere at once.
+  const { reload, applyOrder } = overview;
+  const [retrying, setRetrying] = useState(false);
+  const { loaded: settingsLoaded } = useSettings();
+  // Opening the page brings the list up to date instead of waiting for the next poll.
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+  const retry = useCallback(() => {
+    setRetrying(true);
+    void reload().finally(() => setRetrying(false));
+  }, [reload]);
 
-  const lockedProvider = existing.data?.connection.provider;
-  const available = (providers.data?.providers ?? []).filter(
-    (entry) => lockedProvider === undefined || entry.provider === lockedProvider,
+  const entries = (providers.data?.providers ?? []).toSorted(
+    (a, b) => orderOf(a.provider) - orderOf(b.provider),
   );
-  const chosenProvider = lockedProvider ?? provider;
-  const methods = available.find((entry) => entry.provider === chosenProvider)?.methods ?? [];
+  const lockedProvider = existing.data?.connection.provider;
+  const active = reconnectId === undefined ? picked : (lockedProvider ?? null);
+  const methods = entries.find((entry) => entry.provider === active)?.methods ?? [];
 
-  async function begin(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      setAttempt(
-        reconnectId === undefined
-          ? await api.beginAttempt(chosenProvider, method)
-          : await api.reconnect(reconnectId, method),
-      );
-    } catch (cause) {
-      setError(messageOf(cause));
-    } finally {
-      setBusy(false);
+  const choose = (provider: Provider): void => {
+    setPicked(provider);
+    setRun((count) => count + 1);
+    // Wait a frame so the flow panel exists before scrolling to it.
+    requestAnimationFrame(() =>
+      flowRef.current?.scrollIntoView({
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+        block: "start",
+      }),
+    );
+  };
+
+  const connected = useCallback(() => {
+    void reload();
+    // The first refresh runs a moment after the sign-in; load again to catch its limits.
+    setTimeout(() => void reload(), 2500);
+  }, [reload]);
+
+  const close = useCallback(() => {
+    if (reconnectId !== undefined) {
+      window.location.hash = "#/";
+      return;
     }
-  }
+    setPicked(null);
+    cardsRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+      block: "start",
+    });
+  }, [reconnectId]);
 
+  const reconnecting = reconnectId !== undefined;
+  const name = lockedProvider === undefined ? "" : providerName(lockedProvider);
+  const naming = reconnecting && existing.data === null && existing.error === null;
   return (
-    <main className="narrow">
-      <h1>{reconnectId === undefined ? "Connect an account" : "Reconnect"}</h1>
-      <ErrorText message={providers.error ?? existing.error} />
-      {attempt === null ? (
-        <form onSubmit={(event) => void begin(event)}>
-          <label>
-            Provider
-            <select
-              value={chosenProvider}
-              disabled={lockedProvider !== undefined}
-              onChange={(event) => {
-                setProvider(event.target.value);
-                setMethod("");
-              }}
-              required
-            >
-              <option value="">Choose a provider</option>
-              {available.map((entry) => (
-                <option key={entry.provider} value={entry.provider}>
-                  {entry.provider}
-                  {entry.interface === "private" ? " (private interface)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Method
-            <select
-              value={method}
-              onChange={(event) => setMethod(event.target.value)}
-              disabled={methods.length === 0}
-              required
-            >
-              <option value="">Choose a method</option>
-              {methods.map((entry) => (
-                <option key={entry} value={entry}>
-                  {methodLabel(entry)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button type="submit" disabled={busy || chosenProvider === "" || method === ""}>
-            Start
-          </button>
-          <ErrorText message={error} />
-        </form>
-      ) : (
-        <AttemptView
-          attempt={attempt}
-          onUpdate={setAttempt}
-          onRestart={() => {
-            setAttempt(null);
-            setError(null);
-          }}
-        />
+    <div className="connect-page">
+      <div className="intro">
+        {naming ? (
+          <h1 className="sk-slot" aria-busy="true" aria-label="Reconnect">
+            <Sk kind="big" width={240} height={33} />
+          </h1>
+        ) : (
+          <h1>{reconnecting ? `Reconnect ${name}`.trim() : "Connect an Account"}</h1>
+        )}
+        <p>
+          {reconnecting
+            ? "Sign in again to restore this account."
+            : "Choose a provider. You only sign in once."}
+        </p>
+      </div>
+      {existing.error === null ? null : (
+        <div className="cards-note">
+          {existing.error === demoRefusal ? (
+            <ErrorNotice>{demoRefusal}</ErrorNotice>
+          ) : (
+            <ErrorNotice busy={existing.pending} onRetry={existing.reload}>
+              Headroom could not load this account. Check that it is running and try again.
+            </ErrorNotice>
+          )}
+        </div>
       )}
-    </main>
+      {providers.data === null && providers.error !== null ? (
+        <div className="cards-note">
+          <ErrorNotice busy={providers.pending} onRetry={providers.reload}>
+            Headroom could not load the providers. Check that it is running and try again.
+          </ErrorNotice>
+        </div>
+      ) : null}
+      {!reconnecting && providers.data === null && providers.error === null ? (
+        <CardsSkeleton />
+      ) : null}
+      {!reconnecting && providers.data !== null && entries.length === 0 ? (
+        <div className="cards-note">
+          <EmptyState framed icon={<PlugIcon />} title="No Providers Switched On">
+            None are switched on in the server settings. Turn one on there, restart Headroom, and it
+            appears here.
+          </EmptyState>
+        </div>
+      ) : null}
+      {reconnecting || entries.length === 0 ? null : (
+        <div ref={cardsRef} className={cx("cards", picked !== null && "picked")}>
+          {entries.map((entry) => (
+            <button
+              key={entry.provider}
+              type="button"
+              className="card"
+              aria-pressed={picked === entry.provider}
+              onClick={() => choose(entry.provider)}
+            >
+              <span className="head">
+                <BrandMark provider={entry.provider} size={24} />
+                {providerName(entry.provider)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      <div ref={flowRef} className="flow-anchor">
+        {active !== null && methods.length > 0 ? (
+          <ConnectFlow
+            key={`${active}:${run}`}
+            provider={active}
+            methods={methods}
+            reconnectId={reconnectId}
+            connections={overview.connections ?? []}
+            onClose={close}
+            onConnected={connected}
+          />
+        ) : null}
+      </div>
+      <AccountsTable
+        connections={overview.connections ?? []}
+        providerOrder={overview.providerOrder}
+        onOrdered={applyOrder}
+        status={
+          overview.connections === null
+            ? overview.failed
+              ? "failed"
+              : "loading"
+            : settingsLoaded
+              ? "ready"
+              : "loading"
+        }
+        retrying={retrying}
+        reload={retry}
+      />
+    </div>
   );
 }

@@ -1,0 +1,13 @@
+{
+  "name": "@headroom/view-model",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@headroom/core": "workspace:*",
+    "zod": "4.6.5"
+  }
+}

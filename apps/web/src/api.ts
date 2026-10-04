@@ -6,23 +6,67 @@ import {
   availabilitySchema,
   connectionScopeSchema,
   connectionStateSchema,
+  costSchema,
+  disconnectResultSchema,
   evidenceLevelSchema,
   interfaceLabelSchema,
-  metricKindSchema,
   nextStepPayloadSchema,
+  notificationChannelTypeSchema,
+  notificationDeliveryFailureSchema,
+  notificationDeliveryStatusSchema,
   providerSchema,
   reconnectReasonSchema,
+  settingsSchema,
+  topUpSchema,
+  type Settings,
   type SubmitInput,
 } from "@headroom/core/contracts";
+import {
+  metricSchema,
+  overviewConnectionSchema,
+  resetCreditSchema,
+  type OverviewConnection,
+} from "@headroom/view-model/overview";
+import type { Cost, TopUp, WalletBook } from "@headroom/view-model/wallet";
 import { z } from "zod";
 
-class ApiError extends Error {
+import { devicePrefs } from "./lib/device-prefs.ts";
+
+export class ApiError extends Error {
   readonly status: number;
-  constructor(status: number, message: string) {
+  /** The `error` word the server sent in its body, when it sent one. */
+  readonly code: string | null;
+  constructor(status: number, message: string, code: string | null = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
+}
+
+/** What a refused account change says. Callers that show `message` show this. */
+export const demoRefusal = "Turn off Demo Mode to change accounts.";
+
+/** Every id the demo generator makes starts with this. */
+export function isDemoId(id: string): boolean {
+  return id.startsWith("demo-");
+}
+
+export function isDemoRefusal(cause: unknown): boolean {
+  return cause instanceof ApiError && cause.code === "demo_mode";
+}
+
+const demoOn = (): boolean => devicePrefs().getSnapshot().demo;
+
+function refuseInDemo<T>(): Promise<T> {
+  return Promise.reject(new ApiError(409, demoRefusal, "demo_mode"));
+}
+
+/** An account change: refused without a request while Demo Mode is on. */
+function changesAccount<A extends unknown[], T>(
+  call: (...args: A) => Promise<T>,
+): (...args: A) => Promise<T> {
+  return (...args) => (demoOn() ? refuseInDemo() : call(...args));
 }
 
 const setupSchema = z.object({
@@ -58,7 +102,7 @@ export type Attempt = z.infer<typeof attemptSchema>;
 
 const latestRunSchema = z.object({
   startedAt: z.number(),
-  outcome: z.string(),
+  outcome: z.string().nullable(),
   error: z.string().nullable(),
 });
 const connectionSummarySchema = z.object({
@@ -75,31 +119,9 @@ const connectionSummarySchema = z.object({
   latestRun: latestRunSchema.nullable(),
   metricCount: z.number(),
 });
-export type ConnectionSummary = z.infer<typeof connectionSummarySchema>;
 const connectionListSchema = z.object({ connections: z.array(connectionSummarySchema) });
 
-const metricSchema = z.object({
-  providerMetricKey: z.string(),
-  kind: metricKindSchema,
-  scope: z.string(),
-  valueText: z.string().nullable(),
-  valueNum: z.number().nullable(),
-  unit: z.string(),
-  unlimited: z.boolean().nullable().optional(),
-  windowStart: z.number().nullable(),
-  windowEnd: z.number().nullable(),
-  resetsAt: z.number().nullable(),
-  availability: availabilitySchema,
-  interface: interfaceLabelSchema,
-});
-const resetCreditSchema = z.object({
-  providerCreditId: z.string(),
-  eligible: z.boolean(),
-  usable: z.boolean(),
-  expiresAt: z.number().nullable(),
-  cooldownUntil: z.number().nullable(),
-  rawLabel: z.string().nullable(),
-});
+export type { OverviewConnection };
 const capabilitySchema = z.object({
   metricOrAction: z.string(),
   availability: availabilitySchema,
@@ -130,7 +152,48 @@ const connectionDetailSchema = z.object({
     .nullable(),
   actions: z.object({ enabled: z.boolean(), supported: z.array(accountActionKindSchema) }),
 });
-export type ConnectionDetail = z.infer<typeof connectionDetailSchema>;
+
+/** The server's exchange rates: units of each currency per 1 USD, fetched from the ECB. Null until a fetch works. */
+const exchangeRatesSchema = z.object({
+  base: z.literal("USD"),
+  date: z.string().nullable(),
+  fetchedAt: z.number().nullable(),
+  perUsd: z.record(z.string(), z.number()).nullable(),
+  error: z.string().nullable(),
+});
+export type ExchangeRatesPayload = z.infer<typeof exchangeRatesSchema>;
+
+const overviewSchema = z.object({
+  connections: z.array(overviewConnectionSchema),
+  /** The effective order of every provider, including those with no accounts. */
+  providerOrder: z.array(providerSchema),
+  refreshIntervalMs: z.number(),
+  staleAfterMs: z.number(),
+});
+
+const orderSchema = z.object({
+  providers: z.array(providerSchema),
+  accounts: z.record(z.string(), z.array(z.string())),
+});
+export type OrderBody = z.infer<typeof orderSchema>;
+
+const renameSchema = z.object({ name: z.string().nullable() });
+
+/** Owner preferences kept on the server; the schema is the backend's own. */
+export type { Settings };
+const settingsEnvelopeSchema = z.object({
+  settings: settingsSchema,
+});
+export type SettingsEnvelope = z.infer<typeof settingsEnvelopeSchema>;
+
+/** What the owner entered in the Wallet. The display currency lives in the settings. */
+export type ServerWallet = Pick<WalletBook, "costs" | "topUps">;
+const walletSchema: z.ZodType<ServerWallet> = z.object({
+  costs: z.record(z.string(), costSchema),
+  topUps: z.array(topUpSchema),
+});
+/** A top-up the owner is adding; the server assigns the id. */
+export type TopUpInput = Omit<TopUp, "id">;
 
 const actionOutcomeSchema = z.object({
   action: z.object({
@@ -144,12 +207,71 @@ const actionOutcomeSchema = z.object({
   }),
   state: connectionStateSchema.optional(),
 });
-export type ActionOutcome = z.infer<typeof actionOutcomeSchema>;
 
 const refreshSchema = z.object({ outcome: z.unknown(), state: connectionStateSchema });
 const pauseSchema = z.object({ state: connectionStateSchema });
-const revocationSchema = z.object({ revocation: z.enum(["revoked", "local_only", "failed"]) });
-export type Revocation = z.infer<typeof revocationSchema>["revocation"];
+const revocationSchema = z.object({ revocation: disconnectResultSchema });
+
+const channelSchema = z.object({
+  id: z.string(),
+  type: notificationChannelTypeSchema,
+  enabled: z.boolean(),
+  includeIdentity: z.boolean(),
+  label: z.string(),
+  createdAt: z.number(),
+  lastDelivery: z
+    .object({
+      status: notificationDeliveryStatusSchema,
+      at: z.number(),
+      failure: notificationDeliveryFailureSchema.nullable(),
+    })
+    .nullable(),
+});
+export type ChannelView = z.infer<typeof channelSchema>;
+const channelListSchema = z.object({ channels: z.array(channelSchema) });
+const channelCreatedSchema = z.object({ channel: channelSchema, secret: z.string().optional() });
+const channelEnvelopeSchema = z.object({ channel: channelSchema });
+const testResultSchema = z.object({ ok: z.literal(true) });
+const secretSchema = z.object({ secret: z.string() });
+const chatsSchema = z.object({
+  bot: z.object({ username: z.string() }),
+  chats: z.array(z.object({ id: z.string(), title: z.string(), type: z.string() })),
+});
+const botSchema = z.object({ bot: z.object({ username: z.string() }) });
+export type FoundChat = z.infer<typeof chatsSchema>["chats"][number];
+
+/** What a new channel needs. A Telegram channel needs a token and a chat; a webhook needs a URL. */
+export type NewChannel =
+  | {
+      readonly type: "telegram";
+      readonly botToken: string;
+      readonly chatId: string;
+      readonly chatTitle?: string;
+      readonly includeIdentity: boolean;
+    }
+  | {
+      readonly type: "webhook";
+      readonly url: string;
+      readonly includeIdentity: boolean;
+      readonly secret?: string;
+    };
+
+/** A test send that saves nothing. Telegram uses a typed token or a saved channel's token. */
+export type VerifyRequest =
+  | { readonly type: "telegram"; readonly botToken: string; readonly chatId: string }
+  | { readonly type: "telegram"; readonly channelId: string; readonly chatId: string }
+  | { readonly type: "webhook"; readonly url: string; readonly secret: string };
+
+/** The fields of a channel that can change. */
+export interface ChannelPatch {
+  readonly enabled?: boolean;
+  readonly includeIdentity?: boolean;
+  readonly botToken?: string;
+  readonly chatId?: string;
+  readonly chatTitle?: string;
+  readonly url?: string;
+  readonly secret?: string;
+}
 
 async function request<T>(
   method: string,
@@ -165,34 +287,95 @@ async function request<T>(
     init.headers = { "content-type": "application/json" };
   }
   const response = await fetch(path, init);
-  if (!response.ok) throw new ApiError(response.status, `Request failed (${response.status})`);
-  const parsed = schema.safeParse(await response.json());
+  if (!response.ok) {
+    const failed = z
+      .object({ error: z.string() })
+      .safeParse(await response.json().catch(() => null));
+    throw new ApiError(
+      response.status,
+      `Request failed (${response.status})`,
+      failed.success ? failed.data.error : null,
+    );
+  }
+  const parsed = schema.safeParse(response.status === 204 ? undefined : await response.json());
   if (!parsed.success) throw new ApiError(502, "The server sent an unexpected response");
   return parsed.data;
 }
 
 export const api = {
+  channels: () => request("GET", "/api/delivery/channels", channelListSchema),
+  createChannel: (channel: NewChannel) =>
+    request("POST", "/api/delivery/channels", channelCreatedSchema, channel),
+  updateChannel: (id: string, patch: ChannelPatch) =>
+    request("PATCH", `/api/delivery/channels/${id}`, channelEnvelopeSchema, patch),
+  deleteChannel: (id: string) => request("DELETE", `/api/delivery/channels/${id}`, z.undefined()),
+  testChannel: (id: string) =>
+    request("POST", `/api/delivery/channels/${id}/test`, testResultSchema),
+  newChannelSecret: (id: string) =>
+    request("POST", `/api/delivery/channels/${id}/secret`, secretSchema),
+  findChats: (source: { readonly botToken: string } | { readonly channelId: string }) =>
+    request("POST", "/api/delivery/telegram/chats", chatsSchema, source),
+  checkBot: (botToken: string) =>
+    request("POST", "/api/delivery/telegram/bot", botSchema, { botToken }),
+  verifyDelivery: (body: VerifyRequest) =>
+    request("POST", "/api/delivery/verify", testResultSchema, body),
   setup: () => request("GET", "/api/setup", setupSchema),
   me: () => request("GET", "/api/me", meSchema),
   providers: () => request("GET", "/api/providers", providersSchema),
-  beginAttempt: (provider: string, method: string) =>
+  beginAttempt: changesAccount((provider: string, method: string) =>
     request("POST", "/api/attempts", attemptEnvelope, { provider, method }),
+  ),
   attempt: (id: string) => request("GET", `/api/attempts/${id}`, attemptEnvelope),
   submitInput: (id: string, input: SubmitInput) =>
     request("POST", `/api/attempts/${id}/input`, attemptEnvelope, { input }),
   cancelAttempt: (id: string) => request("POST", `/api/attempts/${id}/cancel`, attemptEnvelope),
   connections: () => request("GET", "/api/connections", connectionListSchema),
-  connection: (id: string) => request("GET", `/api/connections/${id}`, connectionDetailSchema),
-  reconnect: (id: string, method: string) =>
+  overview: () => request("GET", "/api/overview", overviewSchema),
+  // Demo accounts have no server order; the page keeps the new order itself.
+  saveOrder: (order: OrderBody) =>
+    demoOn() ? Promise.resolve(order) : request("PUT", "/api/order", orderSchema, order),
+  rename: changesAccount((id: string, name: string | null) =>
+    request("PATCH", `/api/connections/${id}`, renameSchema, { name }),
+  ),
+  // Reading rates and asking the server to fetch them again touch no account, so Demo Mode allows both.
+  exchangeRates: () => request("GET", "/api/exchange-rates", exchangeRatesSchema),
+  wallet: () => request("GET", "/api/wallet", walletSchema),
+  setCost: changesAccount((connectionId: string, cost: Cost) =>
+    request("PUT", `/api/wallet/costs/${encodeURIComponent(connectionId)}`, walletSchema, cost),
+  ),
+  clearCost: changesAccount((connectionId: string) =>
+    request("DELETE", `/api/wallet/costs/${encodeURIComponent(connectionId)}`, walletSchema),
+  ),
+  addTopUp: changesAccount((input: TopUpInput) =>
+    request("POST", "/api/wallet/top-ups", walletSchema, input),
+  ),
+  removeTopUp: changesAccount((id: string) =>
+    request("DELETE", `/api/wallet/top-ups/${encodeURIComponent(id)}`, walletSchema),
+  ),
+  settings: () => request("GET", "/api/settings", settingsEnvelopeSchema),
+  saveSettings: (settings: Settings) =>
+    request("PUT", "/api/settings", settingsEnvelopeSchema, settings),
+  connection: (id: string) =>
+    demoOn() && isDemoId(id)
+      ? refuseInDemo<z.infer<typeof connectionDetailSchema>>()
+      : request("GET", `/api/connections/${id}`, connectionDetailSchema),
+  reconnect: changesAccount((id: string, method: string) =>
     request("POST", `/api/connections/${id}/reconnect`, attemptEnvelope, { method }),
-  pause: (id: string, paused: boolean) =>
+  ),
+  pause: changesAccount((id: string, paused: boolean) =>
     request("POST", `/api/connections/${id}/pause`, pauseSchema, { paused }),
-  refresh: (id: string) => request("POST", `/api/connections/${id}/refresh`, refreshSchema),
-  disconnect: (id: string) => request("DELETE", `/api/connections/${id}`, revocationSchema),
-  consumeResetCredit: (id: string, creditId: string) =>
+  ),
+  refresh: changesAccount((id: string) =>
+    request("POST", `/api/connections/${id}/refresh`, refreshSchema),
+  ),
+  disconnect: changesAccount((id: string) =>
+    request("DELETE", `/api/connections/${id}`, revocationSchema),
+  ),
+  consumeResetCredit: changesAccount((id: string, creditId: string) =>
     request("POST", `/api/connections/${id}/actions`, actionOutcomeSchema, {
       action: "consume_reset_credit",
       creditId,
       confirm: true,
     }),
+  ),
 };

@@ -1,0 +1,116 @@
+/* Spark bars (Arc "bar-chart", compact): muted bars in a soft step of the accent, the lit one in the full accent. */
+.spark {
+  --bar: light-dark(
+    color-mix(in oklab, var(--accent) 62%, var(--surface)),
+    color-mix(in oklab, var(--accent) 76%, var(--surface))
+  );
+  --bar-scrub: light-dark(
+    color-mix(in oklab, var(--accent) 24%, var(--surface)),
+    color-mix(in oklab, var(--accent) 34%, var(--surface))
+  );
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+}
+
+/* The readout keeps its height whether or not it shows anything, so nothing around it shifts. */
+.spark-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 20px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.spark-readout-label {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+.spark-readout-value {
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+
+.spark-plot {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  border-radius: 8px;
+  outline-offset: 4px;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* The input is invisible; the plot wears its focus ring. */
+.spark-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.spark-plot:has(.spark-input:focus-visible) {
+  outline: 2px solid var(--border-strong);
+}
+.spark-slot {
+  display: grid;
+  flex: 1 1 0;
+  min-width: 0;
+  grid-template-rows: var(--plot) auto;
+  gap: 6px;
+}
+/* The hairline baseline is the foot of each well; the wells touch, so it reads as one line. */
+.spark-well {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-bottom: 1px solid var(--border);
+}
+.spark-bar {
+  width: 58%;
+  max-width: 28px;
+  height: max(2px, calc(var(--share) * 100%));
+  border-radius: 4px 4px 0 0;
+  background: var(--bar);
+  transition:
+    height var(--dur-considered) var(--ease-enter) var(--delay),
+    background-color var(--dur-fast) var(--ease-standard);
+}
+.spark:not([data-grown]) .spark-bar {
+  height: 2px;
+}
+.spark[data-scrub] .spark-bar {
+  background: var(--bar-scrub);
+}
+.spark-slot[data-lit] .spark-bar {
+  background: var(--accent);
+}
+/* A zero is a short stub, not a bar: it says "nothing here" rather than "a little". */
+.spark-slot[data-zero] .spark-bar {
+  height: 2px;
+  border-radius: 1px;
+  background: var(--border-strong);
+}
+.spark-slot[data-zero][data-lit] .spark-bar {
+  background: var(--text-muted);
+}
+.spark-tick {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spark-bar {
+    transition: none;
+  }
+}

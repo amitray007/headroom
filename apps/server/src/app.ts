@@ -15,12 +15,29 @@ import {
 } from "@headroom/core";
 
 import type { AppContext } from "./bootstrap.ts";
+import { version } from "./version.ts";
 import { type Env, rejectCrossSite, requireSession } from "./middleware/session.ts";
 import { attemptRoutes } from "./routes/attempts.ts";
 import { connectionRoutes } from "./routes/connections.ts";
+import { deliveryRoutes } from "./routes/delivery.ts";
+import { exchangeRateRoutes } from "./routes/exchange-rates.ts";
+import { orderRoutes } from "./routes/order.ts";
+import { overviewRoutes } from "./routes/overview.ts";
 import { providerRoutes } from "./routes/providers.ts";
+import { settingsRoutes } from "./routes/settings.ts";
+import { walletRoutes } from "./routes/wallet.ts";
 
-export const version = "0.0.0";
+const brandFiles = [
+  "favicon.ico",
+  "favicon.svg",
+  "favicon-32.png",
+  "apple-touch-icon.png",
+  "icon-192.png",
+  "icon-512.png",
+  "manifest.webmanifest",
+];
+
+export { version };
 
 export function createApp(ctx: AppContext): Hono {
   const app = new Hono();
@@ -36,7 +53,8 @@ export function createApp(ctx: AppContext): Hono {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:"],
+        // The avatar is a seeded DiceBear image; the browser fetches it, so this origin is the only external one.
+        imgSrc: ["'self'", "data:", "https://api.dicebear.com"],
         connectSrc: ["'self'"],
         frameAncestors: ["'self'", ...ctx.trustedOrigins],
         formAction: ["'self'"],
@@ -68,13 +86,14 @@ export function createApp(ctx: AppContext): Hono {
   api.use(rejectCrossSite(ctx));
 
   /** Better Auth owns everything under /api/auth, including its own origin checks and rate limits. */
-  api.on(["GET", "POST"], "/auth/*", (c) => {
+  api.on(["GET", "POST"], "/auth/*", async (c) => {
     const headers = new Headers(c.req.raw.headers);
     headers.set(
       clientIpHeader,
       clientAddress(c.req.raw, ctx.config.trustProxy, () => socketAddress(c)),
     );
-    return ctx.auth.handler(new Request(c.req.raw, { headers }));
+    const response = await ctx.auth.handler(new Request(c.req.raw, { headers }));
+    return ownerRaceLost(c.req.path, response, ctx) ? ownerClosed() : response;
   });
 
   /** The only unauthenticated read besides /healthz: whether the owner has signed up yet. */
@@ -90,6 +109,12 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/providers", providerRoutes(ctx));
   api.route("/connections", connectionRoutes(ctx));
   api.route("/attempts", attemptRoutes(ctx));
+  api.route("/overview", overviewRoutes(ctx));
+  api.route("/order", orderRoutes(ctx));
+  api.route("/settings", settingsRoutes(ctx));
+  api.route("/delivery", deliveryRoutes(ctx));
+  api.route("/exchange-rates", exchangeRateRoutes(ctx));
+  api.route("/wallet", walletRoutes(ctx));
 
   app.route("/api", api);
 
@@ -97,14 +122,34 @@ export function createApp(ctx: AppContext): Hono {
   const webDir = ctx.config.webDir;
   if (webDir && existsSync(join(webDir, "index.html"))) {
     app.use("/assets/*", serveStatic({ root: webDir }));
+    // Brand files from apps/web/public sit at the root: browsers request /favicon.ico unprompted.
+    for (const file of brandFiles) app.get(`/${file}`, serveStatic({ root: webDir }));
     app.get("*", serveStatic({ root: webDir, path: "index.html" }));
   }
   return app;
 }
 
 /**
+ * The user table's trigger (migration 0005) is the atomic single-owner guard. Better Auth
+ * reports a trigger abort as a 422 "Failed to create user"; when an owner exists that means
+ * this sign-up lost the race, so answer like the before-create hook does.
+ */
+function ownerRaceLost(path: string, response: Response, ctx: AppContext): boolean {
+  return response.status === 422 && path.startsWith("/api/auth/sign-up/") && ownerExists(ctx.db);
+}
+
+function ownerClosed(): Response {
+  return Response.json(
+    { message: "Headroom has one owner; sign-up is closed", code: "FORBIDDEN" },
+    { status: 403 },
+  );
+}
+
+/**
  * The address Better Auth throttles on. A client-supplied value is always discarded;
  * X-Forwarded-For is honoured only when the deployment says a trusted proxy sets it.
+ * The proxy appends the address it saw, so the rightmost entry is the trusted one:
+ * earlier entries are whatever the client sent.
  */
 export function clientAddress(
   request: Request,
@@ -112,7 +157,7 @@ export function clientAddress(
   socket: () => string | null,
 ): string {
   if (trustProxy) {
-    const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    const forwarded = request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim();
     if (forwarded) return forwarded;
   }
   return socket() ?? "unknown";

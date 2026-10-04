@@ -1,0 +1,110 @@
+/* Design tokens. Components use semantic roles only; raw values live here. */
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces. Light depth comes from borders; dark steps surfaces by ~2.5 L. */
+  --background: light-dark(oklch(98.6% 0 0), oklch(18% 0 0));
+  --surface: light-dark(oklch(100% 0 0), oklch(21% 0 0));
+  --surface-raised: light-dark(oklch(100% 0 0), oklch(24% 0 0));
+  --surface-muted: light-dark(oklch(97% 0 0), oklch(26% 0 0));
+  --border-subtle: light-dark(oklch(95.5% 0 0), oklch(25% 0 0));
+  --border: light-dark(oklch(92% 0 0), oklch(29.5% 0 0));
+  --border-strong: light-dark(oklch(82% 0 0), oklch(40% 0 0));
+
+  /* Text roles, all at or above 4.5:1 on --surface. */
+  --foreground: light-dark(oklch(16% 0 0), oklch(96% 0 0));
+  --text-secondary: light-dark(oklch(46% 0 0), oklch(75% 0 0));
+  --text-muted: light-dark(oklch(55% 0 0), oklch(63% 0 0));
+
+  /* Accent is neutral for every provider. Status colours are for status only. */
+  --accent: light-dark(oklch(30% 0 0), oklch(84% 0 0));
+  /* Mix in oklab: neutral tokens carry hue 0, and an oklch mix would swing green and amber tints toward red. */
+  /* Logo mark: a deliberate tile in both schemes, not the page colours. Lightness mirrors logoLightness in ui/logo-geometry.ts. */
+  --logo-tile: light-dark(oklch(16% 0 0), oklch(94% 0 0));
+  --logo-ink: light-dark(oklch(98.6% 0 0), oklch(18% 0 0));
+  --logo-ceiling: light-dark(oklch(62% 0 0), oklch(56% 0 0));
+  --track: color-mix(in oklab, var(--foreground) 8%, var(--surface));
+  --success: light-dark(oklch(50% 0.17 150), oklch(78% 0.17 150));
+  --warning: light-dark(oklch(60% 0.17 72), oklch(83% 0.16 80));
+  --danger: light-dark(oklch(54% 0.21 25), oklch(75% 0.19 25));
+
+  /* Chart series (Arc's static set, checked for colour-vision difference). Parts 5 and up step through the foreground. */
+  --series-1: light-dark(#1f7dcf, #55adff);
+  --series-2: light-dark(#7128a5, #9c37be);
+  --series-3: light-dark(#e58f00, #e66e00);
+  --series-4: light-dark(#009e84, #00a861);
+  --series-5: color-mix(in oklab, var(--foreground) 56%, var(--surface));
+  --series-6: color-mix(in oklab, var(--foreground) 42%, var(--surface));
+  --series-7: color-mix(in oklab, var(--foreground) 32%, var(--surface));
+  --series-other: color-mix(in oklab, var(--foreground) 26%, var(--surface));
+
+  /* Scales. Spacing 4 8 12 16 24 32 48. Type 12 13 14 16 30. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-display: 30px;
+  --radius-control: 18px;
+  --radius-panel: 20px;
+  --radius-pill: 9999px;
+  --shadow-floating: light-dark(0 20px 48px oklch(0% 0 0 / 0.1), 0 22px 55px oklch(0% 0 0 / 0.34));
+  --font:
+    "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Motion. Enter is a strong ease-out; standard for colour and exits; spring for releases. */
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: linear(
+    0,
+    0.026,
+    0.09,
+    0.176,
+    0.275,
+    0.378,
+    0.478,
+    0.57,
+    0.652,
+    0.724,
+    0.785,
+    0.836,
+    0.878,
+    0.912,
+    0.939,
+    0.96,
+    0.976,
+    0.988,
+    0.996,
+    1.002,
+    1.005,
+    1.0062,
+    1.0062,
+    1.006,
+    1.005,
+    1.004,
+    1.003,
+    1.002,
+    1.0013,
+    1
+  );
+  --dur-instant: 120ms;
+  --dur-fast: 160ms;
+  --dur-standard: 240ms;
+  --dur-considered: 480ms;
+  --dur-spring: 580ms;
+}
+
+/* Hold progress is a custom property so it can transition. */
+@property --p {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}

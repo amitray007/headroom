@@ -1,0 +1,825 @@
+/* Wallet view: a toolbar, a four-stat band, spend by provider, one accounts table grouped by provider, then the top-ups. */
+.w-page {
+  display: block;
+  min-width: 0;
+}
+.w-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.w-title {
+  margin: 0;
+  font-size: 22px; /* no token between --text-md and --text-display */
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.w-segs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* ---------- Summary band: one bordered group, stats split by hairlines ---------- */
+.w-band {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 var(--space-6);
+  background: var(--border-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+.w-stat {
+  display: grid;
+  /* The last row takes the spare height, so a chart at the foot lines up with its neighbours. */
+  grid-template-rows: auto auto auto 1fr;
+  align-content: stretch;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-5);
+  background: var(--surface);
+}
+.w-stat dt {
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.w-stat dd {
+  margin: 0;
+  min-width: 0;
+}
+.w-num {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 30px;
+  margin-top: var(--space-2);
+  font-size: var(--text-display);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.w-num .unit {
+  font-size: var(--text-base);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+.w-num.unknown {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+/* One line, always: the parts sit side by side, split by a middle dot, and a long last part is cut with an ellipsis. */
+.w-cap {
+  display: flex;
+  align-items: baseline;
+  min-height: 1.35em;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.w-cap > .w-sep {
+  flex: none;
+  margin-inline: 6px;
+  color: var(--text-muted);
+}
+.w-cap > * {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.w-cap > .menu-anchor {
+  overflow: visible; /* the trigger's focus ring; the panel itself sits in the top layer */
+}
+.w-cap .warn {
+  color: var(--warning);
+}
+/* The top-ups caption is a button that opens the month's list. */
+.w-cap-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.w-cap-trigger svg {
+  width: 12px;
+  height: 12px;
+  color: var(--text-muted);
+}
+.w-cap-trigger:hover,
+.w-cap-trigger:focus-visible {
+  color: var(--foreground);
+}
+/* On a touch screen a caption link is a 32px-tall target; the caption gives the extra height back with its margin. */
+@media (pointer: coarse) {
+  .w-cap {
+    align-items: center;
+    margin-block: -6px;
+  }
+  .w-cap-trigger {
+    min-height: 32px;
+  }
+}
+.w-cap-trigger:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+@media (max-width: 900px) {
+  .w-band {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* Two half-width stats cannot hold a caption such as "6 paid · Set 1 missing cost"; phones get one column, and each
+   stat turns into a compact row: the label and the figure share a line, the caption runs the full width beneath. */
+@media (max-width: 520px) {
+  .w-band {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .w-stat {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto;
+    grid-template-areas:
+      "label figure"
+      "caption caption";
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
+    padding: var(--space-4);
+  }
+  .w-stat dt {
+    grid-area: label;
+  }
+  .w-stat .w-num {
+    grid-area: figure;
+    min-height: 0;
+    margin-top: 0;
+    font-size: 24px; /* the display size crowds the label on a phone */
+  }
+  .w-stat .w-cap {
+    grid-area: caption;
+  }
+  /* The currency picker and Add Top-Up share one row; the picker stretches. */
+  .w-segs {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    width: 100%;
+  }
+}
+
+/* ---------- Under the band: spend by provider across the full width, then top-ups and renewals side by side.
+   Each card takes its own content's height, so none is stretched hollow to match a taller neighbour. ---------- */
+.w-glance {
+  display: grid;
+  gap: 16px;
+  margin: 0 0 var(--space-6);
+}
+.w-spend,
+.w-side,
+.w-glance-card {
+  min-width: 0;
+}
+.w-side {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+/* Side by side, the two cards share a height; the body takes the slack so footers line up at the bottom. */
+.w-glance-card > .w-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.w-glance-card .w-card-body {
+  flex: 1;
+}
+/* Bars stand on the footer; a list (renewals) keeps reading from the top. */
+.w-glance-card .w-card-body:has(> .spark) {
+  align-content: end;
+}
+.w-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  min-height: 48px;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.w-card-head h2 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.w-card-head .muted {
+  font-size: var(--text-sm);
+}
+.w-card-body {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+.w-card-foot {
+  margin: 0;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A footer with a left part and a right-aligned figure; the figure sits in the amount column above. */
+.w-card-foot.w-split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.w-card-foot.w-split > .menu-anchor {
+  min-width: 0;
+  overflow: visible; /* the trigger's focus ring; the panel itself sits in the top layer */
+}
+.w-card-foot.w-split > .num {
+  flex: none;
+  font-size: var(--text-sm);
+}
+.notif.w-renewals-pop {
+  width: min(340px, calc(100vw - 24px));
+  padding: var(--space-4);
+  border-radius: var(--radius-panel);
+}
+.w-spend-empty {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.w-renewals {
+  display: grid;
+  /* A short list reads from the top of a card stretched to its neighbour's height. */
+  align-content: start;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.w-renewals li {
+  display: grid;
+  grid-template-columns: 36px 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+/* A calendar tile: the day large, the month small beneath. */
+.w-day-tile {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  line-height: 1;
+}
+.w-day-tile b {
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.w-day-tile span {
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.w-renewal-text {
+  display: grid;
+  min-width: 0;
+}
+.w-renewal-name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.w-renewal-when {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.w-renewal-amount {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+/* Due within two days: a firmer tile edge and the timing in full contrast, without a warning colour. */
+.w-renewals li.soon .w-day-tile {
+  border-color: var(--border-strong);
+}
+.w-renewals li.soon .w-renewal-when {
+  color: var(--text-secondary);
+}
+@media (max-width: 560px) {
+  .w-side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Accounts: one bordered table; a group row per provider carries its subtotal on the right ---------- */
+.w-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  background: color-mix(in srgb, var(--surface-muted) 70%, var(--surface));
+  font-size: var(--text-base);
+}
+.w-group h3 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.w-group .muted {
+  font-size: var(--text-sm);
+}
+.w-group .w-subtotal {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.w-subtotal .num {
+  font-weight: 500;
+}
+.w-card {
+  --w-cols: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 0.7fr) minmax(0, 0.75fr)
+    minmax(0, 0.95fr) 112px;
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+.w-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---------- Column header row (Arc's data-table header) and rows: who | cost | used | renewal | usage spend | credits | action ---------- */
+.w-colhead,
+.w-row {
+  display: grid;
+  grid-template-columns: var(--w-cols);
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+}
+.w-colhead {
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.w-row {
+  min-height: 64px;
+}
+/* The Used cell reuses the Detailed row's limit; here its window label takes its own line rather than an ellipsis. */
+.w-c-used .d-limit-top {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+.w-c-used .d-limit-top .window {
+  flex-basis: 100%;
+  overflow: visible;
+  white-space: normal;
+}
+.w-rows > li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+html[data-density="compact"] .w-row {
+  min-height: 52px;
+  padding-block: var(--space-2);
+}
+.w-who {
+  display: grid;
+  min-width: 0;
+}
+/* Names wrap rather than lose their end: "Personal · SuperGrok Heavy" must read whole. */
+.w-name {
+  min-width: 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.w-name .plan {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+.w-name .sep {
+  margin: 0 4px;
+}
+/* Emails wrap at any character rather than lose their end in a narrow Account column. */
+.w-sub {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+/* Cells size to their content: a pill never stretches across the column. */
+.w-col {
+  display: grid;
+  justify-items: start;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+/* The limit bar fills its column; the window name beside the figure may shrink, and the caution word is the Detailed view's. */
+.w-col.w-c-used {
+  justify-items: stretch;
+}
+.w-c-used .d-limit-top .tone {
+  display: none;
+}
+.w-cost {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.w-cost .muted {
+  font-size: var(--text-sm);
+}
+.w-figure {
+  font-size: var(--text-md);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.w-unset {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+.w-included {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.w-act {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+/* ---------- Top-ups ---------- */
+.w-topups .w-card {
+  --w-cols: 72px minmax(0, 1.3fr) minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 1.3fr) 36px;
+}
+.w-topups .w-card .empty {
+  border: 0;
+}
+.w-topup {
+  min-height: 56px;
+}
+.w-date {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.w-account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.w-account .w-name {
+  font-size: var(--text-base);
+}
+.w-credits {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.w-paid {
+  display: grid;
+  justify-items: start;
+  font-size: var(--text-base);
+}
+.w-note-text {
+  min-width: 0;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The remove question opens over the cells beside it, so the columns never move. */
+.w-topup .w-act {
+  position: relative;
+}
+.w-topup .w-act .confirm {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  margin-top: -16px;
+}
+
+/* Seven columns need about 900px; below that each row stacks and its cells name themselves. */
+@media (max-width: 900px) {
+  .w-colhead {
+    display: none;
+  }
+  .w-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "who act"
+      "cost cost"
+      "used used"
+      "renew renew"
+      "spend spend"
+      "credits credits";
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3);
+  }
+  .w-who {
+    grid-area: who;
+  }
+  .w-c-cost {
+    grid-area: cost;
+  }
+  .w-c-used {
+    grid-area: used;
+  }
+  .w-c-renew {
+    grid-area: renew;
+  }
+  .w-c-spend {
+    grid-area: spend;
+  }
+  .w-c-credits {
+    grid-area: credits;
+  }
+  /* Stacked, the column header is gone, so a cell names itself. */
+  .w-col[data-label],
+  .w-credits[data-label] {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+  .w-col[data-label]::before,
+  .w-credits[data-label]::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+  }
+  /* An empty cell would leave a blank line; in the wide grid it keeps the columns aligned. */
+  .w-col:empty {
+    display: none;
+  }
+  .w-row > .w-act {
+    grid-area: act;
+  }
+  .w-topup {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "account act"
+      "date paid"
+      "credits credits"
+      "note note";
+  }
+  .w-topup .w-account {
+    grid-area: account;
+  }
+  .w-topup .w-date {
+    grid-area: date;
+  }
+  .w-topup .w-credits {
+    grid-area: credits;
+  }
+  .w-topup .w-paid {
+    grid-area: paid;
+    justify-self: end;
+  }
+  .w-topup .w-note-text {
+    grid-area: note;
+  }
+  .w-topup .w-note-text:empty {
+    display: none;
+  }
+}
+
+/* ---------- Popover: this month's top-ups ---------- */
+.notif.w-topups-pop {
+  display: grid;
+  gap: var(--space-3);
+  padding: 16px;
+  border-radius: var(--radius-panel);
+}
+.notif.w-topups-pop {
+  width: min(320px, calc(100vw - 24px));
+}
+.w-pop-head h2 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.w-pop-head p {
+  margin: 2px 0 0;
+  font-size: var(--text-xs);
+}
+/* Top-ups popover header: the month on the left, the count on the right. */
+.w-topups-pop .w-pop-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.w-pop-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.w-pop-list li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+.w-pop-text,
+.w-pop-amount {
+  display: grid;
+  min-width: 0;
+}
+.w-pop-amount {
+  justify-items: end;
+  text-align: right;
+  white-space: nowrap;
+}
+.w-pop-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.w-pop-sub {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.w-pop-total {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.w-pop-total .num {
+  font-weight: 500;
+  color: var(--foreground);
+}
+.w-pop-note {
+  margin: calc(var(--space-2) * -1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ---------- Cost and top-up dialogs ---------- */
+.w-desc {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.w-label {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.dsec .field {
+  max-width: none;
+}
+/* The account's credit balance under the picker, tucked close to it. */
+.dsec .w-balance {
+  margin: calc(var(--space-2) * -1) 0 0;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.w-suggest {
+  display: grid;
+  gap: var(--space-2);
+}
+.w-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.w-chip {
+  min-height: 30px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font: 400 var(--text-sm) / 1.35 var(--font);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    scale var(--dur-spring) var(--ease-spring);
+}
+.w-chip[aria-pressed="true"] {
+  border-color: var(--border-strong);
+  background: var(--surface);
+  color: var(--foreground);
+}
+.w-chip:active {
+  scale: 0.97;
+  transition-duration: var(--dur-instant);
+}
+@media (hover: hover) and (pointer: fine) {
+  .w-chip:hover {
+    border-color: var(--border-strong);
+  }
+}
+/* The actions stay in view while a long form scrolls inside a short phone's dialog. */
+.w-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+}
+.w-foot .w-clear {
+  margin-right: auto;
+  margin-left: -12px;
+}
+
+/* ---------- "Set N missing costs": every Not-set row is tinted for a moment, then fades back ---------- */
+.w-row[data-attention] {
+  background: color-mix(in oklab, var(--warning) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--warning) 40%, transparent);
+  animation: w-attention 2500ms var(--ease-standard) forwards;
+}
+.w-row[data-attention] [data-set-cost] {
+  border-color: color-mix(in oklab, var(--warning) 55%, transparent);
+}
+@keyframes w-attention {
+  0%,
+  60% {
+    background: color-mix(in oklab, var(--warning) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--warning) 40%, transparent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .w-row[data-attention] {
+    animation: none;
+  }
+}
+
+.w-save-error {
+  margin: 0 0 var(--space-3);
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+/* Skeleton: the spend ring beside its table, and the small top-up and renewal cards. */
+.w-sk-spend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-5);
+}
+.w-sk-table {
+  display: grid;
+  flex: 1;
+  gap: var(--space-3);
+}
+.w-sk-pair {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}

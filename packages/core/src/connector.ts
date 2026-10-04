@@ -4,6 +4,7 @@ import type { StoredCredential } from "./credentials.ts";
 import {
   type AccountActionKind,
   type Availability,
+  type DisconnectResult,
   type ErrorCategory,
   type EvidenceLevel,
   type FailureClass,
@@ -146,7 +147,7 @@ export type RefreshResult =
   | { readonly status: "transient"; readonly error: ClassifiedError }
   | { readonly status: "rejected"; readonly error: ClassifiedError };
 
-export type DisconnectResult = "revoked" | "local_only" | "failed";
+/** Defined in enums.ts; kept importable from here for the test doubles. */
 
 /** One explicit, owner-confirmed mutation. The idempotency key is the action row id. */
 export interface ActionRequest {
@@ -230,5 +231,8 @@ export class ConnectorError extends Error {
 /** Default classification for an unknown thrown value: transient, so state never changes by accident. */
 export function classifyUnknown(error: unknown): ClassifiedError {
   if (error instanceof ConnectorError) return error.toClassified();
+  // A request that timed out or was aborted says nothing about the account; retry it later.
+  if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError"))
+    return classified("provider_unavailable", "the provider request timed out");
   return classified("internal_error", "unexpected connector failure");
 }

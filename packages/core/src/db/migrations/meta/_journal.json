@@ -8,6 +8,41 @@
       "when": 1790860718515,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790950130503,
+      "tag": "0001_names_and_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790965674832,
+      "tag": "0002_display_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790980535879,
+      "tag": "0003_notification_delivery",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791064434683,
+      "tag": "0004_wallet",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1791115628893,
+      "tag": "0005_single_owner",
+      "breakpoints": true
     }
   ]
 }

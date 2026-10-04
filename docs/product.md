@@ -16,6 +16,7 @@ Headroom will give a user one view of the allowances, credits and usage exposed 
 | Recovery | Three owner actions only: Connect, Reconnect, Disconnect. Reconnect appears only on a definitive credential failure with its reason; transient failures show data age, not a prompt |
 | Self-hosting | Document persistent storage and deployment; the container image bundles required CLI binaries and a bare-metal host installs them |
 | Later account actions | Expose redemption only after support and failure behavior are validated |
+| Wallet | The owner records what each account costs and the credits they top up. The server keeps every entry, so every browser shows the same Wallet. Totals use one display currency and never mix in provider-reported usage spend |
 
 The requested starting provider families are Claude, Codex, Cursor, Copilot, Vercel AI Gateway, Grok and Antigravity. Zed is excluded. Fireworks was removed on 2026-10-01 because its prepaid balance has no documented route and the private gRPC path was not worth validating.
 
@@ -49,6 +50,6 @@ The first milestone is a real connect-and-refresh proof, not a chart-filled mock
 
 - Final public name and domain.
 - Whether the first deployment supports only one owner or multiple dashboard users. Account isolation remains required in either case.
-- History retention and alert thresholds.
+- Alert thresholds beyond the current settings. History retention is D29.
 - Which private-interface connectors ship enabled by default. Current proposal: all off except Codex; Claude requires an explicit opt-in.
 - Public release channel and support policy.

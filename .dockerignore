@@ -1,7 +1,15 @@
-node_modules
-dist
+# Build context: sources and lockfiles only. Never ship local data, keys or tooling state.
+**/node_modules
+**/dist
 .data
 .state
 .git
+.github
+.claude
+.mise.local.toml
+.env
+.env.*
+design
 docs
+deploy
 *.md

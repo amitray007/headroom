@@ -11,6 +11,7 @@ import {
   baseUrl,
   CollectionService,
   type Config,
+  ChannelStore,
   ConnectionStore,
   type Connector,
   type ConnectorRegistry,
@@ -19,10 +20,20 @@ import {
   CredentialStore,
   crypto,
   type Db,
+  DeliveryStore,
   LeaseStore,
   openDatabase,
+  OrderStore,
+  SettingsStore,
   SnapshotStore,
+  WalletStore,
 } from "@headroom/core";
+
+import { ExchangeRateService } from "./exchange-rates.ts";
+import { type DeriveNotifications, NotificationDispatcher } from "./notify/dispatcher.ts";
+import type { Fetch } from "./notify/http.ts";
+import { overviewConnections } from "./overview-model.ts";
+import { deriveNotifications } from "@headroom/view-model/notifications";
 
 import { createRegistry } from "./registry.ts";
 
@@ -39,14 +50,26 @@ export interface AppContext {
   readonly attempts: AttemptStore;
   readonly connections: ConnectionStore;
   readonly snapshots: SnapshotStore;
+  readonly settings: SettingsStore;
+  readonly order: OrderStore;
+  readonly wallet: WalletStore;
   readonly registry: ConnectorRegistry;
   readonly runner: CliLoginRunner;
   readonly connect: ConnectService;
   readonly collection: CollectionService;
   readonly actions: ActionService;
+  readonly channels: ChannelStore;
+  readonly deliveries: DeliveryStore;
+  readonly dispatcher: NotificationDispatcher;
+  /** The Wallet's exchange rates, fetched from the ECB via Frankfurter. Started in index.ts, like the scheduler. */
+  readonly exchangeRates: ExchangeRateService;
+  /** Outgoing HTTP for notification senders and exchange rates. */
+  readonly fetch: Fetch;
   /** Origins allowed for CORS, Better Auth and frame-ancestors. Always includes the base URL. */
   readonly trustedOrigins: readonly string[];
   readonly now: () => Date;
+  /** How long Disconnect waits for a collection in flight before answering 409. */
+  readonly disconnectWaitMs: number;
   readonly log: (level: "debug" | "info" | "warn" | "error", message: string) => void;
 }
 
@@ -62,6 +85,12 @@ export interface BootstrapOptions {
   readonly rateLimit?: boolean;
   /** Every connector the build knows about; the config decides which are enabled. Receives the runner. */
   readonly connectors?: readonly Connector[] | ((runner: CliLoginRunner) => readonly Connector[]);
+  /** Outgoing HTTP for notification senders and exchange rates; tests pass a fake so no network is used. */
+  readonly fetch?: Fetch;
+  /** Builds notification events from the overview. */
+  readonly derive?: DeriveNotifications;
+  /** Disconnect waits this long for a collection in flight; tests shorten it. Default 30 seconds. */
+  readonly disconnectWaitMs?: number;
   readonly now?: () => Date;
   readonly log?: AppContext["log"];
 }
@@ -73,19 +102,25 @@ export interface BootstrapOptions {
 export function bootstrap(options: BootstrapOptions): AppContext {
   const { config } = options;
   const log = options.log ?? (() => undefined);
+  const databasePath = options.databasePath ?? join(config.dataDir, "headroom.db");
+  // The database holds sessions and sealed credentials: only the app user may list its folder.
+  if (databasePath !== ":memory:")
+    mkdirSync(dirname(databasePath), { recursive: true, mode: 0o700 });
+  // Opened before the keys so a missing master key can be checked against what the database holds.
+  const { db, sqlite } = openDatabase({ path: databasePath });
   const keyring =
     options.keyring ??
     crypto.createKeyring({
       1: crypto.parseKeyHex(
-        loadOrCreateSecretFile(config.masterKeyFile, crypto.generateKeyHex, log, "master key"),
+        loadOrCreateSecretFile(config.masterKeyFile, crypto.generateKeyHex, log, "master key", {
+          variable: "HEADROOM_MASTER_KEY_FILE",
+          inUse: () => holdsEncryptedData(sqlite),
+        }),
       ),
     });
   const authSecret =
     options.authSecret ??
     loadOrCreateSecretFile(config.authSecretFile, crypto.generateKeyHex, log, "auth secret");
-  const databasePath = options.databasePath ?? join(config.dataDir, "headroom.db");
-  if (databasePath !== ":memory:") mkdirSync(dirname(databasePath), { recursive: true });
-  const { db, sqlite } = openDatabase({ path: databasePath });
   const origin = baseUrl(config);
   const trustedOrigins = [...new Set([origin, ...config.trustedOrigins])];
   const now = options.now ?? (() => new Date());
@@ -94,6 +129,12 @@ export function bootstrap(options: BootstrapOptions): AppContext {
   const attempts = new AttemptStore(db, keyring, now);
   const connections = new ConnectionStore(db, now);
   const snapshots = new SnapshotStore(db, now);
+  // Whatever process opened these runs is gone; an open run would block its connection's schedule.
+  const interrupted = snapshots.interruptUnfinished();
+  if (interrupted > 0) log("warn", `closed ${interrupted} unfinished sync run(s) as interrupted`);
+  const order = new OrderStore(db, now);
+  const wallet = new WalletStore(db, now);
+  const settings = new SettingsStore(db, config.refreshIntervalSeconds, now);
   const runner = new CliLoginRunner({ attemptsDir: join(config.dataDir, "attempts") });
   if (databasePath !== ":memory:") runner.sweep();
   const available =
@@ -109,7 +150,21 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     leases,
     now,
   });
-  return {
+  const channels = new ChannelStore(db, keyring, now);
+  const deliveries = new DeliveryStore(db);
+  const fetchFn: Fetch = options.fetch ?? ((input, init) => fetch(input, init));
+  const actions = new ActionService({
+    // The owner's setting is the only gate; it is read at call time.
+    enabled: () => settings.get().accountActions,
+    registry,
+    connections,
+    credentials,
+    snapshots,
+    actions: new ActionStore(db, now),
+    leases,
+    collection,
+  });
+  const context: Omit<AppContext, "dispatcher" | "exchangeRates"> = {
     config,
     db,
     sqlite,
@@ -127,38 +182,71 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     attempts,
     connections,
     snapshots,
+    settings,
+    order,
+    wallet,
     registry,
     runner,
     connect: new ConnectService({ registry, attempts, connections, credentials, snapshots, now }),
     collection,
-    actions: new ActionService({
-      enabled: config.actionsEnabled,
-      registry,
-      connections,
-      credentials,
-      snapshots,
-      actions: new ActionStore(db, now),
-      leases,
-      collection,
-    }),
+    actions,
+    channels,
+    deliveries,
+    fetch: fetchFn,
     trustedOrigins,
     now,
+    disconnectWaitMs: options.disconnectWaitMs ?? 30_000,
     log,
   };
+  const dispatcher = new NotificationDispatcher({
+    channels,
+    deliveries,
+    overview: (at) => overviewConnections(context, at),
+    settings: () => settings.get(),
+    derive: options.derive ?? deriveNotifications,
+    dashboardUrl: config.publicUrl ? origin : null,
+    fetch: fetchFn,
+    log,
+  });
+  const exchangeRates = new ExchangeRateService({ fetch: fetchFn, now, log });
+  return { ...context, dispatcher, exchangeRates };
 }
 
-/** Read a one-line secret file, or create it with mode 0600 and a warning to back it up. */
+/** Whether the database holds anything sealed with the master key. */
+function holdsEncryptedData(sqlite: Database): boolean {
+  const queries = [
+    "SELECT 1 FROM credentials LIMIT 1",
+    "SELECT 1 FROM notification_channels LIMIT 1",
+    "SELECT 1 FROM auth_attempts WHERE private_ciphertext IS NOT NULL LIMIT 1",
+  ];
+  return queries.some((query) => sqlite.query(query).get() !== null);
+}
+
+/**
+ * Read a one-line secret file, or create it with mode 0600 and a warning to back it up.
+ * With `guard`, a missing file is an error when `inUse` says existing data depends on it:
+ * a new key would make every stored credential unreadable.
+ */
 export function loadOrCreateSecretFile(
   path: string,
   generate: () => string,
   log: AppContext["log"],
   label: string,
+  guard?: { readonly variable: string; readonly inUse: () => boolean },
 ): string {
   if (existsSync(path)) return readFileSync(path, "utf8").trim();
+  if (guard?.inUse()) {
+    throw new Error(
+      `the ${label} file ${path} is missing, but the database holds data sealed with it. ` +
+        `Restore the file or point ${guard.variable} at it. Headroom will not create a new ${label}: ` +
+        "every stored credential would become unreadable.",
+    );
+  }
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   const value = generate();
   writeFileSync(path, `${value}\n`, { mode: 0o600, flag: "wx" });
   chmodSync(path, 0o600);
-  log("warn", `created a new ${label} at ${path}; back it up, losing it loses every connection`);
+  const loss = guard ? "losing it loses every connection" : "losing it signs you out";
+  log("warn", `created a new ${label} at ${path}; back it up, ${loss}`);
   return value;
 }

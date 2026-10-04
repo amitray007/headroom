@@ -15,16 +15,23 @@ import {
   attemptStates,
   authMethods,
   availabilities,
+  billingCycles,
   connectionScopes,
   connectionStates,
+  currencies,
   evidenceLevels,
   interfaceLabels,
   metricKinds,
   nextSteps,
+  notificationChannelTypes,
+  notificationDeliveryFailures,
+  notificationDeliveryStatuses,
   providers,
   reconnectReasons,
   refreshStates,
   syncRunOutcomes,
+  topUpKinds,
+  walletCostKinds,
 } from "../enums.ts";
 
 /**
@@ -46,6 +53,10 @@ export const connections = sqliteTable(
     workspaceId: text("workspace_id"),
     scope: text("scope", { enum: connectionScopes }).notNull(),
     label: text("label").notNull(),
+    /** Owner-set display name. Null until set; reconnect and collection never write it. */
+    displayName: text("display_name"),
+    /** Owner-set order within the provider, ascending. Null sorts last, then by createdAt. */
+    position: integer("position"),
     authMethod: text("auth_method", { enum: authMethods }).notNull(),
     state: text("state", { enum: connectionStates }).notNull(),
     reconnectReason: text("reconnect_reason", { enum: reconnectReasons }),
@@ -220,3 +231,95 @@ export const leases = sqliteTable("leases", {
   acquiredAt: integer("acquired_at", { mode: "timestamp_ms" }).notNull(),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
 });
+
+/** Owner preferences as one JSON document. A single row with id "owner": Headroom has one owner. */
+export const settings = sqliteTable("settings", {
+  id: text("id").primaryKey(),
+  json: text("json").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+
+/** The owner's provider order as one JSON array, in its own row so saving settings never clobbers it. */
+export const displayOrder = sqliteTable("display_order", {
+  id: text("id").primaryKey(),
+  providersJson: text("providers_json").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+
+/**
+ * Where server-side notifications go. The bot token, chat id, webhook URL and signing secret
+ * live sealed in `config_ciphertext` (aad `notification_channel:<id>`); `label` is a display
+ * summary that never holds a secret.
+ */
+export const notificationChannels = sqliteTable("notification_channels", {
+  id: text("id").primaryKey(),
+  type: text("type", { enum: notificationChannelTypes }).notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  /** Add the account's email or login to the event. Off by default. */
+  includeIdentity: integer("include_identity", { mode: "boolean" }).notNull().default(false),
+  configCiphertext: blob("config_ciphertext", { mode: "buffer" }).notNull(),
+  configNonce: blob("config_nonce", { mode: "buffer" }).notNull(),
+  keyVersion: integer("key_version").notNull(),
+  label: text("label").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+
+/** One row per channel and event id: the dedupe record and the retry state. */
+export const notificationDeliveries = sqliteTable(
+  "notification_deliveries",
+  {
+    channelId: text("channel_id")
+      .notNull()
+      .references(() => notificationChannels.id, { onDelete: "cascade" }),
+    eventId: text("event_id").notNull(),
+    kind: text("kind").notNull(),
+    status: text("status", { enum: notificationDeliveryStatuses }).notNull(),
+    attempts: integer("attempts").notNull(),
+    failure: text("failure", { enum: notificationDeliveryFailures }),
+    firstAttemptAt: integer("first_attempt_at", { mode: "timestamp_ms" }).notNull(),
+    lastAttemptAt: integer("last_attempt_at", { mode: "timestamp_ms" }).notNull(),
+    nextAttemptAt: integer("next_attempt_at", { mode: "timestamp_ms" }),
+    deliveredAt: integer("delivered_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [
+    uniqueIndex("notification_deliveries_event").on(t.channelId, t.eventId),
+    index("notification_deliveries_recent").on(t.channelId, t.lastAttemptAt),
+  ],
+);
+
+/** What the owner pays for one account. No row means "Not set"; a cost is never stored as zero. */
+export const walletCosts = sqliteTable("wallet_costs", {
+  connectionId: text("connection_id")
+    .primaryKey()
+    .references(() => connections.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: walletCostKinds }).notNull(),
+  priceMinor: integer("price_minor"),
+  priceCurrency: text("price_currency", { enum: currencies }),
+  cycle: text("cycle", { enum: billingCycles }),
+  /** `YYYY-MM-DD`. */
+  renewsOn: text("renews_on"),
+  includedWith: text("included_with"),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+
+/**
+ * Credits the owner topped up. `connection_id` has no foreign key on purpose: the history outlives
+ * a removed account.
+ */
+export const walletTopUps = sqliteTable(
+  "wallet_top_ups",
+  {
+    id: text("id").primaryKey(),
+    connectionId: text("connection_id").notNull(),
+    /** `YYYY-MM-DD`. */
+    date: text("date").notNull(),
+    kind: text("kind", { enum: topUpKinds }).notNull(),
+    priceMinor: integer("price_minor"),
+    priceCurrency: text("price_currency", { enum: currencies }),
+    credits: real("credits"),
+    note: text("note"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  },
+  (t) => [index("wallet_top_ups_date").on(t.date)],
+);

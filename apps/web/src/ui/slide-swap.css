@@ -1,0 +1,14 @@
+/* Content that swaps in place: the old content is a fading copy on top while the new one arrives. */
+.slide-swap {
+  position: relative;
+  overflow: hidden;
+}
+.slide-swap-ghost {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  z-index: 3;
+  pointer-events: none;
+  background: var(--surface);
+}

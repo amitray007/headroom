@@ -1,0 +1,1201 @@
+<!doctype html>
+<html lang="en" class="pre">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Headroom · mockup D · panels</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500&family=Geist+Mono:wght@500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="d.css" />
+    <script>
+      /* ?scheme=light|dark forces the appearance for review; otherwise the OS decides. */
+      const s = new URLSearchParams(location.search).get("scheme");
+      if (s) document.documentElement.style.colorScheme = s;
+    </script>
+  </head>
+  <body>
+    <div class="page">
+      <header class="top">
+        <a class="lockup" href="#"
+          ><svg viewBox="0 0 64 64" aria-hidden="true">
+            <rect width="64" height="64" rx="18" fill="currentColor" />
+            <rect
+              x="14"
+              y="16"
+              width="36"
+              height="4"
+              rx="2"
+              fill="var(--background)"
+              opacity=".55"
+            />
+            <rect x="14" y="30" width="26" height="8" rx="4" fill="var(--background)" />
+            <rect x="14" y="42" width="16" height="8" rx="4" fill="var(--background)" /></svg
+          >Headroom</a
+        >
+        <nav aria-label="Page">
+          <span class="summary muted"><b>9</b> accounts · <b>2</b> need attention</span
+          ><a href="#">Connect an account</a><a href="#">Account</a>
+        </nav>
+      </header>
+      <section class="provider" aria-labelledby="p-cl">
+        <header>
+          <span class="mark" aria-hidden="true">CL</span>
+          <h2 id="p-cl">Claude</h2>
+          <span class="count">2 accounts</span>
+        </header>
+        <div class="stack">
+          <section class="panel" aria-labelledby="a-cl1">
+            <header>
+              <h3 id="a-cl1">Personal <span class="plan">Max</span></h3>
+              <div class="right">
+                <span class="status"><span class="dot"></span>2 min ago</span
+                ><span class="chip">private</span
+                ><button
+                  class="btn quiet sm toggle"
+                  type="button"
+                  aria-expanded="true"
+                  aria-controls="more-a-cl1"
+                >
+                  Details
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </header>
+            <div class="cells">
+              <div class="cell">
+                <div class="label"><span>5-hour</span> <span class="window">rolling</span></div>
+                <div class="value">
+                  <span class="num" data-count="42" data-decimals="0" data-prefix="">42</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="42"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="5-hour usage 42%"
+                  style="--v: 42%; --t: 57%"
+                >
+                  <span class="fill"></span
+                  ><span class="tick" title="How far this window has elapsed"></span>
+                </div>
+
+                <div class="caption">resets in <b>2h 10m</b></div>
+              </div>
+              <div class="cell">
+                <div class="label"><span>Weekly</span> <span class="window">all models</span></div>
+                <div class="value">
+                  <span class="num" data-count="61" data-decimals="0" data-prefix="">61</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="61"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Weekly usage 61%"
+                  style="--v: 61%; --t: 55%"
+                >
+                  <span class="fill"></span
+                  ><span class="tick" title="How far this window has elapsed"></span>
+                </div>
+
+                <div class="caption">resets <b>Thu 09:00</b> · 3d 4h</div>
+              </div>
+              <div class="cell">
+                <div class="label"><span>Weekly</span> <span class="window">Sonnet</span></div>
+                <div class="value">
+                  <span class="num" data-count="23" data-decimals="0" data-prefix="">23</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="23"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Weekly Sonnet usage 23%"
+                  style="--v: 23%; --t: 55%"
+                >
+                  <span class="fill"></span
+                  ><span class="tick" title="How far this window has elapsed"></span>
+                </div>
+
+                <div class="caption">same window</div>
+              </div>
+              <div class="cell">
+                <div class="label"><span>Weekly</span> <span class="window">Opus</span></div>
+                <div class="value">
+                  <span class="num" data-count="48" data-decimals="0" data-prefix="">48</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="48"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Weekly Opus usage 48%"
+                  style="--v: 48%; --t: 55%"
+                >
+                  <span class="fill"></span
+                  ><span class="tick" title="How far this window has elapsed"></span>
+                </div>
+
+                <div class="caption">same window</div>
+              </div>
+              <div class="cell">
+                <div class="label">
+                  <span>Extra usage</span> <span class="window">this month</span>
+                </div>
+                <div class="value">
+                  <span class="num" data-count="12.50" data-decimals="2" data-prefix="$"
+                    >$12.50</span
+                  ><span class="of">of $50</span>
+                </div>
+                <div
+                  class="bar thin"
+                  role="meter"
+                  aria-valuenow="25"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Extra usage $12.50 of $50"
+                  style="--v: 25%"
+                >
+                  <span class="fill"></span>
+                </div>
+
+                <div class="caption"><b>$37.50</b> left under the monthly cap</div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="kv"
+                >Reset grants
+                <span class="pips" aria-label="1 available"><span class="pip"></span></span>
+                <b>1</b> available</span
+              >
+            </div>
+            <div class="more open" id="more-a-cl1">
+              <div>
+                <div class="body">
+                  <div class="meta">
+                    Observed <b>2 min ago</b> Received <b>2 min ago</b> Connector
+                    <b>claude 0.3.0</b> Signed in by <b>command-line login</b>
+                  </div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Metric or action</th>
+                        <th>Availability</th>
+                        <th>Interface</th>
+                        <th>Evidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>usage.five_hour</td>
+                        <td>available</td>
+                        <td>private</td>
+                        <td>validated</td>
+                      </tr>
+                      <tr>
+                        <td>usage.seven_day</td>
+                        <td>available</td>
+                        <td>private</td>
+                        <td>validated</td>
+                      </tr>
+                      <tr>
+                        <td>extra_usage</td>
+                        <td>available</td>
+                        <td>private</td>
+                        <td>validated</td>
+                      </tr>
+                      <tr>
+                        <td>reset_grants</td>
+                        <td>available</td>
+                        <td>private</td>
+                        <td>validated</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="meta">Latest run <b>succeeded · 2 min ago</b></div>
+                  <div class="actions">
+                    <button class="btn sm" type="button">Refresh now</button
+                    ><button class="btn sm" type="button">Pause</button
+                    ><button class="btn sm danger" type="button">Disconnect</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section class="panel" aria-labelledby="a-cl2">
+            <header>
+              <h3 id="a-cl2">Studio <span class="plan">Pro</span></h3>
+              <div class="right">
+                <span class="pill neutral"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M21 12a9 9 0 1 1-2.6-6.4" />
+                    <path d="M21 3v6h-6" /></svg
+                  >14 min ago · retrying</span
+                ><span class="chip">private</span
+                ><button
+                  class="btn quiet sm toggle"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="more-a-cl2"
+                >
+                  Details
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </header>
+            <div class="cells">
+              <div class="cell">
+                <div class="label"><span>5-hour</span> <span class="window">rolling</span></div>
+                <div class="value">
+                  <span class="num" data-count="8" data-decimals="0" data-prefix="">8</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="8"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="5-hour usage 8%"
+                  style="--v: 8%; --t: 12%"
+                >
+                  <span class="fill"></span
+                  ><span class="tick" title="How far this window has elapsed"></span>
+                </div>
+
+                <div class="caption">resets in <b>4h 25m</b></div>
+              </div>
+              <div class="cell">
+                <div class="label"><span>Weekly</span> <span class="window">all models</span></div>
+                <div class="value">
+                  <span class="num" data-count="35" data-decimals="0" data-prefix="">35</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="35"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Weekly usage 35%"
+                  style="--v: 35%; --t: 55%"
+                >
+                  <span class="fill"></span
+                  ><span class="tick" title="How far this window has elapsed"></span>
+                </div>
+
+                <div class="caption">resets <b>Thu 09:00</b> · 3d 4h</div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="kv"
+                >Reset grants
+                <span class="pips" aria-label="0 available"><span class="pip spent"></span></span>
+                <b>0</b> available</span
+              >
+              <span class="kv muted">Last refresh failed: provider unavailable. Retrying.</span>
+              <span class="spacer"></span>
+            </div>
+            <div class="more" id="more-a-cl2">
+              <div>
+                <div class="body">
+                  <div class="meta">Observed <b>14 min ago</b></div>
+
+                  <div class="meta">
+                    Latest run <b>provider_unavailable · usage returned 503 · 1 min ago</b>
+                  </div>
+                  <div class="actions">
+                    <button class="btn sm" type="button">Refresh now</button
+                    ><button class="btn sm" type="button">Pause</button
+                    ><button class="btn sm danger" type="button">Disconnect</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="provider" aria-labelledby="p-cx">
+        <header>
+          <span class="mark" aria-hidden="true">CX</span>
+          <h2 id="p-cx">Codex</h2>
+          <span class="count">2 accounts</span>
+        </header>
+        <div class="stack">
+          <section class="panel" aria-labelledby="a-cx1">
+            <header>
+              <h3 id="a-cx1">Personal <span class="plan">Pro</span></h3>
+              <div class="right">
+                <span class="status"><span class="dot"></span>2 min ago</span
+                ><span class="chip">private</span
+                ><button
+                  class="btn quiet sm toggle"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="more-a-cx1"
+                >
+                  Details
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </header>
+            <div class="cells">
+              <div class="cell">
+                <div class="label"><span>Weekly</span> <span class="window">7 days</span></div>
+                <div class="value">
+                  <span class="num" data-count="78" data-decimals="0" data-prefix="">78</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar warn"
+                  role="meter"
+                  aria-valuenow="78"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Weekly usage 78%"
+                  style="--v: 78%; --t: 82%"
+                >
+                  <span class="fill"></span
+                  ><span class="tick" title="How far this window has elapsed"></span>
+                </div>
+
+                <div class="caption">resets in <b>1d 6h</b></div>
+              </div>
+              <div class="cell fact">
+                <div class="label"><span>Credits</span> <span class="window">balance</span></div>
+                <div class="value">
+                  <span class="num" data-count="1240" data-decimals="0" data-prefix="">1240</span
+                  ><span class="unit">credits</span>
+                </div>
+
+                <div class="caption">not time-bound</div>
+              </div>
+              <div class="cell fact">
+                <div class="label">
+                  <span>Reset credits</span> <span class="window">banked</span>
+                </div>
+                <div class="value">
+                  <span class="num" data-count="3" data-decimals="0" data-prefix="">3</span
+                  ><span class="of">usable</span>
+                </div>
+
+                <div class="caption">
+                  first expires in <b>12 d</b>
+                  <span class="pips" aria-hidden="true" style="margin-left: 6px"
+                    ><span class="pip"></span><span class="pip"></span><span class="pip"></span
+                  ></span>
+                </div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="kv muted"
+                >Consuming a reset credit renews the weekly window now and spends one credit.</span
+              >
+              <span class="spacer"></span>
+              <button
+                class="btn hold"
+                type="button"
+                disabled
+                title="Switched off. Start Headroom with HEADROOM_ENABLE_ACTIONS=true to allow it."
+              >
+                <span class="face"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                    <path d="M3 3v6h6" /></svg
+                  >Hold to reset weekly limit</span
+                ><span class="fillface" aria-hidden="true"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 12a9 9 0 1 0 2.6-6.4" />
+                    <path d="M3 3v6h6" /></svg
+                  >Hold to reset weekly limit</span
+                >
+              </button>
+            </div>
+            <div class="more" id="more-a-cx1">
+              <div>
+                <div class="body">
+                  <div class="meta">Observed <b>2 min ago</b></div>
+
+                  <div class="meta">Latest run <b>succeeded · 2 min ago</b></div>
+                  <div class="actions">
+                    <button class="btn sm" type="button">Refresh now</button
+                    ><button class="btn sm" type="button">Pause</button
+                    ><button class="btn sm danger" type="button">Disconnect</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section class="panel" aria-labelledby="a-cx2">
+            <header>
+              <h3 id="a-cx2">Work <span class="plan">Business</span></h3>
+              <div class="right">
+                <span class="pill quiet"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect x="6" y="5" width="4" height="14" rx="1" />
+                    <rect x="14" y="5" width="4" height="14" rx="1" /></svg
+                  >Paused · 1 d ago</span
+                ><span class="chip">private</span><span class="chip">member</span
+                ><button
+                  class="btn quiet sm toggle"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="more-a-cx2"
+                >
+                  Details
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </header>
+            <div class="notice neutral">
+              <span class="text"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="6" y="5" width="4" height="14" rx="1" />
+                  <rect x="14" y="5" width="4" height="14" rx="1" /></svg
+                >Paused. Headroom is not refreshing this account.</span
+              ><button class="btn sm" type="button">Resume</button>
+            </div>
+            <div class="cells">
+              <div class="cell">
+                <div class="label"><span>Weekly</span> <span class="window">7 days</span></div>
+                <div class="value">
+                  <span class="num" data-count="12" data-decimals="0" data-prefix="">12</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="12"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Weekly usage 12%"
+                  style="--v: 12%; --t: 82%"
+                >
+                  <span class="fill"></span
+                  ><span class="tick" title="How far this window has elapsed"></span>
+                </div>
+
+                <div class="caption">resets in <b>1d 6h</b> · as of 1 d ago</div>
+              </div>
+            </div>
+            <div class="more" id="more-a-cx2">
+              <div>
+                <div class="body">
+                  <div class="meta">Observed <b>1 d ago</b> Connector <b>codex 0.4.1</b></div>
+
+                  <div class="meta">Latest run <b>succeeded · 1 d ago</b></div>
+                  <div class="actions">
+                    <button class="btn sm" type="button">Refresh now</button
+                    ><button class="btn sm" type="button">Pause</button
+                    ><button class="btn sm danger" type="button">Disconnect</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="provider" aria-labelledby="p-cu">
+        <header>
+          <span class="mark" aria-hidden="true">CU</span>
+          <h2 id="p-cu">Cursor</h2>
+        </header>
+        <div class="stack">
+          <section class="panel" aria-labelledby="a-cu">
+            <header>
+              <h3 id="a-cu">Personal <span class="plan">Pro</span></h3>
+              <div class="right">
+                <span class="status"><span class="dot"></span>2 min ago</span
+                ><span class="chip">private</span
+                ><button
+                  class="btn quiet sm toggle"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="more-a-cu"
+                >
+                  Details
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </header>
+            <div class="cells">
+              <div class="cell">
+                <div class="label">
+                  <span>Included</span> <span class="window">15 Sep to 15 Oct</span>
+                </div>
+                <div class="value">
+                  <span class="num" data-count="58" data-decimals="0" data-prefix="">58</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="58"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Included usage 58%: API 40%, Auto 18%"
+                  style="--v: 58%; --t: 57%"
+                >
+                  <span class="seg s1" style="--x: 0%; --w: 40%"></span
+                  ><span class="seg s2" style="--x: 40%; --w: 18%"></span
+                  ><span class="tick" title="How far this window has elapsed"></span>
+                </div>
+                <div class="legend">
+                  <span class="item"><span class="sw s1"></span>API <b class="num">40%</b></span
+                  ><span class="item"><span class="sw s2"></span>Auto <b class="num">18%</b></span
+                  ><span class="item"
+                    ><span class="sw free"></span>Free <b class="num">42%</b></span
+                  >
+                </div>
+                <div class="caption"><b>$20</b> plan · <b>13 d</b> left</div>
+              </div>
+              <div class="cell">
+                <div class="label">
+                  <span>On-demand</span> <span class="window">this cycle</span>
+                </div>
+                <div class="value">
+                  <span class="num" data-count="3.20" data-decimals="2" data-prefix="$">$3.20</span
+                  ><span class="of">of $20</span>
+                </div>
+                <div
+                  class="bar thin"
+                  role="meter"
+                  aria-valuenow="16"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="On-demand $3.20 of $20"
+                  style="--v: 16%"
+                >
+                  <span class="fill"></span>
+                </div>
+
+                <div class="caption"><b>$16.80</b> left under the cap</div>
+              </div>
+            </div>
+            <div class="more" id="more-a-cu">
+              <div>
+                <div class="body">
+                  <div class="meta">Observed <b>2 min ago</b> Connector <b>cursor 0.2.0</b></div>
+
+                  <div class="meta">Latest run <b>succeeded · 2 min ago</b></div>
+                  <div class="actions">
+                    <button class="btn sm" type="button">Refresh now</button
+                    ><button class="btn sm" type="button">Pause</button
+                    ><button class="btn sm danger" type="button">Disconnect</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="provider" aria-labelledby="p-gk">
+        <header>
+          <span class="mark" aria-hidden="true">GK</span>
+          <h2 id="p-gk">Grok</h2>
+        </header>
+        <div class="stack">
+          <section class="panel" aria-labelledby="a-gk">
+            <header>
+              <h3 id="a-gk">Personal</h3>
+              <div class="right">
+                <span class="pill warn"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 2" /></svg
+                  >Stale · 3 h ago</span
+                ><span class="chip">private</span
+                ><button
+                  class="btn quiet sm toggle"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="more-a-gk"
+                >
+                  Details
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </header>
+            <div class="cells">
+              <div class="cell">
+                <div class="label"><span>Weekly pool</span> <span class="window">7 days</span></div>
+                <div class="value">
+                  <span class="num" data-count="34" data-decimals="0" data-prefix="">34</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="34"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Weekly pool 34%: Code 22%, Chat 12%"
+                  style="--v: 34%; --t: 36%"
+                >
+                  <span class="seg s1" style="--x: 0%; --w: 22%"></span
+                  ><span class="seg s2" style="--x: 22%; --w: 12%"></span
+                  ><span class="tick" title="How far this window has elapsed"></span>
+                </div>
+                <div class="legend">
+                  <span class="item"><span class="sw s1"></span>Code <b class="num">22%</b></span
+                  ><span class="item"><span class="sw s2"></span>Chat <b class="num">12%</b></span
+                  ><span class="item"
+                    ><span class="sw free"></span>Free <b class="num">66%</b></span
+                  >
+                </div>
+                <div class="caption">resets in <b>4d 11h</b></div>
+              </div>
+              <div class="cell">
+                <div class="label">
+                  <span>On-demand</span> <span class="window">this week</span>
+                </div>
+                <div class="value">
+                  <span class="num" data-count="120" data-decimals="0" data-prefix="">120</span
+                  ><span class="of">of 500 credits</span>
+                </div>
+                <div
+                  class="bar thin"
+                  role="meter"
+                  aria-valuenow="24"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="On-demand 120 of 500 credits"
+                  style="--v: 24%"
+                >
+                  <span class="fill"></span>
+                </div>
+
+                <div class="caption"><b>380</b> credits left under the cap</div>
+              </div>
+              <div class="cell fact">
+                <div class="label"><span>Prepaid</span> <span class="window">balance</span></div>
+                <div class="value">
+                  <span class="num" data-count="2500" data-decimals="0" data-prefix="">2500</span
+                  ><span class="unit">credits</span>
+                </div>
+
+                <div class="caption">not time-bound</div>
+              </div>
+            </div>
+            <div class="more" id="more-a-gk">
+              <div>
+                <div class="body">
+                  <div class="meta">Observed <b>3 h ago</b> Connector <b>grok 0.2.0</b></div>
+
+                  <div class="meta">Latest run <b>succeeded · 3 h ago</b></div>
+                  <div class="actions">
+                    <button class="btn sm" type="button">Refresh now</button
+                    ><button class="btn sm" type="button">Pause</button
+                    ><button class="btn sm danger" type="button">Disconnect</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="provider" aria-labelledby="p-ag">
+        <header>
+          <span class="mark" aria-hidden="true">AG</span>
+          <h2 id="p-ag">Antigravity</h2>
+        </header>
+        <div class="stack">
+          <section class="panel" aria-labelledby="a-ag">
+            <header>
+              <h3 id="a-ag">Personal <span class="plan">Free</span></h3>
+              <div class="right">
+                <span class="status"><span class="dot"></span>2 min ago</span
+                ><span class="chip">private</span
+                ><button
+                  class="btn quiet sm toggle"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="more-a-ag"
+                >
+                  Details
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </header>
+            <div class="cells">
+              <div class="cell">
+                <div class="label"><span>Gemini</span> <span class="window">weekly</span></div>
+                <div class="value">
+                  <span class="num" data-count="95" data-decimals="0" data-prefix="">95</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar bad"
+                  role="meter"
+                  aria-valuenow="95"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Gemini weekly usage 95%"
+                  style="--v: 95%; --t: 27%"
+                >
+                  <span class="fill"></span
+                  ><span class="tick" title="How far this window has elapsed"></span>
+                </div>
+
+                <div class="caption">resets in <b>5d 2h</b></div>
+              </div>
+              <div class="cell">
+                <div class="label">
+                  <span>Claude and GPT</span> <span class="window">weekly</span>
+                </div>
+                <div class="value">
+                  <span class="num" data-count="12" data-decimals="0" data-prefix="">12</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar"
+                  role="meter"
+                  aria-valuenow="12"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Claude and GPT weekly usage 12%"
+                  style="--v: 12%; --t: 27%"
+                >
+                  <span class="fill"></span
+                  ><span class="tick" title="How far this window has elapsed"></span>
+                </div>
+
+                <div class="caption">same window</div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="kv muted">The free tier reports weekly buckets only.</span>
+            </div>
+            <div class="more" id="more-a-ag">
+              <div>
+                <div class="body">
+                  <div class="meta">
+                    Observed <b>2 min ago</b> Connector <b>antigravity 0.2.0</b>
+                  </div>
+
+                  <div class="meta">Latest run <b>succeeded · 2 min ago</b></div>
+                  <div class="actions">
+                    <button class="btn sm" type="button">Refresh now</button
+                    ><button class="btn sm" type="button">Pause</button
+                    ><button class="btn sm danger" type="button">Disconnect</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="provider" aria-labelledby="p-cp">
+        <header>
+          <span class="mark" aria-hidden="true">GH</span>
+          <h2 id="p-cp">Copilot</h2>
+        </header>
+        <div class="stack">
+          <section class="panel dim" aria-labelledby="a-cp">
+            <header>
+              <h3 id="a-cp">Personal <span class="plan">Pro</span></h3>
+              <div class="right">
+                <span class="pill bad"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 8v4M12 16h.01" /></svg
+                  >Reconnect needed · 2 days ago</span
+                ><span class="chip">private</span
+                ><button
+                  class="btn quiet sm toggle"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="more-a-cp"
+                >
+                  Details
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </header>
+            <div class="notice bad">
+              <span class="text"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 8v4M12 16h.01" /></svg
+                >The provider rejected the saved sign-in.</span
+              ><button class="btn primary sm" type="button">Reconnect</button>
+            </div>
+            <div class="cells">
+              <div class="cell">
+                <div class="label"><span>AI credits</span> <span class="window">monthly</span></div>
+                <div class="value">
+                  <span class="num" data-count="100" data-decimals="0" data-prefix="">100</span
+                  ><span class="unit">%</span>
+                </div>
+                <div
+                  class="bar bad"
+                  role="meter"
+                  aria-valuenow="100"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="AI credits 100% used"
+                  style="--v: 100%; --t: 6%"
+                >
+                  <span class="fill"></span
+                  ><span class="tick" title="How far this window has elapsed"></span>
+                </div>
+
+                <div class="caption">resets <b>1 Nov</b></div>
+              </div>
+              <div class="cell fact">
+                <div class="label">
+                  <span>Credits used</span> <span class="window">this month</span>
+                </div>
+                <div class="value">
+                  <span class="num" data-count="300" data-decimals="0" data-prefix="">300</span
+                  ><span class="unit">credits</span>
+                </div>
+
+                <div class="caption">no entitlement is reported</div>
+              </div>
+              <div class="cell fact">
+                <div class="label">
+                  <span>Extra usage</span> <span class="window">this month</span>
+                </div>
+                <div class="value">
+                  <span class="num" data-count="0" data-decimals="0" data-prefix="">0</span
+                  ><span class="unit">requests</span>
+                </div>
+
+                <div class="caption">beyond the included credits</div>
+              </div>
+            </div>
+            <div class="facts">
+              <span class="kv">Chat <b>unlimited</b></span>
+              <span class="kv">Completions <b>unlimited</b></span>
+            </div>
+            <div class="more" id="more-a-cp">
+              <div>
+                <div class="body">
+                  <div class="meta">Observed <b>2 days ago</b> Connector <b>copilot 0.2.0</b></div>
+
+                  <div class="meta">
+                    Latest run <b>authentication_failed · usage returned 401 · 2 days ago</b>
+                  </div>
+                  <div class="actions">
+                    <button class="btn sm" type="button">Refresh now</button
+                    ><button class="btn sm" type="button">Pause</button
+                    ><button class="btn sm danger" type="button">Disconnect</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="provider" aria-labelledby="p-vc">
+        <header>
+          <span class="mark" aria-hidden="true">VC</span>
+          <h2 id="p-vc">Vercel AI Gateway</h2>
+        </header>
+        <div class="stack">
+          <section class="panel" aria-labelledby="a-vc">
+            <header>
+              <h3 id="a-vc">Team</h3>
+              <div class="right">
+                <span class="pill warn"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="9" stroke-dasharray="4.2 3.2" /></svg
+                  >Partial</span
+                ><button
+                  class="btn quiet sm toggle"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="more-a-vc"
+                >
+                  Details
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </header>
+            <div class="cells">
+              <div class="cell">
+                <div class="label"><span>Credit balance</span></div>
+                <div class="value">
+                  <span class="num" data-count="14.20" data-decimals="2" data-prefix="">14.20</span
+                  ><span class="unit">credits</span>
+                </div>
+                <div
+                  class="bar thin"
+                  role="meter"
+                  aria-valuenow="86"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Credits used 85.80 of 100"
+                  style="--v: 86%"
+                >
+                  <span class="fill"></span>
+                </div>
+
+                <div class="caption"><b>85.80</b> used of 100.00</div>
+              </div>
+              <div class="cell fact">
+                <div class="label">
+                  <span>Credits used</span> <span class="window">lifetime</span>
+                </div>
+                <div class="value">
+                  <span class="num" data-count="85.80" data-decimals="2" data-prefix="">85.80</span
+                  ><span class="unit">credits</span>
+                </div>
+
+                <div class="caption">on this gateway key</div>
+              </div>
+              <div class="cell">
+                <div class="label"><span>Spend</span> <span class="window">last 30 days</span></div>
+                <div class="value unknown" aria-hidden="true">—</div>
+                <div class="bar unknown" aria-label="Spend last 30 days unknown" style=""></div>
+
+                <div class="caption">unknown · the spend report needs a Pro plan</div>
+              </div>
+            </div>
+            <div class="more" id="more-a-vc">
+              <div>
+                <div class="body">
+                  <div class="meta">
+                    Observed <b>2 min ago</b> Connector <b>vercel_ai_gateway 0.1.0</b>
+                  </div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Metric or action</th>
+                        <th>Availability</th>
+                        <th>Interface</th>
+                        <th>Evidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>credits</td>
+                        <td>available</td>
+                        <td>official</td>
+                        <td>validated</td>
+                      </tr>
+                      <tr>
+                        <td>spend.report</td>
+                        <td>not_authorized</td>
+                        <td>official</td>
+                        <td>documented</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="meta">Latest run <b>partial · 2 min ago</b></div>
+                  <div class="actions">
+                    <button class="btn sm" type="button">Refresh now</button
+                    ><button class="btn sm" type="button">Pause</button
+                    ><button class="btn sm danger" type="button">Disconnect</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <a class="add" href="#"
+        ><svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M12 5v14M5 12h14" /></svg
+        >&nbsp; Connect another account</a
+      >
+      <footer class="key">
+        <span><span class="sw"></span>used share of the window</span>
+        <span><span class="sw tick"></span> how far the window has elapsed</span>
+        <span><span class="sw warn"></span>from 70%</span>
+        <span><span class="sw bad"></span>from 90%</span>
+        <span><span class="sw unknown"></span>unknown, not zero</span>
+      </footer>
+    </div>
+    <script src="d.js"></script>
+  </body>
+</html>

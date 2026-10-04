@@ -26,6 +26,7 @@
         "@headroom/connector-grok": "workspace:*",
         "@headroom/connector-vercel-ai-gateway": "workspace:*",
         "@headroom/core": "workspace:*",
+        "@headroom/view-model": "workspace:*",
         "hono": "4.13.12",
         "zod": "4.6.5",
       },
@@ -35,7 +36,10 @@
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/passkey": "1.7.7",
+        "@fontsource-variable/geist": "5.3.0",
+        "@fontsource-variable/geist-mono": "5.3.0",
         "@headroom/core": "workspace:*",
+        "@headroom/view-model": "workspace:*",
         "better-auth": "1.7.7",
         "react": "19.3.0",
         "react-dom": "19.3.0",
@@ -113,6 +117,14 @@
         "@better-auth/passkey": "1.7.7",
         "better-auth": "1.7.7",
         "drizzle-orm": "0.45.3",
+        "zod": "4.6.5",
+      },
+    },
+    "packages/view-model": {
+      "name": "@headroom/view-model",
+      "version": "0.0.0",
+      "dependencies": {
+        "@headroom/core": "workspace:*",
         "zod": "4.6.5",
       },
     },
@@ -208,6 +220,10 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
 
+    "@fontsource-variable/geist": ["@fontsource-variable/geist@5.3.0", "", {}, "sha512-j0m+vLQuG5XAYoHtGCVu0spvlGreR3EzpECUVzkFmI1mTVnAO38l/NEPDCFgZ177JxzYJCLSmTQibIiYPilGrA=="],
+
+    "@fontsource-variable/geist-mono": ["@fontsource-variable/geist-mono@5.3.0", "", {}, "sha512-vBbuwDEo9AkrqADMXOrlAR3DFcJi4/JxeuU43FoiQERnNwsfXNnvxvReZG02cQKmyk4DZkZdBZX3oTDvy2zBAw=="],
+
     "@headroom/connector-antigravity": ["@headroom/connector-antigravity@workspace:packages/connectors/antigravity"],
 
     "@headroom/connector-claude": ["@headroom/connector-claude@workspace:packages/connectors/claude"],
@@ -225,6 +241,8 @@
     "@headroom/core": ["@headroom/core@workspace:packages/core"],
 
     "@headroom/server": ["@headroom/server@workspace:apps/server"],
+
+    "@headroom/view-model": ["@headroom/view-model@workspace:packages/view-model"],
 
     "@headroom/web": ["@headroom/web@workspace:apps/web"],
 

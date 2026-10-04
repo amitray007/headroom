@@ -47,7 +47,7 @@ Every metric below comes from direct HTTP collection unless noted. A completed l
 | Credits | `available` when returned | `credits`: `has_credits`, `unlimited`, `balance` | `private`. Provider credit unit, not dollars. `unlimited` is an explicit flag, not a number. |
 | Next reset | `available` when returned | `resets_at`, Unix seconds | `private`. Retain the raw timestamp. |
 | Banked reset count | `unknown` | `…/wham/rate-limit-reset-credits` read route | `private`. Unvalidated. The app-server count is `official` but not the primary route. |
-| Reset redemption | `available` behind `HEADROOM_ENABLE_ACTIONS` | `POST …/rate-limit-reset-credits/consume` with the action row id as idempotency key | `private`. Explicit owner action with a confirmation naming the credit and its expiry, never a background job. Unvalidated until the owner runs the first one. |
+| Reset redemption | `available` behind the "Allow Account Actions" setting | `POST …/rate-limit-reset-credits/consume` with the action row id as idempotency key | `private`. Explicit owner action with a confirmation naming the credit and its expiry, never a background job. Unvalidated until the owner runs the first one. |
 | Usage history | `unknown` on the direct route | App-server `dailyUsageBuckets` | `official` by fallback only. `null` means unavailable, not zero. |
 | Admin versus non-admin | Provider-enforced | Account or workspace policy | Do not infer privileges from a plan name. |
 
@@ -94,7 +94,7 @@ A further fallback runs the official Codex app-server per connection with its ow
 | Device user code request | ChatGPT device authorization endpoint, per CLIProxyAPI `codex_device.go` | `private` | Begin sign-in. Exact URL pinned during validation. |
 | Device token poll | ChatGPT device token endpoint, per CLIProxyAPI `codex_device.go` | `private` | Poll at the returned interval. |
 
-The direct HTTP consume route is implemented as the `consume_reset_credit` action and stays unvalidated until Amit triggers it from the dashboard; agents never run it with live credentials.
+The direct HTTP consume route is implemented as the `consume_reset_credit` action and stays unvalidated until the owner triggers it from the dashboard; agents never run it with live credentials.
 
 ### App-server reference
 

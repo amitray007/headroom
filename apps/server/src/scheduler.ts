@@ -2,6 +2,7 @@ import type {
   AttemptStore,
   CollectionService,
   ConnectionStore,
+  ConnectService,
   SnapshotStore,
 } from "@headroom/core";
 
@@ -13,17 +14,32 @@ import type {
 export interface SchedulerOptions {
   readonly connections: ConnectionStore;
   readonly attempts: AttemptStore;
+  /** Expires overdue attempts, so a connector can remove what a half-finished sign-in left behind. */
+  readonly connect: Pick<ConnectService, "expire">;
   readonly snapshots: SnapshotStore;
   readonly collection: CollectionService;
-  readonly intervalMs: number;
+  /** A getter lets a settings change apply at the next tick without a restart. */
+  readonly intervalMs: number | (() => number);
   readonly tickMs?: number;
+  /** Runs after each tick that did its work, for example to deliver notifications. Its failure never stops the scheduler. */
+  readonly afterTick?: (now: number) => Promise<void> | void;
+  /** Days of history to keep. A getter, so a settings change applies at the next prune. Absent means never prune. */
+  readonly retentionDays?: () => number;
   readonly now?: () => Date;
   readonly log?: (level: "debug" | "info" | "warn" | "error", message: string) => void;
 }
 
+/** How often old history is pruned. The first prune runs on the first tick after startup. */
+export const pruneEveryMs = 6 * 60 * 60_000;
+
+const dayMs = 86_400_000;
+
 export class Scheduler {
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
+  private stopped = false;
+  private current: Promise<string[]> | null = null;
+  private lastPruneAt: number | null = null;
   private readonly now: () => Date;
 
   constructor(private readonly deps: SchedulerOptions) {
@@ -32,50 +48,124 @@ export class Scheduler {
 
   start(): void {
     if (this.timer) return;
-    this.timer = setInterval(() => void this.tick(), this.deps.tickMs ?? 30_000);
-    void this.tick();
+    this.stopped = false;
+    const run = (): void => {
+      this.tick().catch((error: unknown) =>
+        this.deps.log?.("error", `tick failed: ${errorClass(error)}`),
+      );
+    };
+    this.timer = setInterval(run, this.deps.tickMs ?? 30_000);
+    run();
   }
 
-  stop(): void {
+  /** Stop scheduling. Resolves when the tick in flight, if any, has finished its current connection. */
+  stop(): Promise<void> {
+    this.stopped = true;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    return (this.current ?? Promise.resolve()).then(
+      () => undefined,
+      () => undefined,
+    );
   }
 
   /** One pass. Returns the ids collected. Re-entrant calls are skipped. */
   async tick(): Promise<string[]> {
     if (this.running) return [];
     this.running = true;
-    const collected: string[] = [];
+    const pass = this.pass();
+    this.current = pass;
     try {
-      const expired = this.deps.attempts.expireOverdue();
-      if (expired.length > 0) this.deps.log?.("info", `expired ${expired.length} attempt(s)`);
-      for (const connection of this.deps.connections.list()) {
-        if (connection.state !== "ready" && connection.state !== "partial") continue;
-        if (!this.isDue(connection.id)) continue;
-        // Sequential on purpose: one provider request at a time keeps rate limits predictable.
-        // eslint-disable-next-line no-await-in-loop -- collections must not run concurrently
-        const outcome = await this.deps.collection.run(connection.id, `scheduler:${connection.id}`);
-        this.deps.log?.("debug", `collected ${connection.id}: ${outcome.status}`);
-        if (outcome.status === "collected" || outcome.status === "failed")
-          collected.push(connection.id);
-      }
+      return await pass;
     } finally {
       this.running = false;
+      this.current = null;
+    }
+  }
+
+  private async pass(): Promise<string[]> {
+    const collected: string[] = [];
+    try {
+      for (const id of this.deps.attempts.listOverdue()) {
+        try {
+          // eslint-disable-next-line no-await-in-loop -- one connector cleanup at a time
+          await this.deps.connect.expire(id);
+          this.deps.log?.("info", `expired attempt ${id}`);
+        } catch (error) {
+          this.deps.log?.("error", `expiring attempt ${id} failed: ${errorClass(error)}`);
+        }
+      }
+      for (const connection of this.deps.connections.list()) {
+        if (this.stopped) break;
+        // One connection failing (deleted mid-tick, a decrypt error) must not skip the others.
+        try {
+          if (connection.state !== "ready" && connection.state !== "partial") continue;
+          if (!this.isDue(connection.id)) continue;
+          // Sequential on purpose: one provider request at a time keeps rate limits predictable.
+          // eslint-disable-next-line no-await-in-loop -- collections must not run concurrently
+          const outcome = await this.deps.collection.run(
+            connection.id,
+            `scheduler:${connection.id}`,
+          );
+          this.deps.log?.("debug", `collected ${connection.id}: ${outcome.status}`);
+          if (outcome.status === "collected" || outcome.status === "failed")
+            collected.push(connection.id);
+        } catch (error) {
+          // The class only: the message could carry provider text.
+          this.deps.log?.("error", `collecting ${connection.id} failed: ${errorClass(error)}`);
+        }
+      }
+    } finally {
+      await this.runAfterTick();
     }
     return collected;
+  }
+
+  /** Delete history past the retention period, at most every six hours. Logs counts only and never throws. */
+  private prune(): void {
+    const days = this.deps.retentionDays;
+    if (!days) return;
+    const now = this.now().getTime();
+    if (this.lastPruneAt !== null && now - this.lastPruneAt < pruneEveryMs) return;
+    // Set before the work, so a failing prune waits for the next window instead of every tick.
+    this.lastPruneAt = now;
+    try {
+      const pruned = this.deps.snapshots.prune(new Date(now - days() * dayMs));
+      this.deps.log?.(
+        "info",
+        `pruned history: ${pruned.snapshots} snapshots, ${pruned.syncRuns} runs`,
+      );
+    } catch (error) {
+      this.deps.log?.("error", `history prune failed: ${errorClass(error)}`);
+    }
+  }
+
+  private async runAfterTick(): Promise<void> {
+    this.prune();
+    if (!this.deps.afterTick) return;
+    try {
+      await this.deps.afterTick(this.now().getTime());
+    } catch (error) {
+      // The class only: the message could carry a URL with a secret in it.
+      this.deps.log?.("error", `after-tick hook failed: ${errorClass(error)}`);
+    }
   }
 
   isDue(connectionId: string): boolean {
     const run = this.deps.snapshots.latestRun(connectionId);
     if (!run) return true;
-    if (!run.finishedAt) return false;
     const now = this.now().getTime();
+    // An open run is in progress, unless it is older than a lease lasts: its owner is gone.
+    if (!run.finishedAt) return now - run.startedAt.getTime() >= this.deps.collection.leaseTtlMs;
     if (run.retryAfter) return now >= run.retryAfter.getTime();
-    return (
-      now - run.startedAt.getTime() >=
-      this.deps.intervalMs + jitter(connectionId, this.deps.intervalMs)
-    );
+    const { intervalMs } = this.deps;
+    const interval = typeof intervalMs === "function" ? intervalMs() : intervalMs;
+    return now - run.startedAt.getTime() >= interval + jitter(connectionId, interval);
   }
+}
+
+function errorClass(error: unknown): string {
+  return error instanceof Error ? error.name : "unknown";
 }
 
 /** Deterministic 0 to 10 percent of the interval so connections do not all fire together. */

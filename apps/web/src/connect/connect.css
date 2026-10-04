@@ -1,0 +1,328 @@
+/* Connect page additions: pieces the shared stylesheet does not cover. */
+.field textarea {
+  font: 400 var(--text-sm) / 1.5 var(--mono);
+  padding: 12px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--foreground);
+  resize: vertical;
+  min-height: 140px;
+}
+.field textarea:focus {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
+.choices {
+  display: grid;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-fast) var(--ease-standard);
+}
+.choice:has(input:checked) {
+  border-color: var(--border-strong);
+  background: var(--surface-raised);
+}
+.choice input {
+  accent-color: var(--foreground);
+}
+.connect-page .flow .seg {
+  justify-self: start;
+}
+.connect-page .tablecard .table-note {
+  display: block;
+  margin: 0;
+  padding: 0 24px 16px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.accounts .name-edit {
+  font-size: var(--text-base);
+  width: 100%;
+  max-width: 200px;
+}
+/* Screen-reader-only text is absolutely placed; keep it inside the scroller so it adds no page width. */
+.tscroll {
+  position: relative;
+}
+/* The fixed columns need room; from 1011px up the card is always this wide, and narrower screens stack the rows. */
+.accounts {
+  min-width: 960px;
+}
+.connect-page .thead-row {
+  flex-wrap: wrap;
+}
+/* Phones and tablets: a wide table behind a sideways scroll hides each row's status and menu. Each account turns into a
+   block: name and menu on top, its limit across the width, status and last refresh beneath. Dragging still measures
+   rows. */
+@media (max-width: 1010px) {
+  .accounts {
+    display: block;
+    min-width: 0;
+  }
+  .accounts tbody {
+    display: block;
+  }
+  .accounts thead {
+    display: none;
+  }
+  .accounts tr.tgroup-row {
+    display: block;
+  }
+  .accounts tr.tgroup-row > th {
+    display: flex;
+    align-items: center;
+  }
+  .accounts tbody tr:not(.tgroup-row) {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name acts"
+      "room room"
+      "status last";
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3) var(--space-4) var(--space-3) 32px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .accounts tbody tr:not(.tgroup-row):last-child {
+    border-bottom: 0;
+  }
+  .accounts tbody tr:not(.tgroup-row) > td {
+    width: auto;
+    height: auto;
+    padding: 0;
+    border: 0;
+    text-align: left;
+  }
+  /* The grip sits in the row's left gutter, so the row places it rather than the name cell. */
+  .accounts .tname {
+    position: static;
+    grid-area: name;
+    height: auto;
+    padding-left: 0;
+  }
+  .accounts .troom {
+    grid-area: room;
+  }
+  .accounts .tstatus {
+    grid-area: status;
+    justify-self: start;
+  }
+  .accounts .tstatus .status-slot {
+    width: auto;
+    justify-content: flex-start;
+  }
+  .accounts .tname .twho {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .accounts tbody tr:not(.tgroup-row) > .tlast {
+    grid-area: last;
+    text-align: right;
+  }
+  .accounts .tacts {
+    grid-area: acts;
+  }
+  /* Reconnect is a wide split button; beside the name it would squeeze the email, so it takes its own line. */
+  .accounts tbody tr:has(> .tacts .split) {
+    grid-template-areas:
+      "name name"
+      "room room"
+      "status last"
+      "acts acts";
+  }
+  .accounts tbody tr:has(> .tacts .split) > .tacts {
+    justify-self: end;
+  }
+}
+/* A tablet has room for the limit beside the name: name, limit and menu on one line, status and refresh time under
+   the name and the menu. */
+@media (min-width: 601px) and (max-width: 1010px) {
+  .accounts tbody tr:not(.tgroup-row),
+  .accounts tbody tr:has(> .tacts .split) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+    grid-template-areas:
+      "name room acts"
+      "status room last";
+    column-gap: var(--space-5);
+  }
+}
+
+/* Skeleton rows follow the real column alignment: Status and Last Refreshed centred, the menu button right. */
+.accounts .sk-row td:nth-child(3) > .sk,
+.accounts .sk-row td:nth-child(4) > .sk {
+  margin-inline: auto;
+}
+.accounts .sk-row td:nth-child(5) > .sk {
+  margin-left: auto;
+}
+
+/* Drag to reorder: a grip on each provider row and each account row. Only the grip starts a drag. */
+.accounts .tgroup-row th,
+.accounts .tname {
+  position: relative;
+}
+.drag-handle {
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 32px;
+  margin-top: -16px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    opacity var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-fast) var(--ease-standard);
+}
+/* On a touch screen the handle is a 24px-wide target, still inside the row's left gutter. */
+@media (pointer: coarse) {
+  .drag-handle {
+    left: 2px;
+    width: 24px;
+  }
+}
+.drag-handle svg {
+  width: 20px;
+  height: 20px;
+}
+.drag-handle:hover {
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--foreground) 7%, transparent);
+}
+.drag-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  opacity: 1;
+}
+/* Pointer devices see the grip when the row is hovered or has focus; touch always sees it. */
+@media (hover: hover) and (pointer: fine) {
+  .drag-handle {
+    opacity: 0;
+  }
+  .accounts tr:hover .drag-handle,
+  .accounts tr:focus-within .drag-handle,
+  .drag-handle:focus-visible {
+    opacity: 1;
+  }
+}
+
+/* While sorting: no hover fills, one grabbing cursor, no text selection. */
+.is-reordering,
+.is-reordering * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+.accounts.sorting tbody tr:hover,
+.accounts .sorting tr:hover {
+  background: transparent;
+}
+.accounts.sorting .drag-handle,
+.accounts .sorting .drag-handle {
+  opacity: 0;
+}
+.accounts tr.drag-item .drag-handle,
+.accounts tbody.drag-item .tgroup-row .drag-handle {
+  opacity: 1;
+  color: var(--foreground);
+}
+.accounts .drag-item .tacts {
+  pointer-events: none;
+}
+
+/* Siblings slide with a spring; the dragged item follows the pointer with no transition, then settles. */
+.accounts .drag-sib {
+  transition: translate var(--dur-spring) var(--ease-spring);
+}
+/* The original stays in the table as an invisible placeholder; a floating copy on the body is what the owner sees. */
+.accounts .drag-item {
+  visibility: hidden;
+}
+.drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--surface-raised);
+  box-shadow:
+    0 14px 32px light-dark(oklch(0% 0 0 / 0.14), oklch(0% 0 0 / 0.5)),
+    0 2px 8px light-dark(oklch(0% 0 0 / 0.08), oklch(0% 0 0 / 0.3)),
+    0 0 0 1px var(--border);
+  pointer-events: none;
+  transition: scale var(--dur-standard) var(--ease-spring);
+}
+.drag-ghost.drag-settle {
+  transition:
+    translate calc(var(--dur-spring) * 0.7) var(--ease-spring),
+    scale calc(var(--dur-spring) * 0.7) var(--ease-spring);
+}
+.drag-ghost .accounts {
+  min-width: 0;
+}
+.drag-ghost .drag-handle {
+  opacity: 1;
+  color: var(--foreground);
+}
+.drag-ghost .tacts,
+.drag-ghost .drag-handle {
+  pointer-events: none;
+}
+.drag-ghost tbody > tr:last-child td {
+  border-bottom: 0;
+}
+.drag-ghost .tgroup-row th {
+  border-top: 0;
+}
+
+/* Lines follow the slot an item will take, not the slot it left: the last row has no line, the first group no top rule. */
+.accounts .sorting > tr td {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.accounts .sorting > tr.last-slot td {
+  border-bottom: 0;
+}
+.accounts.sorting .tgroup .tgroup-row th {
+  border-top: 1px solid var(--border);
+}
+.accounts.sorting .tgroup.first-slot .tgroup-row th {
+  border-top: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accounts .drag-sib,
+  .drag-ghost,
+  .drag-ghost.drag-settle {
+    transition: none;
+  }
+}

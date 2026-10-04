@@ -46,6 +46,8 @@ async function rejection(promise: Promise<unknown>): Promise<unknown> {
   }
 }
 
+const limited = () => new Response("", { status: 429, headers: { "retry-after": "900" } });
+
 describe("Antigravity connector", () => {
   test("authorization URL carries the client, loopback redirect, scopes and state; pasted input is parsed", () => {
     const url = new URL(buildAuthorizationUrl("state-1"));
@@ -219,5 +221,19 @@ describe("Antigravity connector", () => {
       fetch: fakeFetch({ "https://oauth2.googleapis.com/revoke": () => json({}) }).fetch,
     });
     expect(await revoking.disconnect(credential)).toBe("revoked");
+  });
+
+  test("rate-limited refresh and quota calls honour Retry-After", async () => {
+    const connector = createAntigravityConnector({
+      fetch: fakeFetch({ [tokenUrl]: limited, [daily]: limited }).fetch,
+    });
+    expect(await connector.refresh(credential)).toMatchObject({
+      status: "transient",
+      error: { category: "rate_limited", retryAfterMs: 900_000 },
+    });
+    expect(await rejection(connector.collect(credential, identity))).toMatchObject({
+      category: "rate_limited",
+      retryAfterMs: 900_000,
+    });
   });
 });

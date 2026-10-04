@@ -15,16 +15,32 @@ import {
   type MetricObservation,
   type RefreshResult,
   type StoredCredential,
+  classified,
   classifyUnknown,
+  decodeJwt,
+  expiryOf,
+  parseDate,
+  retryAfterMs,
+  throwForStatus,
+  timeoutFetch,
 } from "@headroom/core";
 
-import { loginUrl, pollUrl, refreshUrl, rpcHeaders, usageUrl } from "./endpoints.ts";
+import {
+  grokBotUsageUrl,
+  loginUrl,
+  pollUrl,
+  refreshUrl,
+  rpcHeaders,
+  usageUrl,
+} from "./endpoints.ts";
 import {
   cursorCredentialSchema,
+  grokBotUsageSchema,
   jwtClaimsSchema,
   periodUsageSchema,
   tokenResponseSchema,
   type CursorCredential,
+  type GrokBotUsage,
   type PeriodUsage,
 } from "./schemas.ts";
 
@@ -56,7 +72,7 @@ export function buildLoginUrl(challenge: string, uuid: string): string {
 }
 
 export function createCursorConnector(options: CursorConnectorOptions = {}): Connector {
-  const http: FetchLike = options.fetch ?? ((input, init) => fetch(input, init));
+  const http: FetchLike = options.fetch ?? timeoutFetch();
   const now = options.now ?? (() => Date.now());
   const randomness =
     options.randomness ??
@@ -157,6 +173,8 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
         { metricOrAction: "included.auto_percent", availability: "available", ...validated },
         { metricOrAction: "included.api_percent", availability: "available", ...validated },
         { metricOrAction: "on_demand", availability: "available", ...validated },
+        // Only accounts with a personal Grok Bot allowance report it; the rest show no meter.
+        { metricOrAction: "grok_bot.used_percent", availability: "available", ...sourceInspected },
         {
           metricOrAction: "team_admin",
           availability: "unsupported",
@@ -173,11 +191,32 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
         headers: rpcHeaders(secret.accessToken),
         body: "{}",
       });
-      await throwForStatus(response, "usage");
+      throwForStatus(response, "usage");
       const usage = periodUsageSchema.safeParse(await response.json().catch(() => null));
       if (!usage.success)
         throw new ConnectorError("invalid_response", "usage response shape changed");
-      return { observedAt: now(), metrics: metricsFrom(usage.data), failures: [] };
+      const metrics = metricsFrom(usage.data);
+      const failures: ClassifiedError[] = [];
+      // Grok Bot is optional: a failure here is recorded but never stops the Cursor usage above.
+      try {
+        const grokBot = await http(grokBotUsageUrl, {
+          method: "POST",
+          headers: rpcHeaders(secret.accessToken),
+          body: "{}",
+        });
+        // An account without Grok Bot answers 403 or 404: it has no meter, which is not a failure.
+        if (grokBot.status === 403 || grokBot.status === 404)
+          return { observedAt: now(), metrics, failures };
+        throwForStatus(grokBot, "grok bot usage");
+        const parsed = grokBotUsageSchema.safeParse(await grokBot.json().catch(() => null));
+        if (!parsed.success)
+          throw new ConnectorError("invalid_response", "grok bot usage response shape changed");
+        const meter = grokBotMetric(parsed.data);
+        if (meter !== null) metrics.push(meter);
+      } catch (error) {
+        failures.push(classifyUnknown(error));
+      }
+      return { observedAt: now(), metrics, failures };
     },
 
     async refresh(credential: StoredCredential): Promise<RefreshResult> {
@@ -225,7 +264,7 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
       if (response.status === 429)
         return {
           status: "transient",
-          error: classified("rate_limited", "refresh rate limited", 60_000),
+          error: classified("rate_limited", "refresh rate limited", retryAfterMs(response)),
         };
       return {
         status: "transient",
@@ -237,7 +276,7 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
       return Promise.resolve("local_only");
     },
 
-    classify,
+    classify: classifyUnknown,
   };
 }
 
@@ -319,52 +358,34 @@ function metricsFrom(usage: PeriodUsage): MetricObservation[] {
   return metrics;
 }
 
-function classify(error: unknown): ClassifiedError {
-  return classifyUnknown(error);
-}
+const week = 7 * 24 * 60 * 60_000;
 
-function classified(
-  category: ClassifiedError["category"],
-  message: string,
-  retryAfterMs?: number,
-): ClassifiedError {
-  return new ConnectorError(category, message, retryAfterMs).toClassified();
-}
-
-async function throwForStatus(response: Response, what: string): Promise<void> {
-  if (response.ok) return;
-  if (response.status === 401)
-    throw new ConnectorError("authentication_required", `${what} returned 401`);
-  if (response.status === 403)
-    throw new ConnectorError("permission_denied", `${what} returned 403`);
-  if (response.status === 429)
-    throw new ConnectorError("rate_limited", `${what} returned 429`, 60_000);
-  if (response.status >= 500)
-    throw new ConnectorError("provider_unavailable", `${what} returned ${response.status}`);
-  throw new ConnectorError("invalid_response", `${what} returned ${response.status}`);
-}
-
-export function decodeJwt(token: string): unknown {
-  const payload = token.split(".")[1];
-  if (!payload) return null;
-  try {
-    return JSON.parse(
-      Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"),
-    );
-  } catch {
-    return null;
-  }
-}
-
-function expiryOf(token: string): number | null {
-  const claims = jwtClaimsSchema.safeParse(decodeJwt(token));
-  return claims.success && claims.data.exp !== undefined ? claims.data.exp * 1000 : null;
-}
-
-function parseDate(value: string | undefined): number | null {
-  if (!value) return null;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
+/**
+ * The Grok Bot allowance as a weekly percentage, or null when the account has none of its own (a pooled enterprise
+ * allowance, or no included limit). The window is the reported period; it is a week when the period is missing.
+ */
+export function grokBotMetric(usage: GrokBotUsage): MetricObservation | null {
+  if (usage.usesPooledEnterpriseAllowance === true) return null;
+  if (usage.hasNonZeroIncludedLimit === false || usage.includedLimitZero === true) return null;
+  const percent = usage.usagePercent;
+  if (percent === undefined || !Number.isFinite(percent) || percent < 0) return null;
+  const resetsAt = parseDate(usage.nextResetTimestampUtc);
+  const reported = parseDate(usage.currentPeriodStart);
+  const start = reported !== null && resetsAt !== null && resetsAt > reported ? reported : null;
+  const seconds =
+    start === null || resetsAt === null ? week / 1000 : Math.round((resetsAt - start) / 1000);
+  return {
+    providerMetricKey: "grok_bot.used_percent",
+    kind: "quota_percentage",
+    scope: `window:${seconds}s`,
+    valueText: String(Math.round(Math.min(percent, 100) * 100) / 100),
+    unit: "percent",
+    windowStart: start ?? (resetsAt === null ? null : resetsAt - week),
+    windowEnd: resetsAt,
+    resetsAt,
+    availability: "available",
+    interface: "private",
+  };
 }
 
 function cents(value: number): string {

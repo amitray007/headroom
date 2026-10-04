@@ -1,0 +1,64 @@
+/* The pill row and pill shared by the provider filter (buttons) and the provider tabs. */
+.ptokens {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px;
+  margin: -2px;
+  border: 0;
+}
+.ptokens::-webkit-scrollbar {
+  display: none;
+}
+.ptoken {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: 500 var(--text-sm) / 1 var(--font);
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    scale var(--dur-spring) var(--ease-spring);
+}
+.ptoken .brand,
+.ptoken .brand svg,
+.ptoken .brand img {
+  width: 16px;
+  height: 16px;
+}
+.ptoken .n {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.ptoken[aria-pressed="true"],
+.ptoken[aria-selected="true"] {
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
+  color: var(--foreground);
+}
+.ptoken:active {
+  scale: 0.96;
+  transition-duration: var(--dur-instant);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ptoken:hover {
+    border-color: var(--border-strong);
+    color: var(--foreground);
+  }
+}
+.ptokens > .sk {
+  flex: none;
+}
