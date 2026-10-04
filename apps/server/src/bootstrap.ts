@@ -37,7 +37,7 @@ import { ExchangeRateService } from "./exchange-rates.ts";
 import { type DeriveNotifications, NotificationDispatcher } from "./notify/dispatcher.ts";
 import type { Fetch } from "./notify/http.ts";
 import { overviewConnections } from "./overview-model.ts";
-import { deriveNotifications } from "@headroom/view-model/notifications";
+import { deriveNotifications, expiringTopUps } from "@headroom/view-model/notifications";
 
 import { createRegistry } from "./registry.ts";
 
@@ -227,7 +227,10 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     deliveries,
     overview: (at) => overviewConnections(context, at),
     settings: () => settings.get(),
-    derive: options.derive ?? deriveNotifications,
+    derive:
+      options.derive ??
+      ((rows, current, at, topUps) =>
+        deriveNotifications(rows, current, at, expiringTopUps(topUps))),
     topUps: () => wallet.book().topUps,
     dashboardUrl: config.publicUrl ? origin : null,
     fetch: fetchFn,
