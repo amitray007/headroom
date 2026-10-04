@@ -1,7 +1,8 @@
+/* eslint-disable no-await-in-loop -- the steps of a test run in order */
 import { describe, expect, test } from "bun:test";
 
 import { classifyUnknown, ConnectorError } from "./connector.ts";
-import { retryAfterMs, throwForStatus, timeoutFetch } from "./http.ts";
+import { maxRedirects, retryAfterMs, throwForStatus, timeoutFetch } from "./http.ts";
 
 const respond = (status: number, headers: Record<string, string> = {}) =>
   new Response("synthetic body", { status, headers });
@@ -50,6 +51,150 @@ describe("timeoutFetch", () => {
       class: "transient",
     });
     expect(classifyUnknown(new DOMException("a", "AbortError")).class).toBe("transient");
+  });
+});
+
+/** A scripted fetch: each call takes the next reply and records what it was sent. */
+function scripted(replies: Response[]) {
+  const calls: {
+    url: string;
+    method: string;
+    headers: Headers;
+    body: unknown;
+    redirect: unknown;
+  }[] = [];
+  const fetchLike = (input: string | URL | Request, init?: RequestInit) => {
+    calls.push({
+      url: typeof input === "string" ? input : input instanceof URL ? input.href : input.url,
+      method: init?.method ?? "GET",
+      headers: new Headers(init?.headers),
+      body: init?.body ?? null,
+      redirect: init?.redirect,
+    });
+    const reply = replies.shift();
+    if (!reply) throw new Error("no reply scripted");
+    return Promise.resolve(reply);
+  };
+  return { calls, fetchLike };
+}
+
+const redirect = (status: number, location: string) =>
+  new Response(null, { status, headers: { location } });
+
+const secretHeaders = {
+  authorization: "Bearer synthetic",
+  cookie: "sid=synthetic",
+  "x-api-key": "synthetic",
+  "x-xai-token-auth": "synthetic",
+  "chatgpt-account-id": "synthetic",
+  accept: "application/json",
+};
+
+describe("timeoutFetch redirects", () => {
+  test("never lets fetch follow a redirect itself", async () => {
+    const { calls, fetchLike } = scripted([respond(200)]);
+    await timeoutFetch(fetchLike)("https://api.example.test/a", { headers: secretHeaders });
+    expect(calls[0]?.redirect).toBe("manual");
+  });
+
+  test("a same-origin hop keeps every header", async () => {
+    const { calls, fetchLike } = scripted([redirect(302, "/b"), respond(200)]);
+    const response = await timeoutFetch(fetchLike)("https://api.example.test/a", {
+      headers: secretHeaders,
+    });
+    expect(response.status).toBe(200);
+    expect(calls[1]?.url).toBe("https://api.example.test/b");
+    expect(calls[1]?.headers.get("authorization")).toBe("Bearer synthetic");
+    expect(calls[1]?.headers.get("cookie")).toBe("sid=synthetic");
+    expect(calls[1]?.headers.get("x-api-key")).toBe("synthetic");
+  });
+
+  test("a cross-origin hop drops credential headers and keeps the rest", async () => {
+    const { calls, fetchLike } = scripted([
+      redirect(307, "https://other.example.test/b"),
+      respond(200),
+    ]);
+    await timeoutFetch(fetchLike)("https://api.example.test/a", { headers: secretHeaders });
+    const sent = calls[1];
+    expect(sent?.url).toBe("https://other.example.test/b");
+    expect([...(sent?.headers.keys() ?? [])]).toEqual(["accept"]);
+  });
+
+  test("a different port or an http host on the same name counts as another origin", async () => {
+    const { calls, fetchLike } = scripted([
+      redirect(302, "https://api.example.test:8443/b"),
+      respond(200),
+    ]);
+    await timeoutFetch(fetchLike)("https://api.example.test/a", { headers: secretHeaders });
+    expect(calls[1]?.headers.has("authorization")).toBe(false);
+  });
+
+  test("a downgrade from https to http is refused before the second request", async () => {
+    const { calls, fetchLike } = scripted([redirect(302, "http://api.example.test/b")]);
+    const error = await timeoutFetch(fetchLike)("https://api.example.test/a", {
+      headers: secretHeaders,
+    }).catch((e) => e);
+    expect(error).toBeInstanceOf(ConnectorError);
+    expect(classifyUnknown(error).category).toBe("invalid_response");
+    expect(calls).toHaveLength(1);
+  });
+
+  test("303 becomes a GET without a body or body headers", async () => {
+    const { calls, fetchLike } = scripted([redirect(303, "/done"), respond(200)]);
+    await timeoutFetch(fetchLike)("https://api.example.test/a", {
+      method: "POST",
+      body: "x=1",
+      headers: { "content-type": "application/x-www-form-urlencoded", authorization: "Bearer s" },
+    });
+    expect(calls[1]).toMatchObject({ method: "GET", body: null });
+    expect(calls[1]?.headers.has("content-type")).toBe(false);
+    expect(calls[1]?.headers.get("authorization")).toBe("Bearer s");
+  });
+
+  test("301 and 302 turn a POST into a GET but leave a PUT alone", async () => {
+    for (const status of [301, 302]) {
+      const post = scripted([redirect(status, "/b"), respond(200)]);
+      await timeoutFetch(post.fetchLike)("https://api.example.test/a", {
+        method: "POST",
+        body: "x=1",
+      });
+      expect(post.calls[1]).toMatchObject({ method: "GET", body: null });
+      const put = scripted([redirect(status, "/b"), respond(200)]);
+      await timeoutFetch(put.fetchLike)("https://api.example.test/a", {
+        method: "PUT",
+        body: "x=1",
+      });
+      expect(put.calls[1]).toMatchObject({ method: "PUT", body: "x=1" });
+    }
+  });
+
+  test("307 and 308 keep the method and replay the body", async () => {
+    for (const status of [307, 308]) {
+      const { calls, fetchLike } = scripted([redirect(status, "/b"), respond(200)]);
+      await timeoutFetch(fetchLike)("https://api.example.test/a", { method: "POST", body: "x=1" });
+      expect(calls[1]).toMatchObject({ method: "POST", body: "x=1" });
+    }
+  });
+
+  test("stops after five hops", async () => {
+    const { calls, fetchLike } = scripted(Array.from({ length: 7 }, () => redirect(302, "/loop")));
+    const error = await timeoutFetch(fetchLike)("https://api.example.test/a").catch((e) => e);
+    expect(classifyUnknown(error).category).toBe("invalid_response");
+    expect(calls).toHaveLength(maxRedirects + 1);
+  });
+
+  test("a redirect without a Location header is returned as is", async () => {
+    const { fetchLike } = scripted([new Response(null, { status: 302 })]);
+    expect((await timeoutFetch(fetchLike)("https://api.example.test/a")).status).toBe(302);
+  });
+
+  test("a caller that asks for manual redirects gets the raw 3xx", async () => {
+    const { calls, fetchLike } = scripted([redirect(302, "/b")]);
+    const response = await timeoutFetch(fetchLike)("https://api.example.test/a", {
+      redirect: "manual",
+    });
+    expect(response.status).toBe(302);
+    expect(calls).toHaveLength(1);
   });
 });
 

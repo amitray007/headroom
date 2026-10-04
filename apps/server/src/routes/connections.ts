@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { accountActionKindSchema, authMethodSchema } from "@headroom/core";
+import { accountActionKindSchema, authMethodSchema, type DisconnectResult } from "@headroom/core";
 
 import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
@@ -220,7 +220,7 @@ export function connectionRoutes(ctx: AppContext): Hono<Env> {
     try {
       const connector = ctx.registry.get(connection.provider);
       const record = ctx.credentials.get(connection.id);
-      let revocation: "revoked" | "local_only" | "failed" = "local_only";
+      let revocation: DisconnectResult = "local_only";
       if (connector && record) {
         try {
           revocation = await connector.disconnect({

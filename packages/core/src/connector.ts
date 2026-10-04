@@ -4,6 +4,7 @@ import type { StoredCredential } from "./credentials.ts";
 import {
   type AccountActionKind,
   type Availability,
+  type DisconnectResult,
   type ErrorCategory,
   type EvidenceLevel,
   type FailureClass,
@@ -146,7 +147,7 @@ export type RefreshResult =
   | { readonly status: "transient"; readonly error: ClassifiedError }
   | { readonly status: "rejected"; readonly error: ClassifiedError };
 
-export type DisconnectResult = "revoked" | "local_only" | "failed";
+/** Defined in enums.ts; kept importable from here for the test doubles. */
 
 /** One explicit, owner-confirmed mutation. The idempotency key is the action row id. */
 export interface ActionRequest {

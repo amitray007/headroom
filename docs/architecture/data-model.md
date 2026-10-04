@@ -39,6 +39,7 @@ This is a logical schema for implementation planning. No database or migrations 
 | `connection_capabilities.evidence_level` | `documented`, `source_inspected`, `prior_observation`, `validated`, `unvalidated` |
 | `credentials.refresh_state` | `fresh`, `refresh_due`, `refresh_failed`, `not_refreshable` |
 | `connections.reconnect_reason` | `refresh_rejected`, `token_rejected`, `identity_changed`, `revoked_by_owner`, none |
+| `DisconnectResult` | `revoked`, `local_only`, `failed`: what disconnecting a credential achieved at the provider. `local_only` means the provider offers no revoke |
 | `sync_runs.outcome` | `succeeded`, `partial`, `rate_limited`, `provider_unavailable`, `authentication_failed`, `invalid_response`, `interrupted` |
 | `account_actions.state` | `requested`, `submitted`, `succeeded`, `failed`, `uncertain` |
 | `account_actions.action` | `consume_reset_credit` |
@@ -104,6 +105,12 @@ Amounts are integers in the currency's minor unit (cents, paise, whole yen), eac
 
 Totals convert to the display currency through USD with the European Central Bank's daily reference rates (D27). An amount whose currency has no rate stays out of the total and is counted as left out. Provider-reported money, such as Claude extra usage or Cursor on-demand spend, is usage spend: it comes from snapshots, not from the Wallet tables, and stays a separate figure.
 
+## Retention
+
+Sync history is kept for `historyRetentionDays`, an owner setting of 30, 90, 180 or 365 days that defaults to 90 (D29). The scheduler prunes at its first tick after startup and then at most every six hours, reading the setting each time, so a change applies without a restart. A prune deletes `snapshots` whose `observed_at` is older than the cutoff, and `sync_runs` whose `started_at` is older, per connection. `metrics` and `reset_credits` go with their snapshot through the foreign-key cascade.
+
+Two rows per connection are exempt however old: the newest snapshot and the newest sync run, because the dashboard reads them. A run that still owns a surviving snapshot also stays, so the run cascade never removes one. An `account_actions` row keeps its own record when its `resulting_snapshot_id` points at a pruned snapshot; the link is set to null. The prune logs counts only.
+
 ## Open schema decisions
 
-Retention duration and aggregation intervals are not fixed. The first migration must preserve the identity, unit, enumeration and evidence rules above.
+Aggregation intervals are not fixed. The first migration must preserve the identity, unit, enumeration and evidence rules above.

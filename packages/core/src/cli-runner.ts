@@ -24,7 +24,7 @@ export interface CliLoginSpec {
 export interface CliLoginStatus {
   readonly state: "running" | "exited" | "killed" | "timed_out";
   readonly exitCode: number | null;
-  /** Redacted, ANSI-stripped output collected so far, bounded. */
+  /** Redacted (see `redactOutput`), ANSI-stripped output collected so far, bounded. */
   readonly output: string;
   readonly credentialsPresent: boolean;
 }
@@ -137,7 +137,7 @@ export class CliLoginRunner implements LoginRunner {
     return {
       state: entry.state,
       exitCode: entry.process.exitCode,
-      output: entry.output,
+      output: redactOutput(entry.output),
       credentialsPresent: existsSync(join(entry.dir, entry.spec.credentialFile)),
     };
   }
@@ -244,4 +244,35 @@ const ansiPattern = /\u001B\[[0-9;?]*[ -/]*[@-~]/g;
 
 export function stripAnsi(text: string): string {
   return text.replace(ansiPattern, "");
+}
+
+const redacted = "[redacted]";
+const urlPattern = /(https?:\/\/\S+)/;
+/** `access_token`, `refresh_token` and `id_token` as a JSON member (`"k": "v"`) or a `k=v` / `k: v` pair. */
+const tokenMember =
+  /(["']?\b(?:access|refresh|id)_token["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s"'&,;]+)/gi;
+const bearer = /\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi;
+const jwt = /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}/g;
+const longHex = /\b[0-9a-fA-F]{32,}\b/g;
+const longBase64 = /[A-Za-z0-9_+-]{40,}={0,2}/g;
+
+/**
+ * Mask secrets in CLI output before anyone reads it. Text inside a URL is left whole, because the
+ * sign-in URL carries its own random `state` and challenge that the owner needs and that are not
+ * credentials; only token members in a URL are masked. Sign-in codes such as `ABCD-EFGH` are short and
+ * pass through. Applied to the whole buffer on every read, so a secret split across two chunks is caught.
+ */
+export function redactOutput(text: string): string {
+  return text
+    .split(urlPattern)
+    .map((part, index) => {
+      const masked = part.replace(tokenMember, `$1${redacted}`);
+      if (index % 2 === 1) return masked;
+      return masked
+        .replace(bearer, `Bearer ${redacted}`)
+        .replace(jwt, redacted)
+        .replace(longHex, redacted)
+        .replace(longBase64, redacted);
+    })
+    .join("");
 }

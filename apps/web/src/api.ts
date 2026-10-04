@@ -7,6 +7,7 @@ import {
   connectionScopeSchema,
   connectionStateSchema,
   costSchema,
+  disconnectResultSchema,
   evidenceLevelSchema,
   interfaceLabelSchema,
   nextStepPayloadSchema,
@@ -209,7 +210,7 @@ const actionOutcomeSchema = z.object({
 
 const refreshSchema = z.object({ outcome: z.unknown(), state: connectionStateSchema });
 const pauseSchema = z.object({ state: connectionStateSchema });
-const revocationSchema = z.object({ revocation: z.enum(["revoked", "local_only", "failed"]) });
+const revocationSchema = z.object({ revocation: disconnectResultSchema });
 
 const channelSchema = z.object({
   id: z.string(),
