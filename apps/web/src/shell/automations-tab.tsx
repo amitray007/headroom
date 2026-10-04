@@ -145,7 +145,7 @@ function AutoResetRow(props: {
           }}
         />
         <Select
-          label="Skip If It Resets Within"
+          label="Skip If Resets Within"
           size="sm"
           value={`${rule.minHoursLeft}` as const}
           options={hoursOptions}
@@ -304,8 +304,7 @@ function BudgetsSection(props: {
   return (
     <Section title="Budgets">
       <p className="auto-note muted">
-        Your own limit on a spend figure. You get a notice when spend nears it, using the Running
-        Low setting, and again when it passes.
+        Notifies you when spend nears your limit and again when it passes.
       </p>
       {rows.length === 0 ? (
         <p className="auto-empty muted">No connected account reports spend yet.</p>
