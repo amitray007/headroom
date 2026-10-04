@@ -4,8 +4,8 @@ import { avatarSrc } from "./avatar.ts";
 
 describe("avatarSrc", () => {
   test("seeds the voxel-bot style with the username", () => {
-    expect(avatarSrc("amit")).toBe(
-      "https://api.dicebear.com/10.x/voxel-bot/svg?tags=animation&seed=amit",
+    expect(avatarSrc("owner")).toBe(
+      "https://api.dicebear.com/10.x/voxel-bot/svg?tags=animation&seed=owner",
     );
   });
   test("encodes characters that would change the query", () => {

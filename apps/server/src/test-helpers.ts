@@ -43,9 +43,9 @@ export function cookiesFrom(response: Response): string {
 }
 
 export const owner = {
-  name: "Amit",
+  name: "Owner",
   email: "owner@example.com",
-  username: "amit",
+  username: "owner",
   password: "correct horse battery",
 };
 

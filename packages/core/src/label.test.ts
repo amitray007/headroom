@@ -3,8 +3,8 @@ import { expect, test } from "bun:test";
 import { splitLabel } from "./label.ts";
 
 test("splits an identity and a plan", () => {
-  expect(splitLabel("codex", "maverick@example.com (pro)")).toEqual({
-    identity: "maverick@example.com",
+  expect(splitLabel("codex", "alex@example.com (pro)")).toEqual({
+    identity: "alex@example.com",
     plan: "pro",
   });
   expect(splitLabel("claude", "owner@acme.example (max)")).toEqual({

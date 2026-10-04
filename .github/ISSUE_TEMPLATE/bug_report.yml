@@ -1,0 +1,59 @@
+name: Bug report
+description: Something in Headroom does not work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never paste tokens, cookies, authorization codes, raw provider responses or account emails. Use synthetic values.
+        Security problems go through private reporting: see SECURITY.md.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Connect a Codex account
+        2. Open Compare
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      options:
+        [
+          Not provider-specific,
+          Claude,
+          Codex,
+          Cursor,
+          Copilot,
+          Grok,
+          Antigravity,
+          Vercel AI Gateway,
+        ]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Shown by `headroom --version`, or the commit you built from.
+  - type: dropdown
+    id: install
+    attributes:
+      label: How you run Headroom
+      options: [Docker on a tailnet, Docker other, From source, Other]
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Server log lines around the problem, with anything personal removed.
+      render: text

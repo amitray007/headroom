@@ -105,15 +105,17 @@ describe("demoOverview", () => {
     expect(named.length).toBeLessThan(connections.length / 2);
   });
 
-  test("identities look real: no example.com, no repeats within a provider", () => {
+  test("identities use reserved example domains only, with no repeats within a provider", () => {
     for (const seed of seeds) {
       const all = demoOverview(seed, anchor).connections;
       for (const connection of all) {
-        expect(connection.identity ?? "").not.toContain("example");
         if (connection.provider === "copilot") {
           expect(connection.identity).toMatch(/^[a-z0-9-]+$/);
         } else if (connection.identity !== null) {
-          expect(connection.identity).toMatch(/^[a-z0-9._]+@[a-z0-9-]+\.[a-z]{2,}$/);
+          // RFC 2606: example.com/.org/.net and the .example TLD never belong to a real inbox.
+          expect(connection.identity).toMatch(
+            /^[a-z0-9._]+@(?:example\.(?:com|org|net)|[a-z0-9-]+\.example)$/,
+          );
         }
       }
       for (const provider of providers) {

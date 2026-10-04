@@ -148,14 +148,20 @@ const lastNames = [
   "pemberton",
 ];
 
-const otherMailDomains = ["outlook.com", "icloud.com", "proton.me", "fastmail.com"];
-const companyDomains = ["halcyonworks.io", "brightlane.co", "tessellate.dev", "fernhillstudio.com"];
+const otherMailDomains = ["example.org", "example.net", "mail.example", "inbox.example"];
+const companyDomains = [
+  "halcyonworks.example",
+  "brightlane.example",
+  "tessellate.example",
+  "fernhillstudio.example",
+];
 
 type EmailFormat = "dotted" | "joined" | "initial";
 
 /**
- * One owner with a few addresses, the way a real owner signs in everywhere: a main Gmail address, a work address,
- * a second personal address and an older Gmail. Names come from fixed pools, so no real person is named.
+ * One owner with a few addresses, the way a real owner signs in everywhere: a main address, a work address,
+ * a second personal address and an older one. Names come from fixed pools and every domain is reserved for
+ * examples (RFC 2606), so no real person or inbox is named.
  */
 interface Owner {
   readonly main: string;
@@ -176,9 +182,9 @@ function ownerFor(seed: number): Owner {
     if (format === "joined") return `${first}${last}`;
     return `${first}_${last.charAt(0)}${stream.int(10, 99)}`;
   };
-  const main = `${local(formats[0] ?? "dotted")}@gmail.com`;
+  const main = `${local(formats[0] ?? "dotted")}@example.com`;
   const other = `${local(formats[1] ?? "joined")}@${stream.pick(otherMailDomains)}`;
-  const alt = `${local(formats[2] ?? "initial")}@gmail.com`;
+  const alt = `${local(formats[2] ?? "initial")}@example.com`;
   const work = `${first}.${last}@${stream.pick(companyDomains)}`;
   const login = stream.pick([
     `${first}${last}`,
