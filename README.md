@@ -39,7 +39,8 @@ Headroom signs in to each account once, refreshes them in the background, and sh
 - **Know which account to use next.** Compare ranks accounts of a provider by the room they have left and names the one to use.
 - **See resets coming.** Timeline lays every window on a calendar, so you know when headroom comes back.
 - **Track what you pay.** Wallet totals subscriptions, usage spend and top-ups in one currency, with upcoming renewals.
-- **Get warned in time.** In-app notices, Telegram and signed webhooks for limits running low, expiring resets and broken sign-ins.
+- **Get warned in time.** In-app notices, Telegram and signed webhooks for limits running low, new and expiring resets, early resets, your own spend budgets and broken sign-ins.
+- **Automations you switch on.** Use a banked Codex reset when a limit runs out, and record credit top-ups in the Wallet as soon as a balance rises.
 - **Many accounts per provider.** Personal, work and side-project accounts stay separate, each with its own credentials.
 - **Private by design.** One owner, passkeys, encrypted credentials, and a Privacy Mode that blurs emails on screen.
 - **Works on your phone.** Every view is built for small screens.
@@ -93,7 +94,7 @@ flowchart LR
 
 - Sign in once. Where a provider needs it, its official CLI runs one time on the server to sign in. Headroom seals the result with a master key kept outside the database.
 - Refresh in the background. The scheduler collects each account over direct HTTPS on your interval, refreshes tokens before they expire, and keeps 90 days of history by default.
-- Read only. Monitoring never sends a model request, redeems a reset or buys credits. The one account action, using a banked Codex reset, needs a setting and a press-and-hold.
+- Read only by default. Monitoring never sends a model request, redeems a reset or buys credits. Using a banked Codex reset needs "Allow Account Actions" and either a press-and-hold or an auto-reset rule you set.
 - Unknown is not zero. A figure a provider does not report shows as unknown, never as 0.
 
 ## Quick start
