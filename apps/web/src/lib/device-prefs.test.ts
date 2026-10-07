@@ -9,7 +9,6 @@ import {
   createDevicePrefsStore,
   demoKey,
   densityKey,
-  effectivePrivacy,
   readDemo,
   saveDemo,
   readDensity,
@@ -115,12 +114,6 @@ describe("demo mode", () => {
     applyDemo(el, false);
     expect(el.attributes.has("data-demo")).toBe(false);
   });
-  test("blur needs Privacy Mode on and Demo Mode off", () => {
-    expect(effectivePrivacy(true, false)).toBe(true);
-    expect(effectivePrivacy(true, true)).toBe(false);
-    expect(effectivePrivacy(false, false)).toBe(false);
-    expect(effectivePrivacy(false, true)).toBe(false);
-  });
 });
 
 function fullRoot() {
@@ -152,10 +145,12 @@ describe("stored prefs before first paint", () => {
     expect(el.attributes.has("data-privacy")).toBe(true);
     expect(el.attributes.has("data-demo")).toBe(false);
   });
-  test("a stored Demo Mode marks the root and drops the blur, so nothing flashes", () => {
+  test("a stored Demo Mode marks the root and keeps the Privacy Mode blur, so nothing flashes", () => {
     const el = fullRoot();
     applyStoredPrefs(el, store({ [demoKey]: "1", [privacyKey]: "1" }));
     expect(el.attributes.has("data-demo")).toBe(true);
+    expect(el.attributes.has("data-privacy")).toBe(true);
+    applyStoredPrefs(el, store({ [demoKey]: "1", [privacyKey]: "0" }));
     expect(el.attributes.has("data-privacy")).toBe(false);
   });
   test("the session hint is only true after a sign-in was seen", () => {
@@ -226,9 +221,9 @@ describe("device prefs store", () => {
     expect(seen).toEqual([[true], [true]]);
     expect(data.data.get(demoKey)).toBe("1");
     expect(el.attributes.has("data-demo")).toBe(true);
-    // Privacy Mode stays on in storage, yet the blur is off while Demo Mode is on.
+    // Demo identities blur like real ones while Privacy Mode is on.
     expect(prefs.getSnapshot().privacy).toBe(true);
-    expect(el.attributes.has("data-privacy")).toBe(false);
+    expect(el.attributes.has("data-privacy")).toBe(true);
     prefs.setDemo(false);
     expect(el.attributes.has("data-demo")).toBe(false);
     expect(el.attributes.has("data-privacy")).toBe(true);

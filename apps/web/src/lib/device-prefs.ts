@@ -43,11 +43,6 @@ export function readDemo(storage: ReadableStorage): boolean {
   return storage.getItem(demoKey) === "1";
 }
 
-/** Demo identities are made up, so they show plainly: blur applies only with Privacy Mode on and Demo Mode off. */
-export function effectivePrivacy(privacy: boolean, demo: boolean): boolean {
-  return privacy && !demo;
-}
-
 export function applyAppearance(root: PrefsRoot, appearance: Appearance): void {
   root.style.colorScheme = appearance === "system" ? "" : appearance;
 }
@@ -134,7 +129,7 @@ export function applyStoredPrefs(
   }
   const demo = readDemo(storage);
   applyAppearance(root, readAppearance(storage));
-  applyPrivacy(root, effectivePrivacy(readPrivacy(storage), demo));
+  applyPrivacy(root, readPrivacy(storage));
   applyDemo(root, demo);
   const density = readDensity(storage);
   if (density !== null) applyDensity(root, density);
@@ -142,7 +137,7 @@ export function applyStoredPrefs(
 
 export interface DevicePrefsState {
   readonly appearance: Appearance;
-  /** The owner's Privacy Mode switch. The blur itself also needs Demo Mode off; see `effectivePrivacy`. */
+  /** The owner's Privacy Mode switch. It blurs identities in Demo Mode too, so a demo looks like the real app. */
   readonly privacy: boolean;
   readonly demo: boolean;
   /** Not saved: a new value on every page load and every time Demo Mode turns on. */
@@ -189,7 +184,7 @@ export function createDevicePrefsStore(env: DevicePrefsEnv): DevicePrefsStore {
     state = next;
     if (root !== null) {
       applyAppearance(root, next.appearance);
-      applyPrivacy(root, effectivePrivacy(next.privacy, next.demo));
+      applyPrivacy(root, next.privacy);
       applyDemo(root, next.demo);
     }
     for (const listener of listeners) listener();
