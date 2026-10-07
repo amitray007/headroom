@@ -4,12 +4,15 @@ import { BrandMark } from "../../icons.tsx";
 import { age, exactFull, type TimeStyle } from "@headroom/view-model/time";
 import { cx } from "../../ui/cx.ts";
 import type { ResetRow } from "./resets.ts";
+import { SharedIdentity } from "./cards.tsx";
 import { laneName, type TipContext } from "./tips.ts";
 
 const rowLimit = 8;
 
 interface Look extends TipContext {
   readonly timeStyle: TimeStyle;
+  /** Accounts that share a name with another of their provider; see `sharedNames`. */
+  readonly shared: ReadonlySet<string>;
 }
 
 /** How long ago over the exact time, or the other way round under the Exact time style. */
@@ -66,7 +69,10 @@ export function RecentResetsCard(props: {
                 <th scope="row" className="tl-r-acct">
                   <span className="tl-r-who">
                     <BrandMark provider={row.connection.provider} />
-                    <span>{laneName(row.connection)}</span>
+                    <span className="tl-r-name">
+                      <span>{laneName(row.connection)}</span>
+                      <SharedIdentity connection={row.connection} shared={look.shared} />
+                    </span>
                   </span>
                 </th>
                 <td className="tl-r-limit">{row.limit}</td>
@@ -100,6 +106,7 @@ export function RecentResetsCard(props: {
                   ? `${laneName(row.connection)} · ${row.limit}`
                   : laneName(row.connection)}
               </span>
+              <SharedIdentity connection={row.connection} shared={look.shared} />
               <span className="tl-rl-facts">
                 {[row.change, row.detail].filter((part) => part !== null).join(" · ")}
               </span>

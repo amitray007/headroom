@@ -8,7 +8,7 @@ import {
   type WindowKind,
 } from "@headroom/view-model/accounts";
 import { earlyResetsOf, type EarlyReset } from "@headroom/view-model/early-resets";
-import { groupByProvider } from "@headroom/view-model/labels";
+import { accountName, groupByProvider } from "@headroom/view-model/labels";
 import { presentPanel } from "@headroom/view-model/present";
 import { captionOf, toneOf, type Caption, type Tone } from "@headroom/view-model/tone";
 
@@ -325,4 +325,18 @@ export function savedResets(
     });
   }
   return rows.toSorted((a, b) => (a.expiries[0] ?? Infinity) - (b.expiries[0] ?? Infinity));
+}
+
+/**
+ * Accounts whose name matches another account of the same provider, such as two Codex accounts both called
+ * "Personal". The cards show their identity too, so the two can be told apart. Only accounts with an identity count.
+ */
+export function sharedNames(connections: readonly OverviewConnection[]): ReadonlySet<string> {
+  const byName = new Map<string, string[]>();
+  for (const connection of connections) {
+    if (connection.identity === null) continue;
+    const key = `${connection.provider}:${accountName(connection).toLowerCase()}`;
+    byName.set(key, [...(byName.get(key) ?? []), connection.id]);
+  }
+  return new Set([...byName.values()].filter((ids) => ids.length > 1).flat());
 }

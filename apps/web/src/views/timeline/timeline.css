@@ -837,6 +837,18 @@
 .tl-r-limit {
   color: var(--text-secondary);
 }
+/* Two accounts with the same name show their identity under it, blurred in Privacy Mode like every identity. */
+.tl-shared {
+  font-size: var(--text-xs);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.tl-r-name {
+  display: grid;
+}
+.tl-resets-list .tl-shared {
+  grid-column: 2 / -1;
+}
 .tl-r-what {
   display: grid;
   gap: 2px;

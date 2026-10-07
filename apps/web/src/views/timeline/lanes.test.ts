@@ -7,6 +7,7 @@ import {
   limitName,
   runningLow,
   savedResets,
+  sharedNames,
   upNextGroups,
   upNextItems,
 } from "./lanes.ts";
@@ -194,5 +195,24 @@ describe("savedResets", () => {
       ["claude-2", 1, false, "Reset Grant"],
     ]);
     expect(rows[0]?.expiries.map((at) => (at - now) / day)).toEqual([2, 9, 20]);
+  });
+});
+
+/** A Codex account with no name of its own, so it reads "Personal". */
+const personal = (id: string, identity: string | null) =>
+  connection("codex", { id, identity, name: null });
+
+describe("sharedNames", () => {
+  test("marks accounts of one provider that share a name, and only those with an identity", () => {
+    const named = connection("codex", { id: "named", name: "Work" });
+    const other = connection("claude", { id: "claude-p", name: null });
+    const shared = sharedNames([
+      personal("a", "one@example.com"),
+      personal("b", "two@example.com"),
+      personal("c", null),
+      named,
+      other,
+    ]);
+    expect([...shared].toSorted()).toEqual(["a", "b"]);
   });
 });

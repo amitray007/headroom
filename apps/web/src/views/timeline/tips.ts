@@ -42,6 +42,14 @@ export function laneName(connection: OverviewConnection): string {
   return `${providerName(connection.provider)} · ${accountName(connection)}`;
 }
 
+/** The account's identity when another account of its provider has the same name, else null. */
+export function sharedIdentity(
+  connection: OverviewConnection,
+  shared: ReadonlySet<string>,
+): string | null {
+  return shared.has(connection.id) ? connection.identity : null;
+}
+
 export function kindLabel(kind: Lane["kind"]): string {
   return timelineKinds.find((entry) => entry.value === kind)?.label ?? kind;
 }

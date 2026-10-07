@@ -13,7 +13,7 @@ import {
   type UpNextItem,
 } from "./lanes.ts";
 import { dayClock, shortDay } from "./range.ts";
-import { kindLabel, laneName, type TipContext } from "./tips.ts";
+import { kindLabel, laneName, sharedIdentity, type TipContext } from "./tips.ts";
 
 /** The two cards under the grid: what resets next, and what needs watching. */
 
@@ -21,6 +21,8 @@ const rowLimit = 6;
 
 interface Look extends TipContext {
   readonly timeStyle: TimeStyle;
+  /** Accounts that share a name with another of their provider; see `sharedNames`. */
+  readonly shared: ReadonlySet<string>;
 }
 
 /** A small tone bar with the figure the owner reads now; "Not Reported" when unknown. */
@@ -54,8 +56,18 @@ function WhenCell(props: { readonly at: number; readonly look: Look }) {
   );
 }
 
+/** The identity under an account name, only when the name alone would not tell two accounts apart. */
+export function SharedIdentity(props: {
+  readonly connection: OverviewConnection;
+  readonly shared: ReadonlySet<string>;
+}) {
+  const identity = sharedIdentity(props.connection, props.shared);
+  return identity === null ? null : <span className="who tl-shared">{identity}</span>;
+}
+
 function Row(props: {
   readonly connection: OverviewConnection;
+  readonly shared: ReadonlySet<string>;
   readonly dim: boolean;
   readonly title?: string;
   readonly what: string;
@@ -67,6 +79,7 @@ function Row(props: {
       <BrandMark provider={connection.provider} />
       <span className="tl-what">
         <b>{laneName(connection)}</b>
+        <SharedIdentity connection={connection} shared={props.shared} />
         <span>{props.what}</span>
       </span>
       {props.children}
@@ -93,6 +106,7 @@ export function UpNextCard(props: { readonly items: readonly UpNextItem[]; reado
                 <Row
                   key={item.id}
                   connection={item.connection}
+                  shared={look.shared}
                   dim={item.inactive}
                   title={exactFull(item.end, look.now, look.clock)}
                   what={`${kindLabel(item.kind)} ${item.kind === "cycle" ? "Ends" : "Resets"}`}
@@ -119,7 +133,10 @@ export function UpNextCard(props: { readonly items: readonly UpNextItem[]; reado
   );
 }
 
-/** Windows running low with when room returns, and the banked resets with their expiries. */
+/**
+ * Windows running low with when room returns, and the banked resets with their expiries. A section with nothing in
+ * it is left out; with both empty, one line says so.
+ */
 export function WatchListCard(props: {
   readonly low: readonly RunningLow[];
   readonly saved: readonly SavedResets[];
@@ -131,62 +148,70 @@ export function WatchListCard(props: {
     <section className="tl-card" aria-labelledby={titleId}>
       <h2 id={titleId}>Watch List</h2>
       <div className="tl-card-body">
-        <h3 className="tl-sub">Running Low Until</h3>
-        {low.length === 0 ? (
-          <p className="tl-empty">Nothing is running low.</p>
-        ) : (
-          <ul>
-            {low.map((row) => (
-              <Row
-                key={row.id}
-                connection={row.connection}
-                dim={row.inactive}
-                title={exactFull(row.back, look.now, look.clock)}
-                what={`${row.meter.short} ${row.caption}`}
-              >
-                <Usage used={row.used} look={look} />
-                <WhenCell at={row.back} look={look} />
-              </Row>
-            ))}
-          </ul>
+        {low.length === 0 && saved.length === 0 ? (
+          <p className="tl-empty">Nothing to watch right now.</p>
+        ) : null}
+        {low.length === 0 ? null : (
+          <>
+            <h3 className="tl-sub">Running Low Until</h3>
+            <ul>
+              {low.map((row) => (
+                <Row
+                  key={row.id}
+                  connection={row.connection}
+                  shared={look.shared}
+                  dim={row.inactive}
+                  title={exactFull(row.back, look.now, look.clock)}
+                  what={`${row.meter.short} ${row.caption}`}
+                >
+                  <Usage used={row.used} look={look} />
+                  <WhenCell at={row.back} look={look} />
+                </Row>
+              ))}
+            </ul>
+          </>
         )}
-        <h3 className="tl-sub">Saved Resets</h3>
-        {saved.length === 0 ? (
-          <p className="tl-empty">No saved resets.</p>
-        ) : (
-          <ul>
-            {saved.map((row) => {
-              const first = row.expiries[0];
-              const noun = row.count === 1 ? row.label : `${row.label}s`;
-              return (
-                <li key={row.connection.id} className={cx("tl-bankrow", row.inactive && "tl-dim")}>
-                  <BrandMark provider={row.connection.provider} />
-                  <span className="tl-what">
-                    <b>{laneName(row.connection)}</b>
-                    <span>
-                      {`${row.count} ${noun}`}
-                      {first === undefined
-                        ? ""
-                        : ` · next expires in ${countdown(first, look.now)}`}
-                    </span>
-                  </span>
-                  {row.soon ? <span className="tl-soon">Expires Soon</span> : null}
-                  <span className="tl-exps">
-                    {row.expiries.map((at) => (
-                      <span
-                        key={at}
-                        className={cx("tl-exp", at - look.now < expiresSoonMs && "tl-exp-soon")}
-                        title={exactFull(at, look.now, look.clock)}
-                      >
-                        <i aria-hidden="true" />
-                        {shortDay(at)}
+        {saved.length === 0 ? null : (
+          <>
+            <h3 className="tl-sub">Saved Resets</h3>
+            <ul>
+              {saved.map((row) => {
+                const first = row.expiries[0];
+                const noun = row.count === 1 ? row.label : `${row.label}s`;
+                return (
+                  <li
+                    key={row.connection.id}
+                    className={cx("tl-bankrow", row.inactive && "tl-dim")}
+                  >
+                    <BrandMark provider={row.connection.provider} />
+                    <span className="tl-what">
+                      <b>{laneName(row.connection)}</b>
+                      <SharedIdentity connection={row.connection} shared={look.shared} />
+                      <span>
+                        {`${row.count} ${noun}`}
+                        {first === undefined
+                          ? ""
+                          : ` · next expires in ${countdown(first, look.now)}`}
                       </span>
-                    ))}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+                    </span>
+                    {row.soon ? <span className="tl-soon">Expires Soon</span> : null}
+                    <span className="tl-exps">
+                      {row.expiries.map((at) => (
+                        <span
+                          key={at}
+                          className={cx("tl-exp", at - look.now < expiresSoonMs && "tl-exp-soon")}
+                          title={exactFull(at, look.now, look.clock)}
+                        >
+                          <i aria-hidden="true" />
+                          {shortDay(at)}
+                        </span>
+                      ))}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         )}
       </div>
     </section>

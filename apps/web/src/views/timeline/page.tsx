@@ -14,6 +14,7 @@ import {
   laneGroups,
   runningLow,
   savedResets,
+  sharedNames,
   timelineKinds,
   upNextItems,
   type TimelineKind,
@@ -126,9 +127,10 @@ function TimelineBoard(props: {
     }),
     [now, settings.clock, settings.limitsView, settings.lowThresholdPercent],
   );
+  const shared = useMemo(() => sharedNames(connections), [connections]);
   const look = useMemo(
-    () => ({ ...context, timeStyle: settings.timeStyle }),
-    [context, settings.timeStyle],
+    () => ({ ...context, timeStyle: settings.timeStyle, shared }),
+    [context, settings.timeStyle, shared],
   );
   const axis = useMemo(() => axisFor(kind, now, step), [kind, now, step]);
   const groups = useMemo(
