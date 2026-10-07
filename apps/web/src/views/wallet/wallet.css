@@ -861,22 +861,21 @@ html[data-density="compact"] .w-row {
   color: var(--danger);
   font-size: var(--text-sm);
 }
-/* Skeleton: the spend ring beside its table, and the small top-up and renewal cards. */
-.w-sk-spend {
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  padding: var(--space-5);
+/* Skeleton: round marks, the ring band, the limit track and the ghost bars of the top-ups chart. */
+.sk.w-sk-round {
+  flex: none;
+  border-radius: 50%;
 }
-.w-sk-table {
-  display: grid;
-  flex: 1;
-  gap: var(--space-3);
+.sk.w-sk-ring {
+  --sk-ring: 26px;
 }
-.w-sk-pair {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-5);
+.sk.w-sk-track {
+  margin: 2px 0;
+}
+.sk.w-sk-bar {
+  width: 58%;
+  max-width: 28px;
+  border-radius: 4px 4px 0 0;
 }
 /* Top-ups paging: the count and the Show More button, with the scroll sentinel around them. */
 .w-more {

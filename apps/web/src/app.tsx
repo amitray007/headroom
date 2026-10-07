@@ -47,6 +47,9 @@ const Gallery = import.meta.env.DEV
     })
   : null;
 
+const holdSkeleton =
+  import.meta.env.DEV && new URLSearchParams(window.location.search).has("skeleton");
+
 function SignedIn(props: { readonly name: string }) {
   // The boot frame draws this owner's avatar on the next visit before the session is known.
   useEffect(() => {
@@ -58,7 +61,11 @@ function SignedIn(props: { readonly name: string }) {
   // The real overview always runs and keeps polling, so it is ready the moment Demo Mode turns off.
   const realOverview = useOverview();
   const demoView = useDemoOverview(prefs.demo, prefs.demoSeed, prefs.demoAnchor);
-  const overview = demoView ?? realOverview;
+  const loadedOverview = demoView ?? realOverview;
+  // Development only: "?skeleton" before the hash holds every page on its first-load skeleton, to check it against the page.
+  const overview = holdSkeleton
+    ? { ...loadedOverview, connections: null, failed: false }
+    : loadedOverview;
   // The Wallet's expiring credits raise notices, so the bell reads the same book the Wallet page shows.
   const connections = overview.connections;
   const wallet = useWallet(

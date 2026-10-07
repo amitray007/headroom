@@ -28,13 +28,19 @@ function NotificationsSkeleton() {
       <LoadingNote>Loading notifications</LoadingNote>
       <ul className="nlist" aria-busy="true">
         {[0, 1].map((index) => (
-          <li key={index} className="nrow sk-item" aria-hidden="true">
-            <Sk width={32} height={32} className="sk-pill" />
+          <li key={index} className="nrow" aria-hidden="true">
+            <Sk width={32} height={32} className="sk-tile" />
             <span className="nbody">
-              <Sk width={index === 0 ? "70%" : "58%"} />
-              <Sk width="90%" />
+              <span className="ntitle">
+                <Sk kind="text" width={index === 0 ? 150 : 120} />
+              </span>
+              <span className="ndesc">
+                <Sk kind="text" width="90%" />
+              </span>
             </span>
-            <Sk width={36} />
+            <span className="ntime">
+              <Sk kind="text" width={32} />
+            </span>
           </li>
         ))}
       </ul>

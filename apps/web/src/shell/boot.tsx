@@ -7,6 +7,30 @@ import { ButtonLink } from "../ui/button.tsx";
 import { Lockup } from "../ui/lockup.tsx";
 import { Sk } from "../ui/skeleton.tsx";
 import { ViewSwitcher } from "../ui/view-switcher.tsx";
+import { CompareSkeleton } from "../views/compare/skeleton.tsx";
+import { DetailedSkeleton } from "../views/detailed/skeleton.tsx";
+import { TimelineSkeleton } from "../views/timeline/skeleton.tsx";
+import { WalletSkeleton } from "../views/wallet/skeleton.tsx";
+
+/** The skeleton the page itself shows first, so the boot frame hands over without a change. */
+function PageSkeleton(props: { readonly route: Route }) {
+  switch (props.route.page) {
+    case "connect":
+    case "reconnect":
+      return <ConnectSkeleton />;
+    case "detailed":
+      return <DetailedSkeleton />;
+    case "compare":
+      return <CompareSkeleton />;
+    case "timeline":
+      return <TimelineSkeleton />;
+    case "wallet":
+      return <WalletSkeleton />;
+    case "overview":
+    case "gallery":
+      return <DashboardSkeleton />;
+  }
+}
 
 /**
  * What a signed-in owner sees while the session is still being checked: the real top bar frame, with the
@@ -38,7 +62,7 @@ export function BootFrame(props: { readonly route: Route }) {
           </span>
         </nav>
       </header>
-      {onConnectPage ? <ConnectSkeleton /> : <DashboardSkeleton />}
+      <PageSkeleton route={props.route} />
     </div>
   );
 }

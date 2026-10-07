@@ -165,15 +165,6 @@
   }
 }
 
-/* Skeleton rows follow the real column alignment: Status and Last Refreshed centred, the menu button right. */
-.accounts .sk-row td:nth-child(3) > .sk,
-.accounts .sk-row td:nth-child(4) > .sk {
-  margin-inline: auto;
-}
-.accounts .sk-row td:nth-child(5) > .sk {
-  margin-left: auto;
-}
-
 /* Drag to reorder: a grip on each provider row and each account row. Only the grip starts a drag. */
 .accounts .tgroup-row th,
 .accounts .tname {

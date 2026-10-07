@@ -49,13 +49,17 @@ function PasskeysSkeleton() {
       <LoadingNote>Loading passkeys</LoadingNote>
       <ul className="plist" aria-busy="true">
         {[0, 1].map((index) => (
-          <li key={index} className="sk-item" aria-hidden="true">
+          <li key={index} aria-hidden="true">
             <Sk width={32} height={32} className="sk-tile" />
             <span className="pbody">
-              <Sk width={index === 0 ? 120 : 96} />
-              <Sk width={80} height={10} />
+              <b>
+                <Sk kind="text" width={index === 0 ? 120 : 96} />
+              </b>
+              <span className="muted">
+                <Sk kind="text" width={80} />
+              </span>
             </span>
-            <Sk width={64} height={28} className="sk-pill" />
+            <Sk width={64} height={30} className="sk-pill" />
           </li>
         ))}
       </ul>

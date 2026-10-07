@@ -479,23 +479,17 @@
 }
 
 /* ---------- Loading ---------- */
-.cmp-sk-tabs {
-  display: flex;
-  gap: var(--space-2);
+/* The placeholder copy of the page is a picture: it ignores the pointer, and the sort arrows keep their room. */
+.cmp-sk {
+  pointer-events: none;
 }
-.cmp-sk-best {
-  margin-bottom: var(--space-4);
+.cmp-sk .cmp-sort {
+  cursor: default;
 }
-.cmp-sk-card {
-  padding: var(--space-3) var(--space-5);
-}
-.cmp-sk-row {
-  display: flex;
-  gap: var(--space-6);
-  padding: var(--space-3) 0;
-}
-.cmp-singles > .sk {
-  border-radius: var(--radius-panel);
+.cmp-sk .cmp-sort::after {
+  content: "";
+  width: 12px;
+  height: 12px;
 }
 
 /* ---------- Phone ---------- */

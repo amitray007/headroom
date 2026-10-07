@@ -1,17 +1,23 @@
+import { DotsIcon } from "../icons.tsx";
 import { LoadingNote, Sk } from "../ui/skeleton.tsx";
 // The skeleton is the Suspense fallback while the connect page loads, so its styles ship with the first screen.
 import "./connect.css";
 
+const nameWidths = [72, 96, 64, 84];
+
 /** Provider cards while the provider list loads. Seven is the full set; fewer may be enabled. */
-export function CardsSkeleton() {
+export function CardsSkeleton(props: { readonly announce?: boolean }) {
+  const { announce = true } = props;
   return (
-    <div className="cards" aria-busy="true">
-      <LoadingNote>Loading providers</LoadingNote>
-      {Array.from({ length: 4 }, (_, index) => (
-        <div key={index} className="card sk-card" aria-hidden="true">
+    <div className="cards" aria-busy={announce ? "true" : undefined}>
+      {announce ? <LoadingNote>Loading providers</LoadingNote> : null}
+      {nameWidths.map((width) => (
+        <div key={width} className="card sk-card" aria-hidden="true">
           <span className="head">
             <Sk width={24} height={24} className="sk-pill" />
-            <Sk width={index % 2 === 0 ? 72 : 96} />
+            <span>
+              <Sk kind="text" width={width} />
+            </span>
           </span>
         </div>
       ))}
@@ -23,37 +29,54 @@ const columnHeadings = ["Account", "Limits", "Status", "Last Refreshed"] as cons
 
 function SkeletonRow(props: { readonly wide: boolean }) {
   return (
-    <tr className="sk-row">
+    <tr>
       <td className="tname">
-        <div className="stack-sk">
-          <Sk width={props.wide ? 130 : 100} />
-          <Sk width={160} />
-        </div>
+        <span className="name">
+          <Sk kind="text" width={props.wide ? 120 : 92} />
+        </span>
+        <span className="twho">
+          <Sk kind="text" width={160} />
+        </span>
       </td>
-      <td>
-        <div className="stack-sk">
-          <Sk width={90} />
-          <Sk kind="bar" height={6} />
-        </div>
+      <td className="troom">
+        <span className="rtop">
+          <span className="rnum">
+            <Sk kind="text" width={56} />
+          </span>
+          <span className="rwin">
+            <Sk kind="text" width={44} />
+          </span>
+        </span>
+        <Sk kind="bar" height={5} />
+        <span className="rsub">
+          <Sk kind="text" width={96} />
+        </span>
       </td>
-      <td>
-        <Sk width={84} height={24} className="sk-pill" />
+      <td className="tstatus">
+        <span className="status-slot">
+          <Sk width={88} height={26} className="sk-pill" />
+        </span>
       </td>
-      <td>
-        <Sk width={72} />
+      <td className="tlast">
+        <Sk kind="text" width={64} />
       </td>
-      <td className="tacts">
-        <Sk width={32} height={28} className="sk-pill" />
+      <td className="tacts" aria-hidden="true">
+        <span className="acts">
+          <span className="btn quiet sm kebab">
+            <DotsIcon />
+          </span>
+        </span>
       </td>
     </tr>
   );
 }
 
 /** The accounts table while the overview loads: real column headings, placeholder rows. */
-export function TableSkeleton() {
+export function TableSkeleton(props: { readonly announce?: boolean }) {
+  const { announce = true } = props;
   return (
-    <div className="tscroll" aria-busy="true">
-      <LoadingNote>Loading accounts</LoadingNote>
+    <div className="tscroll" aria-busy={announce ? "true" : undefined}>
+      {announce ? <LoadingNote>Loading accounts</LoadingNote> : null}
       <table className="accounts" aria-hidden="true">
         <thead>
           <tr>
@@ -70,10 +93,10 @@ export function TableSkeleton() {
         <tbody className="tgroup">
           <tr className="tgroup-row">
             <th scope="rowgroup" colSpan={5}>
-              <span className="sk-slot">
+              <span className="brand">
                 <Sk width={20} height={20} className="sk-pill" />
-                <Sk width={72} />
               </span>
+              <Sk kind="text" width={72} />
             </th>
           </tr>
           <SkeletonRow wide />
@@ -87,17 +110,18 @@ export function TableSkeleton() {
 /** The connect page before anything has loaded: its own heading and note, then cards and table placeholders. */
 export function ConnectSkeleton() {
   return (
-    <div className="connect-page">
+    <div className="connect-page" aria-busy="true">
+      <LoadingNote>Loading</LoadingNote>
       <div className="intro">
         <h1>Connect an Account</h1>
         <p>Choose a provider. You only sign in once.</p>
       </div>
-      <CardsSkeleton />
+      <CardsSkeleton announce={false} />
       <section className="panel tablecard">
         <div className="thead-row">
           <h2>Connected Accounts</h2>
         </div>
-        <TableSkeleton />
+        <TableSkeleton announce={false} />
       </section>
     </div>
   );

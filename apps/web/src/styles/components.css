@@ -1902,32 +1902,50 @@ label.srow {
 /*
  * Skeleton: final layout dimensions and one shimmer. Every block paints the same viewport-sized gradient
  * with a fixed attachment, and the animation moves the band across it, so all blocks show one sweep across
- * the page. The sweep loops for as long as the blocks exist. Under reduced motion the band is gone.
+ * the page. The sweep loops for as long as the blocks exist. Blocks fade in after a short wait, so a load that
+ * answers fast never flashes them; a block that takes over from another skeleton (`held`) shows at once.
+ * Under reduced motion the band is gone.
  */
 .sk {
   --sk-base: light-dark(
-    color-mix(in oklab, var(--border-strong) 46%, var(--surface)),
-    color-mix(in oklab, var(--border-strong) 38%, var(--surface))
+    color-mix(in oklab, var(--border-strong) 42%, var(--surface)),
+    color-mix(in oklab, var(--border-strong) 36%, var(--surface))
   );
   --sk-glint: light-dark(
-    color-mix(in oklab, var(--sk-base) 15%, white),
-    color-mix(in oklab, var(--sk-base) 68%, var(--text-secondary))
+    color-mix(in oklab, var(--sk-base) 20%, white),
+    color-mix(in oklab, var(--sk-base) 72%, var(--text-secondary))
   );
+  display: block;
   background-color: var(--sk-base);
-  background-image: linear-gradient(100deg, transparent 38%, var(--sk-glint) 50%, transparent 62%);
+  background-image: linear-gradient(100deg, transparent 34%, var(--sk-glint) 50%, transparent 66%);
   background-size: 200vw 100vh;
   background-repeat: no-repeat;
   background-attachment: fixed;
   background-position: -130vw 0;
   border-radius: 8px;
-  animation: sk-sweep 1.6s var(--ease-in-out) infinite;
+  animation:
+    sk-in var(--dur-considered) var(--ease-enter) 140ms backwards,
+    sk-sweep 1.8s var(--ease-in-out) infinite;
+}
+.sk.held {
+  animation: sk-sweep 1.8s var(--ease-in-out) infinite;
 }
 .sk.line {
   height: 12px;
+  border-radius: var(--radius-pill);
+}
+/* Text inside a real text element: the height of its glyphs, centred on the element's own line. */
+.sk.text {
+  display: inline-block;
+  height: 0.72em;
+  max-width: 100%;
+  vertical-align: middle;
+  border-radius: var(--radius-pill);
 }
 .sk.title {
   height: 16px;
   width: 40%;
+  border-radius: var(--radius-pill);
 }
 .sk.bar {
   height: 12px;
@@ -1937,13 +1955,30 @@ label.srow {
   height: 30px;
   width: 56%;
 }
+/* A donut chart: a circle with its middle cut away, leaving a band `--sk-ring` wide. */
+.sk.ring {
+  --sk-ring: 22px;
+  border-radius: 50%;
+  aspect-ratio: 1;
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - var(--sk-ring) - 0.5px),
+    #000 calc(100% - var(--sk-ring))
+  );
+}
+@keyframes sk-in {
+  from {
+    opacity: 0;
+  }
+}
 @keyframes sk-sweep {
   to {
     background-position: 30vw 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sk {
+  .sk,
+  .sk.held {
     animation: none;
     background-image: none;
   }
