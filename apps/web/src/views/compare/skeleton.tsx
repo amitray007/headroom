@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { VerifiedSeal } from "../../ui/verified-seal.tsx";
 import { LoadingNote, Sk } from "../../ui/skeleton.tsx";
 // The skeleton is the Suspense fallback while this view's code loads, so its styles ship with the first screen.
+import "../../ui/provider-token.css";
 import "./compare.css";
 
 const windowColumns = ["first", "second"];

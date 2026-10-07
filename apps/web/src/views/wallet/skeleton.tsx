@@ -7,6 +7,7 @@ import { Select } from "../../ui/select.tsx";
 import { cssVars } from "../../ui/css-vars.ts";
 import { LoadingNote, Sk } from "../../ui/skeleton.tsx";
 // The skeleton is the Suspense fallback while this view's code loads, so its styles ship with the first screen.
+import "../../ui/spark-bars.css";
 import "./wallet.css";
 import "./spend.css";
 

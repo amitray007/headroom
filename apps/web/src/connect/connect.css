@@ -153,15 +153,22 @@
   }
 }
 /* A tablet has room for the limit beside the name: name, limit and menu on one line, status and refresh time under
-   the name and the menu. */
+   the name and the menu. The last column has a fixed width, so every row's limit starts at the same x; a Reconnect
+   button widens only its own row. */
 @media (min-width: 601px) and (max-width: 1010px) {
   .accounts tbody tr:not(.tgroup-row),
   .accounts tbody tr:has(> .tacts .split) {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 6.5rem;
     grid-template-areas:
       "name room acts"
       "status room last";
     column-gap: var(--space-5);
+  }
+  .accounts tbody tr:has(> .tacts .split) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  }
+  .accounts tbody tr:not(.tgroup-row) > .tacts {
+    justify-self: end;
   }
 }
 

@@ -2,6 +2,7 @@ import { ChevronDownIcon, ReorderIcon } from "../../icons.tsx";
 import { buttonClass } from "../../ui/button.tsx";
 import { LoadingNote, Sk } from "../../ui/skeleton.tsx";
 // The skeleton is the Suspense fallback while this view's code loads, so its styles ship with the first screen.
+import "../../ui/provider-token.css";
 import "./detailed.css";
 
 /** One account row in its final layout: the real card and columns, with placeholders for the data. */

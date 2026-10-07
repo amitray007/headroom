@@ -1,8 +1,9 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { resetVerb } from "../../lib/reset-caption.tsx";
 import { countdown, exactFull } from "@headroom/view-model/time";
 import { cx } from "../../ui/cx.ts";
+import { DayLabel } from "./day-label.tsx";
 import { LaneBars, type Tips } from "./lane-bars.tsx";
 import { GroupHeader, rowStyle, WhoCell } from "./lane-who.tsx";
 import type { LaneGroup } from "./lanes.ts";
@@ -26,10 +27,10 @@ function ColumnHead(props: {
 }) {
   const { axis, start, index } = props;
   let top = "";
-  let bottom = "";
+  let bottom: ReactNode = "";
   if (axis.kind === "weekly") {
     top = weekday(start);
-    bottom = shortDay(start);
+    bottom = <DayLabel t={start} />;
   } else if (axis.kind === "session") {
     const midnight = new Date(start).getHours() === 0;
     top = index === 0 || midnight ? `${weekday(start)} ${new Date(start).getDate()}` : "";

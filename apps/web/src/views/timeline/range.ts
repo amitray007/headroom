@@ -90,6 +90,10 @@ export function axisFor(kind: TimelineKind, now: number, step: number): Axis {
 }
 
 /** "Oct 5". */
+export function shortMonth(t: number): string {
+  return months[new Date(t).getMonth()] ?? "";
+}
+
 export function shortDay(t: number): string {
   const at = new Date(t);
   return `${months[at.getMonth()] ?? ""} ${at.getDate()}`;

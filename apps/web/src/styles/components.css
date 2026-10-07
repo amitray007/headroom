@@ -549,7 +549,38 @@ time.when {
   align-items: center;
 }
 
+/* The bar needs about 880px to keep the switcher centred between the lockup and the right group. Narrower, tablets
+   included, the lockup and the right group share the first row and the switcher takes the second. */
+@media (max-width: 880px) {
+  .top {
+    grid-template-columns: 1fr auto;
+    row-gap: var(--space-3);
+    margin-bottom: var(--space-6);
+  }
+  .top > .view-switch + nav {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .top > .view-switch {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex;
+    /* The tabs always fit here, so nothing scrolls; the active pill's subpixel edge stays inside. */
+    overflow-x: clip;
+  }
+  /* Five views share the width evenly instead of scrolling a few pixels. */
+  .top > .view-switch a {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 0 8px;
+  }
+}
 @media (max-width: 720px) {
+  /* With no switcher (the connect pages) the right group has the second row to itself. */
+  .top > .lockup + nav:last-child {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
   .facts > .lead {
     flex: 0 0 100%;
     margin: 0;
@@ -567,35 +598,6 @@ time.when {
     min-width: 0;
     padding-inline: 4px;
   }
-  /* Lockup and the right group share the first row; the switcher takes the second. */
-  .top {
-    grid-template-columns: 1fr auto;
-    row-gap: var(--space-3);
-    margin-bottom: var(--space-6);
-  }
-  .top > .view-switch + nav {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  /* With no switcher (the connect pages) the right group has the second row to itself. */
-  .top > .lockup + nav:last-child {
-    grid-column: 1 / -1;
-    justify-self: start;
-  }
-  .top > .view-switch {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    display: flex;
-    /* The tabs always fit here, so nothing scrolls; the active pill's subpixel edge stays inside. */
-    overflow-x: clip;
-  }
-  /* Five views share the phone's width evenly instead of scrolling a few pixels. */
-  .top > .view-switch a {
-    flex: 1 1 auto;
-    justify-content: center;
-    padding: 0 8px;
-  }
-
   .panel {
     padding: var(--space-4);
     border-radius: 16px;

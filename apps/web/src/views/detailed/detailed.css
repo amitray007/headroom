@@ -130,13 +130,12 @@ div.d-head:active {
   display: grid;
   min-width: 0;
 }
+/* A long name or email wraps; no ellipsis hides its end. */
 .d-name {
   font-size: var(--text-md);
   font-weight: 500;
   letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .d-name .plan {
   color: var(--text-secondary);
@@ -148,9 +147,7 @@ div.d-head:active {
 .d-sub {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .d-sub .who {
   color: var(--text-muted);
@@ -272,6 +269,32 @@ div.d-head:active {
   height: var(--space-5);
 }
 
+/* Tablets: the account, reset and status share the first line and the limit takes the full width below, so five
+   columns never squeeze the names. */
+@media (min-width: 721px) and (max-width: 960px) {
+  .d-head {
+    grid-template-columns: minmax(0, 1fr) auto var(--d-state, 88px) 20px;
+    grid-template-areas:
+      "who reset state chev"
+      "limit limit limit limit";
+    row-gap: var(--space-3);
+  }
+  .d-head > .d-who {
+    grid-area: who;
+  }
+  .d-head > .d-reset {
+    grid-area: reset;
+  }
+  .d-head > .d-state {
+    grid-area: state;
+  }
+  .d-head > .d-chev {
+    grid-area: chev;
+  }
+  .d-head > .d-limit {
+    grid-area: limit;
+  }
+}
 @media (max-width: 720px) {
   .d-head {
     grid-template-columns: minmax(0, 1fr) auto 18px;
@@ -281,12 +304,6 @@ div.d-head:active {
       "reset reset reset";
     gap: var(--space-3);
     padding: var(--space-3);
-  }
-  /* A phone has no room for an ellipsis to hide the end of a name or an email; both wrap instead. */
-  .d-name,
-  .d-sub {
-    white-space: normal;
-    overflow-wrap: anywhere;
   }
   .d-head > .d-who {
     grid-area: who;

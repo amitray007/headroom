@@ -2,7 +2,8 @@ import type { CSSProperties } from "react";
 
 import { useNow } from "../../lib/now.ts";
 import { LoadingNote, Sk } from "../../ui/skeleton.tsx";
-import { axisFor, columnOf, positionOf, rangeLabel, shortDay, weekday } from "./range.ts";
+import { DayLabel } from "./day-label.tsx";
+import { axisFor, columnOf, positionOf, rangeLabel, weekday } from "./range.ts";
 // The skeleton is the Suspense fallback while this view's code loads, so its styles ship with the first screen.
 import "./timeline.css";
 
@@ -202,7 +203,9 @@ export function TimelineSkeleton() {
               {axis.columns.map((start, column) => (
                 <div key={start} className={nowColumn === column ? "tl-col tl-today" : "tl-col"}>
                   <span>{weekday(start)}</span>
-                  <b>{shortDay(start)}</b>
+                  <b>
+                    <DayLabel t={start} />
+                  </b>
                 </div>
               ))}
             </div>

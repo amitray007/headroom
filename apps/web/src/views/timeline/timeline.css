@@ -225,11 +225,10 @@
   height: 22px;
   padding: 0 8px;
 }
+/* A long email wraps at any character; no ellipsis hides its end. */
 .tl-who-cell .tl-ident {
   font-size: var(--text-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .tl-chips {
   display: flex;
@@ -770,6 +769,16 @@
 }
 .tl-list .tl-grp + .tl-mrow {
   border-top: 0;
+}
+
+/* Tablets: a narrower account column, and a day shows its month only on the 1st, so 14 columns fit. */
+@media (min-width: 721px) and (max-width: 960px) {
+  .tl-view {
+    --label: 224px;
+  }
+  .tl-col .tl-mon:not(.keep) {
+    display: none;
+  }
 }
 
 @media (max-width: 720px) {
