@@ -7,6 +7,7 @@ import {
   type MeterWindow,
   type WindowKind,
 } from "@headroom/view-model/accounts";
+import { earlyResetsOf, type EarlyReset } from "@headroom/view-model/early-resets";
 import { groupByProvider } from "@headroom/view-model/labels";
 import { presentPanel } from "@headroom/view-model/present";
 import { captionOf, toneOf, type Caption, type Tone } from "@headroom/view-model/tone";
@@ -38,6 +39,14 @@ export interface Bank {
   readonly label: string;
 }
 
+/** A limit of the lane that reset before its scheduled time. */
+export interface EarlyMark {
+  readonly index: number;
+  readonly reset: EarlyReset;
+  /** The limit's name for sentences, such as "Weekly Sonnet". */
+  readonly short: string;
+}
+
 type Spanned = MeterWindow & { start: number; end: number; seconds: number };
 
 export interface Lane {
@@ -55,6 +64,8 @@ export interface Lane {
   readonly end: number;
   readonly lengthMs: number;
   readonly banks: readonly Bank[];
+  /** Early resets of this lane's limits, newest first. */
+  readonly early: readonly EarlyMark[];
   readonly inactive: boolean;
 }
 
@@ -90,6 +101,22 @@ function banksOf(connection: OverviewConnection, now: number): Bank[] {
   return ahead.map((at, index) => ({ at, index, count: ahead.length, label: banked.label }));
 }
 
+/** Early resets of these meters that have happened by `now`, newest first. */
+function earlyOf(
+  connection: OverviewConnection,
+  meters: readonly MeterWindow[],
+  now: number,
+): EarlyMark[] {
+  const marks: EarlyMark[] = [];
+  for (const reset of earlyResetsOf(connection)) {
+    const meter = meters.find((item) => item.key === reset.metricKey);
+    if (meter !== undefined && reset.at <= now) {
+      marks.push({ index: marks.length, reset, short: meter.short });
+    }
+  }
+  return marks;
+}
+
 /** The lane an account draws for a window kind, or null when it has no window of that kind to draw. */
 export function laneOf(
   connection: OverviewConnection,
@@ -105,6 +132,7 @@ export function laneOf(
     kind,
     meters,
     banks: banksOf(connection, now),
+    early: earlyOf(connection, meters, now),
     inactive: isInactive(connection),
   };
   const drawn = meters

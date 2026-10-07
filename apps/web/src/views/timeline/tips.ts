@@ -1,10 +1,11 @@
 import type { OverviewConnection } from "../../api.ts";
+import { earlyResetLine, earlyResetTitle } from "@headroom/view-model/early-resets";
 import { accountName, providerName } from "@headroom/view-model/labels";
 import { resetVerb } from "../../lib/reset-caption.tsx";
 import { age, countdown, exactFull, type Clock } from "@headroom/view-model/time";
 import { displayMeter, toneOf, type LimitsView } from "@headroom/view-model/tone";
 import type { PopoverContent } from "../../ui/hover-popover.tsx";
-import { timelineKinds, type Bank, type Lane } from "./lanes.ts";
+import { timelineKinds, type Bank, type EarlyMark, type Lane } from "./lanes.ts";
 
 /** The popover wording for every bar and tick of the Timeline. Pure, so the words can be tested. */
 
@@ -23,6 +24,10 @@ export function windowTipId(lane: Lane, role: Role): string {
 
 export function bankTipId(lane: Lane, bank: Bank): string {
   return `${lane.id}:bank:${bank.index}`;
+}
+
+export function earlyTipId(lane: Lane, mark: EarlyMark): string {
+  return `${lane.id}:early:${mark.index}`;
 }
 
 /** "91% Used" or "36% Left"; "Not reported" when the provider gave no figure. */
@@ -126,6 +131,15 @@ function bankTip(lane: Lane, bank: Bank, context: TipContext): PopoverContent {
   };
 }
 
+function earlyTip(lane: Lane, mark: EarlyMark, context: TipContext): PopoverContent {
+  const { reset } = mark;
+  return {
+    title: `${laneName(lane.connection)} · ${earlyResetTitle(reset)}`,
+    when: `${mark.short} · ${exactFull(reset.at, context.now, context.clock)}`,
+    lines: [{ text: earlyResetLine(reset, context.view) }],
+  };
+}
+
 /** The popover as one sentence, for a button's accessible name. */
 export function tipLabel(tip: PopoverContent): string {
   return [tip.title, tip.when, ...tip.lines.map((line) => line.text)]
@@ -140,6 +154,7 @@ export function laneTips(lanes: readonly Lane[], context: TipContext): Map<strin
     const roles: Role[] = lane.phase === "current" ? ["prev", "cur", "next"] : ["cur"];
     for (const role of roles) tips.set(windowTipId(lane, role), windowTip(lane, role, context));
     for (const bank of lane.banks) tips.set(bankTipId(lane, bank), bankTip(lane, bank, context));
+    for (const mark of lane.early) tips.set(earlyTipId(lane, mark), earlyTip(lane, mark, context));
   }
   return tips;
 }

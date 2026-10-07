@@ -35,7 +35,7 @@ Tone is `bad`, `warn` or `info`. "Left" is the percent of the limit still free. 
 | `budget_exceeded` | Spend is at least the budget | `bad` | `budget_exceeded` | `budget_exceeded:<metricKey>:<periodEnd>:<amount>` |
 | `credits_expiring` | A Wallet top-up has an expiry and an alert, today (UTC) is within `expiryAlertDays` of `expiresOn`, and `expiresOn` has not passed | `warn` | `credits_expiring` | `credits_expiring:<topUpId>:<expiresOn>` |
 | `reset_granted` | A `reset_granted` event from the last 72 hours | `info` | `reset_granted` | `reset_granted:<eventId>` |
-| `early_reset` | An `early_reset` event from the last 72 hours. `includeSessions` off skips windows of 5 hours or less | `info` | `early_reset` | `early_reset:<eventId>` |
+| `early_reset` | An `early_reset` event from the last 72 hours. `includeSessions` off skips windows of 5 hours or less. With `bankedUsed`, the message adds that a banked reset was used outside Headroom | `info` | `early_reset` | `early_reset:<eventId>` |
 | `auto_reset` | An `auto_reset` event from the last 72 hours | `info` when succeeded, `warn` when failed or `uncertain` | `auto_reset` | `auto_reset:<eventId>` |
 | `top_up_detected` | A `top_up_detected` event from the last 72 hours | `info` | `top_up_detected` | `top_up_detected:<eventId>` |
 | `refresh_failed` | Two or more refreshes in a row failed (`latestRun.failureStreak`), state is not paused | `warn` | `refresh_failed` | `refresh_failed::<lastSuccessAt>` |

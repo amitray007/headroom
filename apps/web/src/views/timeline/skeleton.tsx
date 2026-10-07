@@ -139,6 +139,94 @@ function ItemsGhost(props: { readonly count: number }) {
   );
 }
 
+/** The two lines of a time: how long ago, then the exact time. */
+function WhenGhost() {
+  return (
+    <span className="tl-when">
+      <b>
+        <Sk kind="text" width={64} />
+      </b>
+      <span>
+        <Sk kind="text" width={96} />
+      </span>
+    </span>
+  );
+}
+
+/** An account in Recent Resets: its logo and name. */
+function ResetWhoGhost() {
+  return (
+    <span className="tl-r-who">
+      <Sk width={20} height={20} className="sk-pill" />
+      <Sk kind="text" width={130} />
+    </span>
+  );
+}
+
+/** Recent Resets rows: the real table, with each cell left to a placeholder. */
+function ResetsGhost(props: { readonly count: number }) {
+  return (
+    <table className="tl-resets">
+      <thead>
+        <tr>
+          <th scope="col">When</th>
+          <th scope="col">Account</th>
+          <th scope="col">Limit</th>
+          <th scope="col">What Happened</th>
+          <th scope="col">Change</th>
+        </tr>
+      </thead>
+      <tbody>
+        {Array.from({ length: props.count }, (_, row) => (
+          <tr key={row}>
+            <td className="tl-r-when">
+              <WhenGhost />
+            </td>
+            <th scope="row" className="tl-r-acct">
+              <ResetWhoGhost />
+            </th>
+            <td className="tl-r-limit">
+              <Sk kind="text" width={56} />
+            </td>
+            <td className="tl-r-event">
+              <Sk kind="text" width={150} />
+            </td>
+            <td className="tl-r-change">
+              <Sk kind="text" width={72} />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** Recent Resets as the phone list: what happened and when, the account, the figures. */
+function ResetsListGhost(props: { readonly count: number }) {
+  return (
+    <ul className="tl-resets-list">
+      {Array.from({ length: props.count }, (_, row) => (
+        <li key={row}>
+          <span />
+          <b className="tl-rl-what">
+            <Sk kind="text" width={140} />
+          </b>
+          <span className="tl-rl-ago">
+            <Sk kind="text" width={56} />
+          </span>
+          <span />
+          <span className="tl-rl-who">
+            <Sk kind="text" width={150} />
+          </span>
+          <span className="tl-rl-facts">
+            <Sk kind="text" width={120} />
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
  * The Timeline before the overview loads, as a ghost of the real page. The week axis and the controls show for
  * real, on the range the page opens with; accounts, limits and bars are placeholders in the real boxes.
@@ -291,6 +379,10 @@ export function TimelineSkeleton() {
           <i className="tl-lg tl-lg-bank" />
           Banked Reset Expires
         </span>
+        <span>
+          <i className="tl-lg tl-lg-early" />
+          Reset Early
+        </span>
         <span className="tl-tones">
           <i className="tl-dot" data-tone="good" />
           Plenty Left
@@ -319,6 +411,14 @@ export function TimelineSkeleton() {
           </div>
         </section>
       </div>
+      <section className="tl-card tl-resets-card" aria-hidden="true">
+        <div className="tl-card-head">
+          <h2>Recent Resets</h2>
+          <span>Last 7 days</span>
+        </div>
+        <ResetsGhost count={2} />
+        <ResetsListGhost count={2} />
+      </section>
     </div>
   );
 }

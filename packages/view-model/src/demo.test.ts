@@ -343,8 +343,15 @@ describe("demoOverview", () => {
     connections.filter((c) => c.provider === provider)[n - 1];
 
   test("events, an auto-reset rule and a budget sit on the accounts they are meant for", () => {
-    expect(at("codex", 2)?.events.map((e) => e.detail.kind)).toEqual(["reset_granted"]);
+    expect(at("codex", 2)?.events.map((e) => e.detail.kind)).toEqual([
+      "reset_granted",
+      "auto_reset",
+    ]);
     expect(at("codex", 1)?.events.map((e) => e.detail.kind)).toEqual(["early_reset"]);
+    const spent = at("claude", 1)?.events[0];
+    expect(spent?.detail).toMatchObject({ kind: "early_reset", bankedUsed: true });
+    // Past the bell's 72 hours, so it shows beside its limit and on the Timeline only.
+    expect(anchor - (spent?.occurredAt ?? anchor)).toBeGreaterThan(72 * 60 * minute);
     expect(at("vercel_ai_gateway", 1)?.events.map((e) => e.detail.kind)).toEqual([
       "top_up_detected",
     ]);
@@ -356,15 +363,15 @@ describe("demoOverview", () => {
     });
     const budget = at("cursor", 1)?.automation.budgets[0];
     expect(budget?.metricKey).toBe("on_demand.used");
-    const spent = at("cursor", 1)?.snapshot?.metrics.find(
+    const onDemand = at("cursor", 1)?.snapshot?.metrics.find(
       (m) => m.providerMetricKey === "on_demand.used",
     )?.valueNum;
     // The budget is set above the spend, so no budget notice is showing.
-    expect(budget?.amount).toBeGreaterThan((spent ?? 0) / 0.5);
+    expect(budget?.amount).toBeGreaterThan((onDemand ?? 0) / 0.5);
     for (const connection of connections) {
       for (const event of connection.events) {
         expect(event.connectionId).toBe(connection.id);
-        expect(anchor - event.occurredAt).toBeLessThan(72 * 60 * minute);
+        expect(anchor - event.occurredAt).toBeLessThan(7 * 24 * 60 * minute);
       }
     }
   });

@@ -633,6 +633,7 @@ function eventNotifications(
       const window = meterWindows(connection).find((item) => item.key === event.metricKey);
       if (!on.includeSessions && window?.kind === "session") continue;
       const left = Math.max(0, 100 - detail.percent);
+      const spent = detail.bankedUsed === true ? " A banked reset was used outside Headroom." : "";
       found.push({
         ...eventBase(connection, event, "early_reset"),
         tone: "info",
@@ -645,8 +646,8 @@ function eventNotifications(
         title: `${name} ${window?.short ?? event.metricKey ?? "Limit"} Limit Reset Early`,
         message:
           settings.limitsView === "left"
-            ? `${percentText(left)} left, up from ${percentText(Math.max(0, 100 - detail.previousPercent))}, before its scheduled reset.`
-            : `Usage fell from ${percentText(detail.previousPercent)} to ${percentText(detail.percent)} before its scheduled reset.`,
+            ? `${percentText(left)} left, up from ${percentText(Math.max(0, 100 - detail.previousPercent))}, before its scheduled reset.${spent}`
+            : `Usage fell from ${percentText(detail.previousPercent)} to ${percentText(detail.percent)} before its scheduled reset.${spent}`,
       });
     } else {
       found.push({

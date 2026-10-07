@@ -178,8 +178,27 @@ function detectResetGranted(input: DetectInput, previous: Reading): EventDraft[]
     }));
 }
 
+/**
+ * A usable banked reset left the inventory between the two readings and had not expired. With no Headroom action
+ * to explain it, the owner spent it somewhere else, such as the provider's own app.
+ */
+function bankedResetUsed(input: DetectInput, previous: Reading): boolean {
+  if (input.provider !== "codex" && input.provider !== "claude") return false;
+  if (!hasInventory(previous) || !hasInventory(input.current)) return false;
+  const usableNow = input.current.resetCredits.filter((c) => c.usable);
+  const usableBefore = previous.resetCredits.filter((c) => c.usable);
+  if (usableNow.length >= usableBefore.length) return false;
+  const kept = new Set(usableNow.map((c) => creditKey(input.provider, c)));
+  return usableBefore.some(
+    (credit) =>
+      !kept.has(creditKey(input.provider, credit)) &&
+      (credit.expiresAt === null || credit.expiresAt > input.observedAt),
+  );
+}
+
 function detectEarlyReset(input: DetectInput, previous: Reading): EventDraft[] {
   if (input.actionSincePrevious) return [];
+  const banked = bankedResetUsed(input, previous);
   const drafts: EventDraft[] = [];
   for (const metric of input.current.metrics) {
     if (metric.kind !== "quota_percentage") continue;
@@ -200,6 +219,7 @@ function detectEarlyReset(input: DetectInput, previous: Reading): EventDraft[] {
           previousPercent: before.valueNum,
           percent: now.valueNum,
           expectedResetAt: expected,
+          ...(banked ? { bankedUsed: true as const } : {}),
         },
       });
     }

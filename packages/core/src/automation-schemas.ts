@@ -31,6 +31,8 @@ export const accountEventDetailSchema = z.discriminatedUnion("kind", [
     percent,
     /** When the previous reading said the window would reset. */
     expectedResetAt: instant,
+    /** True when a usable banked reset left the inventory between the same two readings. Absent otherwise. */
+    bankedUsed: z.literal(true).optional(),
   }),
   z.strictObject({
     /** A credit balance rose. `added` is the rise in the provider's own unit. */

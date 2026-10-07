@@ -22,11 +22,13 @@ The collector compares each new reading with the previous one for the same accou
 | Kind | Fires when | Providers |
 | --- | --- | --- |
 | `reset_granted` | A usable reset credit appears whose id was not in the previous reading, the usable count rose, and both readings report the inventory. Claude grant ids are positional, so for Claude a grant is new only when its expiry is new too | Codex, Claude |
-| `early_reset` | A percent limit fell from 10% used or more to 5% or less, a drop of at least 10 points, while the previous reading still put its reset more than 10 minutes away. Any action since the previous reading that has not failed explains the drop, so the event is skipped. That includes an action still in flight, because its follow-up collection runs before the row is marked `succeeded` | Every provider with percent limits |
+| `early_reset` | A percent limit fell from 10% used or more to 5% or less, a drop of at least 10 points, while the previous reading still put its reset more than 10 minutes away. Any action since the previous reading that has not failed explains the drop, so the event is skipped. That includes an action still in flight, because its follow-up collection runs before the row is marked `succeeded`. When a usable banked reset that had not expired left the inventory between the same two readings, the detail carries `bankedUsed: true`: the owner spent it outside Headroom | Every provider with percent limits; `bankedUsed` for Codex and Claude |
 | `top_up_detected` | A credit balance rose by at least 0.01 of its unit. Headroom also records a Wallet top-up for it | Codex `credits.balance`, Grok `prepaid_balance`, Vercel AI Gateway: the granted total (`credits.balance` plus `credits.total_used`), else `credits.balance` |
 | `auto_reset` | An auto-reset rule fired. The detail names the action and its final state | Codex |
 
 Nothing is detected without a previous reading, or when the value was unknown or unavailable in either reading. Unknown is not zero.
+
+The Timeline shows the events the owner did not start. An `early_reset` is a mark on its lane. Recent Resets, a table under Up Next and Watch List, lists every `early_reset`, `auto_reset` and `reset_granted` of the last 7 days, newest first. A press of Hold to Reset and a reset on schedule are not listed: the owner already knows about them.
 
 ### Detected top-ups
 

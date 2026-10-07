@@ -20,6 +20,8 @@ import {
 } from "./lanes.ts";
 import { axisFor, rangeLabel } from "./range.ts";
 import { TimelineSkeleton } from "./skeleton.tsx";
+import { RecentResetsCard } from "./recent-resets.tsx";
+import { resetRows } from "./resets.ts";
 import { laneTips, type TipContext } from "./tips.ts";
 import "./timeline.css";
 
@@ -148,6 +150,10 @@ function TimelineBoard(props: {
     [connections, now, settings.lowThresholdPercent],
   );
   const saved = useMemo(() => savedResets(connections, now), [connections, now]);
+  const resets = useMemo(
+    () => resetRows(connections, { now, clock: settings.clock, view: settings.limitsView }),
+    [connections, now, settings.clock, settings.limitsView],
+  );
 
   const move = (change: number): void =>
     setPosition({ kind, step: step + change, direction: change < 0 ? "prev" : "next" });
@@ -225,6 +231,7 @@ function TimelineBoard(props: {
         <UpNextCard items={upNext} look={look} />
         <WatchListCard low={low} saved={saved} look={look} />
       </div>
+      <RecentResetsCard rows={resets} look={look} />
       <HoverPopover resolve={resolve} />
     </>
   );
@@ -256,6 +263,10 @@ function Legend() {
       <span>
         <i className="tl-lg tl-lg-bank" />
         Banked Reset Expires
+      </span>
+      <span>
+        <i className="tl-lg tl-lg-early" />
+        Reset Early
       </span>
       <span className="tl-tones">
         <i className="tl-dot" data-tone="good" />

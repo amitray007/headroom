@@ -867,6 +867,22 @@ describe("early_reset", () => {
       "97% left, up from 36%, before its scheduled reset.",
     );
   });
+  test("says when a banked reset was used outside Headroom", () => {
+    const spent = event(
+      "r-spent",
+      {
+        kind: "early_reset",
+        previousPercent: 64,
+        percent: 3,
+        expectedResetAt: now + 86_400_000,
+        bankedUsed: true,
+      },
+      { metricKey: "seven_day" },
+    );
+    expect(derive([claudeWithEvents([spent])])[0]?.message).toBe(
+      "Usage fell from 64% to 3% before its scheduled reset. A banked reset was used outside Headroom.",
+    );
+  });
   test("Include 5-Hour Sessions off skips a session window only", () => {
     const events = [earlyEvent("five_hour"), earlyEvent("seven_day")];
     const ids = derive([claudeWithEvents(events)]).map((n) => n.id);

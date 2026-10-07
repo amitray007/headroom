@@ -267,6 +267,14 @@ interface Parts {
 
 const sessionWindow = { scope: "window:18000s", min: 10 * minute, max: 4 * hour + 50 * minute };
 const weeklyWindow = { scope: "window:604800s", min: hour, max: 6 * day + 20 * hour };
+/** A weekly window that opened in the last two days. */
+const freshWeeklyWindow = { scope: "window:604800s", min: 5 * day, max: 6 * day + 20 * hour };
+/** A weekly window that opened three to four and a half days ago: past the bell's 72 hours, inside the week. */
+const olderWeeklyWindow = {
+  scope: "window:604800s",
+  min: 2 * day + 12 * hour,
+  max: 3 * day + 20 * hour,
+};
 
 function usedWindow(
   draw: Draw,
@@ -305,7 +313,8 @@ function codexParts(draw: Draw, shape: "plus" | "pro"): Parts {
   if (shape === "plus") {
     metrics.push(
       usedWindow(draw, "rate_limit.primary_window", sessionWindow, 8, 58, 0),
-      usedWindow(draw, "rate_limit.secondary_window", weeklyWindow, 10, healthyMax, 0),
+      // This weekly window reset early in the last two days (see `automationOf`), so it is fresh.
+      usedWindow(draw, "rate_limit.secondary_window", freshWeeklyWindow, 6, 30, 0),
     );
   } else {
     metrics.push(usedWindow(draw, "rate_limit.primary_window", weeklyWindow, 12, 52, 0));
@@ -349,7 +358,8 @@ function claudeParts(draw: Draw, shape: "max" | "pro"): Parts {
   const weekly =
     shape === "pro"
       ? usedWindow(draw, "seven_day", weeklyWindow, 72, 86, 1)
-      : usedWindow(draw, "seven_day", weeklyWindow, 14, 60, 1);
+      : // A banked reset restarted this window a few days ago (see `automationOf`).
+        usedWindow(draw, "seven_day", olderWeeklyWindow, 10, 40, 1);
   const metrics: Metric[] = [five, weekly];
   // A model limit is a part of the weekly all-models limit, so it never exceeds it.
   const model = shape === "max" ? "Opus" : "Sonnet";
@@ -725,9 +735,42 @@ type Automation = OverviewConnection["automation"];
 const noAutomation: Automation = { autoReset: null, budgets: [] };
 
 /**
+ * A weekly limit that reset early. Its current window opened at the reset, so the event sits at the window's start,
+ * and the scheduled reset it skipped was two days after that. `bankedUsed` tells the story of a banked reset spent in
+ * the provider's own app.
+ */
+function earlyResetEvent(
+  id: string,
+  parts: Parts,
+  metricKey: string,
+  previousPercent: number,
+  bankedUsed: boolean,
+): AccountEvent[] {
+  const resetsAt = parts.metrics.find((item) => item.providerMetricKey === metricKey)?.resetsAt;
+  if (resetsAt === null || resetsAt === undefined) return [];
+  const occurredAt = resetsAt - 7 * day;
+  return [
+    {
+      id: `${id}-early-reset`,
+      connectionId: id,
+      occurredAt,
+      metricKey,
+      detail: {
+        kind: "early_reset",
+        previousPercent,
+        percent: 1,
+        expectedResetAt: occurredAt + 2 * day + 5 * hour,
+        ...(bankedUsed ? { bankedUsed: true as const } : {}),
+      },
+    },
+  ];
+}
+
+/**
  * Detected events and owner automation for a few demo accounts, so every new notice and setting has something to
- * show: a new banked reset and an auto-reset rule on the second Codex account, a limit that reset early on the
- * first, a detected top-up on the first Vercel AI Gateway account, and a budget on the first Cursor account.
+ * show. The second Codex account has a new banked reset, an auto-reset rule and one auto-reset it ran; the first
+ * has a limit that reset early. The first Claude account spent a banked reset outside Headroom. The first Vercel AI
+ * Gateway account has a detected top-up, and the first Cursor account a budget.
  */
 function automationOf(
   account: Account,
@@ -752,6 +795,21 @@ function automationOf(
             available: parts.resetCredits?.length ?? null,
           },
         },
+        // Four days back, so its notice has left the bell and it shows in Recent Resets only.
+        {
+          id: `${id}-auto-reset`,
+          connectionId: id,
+          occurredAt: anchor - 4 * day - 3 * hour,
+          metricKey: "rate_limit.primary_window",
+          detail: {
+            kind: "auto_reset",
+            actionId: `${id}-auto-reset-action`,
+            state: "succeeded",
+            creditId: "credit-spent",
+            percent: 96,
+            resetsAt: anchor - 2 * day + 5 * hour,
+          },
+        },
       ],
       automation: {
         autoReset: { enabled: true, window: "weekly", thresholdPercent: 95, minHoursLeft: 24 },
@@ -761,20 +819,13 @@ function automationOf(
   }
   if (key === "codex:1") {
     return {
-      events: [
-        {
-          id: `${id}-early-reset`,
-          connectionId: id,
-          occurredAt: anchor - 26 * hour,
-          metricKey: "rate_limit.secondary_window",
-          detail: {
-            kind: "early_reset",
-            previousPercent: 41,
-            percent: 2,
-            expectedResetAt: anchor + 2 * day,
-          },
-        },
-      ],
+      events: earlyResetEvent(id, parts, "rate_limit.secondary_window", 41, false),
+      automation: noAutomation,
+    };
+  }
+  if (key === "claude:1") {
+    return {
+      events: earlyResetEvent(id, parts, "seven_day", 78, true),
       automation: noAutomation,
     };
   }

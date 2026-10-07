@@ -249,6 +249,42 @@ describe("early_reset", () => {
     ).toEqual([]);
   });
 
+  test("a banked reset that left the inventory with the drop marks it as used", () => {
+    const events = detect({
+      previous: reading(
+        [window(60, t0 + 24 * hour), inventory(2)],
+        [credit("a", true, t0 + 48 * hour), credit("b")],
+      ),
+      current: reading([window(0, t0 + 7 * 24 * hour), inventory(1)], [credit("b")]),
+    });
+    expect(events).toEqual([
+      {
+        metricKey: key,
+        detail: {
+          kind: "early_reset",
+          previousPercent: 60,
+          percent: 0,
+          expectedResetAt: t0 + 24 * hour,
+          bankedUsed: true,
+        },
+      },
+    ]);
+  });
+
+  test("a banked reset that expired, or an inventory not reported, does not count as used", () => {
+    const expired = detect({
+      previous: reading([window(60, t0 + 24 * hour), inventory(1)], [credit("a", true, t0 - 1)]),
+      current: reading([window(0, t0 + 24 * hour), inventory(0)]),
+    });
+    expect(expired).toHaveLength(1);
+    expect(expired[0]?.detail).not.toHaveProperty("bankedUsed");
+    const unreported = detect({
+      previous: reading([window(60, t0 + 24 * hour)], [credit("a")]),
+      current: reading([window(0, t0 + 24 * hour)]),
+    });
+    expect(unreported[0]?.detail).not.toHaveProperty("bankedUsed");
+  });
+
   test("applies to every provider's percent limits", () => {
     const events = detect({
       provider: "cursor",

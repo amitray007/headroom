@@ -11,7 +11,7 @@ import {
   type Axis,
   type Box,
 } from "./range.ts";
-import { bankTipId, tipLabel, usedText, windowTipId, type TipContext } from "./tips.ts";
+import { bankTipId, earlyTipId, tipLabel, usedText, windowTipId, type TipContext } from "./tips.ts";
 
 export type Tips = ReadonlyMap<string, PopoverContent>;
 
@@ -56,7 +56,7 @@ function WindowBar(props: {
 }
 
 /** Bars and ticks for one lane on an axis. */
-/** The bars of one lane: the earlier window, the current one, the next one and the banked-reset ticks. */
+/** The bars of one lane: the earlier window, the current one, the next one, banked-reset ticks and early resets. */
 export function LaneBars(props: {
   readonly lane: Lane;
   readonly axis: Pick<Axis, "base" | "end">;
@@ -160,6 +160,25 @@ export function LaneBars(props: {
         style={{ left: `${x}%` }}
         data-tip={id}
         aria-label={tip === undefined ? `${bank.label} expires` : tipLabel(tip)}
+      >
+        <i />
+      </button>,
+    );
+  }
+  for (const mark of lane.early) {
+    const x = positionOf(axis, mark.reset.at);
+    if (x === null) continue;
+    const id = earlyTipId(lane, mark);
+    const tip = tips.get(id);
+    nodes.push(
+      <button
+        key={`early-${mark.index}`}
+        type="button"
+        className="tl-tick tl-early"
+        // Kept a dot's width inside the lane, so a reset at the window's start is not cut off at the edge.
+        style={{ left: `clamp(6px, ${x}%, calc(100% - 6px))` }}
+        data-tip={id}
+        aria-label={tip === undefined ? "Reset early" : tipLabel(tip)}
       >
         <i />
       </button>,
