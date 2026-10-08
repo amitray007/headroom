@@ -30,11 +30,7 @@ Remaining:
 
 ## Phase 2: GitHub Sponsors
 
-Owner: the owner first, then the agent.
-
-1. The owner joins GitHub Sponsors at `github.com/sponsors`: two-factor authentication, bank account and tax details for the country of residence, then approval.
-2. The agent drafts the profile text and tiers for the owner to paste.
-3. After approval, the agent adds `.github/FUNDING.yml` with `github: amitray007`. Without an approved profile the Sponsor button leads nowhere.
+Status: the Sponsors profile was already public. On 2026-10-09 the repository gained `.github/FUNDING.yml`, a README badge and a Support section. Remaining: the owner updates the profile text and tiers to name Headroom, and features the repository once it is public.
 
 ## Phase 3: Landing page and demo site
 

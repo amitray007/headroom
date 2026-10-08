@@ -18,6 +18,7 @@ Live limits, resets, credits and spend for every account, with credentials encry
 [![SQLite](https://img.shields.io/badge/SQLite-embedded-003B57?logo=sqlite&logoColor=white)](docs/architecture/data-model.md)
 [![Docker](https://img.shields.io/badge/Docker-ghcr.io-2496ED?logo=docker&logoColor=white)](#docker)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-EA4AAA?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/amitray007)
 
 [Quick start](#quick-start) · [Screenshots](#screenshots) · [Providers](#supported-providers) · [How it works](#how-it-works) · [Docs](docs/README.md)
 
@@ -181,6 +182,10 @@ docs/                  Product, architecture, provider research, decisions
 ```
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the [documentation index](docs/README.md).
+
+## Support
+
+Headroom is free, and there is no paid cloud version. If it saves you a surprise limit, you can [sponsor its development](https://github.com/sponsors/amitray007). Sponsorship pays for connector fixes when a provider changes its API, new providers, releases and documentation.
 
 ## License
 
