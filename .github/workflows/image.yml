@@ -76,19 +76,24 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # Each architecture runs by its own manifest digest: Docker refuses to pull a second platform
+      # under the same multi-arch digest.
       - name: Print the version on both architectures
         run: |
-          for platform in linux/amd64 linux/arm64; do
-            out=$(docker run --rm --platform "$platform" "$IMAGE@$REF" --version)
-            echo "$platform: $out"
+          for arch in amd64 arm64; do
+            digest=$(docker buildx imagetools inspect --raw "$IMAGE@$REF" \
+              | jq -r --arg arch "$arch" '.manifests[] | select(.platform.os == "linux" and .platform.architecture == $arch) | .digest')
+            out=$(docker run --rm "$IMAGE@$digest" --version)
+            echo "$arch: $out"
             if [[ -n "$EXPECTED" && "$out" != "headroom $EXPECTED" ]]; then
               echo "expected headroom $EXPECTED" >&2
               exit 1
             fi
+            if [[ "$arch" == amd64 ]]; then echo "AMD64=$digest" >> "$GITHUB_ENV"; fi
           done
       - name: Start with no settings and answer the health check
         run: |
-          docker run -d --name headroom -p 8080:8080 --platform linux/amd64 "$IMAGE@$REF"
+          docker run -d --name headroom -p 8080:8080 "$IMAGE@$AMD64"
           for _ in $(seq 1 30); do
             if body=$(curl -fsS http://127.0.0.1:8080/healthz); then
               echo "$body"
