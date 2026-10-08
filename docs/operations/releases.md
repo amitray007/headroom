@@ -1,0 +1,49 @@
+# Releases
+
+How Headroom chooses a version, publishes it and rolls it back. The decision is D33 in the [decision register](../decisions/README.md).
+
+## Commit subjects
+
+Every commit subject on `main` is a [Conventional Commit](https://www.conventionalcommits.org). The type decides the next version:
+
+| Subject | Next version from 0.4.2 | After 1.0, from 1.2.3 |
+| --- | --- | --- |
+| `fix: ...`, `perf: ...` | 0.4.3 | 1.2.4 |
+| `feat: ...` | 0.5.0 | 1.3.0 |
+| `feat!: ...` or a `BREAKING CHANGE:` footer | 0.5.0 | 2.0.0 |
+| `docs`, `test`, `refactor`, `build`, `ci`, `chore`, `style` | no release | no release |
+
+A scope is optional: `fix(codex): ...`. The `commits` job in CI rejects a subject without a type. Run `scripts/check_commits.sh origin/main HEAD` before a push to check the same thing locally.
+
+## Cutting a release
+
+1. A push to `main` runs the `Release` workflow. It opens or updates one pull request, "chore(main): release X.Y.Z", with the version bump and the `CHANGELOG.md` entry.
+2. Merge that pull request when you want to ship. Release-please then tags `vX.Y.Z`, creates the GitHub release and calls the `Image` workflow.
+3. The `Image` workflow builds `linux/amd64` and `linux/arm64`, pushes the image as `sha-<short>`, smoke-tests it and only then adds the public tags.
+
+Release-please updates `package.json` and `apps/server/src/version.ts`, so `headroom --version` and `/healthz` report the release.
+
+The first release is pinned with `release-as: 0.1.0` in `release-please-config.json`. Remove that line in the next commit after `v0.1.0` is tagged.
+
+## Image tags
+
+| Event | Tags on `ghcr.io/amitray007/headroom` |
+| --- | --- |
+| Push to `main` | `edge`, `sha-<short>` |
+| Release 0.4.2 | `0.4.2`, `0.4`, `latest`, `sha-<short>` |
+| Release 1.2.3 | `1.2.3`, `1.2`, `1`, `latest`, `sha-<short>` |
+
+Each image carries OCI labels, a build provenance attestation and an SBOM. A failed smoke test publishes no public tag, so `latest` stays on the previous release.
+
+## Rolling back
+
+- A user pins the previous release: `ghcr.io/amitray007/headroom:0.4.1`.
+- To move `latest` back, point it at the previous release's digest:
+
+```sh
+docker buildx imagetools create -t ghcr.io/amitray007/headroom:latest ghcr.io/amitray007/headroom:0.4.1
+```
+
+- Then ship the fix as a new `fix:` release. Do not delete or move a version tag: other people may have pulled it.
+
+Database migrations run forward only. Before an upgrade that names a migration in the changelog, back up the data and key volumes together.

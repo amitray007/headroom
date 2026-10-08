@@ -12,7 +12,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch apps/server/src/index.ts",
-    "build": "bun run web:build && bun build --compile --minify --sourcemap apps/server/src/index.ts --outfile dist/headroom",
+    "build": "bun run web:build && bun run build:server",
+    "build:server": "bun build --compile --minify --sourcemap apps/server/src/index.ts --outfile dist/headroom",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "lint": "oxlint --type-aware --deny-warnings",

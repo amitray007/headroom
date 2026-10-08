@@ -16,7 +16,7 @@ Live limits, resets, credits and spend for every account, with credentials encry
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 [![React](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)](apps/web)
 [![SQLite](https://img.shields.io/badge/SQLite-embedded-003B57?logo=sqlite&logoColor=white)](docs/architecture/data-model.md)
-[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](deploy/compose.yaml)
+[![Docker](https://img.shields.io/badge/Docker-ghcr.io-2496ED?logo=docker&logoColor=white)](#docker)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 [Quick start](#quick-start) · [Screenshots](#screenshots) · [Providers](#supported-providers) · [How it works](#how-it-works) · [Docs](docs/README.md)
@@ -32,6 +32,10 @@ Live limits, resets, credits and spend for every account, with credentials encry
 You pay for several AI plans, often more than one account each. Each one shows its limits somewhere else, in a different unit, with a different reset. You find out an account is spent when a request fails halfway through a task.
 
 Headroom signs in to each account once, refreshes them in the background, and shows everything on one page: what is left, when it resets, which account to use next, and what it all costs.
+
+## Why there is no cloud version
+
+Headroom holds the sign-in tokens for every AI account you connect. A hosted copy would put everyone's tokens on one server that someone else runs, which defeats the purpose. Run it on a server you control, and your tokens stay there. There is no hosted Headroom, and none is planned.
 
 ## Features
 
@@ -75,7 +79,7 @@ Headroom signs in to each account once, refreshes them in the background, and sh
 
 - **Private:** the endpoint the provider's own app or CLI calls. It can change without notice.
 - **Official:** a published API.
-- **Enable providers** with `HEADROOM_ENABLED_PROVIDERS`. Docker turns on all seven; a bare binary only Codex.
+- **Enable providers** with `HEADROOM_ENABLED_PROVIDERS`. The commands above turn on all seven; without the variable, only Codex.
 - **Evidence:** the [provider dossiers](docs/providers/README.md) record what is validated.
 
 ## How it works
@@ -99,7 +103,22 @@ flowchart LR
 
 ## Quick start
 
-### Docker on a Tailscale tailnet (recommended)
+### Docker
+
+```sh
+docker run -d --name headroom -p 8080:8080 \
+  -v headroom-data:/var/lib/headroom/data -v headroom-secrets:/etc/headroom \
+  -e HEADROOM_ENABLED_PROVIDERS=codex,claude,grok,antigravity,copilot,cursor,vercel_ai_gateway \
+  ghcr.io/amitray007/headroom:latest
+```
+
+Open <http://localhost:8080> and create the owner account. The first start creates the master key and the session secret in the `headroom-secrets` volume. Back up both volumes together: without the key, every account must be reconnected.
+
+The same setup as a compose file is [deploy/compose.simple.yaml](deploy/compose.simple.yaml): `docker compose -f deploy/compose.simple.yaml up -d`. To reach Headroom from other devices, put an HTTPS reverse proxy in front and set `HEADROOM_PUBLIC_URL` to its address. Passkeys and secure cookies need HTTPS anywhere but localhost.
+
+Image tags: `latest` is the newest release, `0.1.0` and `0.1` pin a release, and `edge` follows `main`. See [Releases](docs/operations/releases.md).
+
+### Docker on a Tailscale tailnet
 
 Headroom publishes no port. A Tailscale container serves it over HTTPS to your own devices only.
 

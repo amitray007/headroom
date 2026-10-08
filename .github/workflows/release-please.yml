@@ -1,0 +1,36 @@
+# Keeps one release pull request open with the next version and changelog. Merging it tags vX.Y.Z,
+# creates the GitHub release and publishes the image. See docs/operations/releases.md.
+name: Release
+on:
+  push:
+    branches: [main]
+permissions: {}
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+jobs:
+  release-please:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  image:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/image.yml
+    with:
+      version: ${{ needs.release-please.outputs.version }}

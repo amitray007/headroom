@@ -1,0 +1,34 @@
+# Headroom from the published image, on one port, with no Tailscale. Open http://localhost:8080.
+# For access from other devices, put an HTTPS reverse proxy in front and set HEADROOM_PUBLIC_URL to
+# its address: passkeys and secure cookies need HTTPS anywhere but localhost.
+# Pin HEADROOM_IMAGE_TAG to a release such as 0.1.0 to choose when to upgrade.
+name: headroom
+
+services:
+  headroom:
+    image: ghcr.io/amitray007/headroom:${HEADROOM_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    # Shutdown waits up to 10 s for a refresh in flight, so a rotated token is not lost.
+    stop_grace_period: 20s
+    # To use another host port, also set HEADROOM_PUBLIC_URL to http://localhost:<port>.
+    ports:
+      - "${HEADROOM_HOST_PORT:-8080}:8080"
+    environment:
+      HEADROOM_PUBLIC_URL: ${HEADROOM_PUBLIC_URL:-}
+      HEADROOM_ENABLED_PROVIDERS: ${HEADROOM_ENABLED_PROVIDERS:-codex,claude,grok,antigravity,copilot,cursor,vercel_ai_gateway}
+      HEADROOM_LOG_LEVEL: ${HEADROOM_LOG_LEVEL:-info}
+      TZ: ${TZ:-UTC}
+    volumes:
+      # The database. Back it up together with the key volume below.
+      - headroom-data:/var/lib/headroom/data
+      # master.key and auth.secret, created on first start. Losing master.key loses every connection.
+      - headroom-secrets:/etc/headroom
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
+
+volumes:
+  headroom-data:
+  headroom-secrets:

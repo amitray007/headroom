@@ -15,5 +15,6 @@ This repository contains the working application and its specification and resea
 - Zed is outside the current scope. A laptop helper is not part of the connection design. Headroom is personal self-hosted software and must not be designed as a hosted multi-user service.
 - Run `mise run check` before claiming any change is done; it covers docs, format, type-aware lint, typecheck, Knip and tests. Use `mise run <task>` or `mise exec -- <command>`, never a global Bun. Update the docs index when adding a document.
 - Enumerations live in `packages/core/src/enums.ts`. Add a state there and in the data model together, never in only one place.
+- Start every commit subject with a Conventional Commit type (`feat:`, `fix:`, `docs:` and so on). Release-please sets the version from it; see [Releases](docs/operations/releases.md).
 - Pin every dependency to an exact version. Fix a lint or type error at its cause; do not add a disable directive without a one-line reason.
 - Do not add copied global skills or speculative infrastructure. Record material implementation choices in `docs/decisions/`.

@@ -20,26 +20,13 @@ The plan for the public release: versioning, the Docker image, funding, the demo
 
 ## Phase 1: Versioning and the Docker image
 
-Owner: the agent. Gate: none to build; the owner merges the first release pull request.
+Status: built on 2026-10-09. How it works is in [Releases](operations/releases.md); the decision is D33 in the [decision register](decisions/README.md).
 
-1. Write ADR 0004 for versioning and releases.
-2. Start using Conventional Commit subjects on `main`. Add a CI job that rejects a pushed commit subject without a type.
-3. Add `release-please-config.json` and `.release-please-manifest.json` at `0.0.0`, with `release-as: 0.1.0` for the first release. Mark `apps/server/src/version.ts` and `package.json` so release-please updates the version. Release-please writes `CHANGELOG.md`.
-4. Add the workflows in [GitHub Actions](#github-actions).
-5. Docker image tags:
+Remaining:
 
-| Event | Tags on `ghcr.io/amitray007/headroom` |
-| --- | --- |
-| Push to `main` | `edge`, `sha-<short>` |
-| Release `v0.4.2` | `0.4.2`, `0.4`, `latest` |
-| Release `v1.2.3` (after 1.0) | `1.2.3`, `1.2`, `1`, `latest` |
-
-6. Build `linux/amd64` and `linux/arm64`. Add OCI labels for source, version and license, and a build provenance attestation.
-7. Smoke-test the pushed image: `--version` prints the tag and `/healthz` answers. A failed smoke test leaves `latest` on the previous release.
-8. Add `deploy/compose.simple.yaml`: the published image, one port, two volumes, no Tailscale. Keep the tailnet compose for private use.
-9. Document a one-line `docker run`. Confirm that the first start needs no settings and creates `master.key` and `auth.secret` itself.
-10. Point the owner's Dokploy instance at `edge` or a release tag, so it stops building from source.
-11. Add a README section: there is no cloud version, because a hosted copy would hold every user's provider tokens, and the point of Headroom is that your own server holds them.
+1. The owner allows GitHub Actions to create pull requests (Settings > Actions > General > Workflow permissions). Without it, release-please cannot open the release pull request.
+2. The owner merges the first release pull request to tag `v0.1.0`. Then remove `release-as` from `release-please-config.json`.
+3. After the repository and the GHCR package are public, point the owner's Dokploy instance at `edge` or a release tag, so it stops building from source. Until then, pulling the image needs a registry login.
 
 ## Phase 2: GitHub Sponsors
 

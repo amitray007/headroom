@@ -1,7 +1,10 @@
 # syntax=docker/dockerfile:1.7
 # Build the single binary, then ship it with the pinned login-only CLIs.
 
-FROM oven/bun:1.4.2 AS build
+# The build stage runs on the builder's own platform and cross-compiles the binary for the target,
+# so a multi-arch build emulates only the runtime stage.
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.2 AS build
+ARG TARGETARCH
 WORKDIR /src
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/package.json
@@ -17,7 +20,12 @@ COPY packages/connectors/grok/package.json packages/connectors/grok/package.json
 COPY packages/connectors/vercel-ai-gateway/package.json packages/connectors/vercel-ai-gateway/package.json
 RUN bun install --frozen-lockfile
 COPY . .
-RUN bun run build
+RUN case "$TARGETARCH" in \
+      amd64) bun_target=bun-linux-x64 ;; \
+      arm64) bun_target=bun-linux-arm64 ;; \
+      *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac \
+  && bun run web:build && bun run build:server --target="$bun_target"
 
 FROM oven/bun:1.4.2-slim AS runtime
 # Pinned official CLIs, used once per Connect for sign-in only. Versions match ADR 0002.
