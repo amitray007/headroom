@@ -40,6 +40,7 @@ Each dossier describes metrics, connection steps, tools, limitations and sources
 - [Decisions](decisions/README.md): accepted product constraints and proposed implementation choices, with [ADR 0001](decisions/0001-direct-provider-clients.md) as the governing design record, [ADR 0002](decisions/0002-stack-and-tooling.md) for the stack and tooling, and [ADR 0003](decisions/0003-owner-automations.md) for owner automations and detected account events.
 - [Glossary](glossary.md): terms and units used across all dossiers.
 - [To-do](todo.md): provider data Headroom does not collect yet, and what each item needs before it can ship.
+- [Launch](launch.md): deploy targets, funding and listings for the public release, with the gate for each.
 
 ## Maintaining these docs
 
