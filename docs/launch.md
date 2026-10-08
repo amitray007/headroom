@@ -34,12 +34,13 @@ Status: the Sponsors profile was already public. On 2026-10-09 the repository ga
 
 ## Phase 3: Landing page and demo site
 
-Owner: the agent. Gate: the public repository, for GitHub Pages.
+Status: the demo site is built (D34): `mise run demo:build`. Three landing page concepts are in `design/landing/` (`a-live.html`, `b-ledger.html`, `c-boot.html`, brief in `brief.md`). Each embeds the live demo. To view them, run `mise run demo:build`, copy `apps/web/dist-demo` to `design/landing/demo`, and serve the repository root.
 
-- One GitHub Pages site at `amitray007.github.io/headroom`: a landing page at the root, the demo at `/demo`.
-- The demo is the real web app in a static build with a demo flag. It skips sign-in, uses the Demo Mode generator in `packages/view-model`, answers every API call in the browser and shows a banner: synthetic data, deploy your own.
-- The landing page carries the hero video, the "no cloud version" note, the `docker run` line and links to the repository, the demo and Sponsors.
-- Preview both locally before the repository is public.
+Remaining:
+
+1. The owner picks a direction, or a mix.
+2. Build the chosen page as the site root, with the demo at `/demo`, and the `pages.yml` workflow.
+3. Go live on GitHub Pages when the repository is public.
 
 ## Phase 4: Launch video
 

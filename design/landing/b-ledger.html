@@ -1,0 +1,1557 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Headroom: every AI plan you pay for, on one screen</title>
+    <meta
+      name="description"
+      content="Headroom is a self-hosted dashboard for AI plan limits: live limits, resets, credits and spend for Claude, Codex, Cursor, Copilot, Grok, Antigravity and Vercel AI Gateway."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="../../apps/web/public/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // Resolve the scheme before first paint: stored choice, else the system.
+      (function () {
+        var s = null;
+        try {
+          s = localStorage.getItem("headroom-landing-scheme");
+        } catch (e) {}
+        if (s !== "light" && s !== "dark") {
+          s = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        document.documentElement.dataset.scheme = s;
+      })();
+    </script>
+    <style>
+      :root {
+        color-scheme: light dark;
+        /* Light: a printed page. Dark: the same page inverted, rules turn to light ink. */
+        --paper: light-dark(oklch(98.6% 0 0), oklch(16.5% 0 0));
+        --paper-2: light-dark(oklch(96.2% 0 0), oklch(20.5% 0 0));
+        --ink: light-dark(oklch(16% 0 0), oklch(96% 0 0));
+        --ink-2: light-dark(oklch(42% 0 0), oklch(78% 0 0));
+        --ink-3: light-dark(oklch(50% 0 0), oklch(68% 0 0));
+        --rule: light-dark(oklch(84% 0 0), oklch(34% 0 0));
+        --rule-soft: light-dark(oklch(91% 0 0), oklch(26% 0 0));
+        --rule-heavy: light-dark(oklch(16% 0 0), oklch(96% 0 0));
+        --success: light-dark(oklch(45% 0.15 150), oklch(78% 0.17 150));
+        --font: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+        --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+        --margin: 96px;
+        --gutter: 24px;
+      }
+      :root[data-scheme="light"] {
+        color-scheme: light;
+      }
+      :root[data-scheme="dark"] {
+        color-scheme: dark;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+        scroll-behavior: smooth;
+        scroll-padding-top: 24px;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font: 400 16px/1.55 var(--font);
+        font-feature-settings: "ss01", "tnum";
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+      a {
+        color: inherit;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+        text-decoration-color: var(--ink-3);
+      }
+      a:hover {
+        text-decoration-color: var(--ink);
+      }
+      :focus-visible {
+        outline: 2px solid var(--ink);
+        outline-offset: 3px;
+        border-radius: 2px;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+      }
+      h1,
+      h2,
+      h3,
+      p,
+      dl,
+      dd,
+      figure,
+      ol,
+      ul {
+        margin: 0;
+        padding: 0;
+      }
+      ol,
+      ul {
+        list-style: none;
+      }
+      .sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      .mono {
+        font-family: var(--mono);
+        font-feature-settings: "tnum";
+      }
+      .skip {
+        position: absolute;
+        left: 16px;
+        top: -64px;
+        background: var(--ink);
+        color: var(--paper);
+        padding: 8px 12px;
+        z-index: 10;
+        font: 500 13px var(--mono);
+      }
+      .skip:focus {
+        top: 12px;
+      }
+
+      .page {
+        width: min(1200px, 100% - 48px);
+        margin-inline: auto;
+      }
+
+      /* Masthead */
+      .mast {
+        border-top: 3px solid var(--rule-heavy);
+        border-bottom: 1px solid var(--rule);
+        display: grid;
+        grid-template-columns: var(--margin) 1fr auto;
+        column-gap: var(--gutter);
+        align-items: center;
+        min-height: 56px;
+        margin-top: 16px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        text-decoration: none;
+        grid-column: 1 / 3;
+      }
+      .brand svg {
+        width: 24px;
+        height: 24px;
+        flex: none;
+      }
+      .brand .tile {
+        fill: var(--ink);
+      }
+      .brand .ceil {
+        fill: var(--ink-3);
+      }
+      .brand .bar {
+        fill: var(--paper);
+      }
+      .mast-tools {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        font: 400 13px var(--mono);
+      }
+      .mast-tools a {
+        text-decoration: none;
+      }
+      .mast-tools a:hover {
+        text-decoration: underline;
+      }
+      .mast-nav {
+        display: flex;
+        gap: 24px;
+      }
+      .toggle {
+        border: 1px solid var(--rule);
+        background: none;
+        padding: 4px 10px;
+        font: 400 12px var(--mono);
+        border-radius: 9999px;
+        min-height: 28px;
+      }
+      .toggle:hover {
+        border-color: var(--ink);
+      }
+      .toggle .dk {
+        display: none;
+      }
+      :root[data-scheme="dark"] .toggle .dk {
+        display: inline;
+      }
+      :root[data-scheme="dark"] .toggle .lt {
+        display: none;
+      }
+
+      /* Sections: margin numeral + content */
+      .sec {
+        display: grid;
+        grid-template-columns: var(--margin) minmax(0, 1fr);
+        column-gap: var(--gutter);
+        border-top: 1px solid var(--rule-heavy);
+        padding-block: 24px 40px;
+        margin-top: 64px;
+      }
+      .sec-no {
+        font: 500 13px/1.4 var(--mono);
+        letter-spacing: 0.02em;
+        padding-top: 6px;
+      }
+      .sec-no small {
+        display: block;
+        font-weight: 400;
+        font-size: 12px;
+        color: var(--ink-3);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-top: 2px;
+      }
+      .sec-body {
+        min-width: 0;
+      }
+      .sec h2 {
+        font-weight: 500;
+        font-size: clamp(26px, 3.2vw, 40px);
+        line-height: 1.1;
+        letter-spacing: -0.03em;
+        max-width: 22ch;
+        text-wrap: balance;
+      }
+      .lede {
+        color: var(--ink-2);
+        max-width: 60ch;
+        margin-top: 16px;
+        text-wrap: pretty;
+      }
+      .wide {
+        grid-column: 1 / -1;
+      }
+
+      /* Hero */
+      .hero {
+        padding-top: 56px;
+      }
+      .hero h1 {
+        font-weight: 500;
+        font-size: clamp(46px, 8.6vw, 124px);
+        line-height: 0.94;
+        letter-spacing: -0.055em;
+        max-width: 12ch;
+        text-wrap: balance;
+        margin-left: calc(var(--margin) + var(--gutter));
+      }
+      .hero-cols {
+        display: grid;
+        grid-template-columns: var(--margin) minmax(0, 1fr) minmax(0, 1fr);
+        column-gap: var(--gutter);
+        margin-top: 56px;
+        align-items: start;
+      }
+      .hero-no {
+        font: 500 13px/1.4 var(--mono);
+        padding-top: 6px;
+      }
+      .hero-copy p {
+        font-size: 20px;
+        line-height: 1.45;
+        max-width: 34ch;
+        letter-spacing: -0.01em;
+        text-wrap: pretty;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 32px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 44px;
+        padding: 0 20px;
+        border: 1px solid var(--ink);
+        border-radius: 9999px;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 15px;
+        transition:
+          background 160ms var(--ease-enter),
+          color 160ms var(--ease-enter);
+      }
+      .btn.solid {
+        background: var(--ink);
+        color: var(--paper);
+      }
+      .btn.solid:hover {
+        background: var(--ink-2);
+        border-color: var(--ink-2);
+      }
+      .btn.line {
+        background: none;
+        font-family: var(--mono);
+        font-weight: 400;
+        font-size: 13px;
+      }
+      .btn.line:hover {
+        background: var(--ink);
+        color: var(--paper);
+      }
+
+      .specimen {
+        border-top: 1px solid var(--rule-heavy);
+        border-bottom: 1px solid var(--rule-heavy);
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+      .specimen header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--rule);
+        color: var(--ink-3);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .specimen dl {
+        display: grid;
+        grid-template-columns: 1fr auto;
+      }
+      .specimen dt,
+      .specimen dd {
+        padding: 8px 0;
+        border-bottom: 1px solid var(--rule-soft);
+      }
+      .specimen dt {
+        color: var(--ink-2);
+      }
+      .specimen dd {
+        text-align: right;
+      }
+      .specimen dl > :nth-last-child(-n + 2) {
+        border-bottom: 0;
+      }
+      .specimen .room {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 12px 0;
+        border-top: 1px solid var(--rule-heavy);
+      }
+      .room b {
+        font-weight: 500;
+        font-size: 32px;
+        letter-spacing: -0.04em;
+        color: var(--success);
+        line-height: 1;
+      }
+      .specimen footer {
+        padding: 8px 0 10px;
+        color: var(--ink-3);
+        font-size: 12px;
+        border-top: 1px solid var(--rule-soft);
+      }
+
+      /* Fig. 1 */
+      .index {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        border-top: 1px solid var(--rule-heavy);
+        border-bottom: 1px solid var(--rule);
+      }
+      .index button {
+        background: none;
+        border: 0;
+        border-right: 1px solid var(--rule-soft);
+        padding: 12px 14px 12px;
+        text-align: left;
+        display: grid;
+        gap: 2px;
+        border-radius: 0;
+        transition:
+          background 160ms var(--ease-enter),
+          color 160ms var(--ease-enter);
+        min-height: 60px;
+      }
+      .index button:last-child {
+        border-right: 0;
+      }
+      .index .n {
+        font: 400 12px var(--mono);
+        color: var(--ink-3);
+      }
+      .index .t {
+        font-weight: 500;
+        font-size: 16px;
+        letter-spacing: -0.01em;
+      }
+      .index button:hover {
+        background: var(--paper-2);
+      }
+      .index button[aria-current="true"] {
+        background: var(--ink);
+        color: var(--paper);
+      }
+      .index button[aria-current="true"] .n {
+        color: inherit;
+        opacity: 0.75;
+      }
+      .index button:focus-visible {
+        outline-offset: -3px;
+      }
+      .index-note {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 12px 0 16px;
+        font: 400 13px/1.5 var(--mono);
+        color: var(--ink-2);
+        min-height: 56px;
+      }
+      .index-note a {
+        white-space: nowrap;
+      }
+
+      .figure {
+        margin-top: 0;
+      }
+      .frame {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--rule-heavy);
+        background: var(--paper-2);
+        width: 100%;
+      }
+      .frame .fb {
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: top left;
+        display: block;
+      }
+      .frame .fb.phone {
+        display: none;
+      }
+      .frame iframe {
+        position: absolute;
+        left: 0;
+        top: 0;
+        border: 0;
+        transform-origin: 0 0;
+        background: transparent;
+        opacity: 0;
+      }
+      .frame.ready iframe {
+        opacity: 1;
+      }
+      .frame.ready .fb {
+        visibility: hidden;
+      }
+      figcaption {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 24px;
+        padding-top: 12px;
+        font: 400 13px/1.5 var(--mono);
+        color: var(--ink-2);
+      }
+      figcaption b {
+        font-weight: 500;
+        color: var(--ink);
+      }
+      figcaption a {
+        white-space: nowrap;
+      }
+
+      /* Tables */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 15px;
+        margin-top: 40px;
+        border-top: 1px solid var(--rule-heavy);
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 14px 12px 14px 0;
+        border-bottom: 1px solid var(--rule);
+        vertical-align: baseline;
+        font-weight: 400;
+      }
+      thead th {
+        font: 400 12px var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--ink-3);
+        padding-block: 10px;
+        border-bottom: 1px solid var(--rule-heavy);
+      }
+      tbody th {
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      td.m {
+        font-family: var(--mono);
+        font-size: 14px;
+      }
+      td.src,
+      thead th.src {
+        text-align: right;
+        padding-right: 0;
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+      .no {
+        color: var(--ink-3);
+      }
+      .legend {
+        margin-top: 16px;
+        font: 400 13px/1.55 var(--mono);
+        color: var(--ink-2);
+        max-width: 78ch;
+      }
+
+      /* Comparison */
+      .cmp {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: var(--gutter);
+        margin-top: 40px;
+      }
+      .cmp > div {
+        border-top: 1px solid var(--rule-heavy);
+      }
+      .cmp h3 {
+        font: 500 12px var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--rule-heavy);
+        color: var(--ink-2);
+      }
+      .cmp > div + div h3 {
+        color: var(--ink);
+      }
+      .cmp li {
+        display: grid;
+        grid-template-columns: 40px 1fr;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--rule);
+        gap: 8px;
+      }
+      .cmp li span {
+        font: 400 12px/1.9 var(--mono);
+        color: var(--ink-3);
+      }
+      .cmp > div:first-child li p {
+        color: var(--ink-2);
+      }
+      .cmp > div + div li p {
+        font-weight: 500;
+      }
+
+      /* Definition lists */
+      .dl {
+        margin-top: 40px;
+        border-top: 1px solid var(--rule-heavy);
+      }
+      .dl .row {
+        display: grid;
+        grid-template-columns: 200px minmax(0, 1fr) auto;
+        column-gap: var(--gutter);
+        padding: 16px 0;
+        border-bottom: 1px solid var(--rule);
+        align-items: baseline;
+      }
+      .dl dt {
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      .dl dt .k {
+        font: 400 12px var(--mono);
+        color: var(--ink-3);
+        margin-right: 10px;
+      }
+      .dl dd {
+        color: var(--ink-2);
+        max-width: 62ch;
+      }
+      .dl .go {
+        font: 400 13px var(--mono);
+        background: none;
+        border: 1px solid var(--rule);
+        border-radius: 9999px;
+        padding: 4px 12px;
+        min-height: 28px;
+        white-space: nowrap;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+      }
+      .dl .go:hover {
+        border-color: var(--ink);
+        background: var(--ink);
+        color: var(--paper);
+      }
+      .dl .grp {
+        font: 400 12px var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--ink-3);
+        padding: 24px 0 8px;
+        border-bottom: 1px solid var(--rule-heavy);
+      }
+
+      /* Statement */
+      .statement {
+        margin-top: 40px;
+        border-top: 3px solid var(--rule-heavy);
+        border-bottom: 1px solid var(--rule-heavy);
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+        column-gap: var(--gutter);
+        padding: 32px 0;
+      }
+      .statement .big {
+        font-size: clamp(30px, 4.4vw, 56px);
+        font-weight: 500;
+        letter-spacing: -0.045em;
+        line-height: 1;
+        text-wrap: balance;
+      }
+      .statement p {
+        color: var(--ink-2);
+        font-size: 17px;
+        line-height: 1.55;
+      }
+      .statement p + p {
+        margin-top: 12px;
+      }
+
+      /* Listing */
+      .listing {
+        margin-top: 40px;
+        border-top: 1px solid var(--rule-heavy);
+        border-bottom: 1px solid var(--rule-heavy);
+      }
+      .listing-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--rule);
+        font: 400 12px var(--mono);
+        color: var(--ink-3);
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+      }
+      .copy {
+        font: 400 12px var(--mono);
+        text-transform: none;
+        letter-spacing: 0;
+        background: none;
+        border: 1px solid var(--ink);
+        border-radius: 9999px;
+        padding: 4px 14px;
+        min-height: 32px;
+        min-width: 76px;
+        color: var(--ink);
+        transition:
+          background 160ms var(--ease-enter),
+          color 160ms var(--ease-enter);
+      }
+      .copy:hover {
+        background: var(--ink);
+        color: var(--paper);
+      }
+      pre {
+        margin: 0;
+        padding: 16px 0;
+        font: 400 14px/1.75 var(--mono);
+        overflow-x: auto;
+        display: grid;
+        grid-template-columns: 40px auto;
+      }
+      pre .ln {
+        color: var(--ink-3);
+        user-select: none;
+        text-align: right;
+        padding-right: 16px;
+        border-right: 1px solid var(--rule);
+        white-space: pre;
+      }
+      pre code {
+        padding-left: 16px;
+        font: inherit;
+        white-space: pre;
+      }
+      pre .c {
+        color: var(--ink-3);
+      }
+      .steps {
+        margin-top: 24px;
+        font: 400 13px/1.7 var(--mono);
+        color: var(--ink-2);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 32px;
+      }
+
+      /* Colophon */
+      .colophon {
+        border-top: 3px solid var(--rule-heavy);
+        margin-top: 96px;
+        padding: 24px 0 48px;
+        display: grid;
+        grid-template-columns: var(--margin) 1fr;
+        column-gap: var(--gutter);
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--ink-2);
+      }
+      .colophon .sec-no {
+        color: var(--ink);
+      }
+      .colo-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        column-gap: var(--gutter);
+        row-gap: 24px;
+      }
+      .colo-grid h3 {
+        font: 400 12px var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--ink-3);
+        margin-bottom: 6px;
+      }
+      .colo-grid .honest {
+        grid-column: span 2;
+      }
+      .colo-grid .honest p {
+        max-width: 54ch;
+      }
+      .colo-grid ul li {
+        padding: 2px 0;
+      }
+
+      @media (max-width: 1000px) {
+        :root {
+          --margin: 64px;
+        }
+        .hero-cols {
+          grid-template-columns: var(--margin) minmax(0, 1fr);
+          row-gap: 40px;
+        }
+        .specimen {
+          grid-column: 2;
+        }
+        .dl .row {
+          grid-template-columns: 160px minmax(0, 1fr) auto;
+        }
+        .colo-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .colo-grid .honest {
+          grid-column: 1 / -1;
+          order: 5;
+        }
+      }
+
+      @media (max-width: 760px) {
+        :root {
+          --margin: 0px;
+          --gutter: 0px;
+        }
+        .page {
+          width: min(1200px, 100% - 40px);
+        }
+        .mast {
+          grid-template-columns: 1fr auto;
+          min-height: 52px;
+        }
+        .brand {
+          grid-column: 1;
+        }
+        .mast-nav {
+          display: none;
+        }
+        .sec {
+          grid-template-columns: 1fr;
+          padding-block: 16px 32px;
+          margin-top: 40px;
+        }
+        .sec-no {
+          display: flex;
+          gap: 10px;
+          align-items: baseline;
+          margin-bottom: 20px;
+          padding-top: 0;
+        }
+        .sec-no small {
+          display: inline;
+          margin: 0;
+        }
+        .hero {
+          padding-top: 40px;
+        }
+        .hero h1 {
+          margin-left: 0;
+          font-size: clamp(44px, 14vw, 64px);
+        }
+        .hero-cols {
+          grid-template-columns: 1fr;
+          margin-top: 32px;
+        }
+        .hero-no {
+          display: none;
+        }
+        .hero-copy p {
+          font-size: 18px;
+        }
+        .specimen {
+          grid-column: 1;
+        }
+
+        .index {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .index button {
+          border-bottom: 1px solid var(--rule-soft);
+          padding: 10px 12px;
+          min-height: 56px;
+        }
+        .index button:nth-child(3n) {
+          border-right: 0;
+        }
+        .index button:nth-last-child(-n + 3) {
+          border-bottom: 0;
+        }
+        .index-note {
+          flex-direction: column;
+          gap: 6px;
+          min-height: 0;
+        }
+        .frame .fb.desk {
+          display: none;
+        }
+        .frame .fb.phone {
+          display: block;
+        }
+        .frame.phone-mode {
+          max-width: 390px;
+          margin-inline: auto;
+          border-radius: 28px;
+          border-width: 6px;
+        }
+        figcaption {
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        table,
+        thead,
+        tbody,
+        tr,
+        th,
+        td {
+          display: block;
+        }
+        table {
+          border-top: 0;
+          margin-top: 24px;
+        }
+        thead {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          overflow: hidden;
+          clip-path: inset(50%);
+        }
+        tbody tr {
+          border-top: 1px solid var(--rule-heavy);
+          padding: 12px 0 8px;
+        }
+        tbody th {
+          padding: 0 0 6px;
+          border: 0;
+          font-size: 18px;
+        }
+        td {
+          display: grid;
+          grid-template-columns: 110px 1fr;
+          padding: 6px 0;
+          border-bottom: 1px solid var(--rule-soft);
+        }
+        td::before {
+          content: attr(data-label);
+          font: 400 12px var(--mono);
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: var(--ink-3);
+        }
+        td.src {
+          text-align: left;
+          border-bottom: 0;
+        }
+        td.src::before {
+          font-family: var(--mono);
+        }
+
+        .cmp {
+          grid-template-columns: 1fr;
+          row-gap: 32px;
+        }
+        .dl .row {
+          grid-template-columns: 1fr;
+          row-gap: 6px;
+        }
+        .dl .go {
+          justify-self: start;
+          margin-top: 6px;
+        }
+        .statement {
+          grid-template-columns: 1fr;
+          row-gap: 24px;
+          padding: 24px 0;
+        }
+        .colophon {
+          grid-template-columns: 1fr;
+        }
+        .colophon .sec-no {
+          margin-bottom: 16px;
+        }
+        .colo-grid {
+          grid-template-columns: 1fr;
+        }
+        .colo-grid .honest {
+          grid-column: 1;
+          order: 0;
+        }
+        pre {
+          font-size: 13px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        * {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#fig-1">Skip to the live demo</a>
+
+    <div class="page">
+      <header class="mast">
+        <a class="brand" href="#top" id="top" aria-label="Headroom, top of page">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <path
+              class="tile"
+              d="M22.93 0H41.07C47.673 0 50.974 0 54.528 1.124C58.408 2.536 61.464 5.592 62.876 9.472C64 13.026 64 16.327 64 22.93V41.07C64 47.673 64 50.974 62.876 54.528C61.464 58.408 58.408 61.464 54.528 62.876C50.974 64 47.673 64 41.07 64H22.93C16.327 64 13.026 64 9.472 62.876C5.592 61.464 2.536 58.408 1.124 54.528C0 50.974 0 47.673 0 41.07V22.93C0 16.327 0 13.026 1.124 9.472C2.536 5.592 5.592 2.536 9.472 1.124C13.026 0 16.327 0 22.93 0Z"
+            />
+            <rect class="ceil" x="12" y="16" width="40" height="4" rx="2" />
+            <rect class="bar" x="12" y="28" width="28" height="8" rx="4" />
+            <rect class="bar" x="12" y="40" width="16" height="8" rx="4" />
+          </svg>
+          Headroom
+        </a>
+        <div class="mast-tools">
+          <nav class="mast-nav" aria-label="Sections">
+            <a href="#fig-1">Demo</a>
+            <a href="#reads">Providers</a>
+            <a href="#no-cloud">Privacy</a>
+            <a href="#install">Install</a>
+            <a href="https://github.com/amitray007/headroom">GitHub</a>
+          </nav>
+          <button class="toggle" id="scheme" type="button" aria-label="Switch colour scheme">
+            <span class="lt">Light</span><span class="dk">Dark</span>
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="h1">
+          <h1 id="h1">Every AI plan you pay for, on one screen.</h1>
+          <div class="hero-cols">
+            <div class="hero-no">00</div>
+            <div class="hero-copy">
+              <p>
+                Headroom is a self-hosted dashboard for AI plan limits. It shows live limits,
+                resets, credits and spend for every account you have, and it never sends a model
+                request.
+              </p>
+              <div class="actions">
+                <a class="btn solid" href="#fig-1">Use the live demo</a>
+                <a class="btn line" href="#install">docker run</a>
+              </div>
+            </div>
+            <aside class="specimen" aria-label="Specimen entry, synthetic data">
+              <header><span>Specimen</span><span>Codex, Plus</span></header>
+              <dl>
+                <dt>Session, 5 hours</dt>
+                <dd>44% used</dd>
+                <dt>Session resets in</dt>
+                <dd>3 h 18 min</dd>
+                <dt>Weekly, 7 days</dt>
+                <dd>63% used</dd>
+                <dt>Credits balance</dt>
+                <dd>339.65</dd>
+                <dt>Banked resets</dt>
+                <dd>0</dd>
+              </dl>
+              <div class="room"><span>Session room left</span><b>56%</b></div>
+              <footer>Specimen figures. The live demo makes up new accounts on every visit.</footer>
+            </aside>
+          </div>
+        </section>
+
+        <section class="sec" id="figure" aria-labelledby="h-fig">
+          <div class="sec-no">01<small>Figure</small></div>
+          <div class="sec-body">
+            <h2 id="h-fig">The dashboard, set on the page.</h2>
+            <p class="lede">
+              The figure below is the real app on synthetic data. Pick a view from the index. Click
+              inside the figure to use it.
+            </p>
+          </div>
+          <div class="wide figure" id="fig-1" style="margin-top: 32px">
+            <nav aria-label="Index of views">
+              <div class="index" id="index">
+                <button type="button" data-page="overview" aria-current="true">
+                  <span class="n">A</span><span class="t">Overview</span>
+                </button>
+                <button type="button" data-page="detailed">
+                  <span class="n">B</span><span class="t">Detailed</span>
+                </button>
+                <button type="button" data-page="compare">
+                  <span class="n">C</span><span class="t">Compare</span>
+                </button>
+                <button type="button" data-page="timeline">
+                  <span class="n">D</span><span class="t">Timeline</span>
+                </button>
+                <button type="button" data-page="wallet">
+                  <span class="n">E</span><span class="t">Wallet</span>
+                </button>
+                <button type="button" data-page="connect">
+                  <span class="n">F</span><span class="t">Connect</span>
+                </button>
+              </div>
+            </nav>
+            <p class="index-note">
+              <span id="note">One panel per account, with its limits, credits and resets.</span
+              ><a href="demo/index.html">Open the full demo</a>
+            </p>
+            <figure style="margin: 0">
+              <div class="frame" id="frame">
+                <img
+                  class="fb desk"
+                  id="fb-desk"
+                  src="../../docs/assets/screenshots/overview-light.png"
+                  alt="Headroom Overview: one panel per account with limits, credits and resets"
+                  width="1280"
+                  height="1000"
+                />
+                <img
+                  class="fb phone"
+                  src="../../docs/assets/screenshots/mobile-detailed.png"
+                  alt="Headroom Detailed view on a phone"
+                  width="780"
+                  height="1688"
+                />
+                <iframe
+                  id="app"
+                  src="demo/index.html?embed=1#/"
+                  title="Headroom demo with synthetic data"
+                  loading="lazy"
+                ></iframe>
+              </div>
+              <figcaption>
+                <span><b>Fig. 1.</b> The Overview, running on synthetic data. Use it.</span
+                ><a href="demo/index.html">Full demo</a>
+              </figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section class="sec" id="reads" aria-labelledby="h-reads">
+          <div class="sec-no">02<small>Table</small></div>
+          <div class="sec-body">
+            <h2 id="h-reads">What it reads, by provider.</h2>
+            <p class="lede">
+              Seven providers, many accounts each. Every account keeps its own credentials.
+            </p>
+            <table>
+              <caption class="sr">
+                Providers and what each reports
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Provider</th>
+                  <th scope="col">Sessions</th>
+                  <th scope="col">Weekly pools</th>
+                  <th scope="col">Credits</th>
+                  <th scope="col">Resets</th>
+                  <th scope="col">Spend</th>
+                  <th scope="col" class="src">Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">Claude</th>
+                  <td class="m" data-label="Sessions">Yes</td>
+                  <td class="m" data-label="Weekly pools">Yes, per model</td>
+                  <td class="m no" data-label="Credits">No</td>
+                  <td class="m" data-label="Resets">Reset grants</td>
+                  <td class="m" data-label="Spend">Extra usage</td>
+                  <td class="src" data-label="Source">Private</td>
+                </tr>
+                <tr>
+                  <th scope="row">Codex</th>
+                  <td class="m" data-label="Sessions">Yes, 5 hours</td>
+                  <td class="m" data-label="Weekly pools">Yes</td>
+                  <td class="m" data-label="Credits">Balance</td>
+                  <td class="m" data-label="Resets">Banked</td>
+                  <td class="m no" data-label="Spend">No</td>
+                  <td class="src" data-label="Source">Private</td>
+                </tr>
+                <tr>
+                  <th scope="row">Cursor</th>
+                  <td class="m no" data-label="Sessions">No</td>
+                  <td class="m" data-label="Weekly pools">Included, Auto, API</td>
+                  <td class="m no" data-label="Credits">No</td>
+                  <td class="m no" data-label="Resets">No</td>
+                  <td class="m" data-label="Spend">On demand</td>
+                  <td class="src" data-label="Source">Private</td>
+                </tr>
+                <tr>
+                  <th scope="row">Copilot</th>
+                  <td class="m no" data-label="Sessions">No</td>
+                  <td class="m" data-label="Weekly pools">Chat, completions</td>
+                  <td class="m" data-label="Credits">AI credits</td>
+                  <td class="m no" data-label="Resets">No</td>
+                  <td class="m" data-label="Spend">Extra usage</td>
+                  <td class="src" data-label="Source">Private</td>
+                </tr>
+                <tr>
+                  <th scope="row">Grok</th>
+                  <td class="m no" data-label="Sessions">No</td>
+                  <td class="m" data-label="Weekly pools">Yes</td>
+                  <td class="m" data-label="Credits">Prepaid balance</td>
+                  <td class="m no" data-label="Resets">No</td>
+                  <td class="m" data-label="Spend">On-demand cap</td>
+                  <td class="src" data-label="Source">Private</td>
+                </tr>
+                <tr>
+                  <th scope="row">Antigravity</th>
+                  <td class="m no" data-label="Sessions">No</td>
+                  <td class="m" data-label="Weekly pools">Gemini, Claude/GPT</td>
+                  <td class="m no" data-label="Credits">No</td>
+                  <td class="m no" data-label="Resets">No</td>
+                  <td class="m no" data-label="Spend">No</td>
+                  <td class="src" data-label="Source">Private</td>
+                </tr>
+                <tr>
+                  <th scope="row">Vercel AI Gateway</th>
+                  <td class="m no" data-label="Sessions">No</td>
+                  <td class="m no" data-label="Weekly pools">No</td>
+                  <td class="m" data-label="Credits">Balance</td>
+                  <td class="m no" data-label="Resets">No</td>
+                  <td class="m" data-label="Spend">Credits used</td>
+                  <td class="src" data-label="Source">Official</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="legend">
+              Private: the endpoint the provider's own app or CLI calls. It can change without
+              notice. Official: a published API. A figure a provider does not report shows as
+              unknown, never as 0.
+            </p>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="h-cmp">
+          <div class="sec-no">03<small>Comparison</small></div>
+          <div class="sec-body">
+            <h2 id="h-cmp">Limits, found before a request fails.</h2>
+            <div class="cmp">
+              <div>
+                <h3>Without Headroom</h3>
+                <ol>
+                  <li>
+                    <span>1.1</span>
+                    <p>Open each provider's app to read its limits.</p>
+                  </li>
+                  <li>
+                    <span>1.2</span>
+                    <p>Read them in different units, with a different reset for each.</p>
+                  </li>
+                  <li>
+                    <span>1.3</span>
+                    <p>Learn an account is spent when a request fails halfway through a task.</p>
+                  </li>
+                  <li>
+                    <span>1.4</span>
+                    <p>Guess which account to use next.</p>
+                  </li>
+                </ol>
+              </div>
+              <div>
+                <h3>With Headroom</h3>
+                <ol>
+                  <li>
+                    <span>2.1</span>
+                    <p>Read every account on one page.</p>
+                  </li>
+                  <li>
+                    <span>2.2</span>
+                    <p>See percentages, credits and money in separate units.</p>
+                  </li>
+                  <li>
+                    <span>2.3</span>
+                    <p>Get an alert while a limit runs low, not after it runs out.</p>
+                  </li>
+                  <li>
+                    <span>2.4</span>
+                    <p>Let Compare name the account to use next.</p>
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="h-views">
+          <div class="sec-no">04<small>Index</small></div>
+          <div class="sec-body">
+            <h2 id="h-views">Five views, and the alerts.</h2>
+            <p class="lede">Each view button moves Fig. 1 to that page.</p>
+            <dl class="dl">
+              <div class="row">
+                <dt><span class="k">A</span>Overview</dt>
+                <dd>One panel per account, with its limits, credits and resets.</dd>
+                <button class="go" type="button" data-show="overview">Show in Fig. 1</button>
+              </div>
+              <div class="row">
+                <dt><span class="k">B</span>Detailed</dt>
+                <dd>Every account, sorted by how close it is to its limit.</dd>
+                <button class="go" type="button" data-show="detailed">Show in Fig. 1</button>
+              </div>
+              <div class="row">
+                <dt><span class="k">C</span>Compare</dt>
+                <dd>
+                  Ranks the accounts of one provider by room left and names the one to use next.
+                </dd>
+                <button class="go" type="button" data-show="compare">Show in Fig. 1</button>
+              </div>
+              <div class="row">
+                <dt><span class="k">D</span>Timeline</dt>
+                <dd>Every limit window on a calendar, so you see when headroom comes back.</dd>
+                <button class="go" type="button" data-show="timeline">Show in Fig. 1</button>
+              </div>
+              <div class="row">
+                <dt><span class="k">E</span>Wallet</dt>
+                <dd>Subscriptions, usage spend and top-ups in one currency, with renewals.</dd>
+                <button class="go" type="button" data-show="wallet">Show in Fig. 1</button>
+              </div>
+              <div class="grp">Alerts and automations</div>
+              <div class="row">
+                <dt>Alerts</dt>
+                <dd>
+                  In-app notices, Telegram and signed webhooks for low limits, new and expiring
+                  resets, early resets, spend budgets and broken sign-ins.
+                </dd>
+                <span></span>
+              </div>
+              <div class="row">
+                <dt>Automations</dt>
+                <dd>
+                  Two rules, off until you switch them on: use a banked Codex reset when a limit
+                  runs out, and record credit top-ups when a balance rises.
+                </dd>
+                <span></span>
+              </div>
+            </dl>
+          </div>
+        </section>
+
+        <section class="sec" id="no-cloud" aria-labelledby="h-cloud">
+          <div class="sec-no">05<small>Statement</small></div>
+          <div class="sec-body">
+            <h2 id="h-cloud">No cloud version.</h2>
+            <div class="statement">
+              <p class="big">Your server holds your tokens.</p>
+              <div>
+                <p>
+                  A hosted copy would keep everyone's tokens on one server that someone else runs.
+                  That is the trade Headroom refuses, so it ships no cloud version, on purpose.
+                </p>
+                <p>
+                  You run it. One owner signs in with a passkey. Credentials are sealed with
+                  AES-256-GCM, and the master key lives outside the database.
+                </p>
+                <p>
+                  Monitoring is read-only. It never sends a model request, redeems a reset or buys
+                  credits.
+                </p>
+              </div>
+            </div>
+            <dl class="dl">
+              <div class="row">
+                <dt>Owner</dt>
+                <dd>One owner, signed in with passkeys.</dd>
+                <span></span>
+              </div>
+              <div class="row">
+                <dt>Credentials</dt>
+                <dd>Sealed with AES-256-GCM. The master key stays outside the database.</dd>
+                <span></span>
+              </div>
+              <div class="row">
+                <dt>Privacy Mode</dt>
+                <dd>Blurs account emails on screen.</dd>
+                <span></span>
+              </div>
+            </dl>
+          </div>
+        </section>
+
+        <section class="sec" id="install" aria-labelledby="h-install">
+          <div class="sec-no">06<small>Listing</small></div>
+          <div class="sec-body">
+            <h2 id="h-install">Quick start.</h2>
+            <p class="lede">One container. The image is multi-arch, for amd64 and arm64.</p>
+            <div class="listing">
+              <div class="listing-bar">
+                <span>Listing 1. Docker</span
+                ><button class="copy" id="copy" type="button" aria-describedby="copy-state">
+                  Copy
+                </button>
+              </div>
+              <pre aria-label="Docker command"><span class="ln" aria-hidden="true">1
+2
+3
+4</span><code id="cmd">docker run -d --name headroom -p 8080:8080 \
+  -v headroom-data:/var/lib/headroom/data \
+  -v headroom-secrets:/etc/headroom \
+  ghcr.io/amitray007/headroom:latest</code></pre>
+            </div>
+            <p class="sr" id="copy-state" role="status"></p>
+            <p class="steps">
+              <span>Then open http://localhost:8080.</span><span>Free and open source, MIT.</span>
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="colophon">
+        <div class="sec-no">Colophon</div>
+        <div class="colo-grid">
+          <div>
+            <h3>Licence</h3>
+            <p>MIT. Free and open source.</p>
+          </div>
+          <div>
+            <h3>Links</h3>
+            <ul>
+              <li><a href="https://github.com/amitray007/headroom">Repository</a></li>
+              <li><a href="https://github.com/amitray007/headroom#readme">Docs (README)</a></li>
+              <li><a href="https://github.com/sponsors/amitray007">Sponsor</a></li>
+            </ul>
+          </div>
+          <div class="honest">
+            <h3>A note on honesty</h3>
+            <p>
+              Most connectors read the private endpoints the providers' own apps use. They can
+              change without notice, and each provider's terms still apply. Headroom is not
+              affiliated with any provider.
+            </p>
+          </div>
+          <div>
+            <h3>Set in</h3>
+            <p>Geist and Geist Mono.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var iframe = document.getElementById("app");
+        var frame = document.getElementById("frame");
+        var fbDesk = document.getElementById("fb-desk");
+        var index = document.getElementById("index");
+        var note = document.getElementById("note");
+        var origin = location.origin === "null" ? "*" : location.origin;
+        var ready = false;
+        var pending = null;
+        var phoneQuery = matchMedia("(max-width: 760px)");
+
+        var notes = {
+          overview: "One panel per account, with its limits, credits and resets.",
+          detailed: "Every account, sorted by how close it is to its limit.",
+          compare: "Accounts of one provider, ranked by room left, with the one to use next.",
+          timeline: "Every limit window on a calendar, so you see when headroom comes back.",
+          wallet: "Subscriptions, usage spend and top-ups in one currency, with renewals.",
+          connect: "Pick a provider and link an account.",
+        };
+
+        function post(msg) {
+          var w = iframe.contentWindow;
+          if (!w) return;
+          msg.source = "headroom-site";
+          try {
+            w.postMessage(msg, origin);
+          } catch (e) {}
+        }
+
+        function setActive(page) {
+          if (!notes[page]) return;
+          index.querySelectorAll("button").forEach(function (b) {
+            if (b.dataset.page === page) b.setAttribute("aria-current", "true");
+            else b.removeAttribute("aria-current");
+          });
+          note.textContent = notes[page];
+        }
+
+        function navigate(page) {
+          setActive(page);
+          if (ready) post({ type: "navigate", page: page });
+          else pending = page;
+        }
+
+        function scheme() {
+          return root.dataset.scheme === "dark" ? "dark" : "light";
+        }
+
+        function applyScheme() {
+          fbDesk.src =
+            "../../docs/assets/screenshots/" +
+            (scheme() === "dark" ? "overview.png" : "overview-light.png");
+          if (ready) post({ type: "scheme", scheme: scheme() });
+        }
+
+        // Scale the fixed-size iframe to fit its frame. Reserve the height up front so nothing shifts.
+        function fit() {
+          var phone = phoneQuery.matches;
+          var lw = phone ? 390 : 1200;
+          var lh = phone ? 780 : 750;
+          var w = frame.clientWidth;
+          var s = w / lw;
+          iframe.style.width = lw + "px";
+          iframe.style.height = lh + "px";
+          iframe.style.transform = "scale(" + s + ")";
+          frame.style.height =
+            Math.round(lh * s) + (frame.offsetHeight - frame.clientHeight) + "px";
+          frame.classList.toggle("phone-mode", phone);
+        }
+        new ResizeObserver(fit).observe(frame);
+        phoneQuery.addEventListener("change", fit);
+        fit();
+
+        index.addEventListener("click", function (e) {
+          var b = e.target.closest("button[data-page]");
+          if (b) navigate(b.dataset.page);
+        });
+        document.querySelectorAll("[data-show]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            navigate(b.dataset.show);
+            document.getElementById("fig-1").scrollIntoView({ block: "start" });
+          });
+        });
+
+        window.addEventListener("message", function (e) {
+          if (e.source !== iframe.contentWindow) return;
+          if (origin !== "*" && e.origin !== origin) return;
+          var d = e.data;
+          if (!d || d.source !== "headroom-demo") return;
+          if (d.type === "ready") {
+            ready = true;
+            frame.classList.add("ready");
+            post({ type: "scheme", scheme: scheme() });
+            if (pending) {
+              post({ type: "navigate", page: pending });
+              pending = null;
+            }
+          } else if (d.type === "route") {
+            setActive(d.page);
+          }
+        });
+
+        document.getElementById("scheme").addEventListener("click", function () {
+          var next = scheme() === "dark" ? "light" : "dark";
+          root.dataset.scheme = next;
+          try {
+            localStorage.setItem("headroom-landing-scheme", next);
+          } catch (e) {}
+          applyScheme();
+        });
+        applyScheme();
+
+        var copy = document.getElementById("copy");
+        var state = document.getElementById("copy-state");
+        copy.addEventListener("click", function () {
+          var text = document.getElementById("cmd").textContent;
+          function done(ok) {
+            copy.textContent = ok ? "Copied" : "Press Ctrl+C";
+            state.textContent = ok
+              ? "Command copied to the clipboard."
+              : "Copy failed. Select the text and copy it.";
+            setTimeout(function () {
+              copy.textContent = "Copy";
+            }, 2000);
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(
+              function () {
+                done(true);
+              },
+              function () {
+                done(false);
+              },
+            );
+          } else done(false);
+        });
+      })();
+    </script>
+  </body>
+</html>
