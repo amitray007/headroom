@@ -1,6 +1,6 @@
 # Claude
 
-> Reviewed: 2026-10-01. Claude is the highest-policy-risk connector. It is off by default and needs explicit owner opt-in.
+> Reviewed: 2026-10-08. Claude is the highest-policy-risk connector. It is off by default and needs explicit owner opt-in.
 
 ## Scope and recommendation
 
@@ -34,6 +34,10 @@ No official passive route exists. The status-line document says `rate_limits` ap
 | Reset grants are withheld from the Claude Code sign-in: `cedar_ember.eligible` is false with `ineligible_reason: "surface"` and `grants` is empty, while the owner's Claude app showed grants for the same account. Headroom therefore emits no grant count when the response is ineligible, instead of reporting zero | validated | Observed by this project on 2026-10-02 against Amit's Max account; field names, booleans and the reason string were recorded, no account values |
 | The reset-grant block is gated on the client identity. With `user-agent: Headroom` the usage response is ineligible (`ineligible_reason: "surface"`, empty `grants`); with `user-agent: claude-cli/2.1.285 (external, cli)` the same token gets `eligible: true`, `ineligible_reason: null` and the grant list. A version floor exists: public sources report `ineligible_reason: "cli_version"` below 2.1.279 [S5], so the constant `claudeCodeUserAgent` must be bumped if Anthropic raises it. Known reasons: config_off, tier, seat, mobile, surface, cli_version, no_grant, tenure, other_experiment, unavailable, unknown. A grant element has the keys `id` (the redemption handle, never parsed or stored), `label`, `resets_total`, `resets_left`, `starts_at`, `ends_at`, `clears` (array of window names), `paused`, `usable_now`, `use_requires_limit`, `percent_used`, `blocking`, `arm`; dates are ISO strings, counts are numbers, flags are booleans | validated | Observed by this project on 2026-10-02 against Amit's Max account; only field names and types were recorded, no values. Public references: OpenUsage 0.7.13 and CodexBar 0.70.0 use the same client identity and count rule |
 | A prior OAuth usage response contained session and week values | prior observation | Sanitized earlier research; not a current test |
+| `GET https://api.anthropic.com/api/oauth/organizations/{org}/prepaid/credits` with the claude.ai token and `x-organization-uuid` answers 200 with `amount` (minor units), `currency`, `next_expires_at`, `tranches` and `promo_tranches`. Claude Code reads it for `/usage-credits` | validated | Observed by this project on 2026-10-08 against Amit's Max account; every list was empty and `amount` was 0, so field names were recorded, not values. The pinned CLI calls the path with `x-organization-uuid` (source-inspected in 2.1.293) |
+| A tranche carries `remaining_amount_minor_units`, `granted_amount_minor_units`, `expires_at` (null on purchased credits), `granted_at` and `program_id`; `amount` already includes promotional tranches; the money objects inside tranches are null on the OAuth route | source-inspected | jens-duttke/usage-monitor-for-claude `docs/api-reference.md` and hschin/claude-billing [S10] |
+| The Max monthly API credits ($100 on Max 5x, $200 on Max 20x) land in the Console organization linked to the plan, expire each billing cycle and appear only under Console Settings > Billing > Promotional credits. No API returns them | documented | [S9] |
+| None of the token routes reads the Console balance: the prepaid path above answers 403 "only available for Pro and Max plans" for a Console organization's OAuth token; `platform.claude.com/api/organizations/{org}/prepaid/credits` answers 403 `oauth_token_not_accepted`; the Admin API `cost_report` answers 403 on an individual Console organization. Community tools read the Console balance only with a pasted or browser-captured `sessionKey` cookie | validated | Run by the maintainer on 2026-10-08 with his own sign-ins; community tools source-inspected [S11] |
 
 ## Metrics
 
@@ -44,7 +48,8 @@ No official passive route exists. The status-line document says `rate_limits` ap
 | Model-scoped weekly buckets | `available` when returned | Collector-specific bucket keys | `private`. Keep provider keys; do not invent a model label. |
 | Monthly limit | `unsupported` | Not in the response | Unavailable for v1. |
 | Extra usage | `available` while switched on | `extra_usage` | `private`. Additional-use spending, not a prepaid wallet. Switched off on the account means no metric and no `partial` state; the account validated on 2026-10-01 had it off. |
-| Credits or prepaid balance | `unknown` | Not documented | Do not show a guessed wallet balance. |
+| Usage credits | `available` when the organization has a pool | `prepaid.balance`, currency balance from `prepaid/credits`; `prepaid.expiring` is the part that lapses at `next_expires_at` | `private`. The claude.ai balance that funds extra usage, promotional credits included. A 403 or 404 means no pool: no metric, no `partial` state. |
+| Console API credits (Max monthly) | `unsupported` | Console Settings > Billing only | Needs a Console browser session. The owner decided on 2026-10-08 not to collect it. |
 | Reset countdown | `available` when returned | Provider reset time | `private`. |
 | Banked reset count | `available` when eligible | `cedar_ember.grants`: sum of `resets_left` over grants that are not paused, have `resets_left >= 1`, started and not ended | `private`. Validated 2026-10-02. Display only: counted and listed with expiry, never redeemed. An ineligible response gives no count (unknown, not zero). |
 | Reset redemption | `unsupported` | Not documented as a supported action | Do not offer a reset button. |
@@ -83,6 +88,7 @@ The status line is not a collection route. Its `rate_limits` field appears only 
 | Credentials file | `.credentials.json` under the config directory | `official` | Read once, encrypt, delete. |
 | Token refresh | Anthropic OAuth token endpoint, `POST`, with the stored refresh token | `private` | Refresh in the connector. |
 | Usage | `GET https://api.anthropic.com/api/oauth/usage` | `private` | Five-hour and seven-day windows, scoped buckets, extra usage, reset grants. |
+| Usage credits | `GET https://api.anthropic.com/api/oauth/organizations/{org}/prepaid/credits` with `x-organization-uuid`; `{org}` is the profile's organization | `private` | Usage-credit balance and the soonest expiry. Never the purchase (`POST .../contracts/prepaid/credits`) or auto-reload paths. |
 | Fallback authorization | Claude Code PKCE authorization URL with the public client and the 54545 localhost redirect | `private` | Direct client fallback. Exact URL pinned during validation. |
 | Status line | Claude Code runtime data | `official` | Shape reference only. |
 
@@ -115,7 +121,8 @@ Earlier research observed OAuth-backed values resembling session and weekly perc
 - A refresh token stays valid. Anthropic can revoke it; the connection then shows `reconnect_required`.
 - The localhost callback works from a remote server. The user must paste the code or redirect. A browser that lands on `platform.claude.com/oauth/code/success` instead of the code page went through a loopback listener, not through Headroom's step.
 - A long-lived `claude setup-token` (`CLAUDE_CODE_OAUTH_TOKEN`) is enough. It can run the model but cannot read session and weekly limits, so only a real login works for Headroom [S8].
-- Prepaid balance, banked reset inventory or redemption is available.
+- Banked reset redemption is available.
+- The Max monthly API credits are readable. They sit in the Console organization, which only a browser session can read.
 - ACP or the status line gives passive collection.
 
 ## Implementation and validation checklist
@@ -142,3 +149,6 @@ Earlier research observed OAuth-backed values resembling session and weekly perc
 6. [S6: CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) - MIT, written in Go, v8.0.8 released 2026-10-01. Files read: `internal/auth/claude`, `sdk/auth/claude.go`. Reviewed 2026-10-01.
 7. [S7: ai-usagebar endpoint reference](https://github.com/akitaonrails/ai-usagebar/blob/main/docs/vendor-endpoints.md) - `api/oauth/usage`. Reviewed 2026-10-01.
 8. [S8: OpenUsage Claude provider](https://github.com/robinebers/openusage/blob/main/docs/providers/claude.md) - credentials file locations and the `setup-token` limit. Reviewed 2026-10-01.
+9. [S9: API credits for Max and Team plans, official](https://platform.claude.com/docs/en/about-claude/api-credits-for-subscribers) - amounts, linked Console organization, expiry, visibility. Reviewed 2026-10-08.
+10. [S10: usage-monitor-for-claude API reference](https://github.com/jens-duttke/usage-monitor-for-claude) - `prepaid/credits` fields and a promotional tranche sample. Reviewed 2026-10-08.
+11. [S11: ai-usage-bar Anthropic provider](https://github.com/schell/ai-usage-bar) - Console `prepaid/credits` read with a pasted `sessionKey` cookie. Reviewed 2026-10-08.

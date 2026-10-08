@@ -361,6 +361,14 @@ html[data-privacy] .who:focus-visible {
     flex-basis: calc((100% - var(--space-6)) / 2);
   }
 }
+/* Three meters with more figures after them (a Claude card with extra usage): every figure takes a meter's column, so
+   the last row keeps its empty column instead of stretching. Phones keep one per row. */
+@media (min-width: 721px) {
+  .cells[data-cols="3"] {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 .cell .label {
   font-size: var(--text-base);
   font-weight: 500;

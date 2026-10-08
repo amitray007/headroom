@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   type BeginConnectOptions,
   type Capability,
+  type ClassifiedError,
   type CollectResult,
   type ConnectProgress,
   type Connector,
@@ -29,6 +30,7 @@ import {
   cli,
   clientId,
   oauthHeaders,
+  prepaidCreditsUrl,
   profileUrl,
   scopes,
   tokenUrl,
@@ -37,6 +39,7 @@ import {
 import {
   claudeCredentialSchema,
   credentialsFileSchema,
+  prepaidCreditsSchema,
   profileSchema,
   refreshResponseSchema,
   usageResponseSchema,
@@ -44,7 +47,7 @@ import {
   type UsageResponse,
 } from "./schemas.ts";
 
-export const claudeConnectorVersion = "0.1.0";
+export const claudeConnectorVersion = "0.2.0";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -245,6 +248,13 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
           reason: "collected while extra usage is switched on for the account",
         },
         {
+          metricOrAction: "prepaid.balance",
+          availability: "available",
+          ...validated,
+          reason:
+            "claude.ai usage credits, promotional included; not the Console API credits. The tranche shape is source-inspected",
+        },
+        {
           metricOrAction: "reset_grants",
           availability: "available",
           ...validated,
@@ -259,7 +269,7 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
       ]);
     },
 
-    async collect(credential: StoredCredential): Promise<CollectResult> {
+    async collect(credential: StoredCredential, identity: Identity): Promise<CollectResult> {
       const secret = claudeCredentialSchema.parse(credential.secret);
       const response = await http(usageUrl, { headers: oauthHeaders(secret.accessToken) });
       throwForStatus(response, "usage");
@@ -268,7 +278,33 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
         throw new ConnectorError("invalid_response", "usage response shape changed");
       const observedAt = now();
       const { metrics, resetCredits } = metricsFrom(usage.data, observedAt);
-      return { observedAt, metrics, resetCredits, failures: [] };
+      const failures: ClassifiedError[] = [];
+      const organization = identity.workspaceId;
+      if (organization !== null) {
+        try {
+          metrics.push(
+            ...(await prepaidMetrics(http, secret.accessToken, organization, observedAt)),
+          );
+        } catch (error) {
+          const failure = classifyUnknown(error);
+          // The balance is one figure among many: a failed read never asks for a reconnect.
+          failures.push(
+            failure.class === "definitive"
+              ? { ...failure, category: "permission_denied", class: "capability" }
+              : failure,
+          );
+          metrics.push({
+            providerMetricKey: "prepaid.balance",
+            kind: "currency_balance",
+            scope: "account",
+            valueText: null,
+            unit: "USD",
+            availability: failure.class === "transient" ? "temporarily_unavailable" : "unknown",
+            interface: "private",
+          });
+        }
+      }
+      return { observedAt, metrics, resetCredits, failures };
     },
 
     async refresh(credential: StoredCredential): Promise<RefreshResult> {
@@ -441,6 +477,62 @@ function metricsFrom(
     });
   }
   return { metrics, resetCredits };
+}
+
+/**
+ * The claude.ai usage-credit balance, and the part of it that expires first. An organization without a
+ * usage-credit pool (403 or 404) gives no metric, like extra usage switched off.
+ */
+async function prepaidMetrics(
+  http: FetchLike,
+  accessToken: string,
+  organization: string,
+  observedAt: number,
+): Promise<MetricObservation[]> {
+  const response = await http(prepaidCreditsUrl(organization), {
+    headers: { ...oauthHeaders(accessToken), "x-organization-uuid": organization },
+  });
+  if (response.status === 403 || response.status === 404) return [];
+  throwForStatus(response, "prepaid credits");
+  const parsed = prepaidCreditsSchema.safeParse(await response.json().catch(() => null));
+  if (!parsed.success)
+    throw new ConnectorError("invalid_response", "prepaid credits response shape changed");
+  const credits = parsed.data;
+  const exponent = credits.balance?.money?.exponent ?? 2;
+  const unit = credits.currency.toUpperCase();
+  const major = (minor: number): string => (minor / 10 ** exponent).toFixed(exponent);
+  const metrics: MetricObservation[] = [
+    {
+      providerMetricKey: "prepaid.balance",
+      kind: "currency_balance",
+      scope: "account",
+      valueText: major(credits.amount),
+      unit,
+      availability: "available",
+      interface: "private",
+    },
+  ];
+  const expiresAt = parseDate(credits.next_expires_at);
+  if (expiresAt !== null && expiresAt > observedAt) {
+    // Every tranche, purchased or promotional, that lapses at that soonest instant.
+    let expiring = 0;
+    for (const tranche of [...(credits.tranches ?? []), ...(credits.promo_tranches ?? [])]) {
+      if (parseDate(tranche.expires_at) === expiresAt)
+        expiring += tranche.remaining_amount_minor_units ?? 0;
+    }
+    if (expiring > 0)
+      metrics.push({
+        providerMetricKey: "prepaid.expiring",
+        kind: "currency_balance",
+        scope: "account",
+        valueText: major(expiring),
+        unit,
+        windowEnd: expiresAt,
+        availability: "available",
+        interface: "private",
+      });
+  }
+  return metrics;
 }
 
 function centsToDollars(cents: number): string {

@@ -395,6 +395,26 @@ function claudeParts(draw: Draw, shape: "max" | "pro"): Parts {
         text: money(cap),
       }),
     );
+    // Usage credits that fund the extra usage, part of them a promotional grant that lapses first.
+    const promo = streamFor(draw, "prepaid.expiring").pick([5, 10]);
+    const bought = streamFor(draw, "prepaid.balance").between(8, 40);
+    metrics.push(
+      metricOf({
+        key: "prepaid.balance",
+        kind: "currency_balance",
+        scope: "account",
+        unit: "USD",
+        text: money(promo + bought),
+      }),
+      metricOf({
+        key: "prepaid.expiring",
+        kind: "currency_balance",
+        scope: "account",
+        unit: "USD",
+        text: money(promo),
+        windowEnd: ahead(draw, "prepaid.expiring", 9 * day, 25 * day),
+      }),
+    );
     // An eligible account with one grant that has weeks left. The Pro account is ineligible: no count at all.
     resetCredits.push(resetCredit("grant-0", ahead(draw, "grant-0", 14 * day, 40 * day), "1 left"));
     metrics.push(

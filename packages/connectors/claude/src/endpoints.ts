@@ -15,6 +15,15 @@ export const profileUrl = "https://api.anthropic.com/api/oauth/profile";
 export const usageUrl = "https://api.anthropic.com/api/oauth/usage?cedar_ember=1";
 
 /**
+ * The claude.ai organization's usage-credit balance: purchased and promotional tranches with expiry. Claude Code
+ * reads it for `/usage-credits`. Answers 403 "only available for Pro and Max plans" for other organizations,
+ * including a Console organization, so it never shows Console API credits. Validated 2026-10-08.
+ */
+export function prepaidCreditsUrl(organizationUuid: string): string {
+  return `https://api.anthropic.com/api/oauth/organizations/${encodeURIComponent(organizationUuid)}/prepaid/credits`;
+}
+
+/**
  * Client identity sent to the OAuth endpoints. The usage endpoint withholds the reset-grant block
  * (`cedar_ember.eligible: false`, `ineligible_reason: "surface"`) unless the user agent looks like the
  * Claude Code CLI, and it enforces a version floor (`ineligible_reason: "cli_version"`). Bump this

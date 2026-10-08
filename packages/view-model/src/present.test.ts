@@ -5,6 +5,12 @@ import { formatNumber, formatUsd, presentPanel, type Cell } from "./present.ts";
 
 const reset = new Date(2025, 9, 2, 15, 6).getTime();
 
+function amounts(cells: readonly Cell[]) {
+  return cells.flatMap((cell) =>
+    cell.kind === "amount" ? [[cell.label, cell.window, cell.value, cell.note] as const] : [],
+  );
+}
+
 function meters(cells: readonly Cell[]) {
   return cells.flatMap((cell) =>
     cell.kind === "meter" ? [[cell.label, cell.window, cell.used] as const] : [],
@@ -97,7 +103,7 @@ describe("claude", () => {
     const only = presentPanel(connection("claude", { metrics: [percent("seven_day_sonnet", 10)] }));
     expect(meters(only.cells)).toEqual([["Weekly", "Sonnet", 10]]);
   });
-  test("extra usage shows spend, and the cap only when present", () => {
+  test("extra usage is a figure with the cap in its caption, leaving the facts row alone", () => {
     const usd = { kind: "spend", unit: "USD", scope: "month" } as const;
     const withCap = presentPanel(
       connection("claude", {
@@ -112,15 +118,62 @@ describe("claude", () => {
         ],
       }),
     );
-    expect(withCap.facts).toEqual([
-      { key: "extra_usage.used", label: "Extra Usage Spend", value: "$12.50 of $1,000.00" },
-    ]);
+    expect(amounts(withCap.cells)).toEqual([["Extra Usage", "this month", 12.5, "of $1,000.00"]]);
+    expect(withCap.facts).toEqual([]);
     const noCap = presentPanel(
       connection("claude", {
         metrics: [metric("extra_usage.used", { ...usd, valueText: "12.5", valueNum: 12.5 })],
       }),
     );
-    expect(noCap.facts[0]?.value).toBe("$12.50");
+    expect(amounts(noCap.cells)).toEqual([["Extra Usage", "this month", 12.5, null]]);
+  });
+  test("usage credits are a figure with the part that expires first in its caption", () => {
+    const money = { kind: "currency_balance", unit: "USD", scope: "account" } as const;
+    const expiry = new Date(2025, 10, 4).getTime();
+    const balance = (value: number) =>
+      metric("prepaid.balance", { ...money, valueText: value.toFixed(2), valueNum: value });
+    const withExpiry = presentPanel(
+      connection("claude", {
+        metrics: [
+          balance(25),
+          metric("prepaid.expiring", {
+            ...money,
+            valueText: "10.00",
+            valueNum: 10,
+            windowEnd: expiry,
+          }),
+        ],
+      }),
+    );
+    expect(amounts(withExpiry.cells)).toEqual([
+      ["Usage Credits", null, 25, "$10.00 expires Nov 4"],
+    ]);
+    expect(withExpiry.facts).toEqual([]);
+    // An empty pool says nothing unless extra usage is on, where a zero balance matters.
+    expect(amounts(presentPanel(connection("claude", { metrics: [balance(0)] })).cells)).toEqual(
+      [],
+    );
+    const spend = metric("extra_usage.used", {
+      kind: "spend",
+      unit: "USD",
+      scope: "month",
+      valueText: "1.00",
+      valueNum: 1,
+    });
+    expect(
+      amounts(presentPanel(connection("claude", { metrics: [spend, balance(0)] })).cells).map(
+        (row) => [row[0], row[2]],
+      ),
+    ).toEqual([
+      ["Extra Usage", 1],
+      ["Usage Credits", 0],
+    ]);
+    const unknown = presentPanel(
+      connection("claude", {
+        metrics: [metric("prepaid.balance", { ...money, availability: "temporarily_unavailable" })],
+      }),
+    );
+    expect(amounts(unknown.cells)).toEqual([["Usage Credits", null, null, null]]);
   });
   test("a missing bucket is absent, an unknown one is a cell without a number", () => {
     const unknown = presentPanel(

@@ -26,7 +26,7 @@ import { HealthyStatus, Pill, StatusPill, StatusSlot, statusKindOf } from "../ui
 import { href } from "../router.ts";
 import { PanelActions } from "./actions.tsx";
 import { AccountTitle } from "./account-title.tsx";
-import { CellView } from "./cells.tsx";
+import { CellView, cellColumns } from "./cells.tsx";
 import { SkeletonCells } from "./skeletons.tsx";
 
 const resetReloadMs = 2400;
@@ -182,7 +182,7 @@ export function AccountPanel(props: {
         {notice}
         {waiting && model.cells.length === 0 ? <SkeletonCells count={2} /> : null}
         {model.cells.length === 0 ? null : (
-          <div className="cells">
+          <div className="cells" data-cols={cellColumns(model.cells)}>
             {model.cells.map((cell, index) => (
               <CellView key={cell.key} cell={cell} index={index} />
             ))}

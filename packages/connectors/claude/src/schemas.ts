@@ -110,3 +110,32 @@ export const usageResponseSchema = z
   })
   .loose();
 export type UsageResponse = z.infer<typeof usageResponseSchema>;
+
+const trancheSchema = z
+  .object({
+    remaining_amount_minor_units: z.number().optional(),
+    /** Null on purchased credits that never expire. */
+    expires_at: z.string().nullable().optional(),
+  })
+  .loose();
+
+/**
+ * `GET /api/oauth/organizations/{org}/prepaid/credits`. `amount` is the whole balance in minor units, promotional
+ * credits included. Top-level fields validated 2026-10-08; the tranche element is source-inspected.
+ */
+export const prepaidCreditsSchema = z
+  .object({
+    amount: z.number(),
+    currency: z.string().min(1),
+    balance: z
+      .object({
+        money: z.object({ exponent: z.number().optional() }).loose().nullable().optional(),
+      })
+      .loose()
+      .nullable()
+      .optional(),
+    next_expires_at: z.string().nullable().optional(),
+    tranches: z.array(trancheSchema).optional(),
+    promo_tranches: z.array(trancheSchema).optional(),
+  })
+  .loose();

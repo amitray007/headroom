@@ -268,6 +268,28 @@ interface Built {
   banked?: PanelModel["banked"];
 }
 
+/**
+ * The claude.ai usage-credit balance as a figure, with the part that lapses first in its caption: "$10.00 expires
+ * Nov 4". An empty pool on an account without extra usage says nothing, so most accounts show no figure.
+ */
+function usageCreditsCell(context: Context, extraUsageShown: boolean): Cell[] {
+  const balance = take(context, "prepaid.balance");
+  const expiring = take(context, "prepaid.expiring");
+  // Only dollars have a figure style; another currency is not guessed into one.
+  if (balance === null || balance.unit !== "USD") return [];
+  const value = numberOf(balance);
+  if (value === 0 && !extraUsageShown) return [];
+  const soon = expiring === null ? null : numberOf(expiring);
+  const until = expiring?.windowEnd ?? null;
+  const note =
+    value !== null && soon !== null && until !== null
+      ? `${formatUsd(soon)} expires ${shortDate(until)}`
+      : null;
+  return [
+    amountOf(balance, { label: "Usage Credits", window: null, unit: "usd", decimals: 2, note }),
+  ];
+}
+
 function claude(context: Context): Built {
   const meters: MeterCell[] = [
     ...meterFor(context, "five_hour", { label: "Session", window: "5 hours" }),
@@ -310,22 +332,21 @@ function claude(context: Context): Built {
             .map((grant) => grant.expiresAt ?? 0)
             .toSorted((a, b) => a - b),
         };
+  const others: Cell[] = [];
   if (spend !== null) {
-    const used = numberOf(spend);
     const limit = cap === null ? null : numberOf(cap);
-    facts.push(
-      factOf(
-        "extra_usage.used",
-        "Extra Usage Spend",
-        used === null
-          ? "Unknown"
-          : limit === null
-            ? formatUsd(used)
-            : `${formatUsd(used)} of ${formatUsd(limit)}`,
-      ),
+    others.push(
+      amountOf(spend, {
+        label: "Extra Usage",
+        window: "this month",
+        unit: "usd",
+        decimals: 2,
+        note: limit === null ? null : `of ${formatUsd(limit)}`,
+      }),
     );
   }
-  return { meters, others: [], facts, banked };
+  others.push(...usageCreditsCell(context, spend !== null));
+  return { meters, others, facts, banked };
 }
 
 function codex(context: Context): Built {

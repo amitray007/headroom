@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { OverviewConnection } from "../../api.ts";
-import { CellView } from "../../dashboard/cells.tsx";
+import { CellView, cellColumns } from "../../dashboard/cells.tsx";
 import { awaitingFirstRefresh, providerName } from "@headroom/view-model/labels";
 import { presentPanel } from "@headroom/view-model/present";
 import { useNow } from "../../lib/now.ts";
@@ -50,7 +50,7 @@ export function RowDetail(props: { readonly connection: OverviewConnection }) {
     <div className="d-body">
       {notice}
       {model.cells.length === 0 ? null : (
-        <div className={dim ? "cells dim" : "cells"}>
+        <div className={dim ? "cells dim" : "cells"} data-cols={cellColumns(model.cells)}>
           {model.cells.map((cell, index) => (
             <CellView key={cell.key} cell={cell} index={index} />
           ))}

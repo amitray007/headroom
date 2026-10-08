@@ -186,6 +186,15 @@ function ResetsCell(props: { readonly cell: Extract<Cell, { kind: "resets" }> })
   );
 }
 
+/**
+ * Three meters followed by other figures keep the meters' three columns, so a money figure sits under a meter
+ * and the row ends with an empty column instead of stretching. Undefined keeps the default wrapping.
+ */
+export function cellColumns(cells: readonly Cell[]): "3" | undefined {
+  const meters = cells.filter((cell) => cell.kind === "meter").length;
+  return meters === 3 && cells.length > meters ? "3" : undefined;
+}
+
 /** One figure of an account panel. Unknown values show a dash, never zero. */
 export function CellView(props: { readonly cell: Cell; readonly index: number }) {
   const { cell } = props;

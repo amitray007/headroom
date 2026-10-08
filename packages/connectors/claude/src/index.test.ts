@@ -2,9 +2,15 @@ import { describe, expect, test } from "bun:test";
 
 import { z } from "zod";
 
-import type { CliLoginStatus, LoginRunner } from "@headroom/core";
+import type { CliLoginStatus, Identity, LoginRunner } from "@headroom/core";
 
-import { claudeCodeUserAgent, profileUrl, tokenUrl, usageUrl } from "./endpoints.ts";
+import {
+  claudeCodeUserAgent,
+  prepaidCreditsUrl,
+  profileUrl,
+  tokenUrl,
+  usageUrl,
+} from "./endpoints.ts";
 import usageLiveShape from "./fixtures/usage-live-shape.json";
 import usageMinimal from "./fixtures/usage-minimal.json";
 import usageFixture from "./fixtures/usage.json";
@@ -262,6 +268,104 @@ describe("Claude connector", () => {
     expect(byKey["seven_day"]).toMatchObject({ valueText: "0", availability: "available" });
     expect(Object.keys(byKey)).not.toContain("extra_usage.used");
     expect(byKey["reset_grants.available"]).toBeUndefined();
+  });
+
+  describe("usage-credit balance", () => {
+    const creditsUrl = prepaidCreditsUrl("org-uuid");
+    async function collectCredits(route: () => Response, who: Identity = identity) {
+      const http = fakeFetch({ [usageUrl]: () => json(usageMinimal), [creditsUrl]: route });
+      const connector = createClaudeConnector({
+        runner: new FakeRunner(),
+        fetch: http.fetch,
+        now: () => Date.parse("2026-10-08T00:00:00Z"),
+      });
+      const result = await connector.collect(credentialFromCredentialsFile(credentialsFile), who);
+      const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+      return { result, byKey, calls: http.calls };
+    }
+
+    test("the balance includes promotional credits; the soonest-expiring part is its own metric", async () => {
+      const { result, byKey, calls } = await collectCredits(() =>
+        json({
+          amount: 2500,
+          currency: "usd",
+          balance: { money: { amount_minor: 2500, currency: "USD", exponent: 2 } },
+          next_expires_at: "2026-11-04T00:00:00Z",
+          tranches: [{ remaining_amount_minor_units: 1500, expires_at: null }],
+          promo_tranches: [
+            { remaining_amount_minor_units: 1000, expires_at: "2026-11-04T00:00:00Z" },
+          ],
+        }),
+      );
+      expect(byKey["prepaid.balance"]).toMatchObject({
+        kind: "currency_balance",
+        valueText: "25.00",
+        unit: "USD",
+        availability: "available",
+      });
+      expect(byKey["prepaid.expiring"]).toMatchObject({
+        kind: "currency_balance",
+        valueText: "10.00",
+        windowEnd: Date.parse("2026-11-04T00:00:00Z"),
+      });
+      expect(result.failures).toEqual([]);
+      const request = calls.find((call) => call.url === creditsUrl);
+      const headers = z.record(z.string(), z.string()).parse(request?.init?.headers);
+      expect(headers["x-organization-uuid"]).toBe("org-uuid");
+      expect(headers["authorization"]).toBe("Bearer access-synthetic");
+    });
+
+    test("the empty live shape of 2026-10-08 is a real zero with nothing expiring", async () => {
+      const { result, byKey } = await collectCredits(() =>
+        json({
+          amount: 0,
+          currency: "USD",
+          next_expires_at: null,
+          tranches: [],
+          promo_tranches: [],
+        }),
+      );
+      expect(byKey["prepaid.balance"]).toMatchObject({
+        valueText: "0.00",
+        availability: "available",
+      });
+      expect(byKey["prepaid.expiring"]).toBeUndefined();
+      expect(result.failures).toEqual([]);
+    });
+
+    test("an organization without usage credits (403) gives no metric and no failure", async () => {
+      const { result, byKey } = await collectCredits(() =>
+        json({ type: "error", error: { type: "permission_error" } }, 403),
+      );
+      expect(byKey["prepaid.balance"]).toBeUndefined();
+      expect(result.failures).toEqual([]);
+    });
+
+    test("an outage keeps the usage metrics and marks only the balance unavailable", async () => {
+      const { result, byKey } = await collectCredits(() => new Response("down", { status: 503 }));
+      expect(byKey["seven_day"]).toMatchObject({ availability: "available" });
+      expect(byKey["prepaid.balance"]).toMatchObject({
+        valueText: null,
+        availability: "temporarily_unavailable",
+      });
+      expect(result.failures).toHaveLength(1);
+      expect(result.failures[0]?.class).toBe("transient");
+    });
+
+    test("a changed shape is unknown, never zero", async () => {
+      const { result, byKey } = await collectCredits(() => json({ balance: "lots" }));
+      expect(byKey["prepaid.balance"]).toMatchObject({ valueText: null, availability: "unknown" });
+      expect(result.failures[0]?.category).toBe("invalid_response");
+    });
+
+    test("no organization in the identity means no balance request", async () => {
+      const { byKey, calls } = await collectCredits(() => json({ amount: 1, currency: "USD" }), {
+        ...identity,
+        workspaceId: null,
+      });
+      expect(byKey["prepaid.balance"]).toBeUndefined();
+      expect(calls.some((call) => call.url.includes("prepaid"))).toBe(false);
+    });
   });
 
   describe("banked reset grants", () => {
