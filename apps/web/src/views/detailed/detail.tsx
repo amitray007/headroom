@@ -5,6 +5,7 @@ import { CellView, cellColumns } from "../../dashboard/cells.tsx";
 import { awaitingFirstRefresh, providerName } from "@headroom/view-model/labels";
 import { presentPanel } from "@headroom/view-model/present";
 import { useNow } from "../../lib/now.ts";
+import { usePanelDisplay } from "../../lib/settings.tsx";
 import { href } from "../../router.ts";
 import { BankedResets } from "../../ui/banked-resets.tsx";
 import { ButtonLink } from "../../ui/button.tsx";
@@ -43,7 +44,7 @@ function noticeFor(connection: OverviewConnection, hasCells: boolean): ReactNode
 export function RowDetail(props: { readonly connection: OverviewConnection }) {
   const { connection } = props;
   const now = useNow();
-  const model = presentPanel(connection, now);
+  const model = presentPanel(connection, now, usePanelDisplay(connection.provider));
   const dim = connection.state === "paused" || connection.state === "reconnect_required";
   const notice = noticeFor(connection, model.cells.length > 0);
   return (

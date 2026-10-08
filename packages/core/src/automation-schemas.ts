@@ -41,7 +41,7 @@ export const accountEventDetailSchema = z.discriminatedUnion("kind", [
     previous: z.number().finite(),
     current: z.number().finite(),
     added: z.number().finite().positive(),
-    /** The Wallet top-up recorded for it, or null when recording failed. */
+    /** The Wallet top-up recorded for it; null when recording failed or the balance is money (USD). */
     topUpId: z.string().min(1).nullable(),
   }),
   z.strictObject({

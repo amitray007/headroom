@@ -151,8 +151,17 @@ function decimalsFor(used: number | null, provider: OverviewConnection["provider
 
 // ---------- builders ----------
 
+/** The owner's display choices for this account's provider (Settings, Providers). */
+export interface PanelDisplay {
+  /** Leave the balance figure out while it is exactly zero. */
+  readonly hideZeroBalance: boolean;
+}
+
+const defaultDisplay: PanelDisplay = { hideZeroBalance: false };
+
 interface Context {
   readonly connection: OverviewConnection;
+  readonly display: PanelDisplay;
   readonly metrics: ReadonlyMap<string, Metric>;
   /** Keys a provider rule already turned into a cell or fact. */
   readonly used: Set<string>;
@@ -270,15 +279,15 @@ interface Built {
 
 /**
  * The claude.ai usage-credit balance as a figure, with the part that lapses first in its caption: "$10.00 expires
- * Nov 4". An empty pool on an account without extra usage says nothing, so most accounts show no figure.
+ * Nov 4". A zero balance shows unless the owner chose to hide it; an unread balance always shows as unknown.
  */
-function usageCreditsCell(context: Context, extraUsageShown: boolean): Cell[] {
+function usageCreditsCell(context: Context): Cell[] {
   const balance = take(context, "prepaid.balance");
   const expiring = take(context, "prepaid.expiring");
   // Only dollars have a figure style; another currency is not guessed into one.
   if (balance === null || balance.unit !== "USD") return [];
   const value = numberOf(balance);
-  if (value === 0 && !extraUsageShown) return [];
+  if (value === 0 && context.display.hideZeroBalance) return [];
   const soon = expiring === null ? null : numberOf(expiring);
   const until = expiring?.windowEnd ?? null;
   const note =
@@ -345,7 +354,7 @@ function claude(context: Context): Built {
       }),
     );
   }
-  others.push(...usageCreditsCell(context, spend !== null));
+  others.push(...usageCreditsCell(context));
   return { meters, others, facts, banked };
 }
 
@@ -673,10 +682,15 @@ function tightestOf(
 }
 
 /** `now` drops reset credits that have already expired from the hold target. */
-export function presentPanel(connection: OverviewConnection, now?: number): PanelModel {
+export function presentPanel(
+  connection: OverviewConnection,
+  now?: number,
+  display: PanelDisplay = defaultDisplay,
+): PanelModel {
   const snapshot = connection.snapshot;
   const context: Context = {
     connection,
+    display,
     metrics: new Map((snapshot?.metrics ?? []).map((metric) => [metric.providerMetricKey, metric])),
     used: new Set(),
   };

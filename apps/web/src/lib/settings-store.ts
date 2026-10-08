@@ -14,6 +14,7 @@ export const defaultSettings: Settings = {
   keepInactiveLast: true,
   historyRetentionDays: 90,
   accountActions: false,
+  providers: {},
   walletCurrency: null,
   notifications: {
     kinds: kindSwitches(true),
@@ -30,10 +31,11 @@ export type SettingsPatch = Partial<Omit<Settings, "notifications">> & {
 };
 
 export function applyPatch(settings: Settings, patch: SettingsPatch): Settings {
-  const { notifications, ...rest } = patch;
+  const { notifications, providers, ...rest } = patch;
   return {
     ...settings,
     ...rest,
+    providers: { ...settings.providers, ...providers },
     notifications: {
       ...settings.notifications,
       ...notifications,

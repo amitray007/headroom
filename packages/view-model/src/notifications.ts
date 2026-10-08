@@ -224,11 +224,70 @@ function periodOf(
   return { key: new Date(observed).toISOString().slice(0, 7), resetsAt: null };
 }
 
+/**
+ * Claude usage credits at zero while extra usage is on: extra usage has nothing left to spend. At most once per
+ * calendar month, so an empty balance that stays empty does not repeat.
+ */
+function usageCreditsOut(connection: OverviewConnection): AppNotification[] {
+  const snapshot = connection.snapshot;
+  if (connection.provider !== "claude" || snapshot === null) return [];
+  const balance = numberOf(metricOf(connection, "prepaid.balance"));
+  // Extra usage switched on is the only time an empty balance blocks anything.
+  if (balance !== 0 || metricOf(connection, "extra_usage.used") === null) return [];
+  const month = new Date(snapshot.observedAt).toISOString().slice(0, 7);
+  return [
+    {
+      ...base(connection, snapshot.observedAt),
+      id: `${connection.id}:balance_low:prepaid.balance:${month}`,
+      kind: "balance_low",
+      tone: "bad",
+      occurredAt: snapshot.observedAt,
+      subject: { metricKey: "prepaid.balance", label: "Usage Credits", window: null },
+      figures: { amount: { value: 0, unit: "USD" } },
+      title: "Claude Usage Credits Ran Out",
+      message: "Extra usage has nothing left to spend until credits are added.",
+    },
+  ];
+}
+
+/**
+ * Provider-reported credits that lapse soon: the part of the Claude usage-credit balance that expires first, on the
+ * same lead time as banked resets.
+ */
+function usageCreditsExpiring(
+  connection: OverviewConnection,
+  settings: NotificationSettings,
+  now: number,
+): AppNotification[] {
+  const snapshot = connection.snapshot;
+  const metric = metricOf(connection, "prepaid.expiring");
+  const amount = numberOf(metric);
+  const expires = metric?.windowEnd ?? null;
+  if (snapshot === null || amount === null || amount <= 0 || expires === null) return [];
+  const lead = settings.notifications.resetLeadDays * day;
+  if (expires <= now || expires - now > lead) return [];
+  const days = Math.ceil((expires - now) / day);
+  return [
+    {
+      ...base(connection, snapshot.observedAt),
+      id: `${connection.id}:credits_expiring:prepaid.expiring:${expires}`,
+      kind: "credits_expiring",
+      tone: "warn",
+      occurredAt: snapshot.observedAt,
+      subject: { metricKey: "prepaid.expiring", label: "Usage Credits", window: null },
+      figures: { expiresAt: expires, amount: { value: amount, unit: "USD" } },
+      title: `${providerName(connection.provider)} Credits Expire in ${days} ${days === 1 ? "Day" : "Days"}`,
+      message: `${formatUsd(amount)} of usage credits expire ${shortDate(expires)}.`,
+    },
+  ];
+}
+
 function balanceNotifications(
   connection: OverviewConnection,
   settings: NotificationSettings,
 ): AppNotification[] {
   const snapshot = connection.snapshot;
+  if (connection.provider === "claude") return usageCreditsOut(connection);
   if (connection.provider !== "vercel_ai_gateway" || snapshot === null) return [];
   const balance = numberOf(metricOf(connection, "credits.balance"));
   const spent = numberOf(metricOf(connection, "credits.total_used"));
@@ -729,7 +788,10 @@ export function deriveNotifications(
         ...budgetNotifications(connection, settings),
       );
     }
-    if (!muted) found.push(...expiringCreditNotifications(connection, topUps, now));
+    if (!muted) {
+      found.push(...expiringCreditNotifications(connection, topUps, now));
+      found.push(...usageCreditsExpiring(connection, settings, now));
+    }
     found.push(...eventNotifications(connection, settings, now, muted, live));
     found.push(...failureNotifications(connection, muted));
   }

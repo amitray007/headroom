@@ -8,7 +8,7 @@ Code: `packages/view-model/src/notifications.ts` (detection, shared by the web a
 
 | Provider | Limits (Running Low, Almost Out) | Expiring Resets | Balance | Spend | Extra usage | Detected events |
 | --- | --- | --- | --- | --- | --- | --- |
-| Claude | Session, weekly, model-scoped weekly | Reset grants | None | `extra_usage.used` against `extra_usage.monthly_limit`, USD, and the owner's budget | `extra_usage.used` above 0, USD | New reset grant, early reset |
+| Claude | Session, weekly, model-scoped weekly | Reset grants, and usage credits about to lapse (`prepaid.expiring`) | `prepaid.balance` at 0 while extra usage is on | `extra_usage.used` against `extra_usage.monthly_limit`, USD, and the owner's budget | `extra_usage.used` above 0, USD | New reset grant, early reset, usage-credit top-up (`prepaid.balance`, USD) |
 | Codex | Primary and secondary windows | Banked reset credits | None: a credits balance has no known total | None | None | New banked reset, early reset, auto-reset, balance top-up (`credits.balance`) |
 | Cursor | Included usage and pools | None | None | `on_demand.used` against `on_demand.limit`, same scope, USD, and the owner's budget | `on_demand.used` above 0, USD | Early reset |
 | Grok | Weekly pool and product shares | None | None: prepaid has no known total | `on_demand.used` against `on_demand_cap` when the cap is above 0, in `grok_credits`, and the owner's budget | `on_demand.used` above 0, in `grok_credits` | Early reset, balance top-up (`prepaid_balance`) |
@@ -27,17 +27,17 @@ Tone is `bad`, `warn` or `info`. "Left" is the percent of the limit still free. 
 | `running_low` | A percent meter has less than the threshold left | `warn` | `running_low` | `running_low:<metricKey>:<resetsAt>` |
 | `almost_out` | A percent meter has under 10% left | `bad` | `almost_out` | `almost_out:<metricKey>:<resetsAt>` |
 | `reset_expiring` | A usable banked reset expires within `resetLeadDays`. One notice, for the soonest | `info` | `reset_expiring` | `reset_expiring:<creditId>:<expiresAt>` |
-| `balance_low` | Vercel balance is under the threshold of balance plus total used. Under 10% is `bad`. Only when both are reported and the total is above 0 | `warn`, `bad` | `balance_low` | `balance_low:credits.balance:<total>:<tone>` (a top-up changes the total) |
+| `balance_low` | Vercel balance is under the threshold of balance plus total used. Under 10% is `bad`. Only when both are reported and the total is above 0. Claude: `prepaid.balance` is 0 while extra usage is on, `bad`, at most once a calendar month | `warn`, `bad` | `balance_low` | `balance_low:credits.balance:<total>:<tone>` (a top-up changes the total); Claude `balance_low:prepaid.balance:<YYYY-MM>` |
 | `spend_near_cap` | Spend is at least (100 - threshold)% of its cap | `warn` | `spend_near_cap` | `spend_near_cap:<spendKey>:<periodEnd>` |
 | `spend_cap_reached` | Spend is at least 100% of its cap | `bad` | `spend_cap_reached` | `spend_cap_reached:<spendKey>:<periodEnd>` |
 | `extra_usage_started` | Copilot `extra_usage.count`, Cursor or Grok `on_demand.used`, or Claude `extra_usage.used` is above 0 | `info` | `extra_usage_started` | `extra_usage_started:<metricKey>:<periodEnd>` |
 | `budget_near` | Spend on a metric the owner set a budget for is at least (100 - threshold)% of the budget | `warn` | `budget_near` | `budget_near:<metricKey>:<periodEnd>:<amount>` |
 | `budget_exceeded` | Spend is at least the budget | `bad` | `budget_exceeded` | `budget_exceeded:<metricKey>:<periodEnd>:<amount>` |
-| `credits_expiring` | A Wallet top-up has an expiry and an alert, today (UTC) is within `expiryAlertDays` of `expiresOn`, and `expiresOn` has not passed | `warn` | `credits_expiring` | `credits_expiring:<topUpId>:<expiresOn>` |
+| `credits_expiring` | A Wallet top-up has an expiry and an alert, today (UTC) is within `expiryAlertDays` of `expiresOn`, and `expiresOn` has not passed. Claude: the soonest-lapsing usage credits (`prepaid.expiring`) expire within `resetLeadDays` | `warn` | `credits_expiring` | `credits_expiring:<topUpId>:<expiresOn>`; Claude `credits_expiring:prepaid.expiring:<expiresAt>` |
 | `reset_granted` | A `reset_granted` event from the last 72 hours | `info` | `reset_granted` | `reset_granted:<eventId>` |
 | `early_reset` | An `early_reset` event from the last 72 hours. `includeSessions` off skips windows of 5 hours or less. With `bankedUsed`, the message adds that a banked reset was used outside Headroom | `info` | `early_reset` | `early_reset:<eventId>` |
 | `auto_reset` | An `auto_reset` event from the last 72 hours | `info` when succeeded, `warn` when failed or `uncertain` | `auto_reset` | `auto_reset:<eventId>` |
-| `top_up_detected` | A `top_up_detected` event from the last 72 hours | `info` | `top_up_detected` | `top_up_detected:<eventId>` |
+| `top_up_detected` | A `top_up_detected` event from the last 72 hours. A Claude usage-credit rise is in USD and adds no Wallet top-up, because the Wallet counts credits | `info` | `top_up_detected` | `top_up_detected:<eventId>` |
 | `refresh_failed` | Two or more refreshes in a row failed (`latestRun.failureStreak`), state is not paused | `warn` | `refresh_failed` | `refresh_failed::<lastSuccessAt>` |
 | `disconnected` | Connection state is `reconnect_required` | `bad` | `disconnected` | `disconnected:<reconnectReason>:<lastSuccessAt>` |
 

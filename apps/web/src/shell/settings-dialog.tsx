@@ -16,6 +16,7 @@ import { AutomationsTab } from "./automations-tab.tsx";
 import { ChannelsTab } from "./delivery/tab.tsx";
 import { ExchangeRatesSection } from "./exchange-rates-section.tsx";
 import { ProviderCards } from "./provider-cards.tsx";
+import { ProvidersTab } from "./providers-tab.tsx";
 import { Body, Section, SwitchRow, WaitingContext } from "./settings-rows.tsx";
 
 function ChoiceRow<T extends string>(props: {
@@ -81,6 +82,7 @@ const retentions = [30, 90, 180, 365] as const;
 
 const tabs = [
   { value: "general", label: "General" },
+  { value: "providers", label: "Providers" },
   { value: "notifications", label: "Notifications" },
   { value: "automations", label: "Automations" },
   { value: "channels", label: "Channels" },
@@ -208,7 +210,7 @@ const kindGroups: readonly {
       {
         kind: "balance_low",
         title: "Balance Low",
-        note: "When a credit balance is running low.",
+        note: "When a credit balance runs low, or Claude usage credits run out.",
       },
       {
         kind: "top_up_detected",
@@ -218,7 +220,7 @@ const kindGroups: readonly {
       {
         kind: "credits_expiring",
         title: "Credits Expiring",
-        note: "Before credits in your Wallet expire.",
+        note: "Before Wallet or Claude usage credits expire.",
       },
     ],
   },
@@ -322,7 +324,7 @@ function Notifications(props: {
         })}
         <NumberRow
           title="Reset Warning"
-          note="How early to warn before a banked reset expires."
+          note="How early to warn before a banked reset or Claude credits expire."
           value={on.resetLeadDays}
           values={leadDays}
           format={(value) => `${value} ${value === 1 ? "Day" : "Days"}`}
@@ -442,6 +444,9 @@ export function SettingsDialog(props: {
             )}
             <SlideSwap swapKey={tab} direction={direction}>
               {tab === "general" ? <General change={change} /> : null}
+              {tab === "providers" ? (
+                <ProvidersTab providers={props.providers} change={change} />
+              ) : null}
               {tab === "notifications" ? (
                 <Notifications change={change} providers={props.providers} />
               ) : null}

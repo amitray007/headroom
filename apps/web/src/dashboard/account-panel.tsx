@@ -14,7 +14,7 @@ import { useDevicePrefs } from "../lib/device-prefs.ts";
 import { useNow } from "../lib/now.ts";
 import { autoResetSummary } from "@headroom/view-model/automation";
 import { presentPanel } from "@headroom/view-model/present";
-import { useSettings } from "../lib/settings.tsx";
+import { usePanelDisplay, useSettings } from "../lib/settings.tsx";
 import { When } from "../lib/when.tsx";
 import { ActionButton } from "../ui/action-button.tsx";
 import { resetOutcome, resetOutcomeOfError } from "../ui/action-state.ts";
@@ -70,7 +70,7 @@ export function AccountPanel(props: {
   const { demo } = useDevicePrefs();
   const status = statusOf(connection);
   const now = useNow();
-  const model = presentPanel(connection, now);
+  const model = presentPanel(connection, now, usePanelDisplay(connection.provider));
   const disconnected = connection.state === "reconnect_required";
   const paused = connection.state === "paused";
   const waiting = awaitingFirstRefresh(connection);

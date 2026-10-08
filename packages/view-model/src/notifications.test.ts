@@ -400,6 +400,86 @@ describe("balance_low", () => {
   });
 });
 
+const usageCredits = (
+  balance: number,
+  options: { extraUsage?: boolean; expiring?: [number, number] } = {},
+) =>
+  connection("claude", {
+    id: "cu",
+    metrics: [
+      metric("prepaid.balance", {
+        kind: "currency_balance",
+        unit: "USD",
+        scope: "account",
+        valueNum: balance,
+        valueText: balance.toFixed(2),
+      }),
+      ...(options.extraUsage === true
+        ? [
+            metric("extra_usage.used", {
+              kind: "spend",
+              unit: "USD",
+              scope: "month",
+              valueNum: 0,
+              valueText: "0",
+            }),
+          ]
+        : []),
+      ...(options.expiring === undefined
+        ? []
+        : [
+            metric("prepaid.expiring", {
+              kind: "currency_balance",
+              unit: "USD",
+              scope: "account",
+              valueNum: options.expiring[0],
+              valueText: options.expiring[0].toFixed(2),
+              windowEnd: options.expiring[1],
+            }),
+          ]),
+    ],
+  });
+const ofKind = (kind: string, ...conns: ReturnType<typeof usageCredits>[]) =>
+  deriveNotifications(conns, defaultSettings, now).filter((item) => item.kind === kind);
+
+describe("Claude usage credits", () => {
+  test("ran out: bad while extra usage is on, quiet otherwise", () => {
+    const [out] = ofKind("balance_low", usageCredits(0, { extraUsage: true }));
+    expect(out).toEqual(
+      expect.objectContaining({
+        tone: "bad",
+        title: "Claude Usage Credits Ran Out",
+        message: "Extra usage has nothing left to spend until credits are added.",
+        figures: { amount: { value: 0, unit: "USD" } },
+      }),
+    );
+    expect(ofKind("balance_low", usageCredits(0))).toEqual([]);
+    expect(ofKind("balance_low", usageCredits(4, { extraUsage: true }))).toEqual([]);
+  });
+
+  test("expiring: within the reset lead days, with the amount and the date", () => {
+    const soon = now + 2 * 86_400_000;
+    const [notice] = ofKind("credits_expiring", usageCredits(25, { expiring: [10, soon] }));
+    expect(notice).toEqual(
+      expect.objectContaining({
+        tone: "warn",
+        title: "Claude Credits Expire in 2 Days",
+        figures: { expiresAt: soon, amount: { value: 10, unit: "USD" } },
+      }),
+    );
+    expect(notice?.message).toMatch(/^\$10\.00 of usage credits expire [A-Z][a-z]{2} \d+\.$/);
+    const later = now + 9 * 86_400_000;
+    expect(ofKind("credits_expiring", usageCredits(25, { expiring: [10, later] }))).toEqual([]);
+    expect(ofKind("credits_expiring", usageCredits(25, { expiring: [10, now - 1] }))).toEqual([]);
+    const muted = withNotifications({ mutedProviders: ["claude"] });
+    expect(
+      deriveNotifications([usageCredits(25, { expiring: [10, soon] })], muted, now).filter(
+        (item) => item.kind === "credits_expiring",
+      ),
+    ).toEqual([]);
+  });
+});
+
 const usd = (key: string, value: number, over: Partial<Metric> = {}) =>
   metric(key, {
     kind: key.endsWith("limit") ? "spending_cap" : "spend",

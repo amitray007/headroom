@@ -171,6 +171,15 @@ const balanceMetric = (value: string): CollectResult["metrics"][number] => ({
   availability: "available",
   interface: "private",
 });
+const usdBalance = (value: string): CollectResult["metrics"][number] => ({
+  providerMetricKey: "prepaid.balance",
+  kind: "currency_balance",
+  scope: "account",
+  valueText: value,
+  unit: "USD",
+  availability: "available",
+  interface: "private",
+});
 const inventoryMetric = (n: number): CollectResult["metrics"][number] => ({
   providerMetricKey: "reset_credits.available_count",
   kind: "reset_inventory",
@@ -258,6 +267,31 @@ describe("account events from collection", () => {
     const outcome = await h.read(reading(base + 1000, [weekly(1, base + 3 * day)]));
     expect(outcome).toEqual({ status: "collected", outcome: "succeeded" });
     expect(h.snapshots.latest(h.connection.id)?.snapshot.observedAt.getTime()).toBe(base + 1000);
+  });
+
+  test("a Claude usage-credit rise is an event in USD with no Wallet row", async () => {
+    const h = setup();
+    await h.read(reading(base, [], [], [usdBalance("5.00")]));
+    const observer = new AccountEventService({
+      events: h.events,
+      wallet: h.wallet,
+      actions: h.actionRows,
+    });
+    observer.observe({
+      connectionId: h.connection.id,
+      provider: "claude",
+      previous: h.snapshots.latest(h.connection.id),
+      result: reading(base + 1000, [], [], [usdBalance("25.00")]),
+    });
+    expect(h.events.recent(new Date(0))[0]?.detail).toEqual({
+      kind: "top_up_detected",
+      unit: "USD",
+      previous: 5,
+      current: 25,
+      added: 20,
+      topUpId: null,
+    });
+    expect(h.wallet.book().topUps).toEqual([]);
   });
 
   test("a failing Wallet insert still records the event with no top-up id", async () => {

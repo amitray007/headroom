@@ -17,6 +17,7 @@ export {
   kindSwitches,
   settingsSchema,
   type KindSwitches,
+  type ProviderPrefs,
   type Settings,
 } from "./settings-schema.ts";
 export {

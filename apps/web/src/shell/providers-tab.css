@@ -1,0 +1,6 @@
+/* Providers tab: display choices per provider. */
+.prov-empty {
+  margin: 0;
+  padding: 10px 0;
+  font-size: var(--text-sm);
+}

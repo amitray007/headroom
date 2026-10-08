@@ -54,8 +54,12 @@ const earlyResetMinDrop = 10;
 const earlyResetMinAwayMs = 10 * 60_000;
 const topUpMinimum = 0.01;
 
-/** Credit balance keys per provider. Vercel also has a total used, which makes the granted total. */
+/**
+ * Balance keys per provider. Vercel also has a total used, which makes the granted total. Claude's is a USD
+ * usage-credit balance: a purchase, an auto-reload or a promotional grant raises it.
+ */
 const balanceKeys: Partial<Record<Provider, { balance: string; totalUsed?: string }>> = {
+  claude: { balance: "prepaid.balance" },
   codex: { balance: "credits.balance" },
   grok: { balance: "prepaid_balance" },
   vercel_ai_gateway: { balance: "credits.balance", totalUsed: "credits.total_used" },

@@ -149,25 +149,17 @@ describe("claude", () => {
       ["Usage Credits", null, 25, "$10.00 expires Nov 4"],
     ]);
     expect(withExpiry.facts).toEqual([]);
-    // An empty pool says nothing unless extra usage is on, where a zero balance matters.
-    expect(amounts(presentPanel(connection("claude", { metrics: [balance(0)] })).cells)).toEqual(
-      [],
-    );
-    const spend = metric("extra_usage.used", {
-      kind: "spend",
-      unit: "USD",
-      scope: "month",
-      valueText: "1.00",
-      valueNum: 1,
-    });
+    // A zero balance shows by default, and hides only when the owner chose so for the provider.
+    const empty = connection("claude", { metrics: [balance(0)] });
+    expect(amounts(presentPanel(empty).cells)).toEqual([["Usage Credits", null, 0, null]]);
+    expect(amounts(presentPanel(empty, undefined, { hideZeroBalance: true }).cells)).toEqual([]);
     expect(
-      amounts(presentPanel(connection("claude", { metrics: [spend, balance(0)] })).cells).map(
-        (row) => [row[0], row[2]],
+      amounts(
+        presentPanel(connection("claude", { metrics: [balance(3)] }), undefined, {
+          hideZeroBalance: true,
+        }).cells,
       ),
-    ).toEqual([
-      ["Extra Usage", 1],
-      ["Usage Credits", 0],
-    ]);
+    ).toEqual([["Usage Credits", null, 3, null]]);
     const unknown = presentPanel(
       connection("claude", {
         metrics: [metric("prepaid.balance", { ...money, availability: "temporarily_unavailable" })],

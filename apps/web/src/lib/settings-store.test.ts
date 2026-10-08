@@ -44,6 +44,17 @@ describe("applyPatch", () => {
   });
 });
 
+describe("providers", () => {
+  test("a patch for one provider keeps the others", () => {
+    const first = applyPatch(defaultSettings, { providers: { claude: { hideZeroBalance: true } } });
+    const next = applyPatch(first, { providers: { codex: { hideZeroBalance: true } } });
+    expect(next.providers).toEqual({
+      claude: { hideZeroBalance: true },
+      codex: { hideZeroBalance: true },
+    });
+  });
+});
+
 describe("defaults", () => {
   test("match the backend", () => {
     expect(defaultSettings).toEqual({
@@ -57,6 +68,7 @@ describe("defaults", () => {
       keepInactiveLast: true,
       historyRetentionDays: 90,
       accountActions: false,
+      providers: {},
       walletCurrency: null,
       notifications: {
         kinds: kindSwitches(true),

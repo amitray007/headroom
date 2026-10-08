@@ -22,6 +22,13 @@ const historyRetentionDays = z.union([
   z.literal(365),
 ]);
 
+/** Display choices for one provider's accounts. The Providers tab shows a choice only where it applies. */
+const providerPrefsSchema = z.object({
+  /** Hide the balance figure while it is exactly zero; it shows again once above zero. Default shown. */
+  hideZeroBalance: z.boolean(),
+});
+export type ProviderPrefs = z.infer<typeof providerPrefsSchema>;
+
 /** One boolean per notification kind. Zod checks that every kind is present. */
 const kindSwitchesSchema = z.record(notificationKindSchema, z.boolean());
 export type KindSwitches = z.infer<typeof kindSwitchesSchema>;
@@ -51,6 +58,8 @@ export const settingsSchema = z.object({
   historyRetentionDays,
   /** The owner's half of the account-actions gate; the server flag is the other half. */
   accountActions: z.boolean(),
+  /** Per-provider display choices. A provider with no entry uses the defaults. */
+  providers: z.partialRecord(providerSchema, providerPrefsSchema),
   notifications: z.object({
     /** One switch per notification kind. Every kind goes to the bell and to each enabled channel. */
     kinds: kindSwitchesSchema,

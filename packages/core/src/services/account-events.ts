@@ -48,7 +48,8 @@ export class AccountEventService {
     });
     for (const draft of drafts) {
       let { detail } = draft;
-      if (detail.kind === "top_up_detected") {
+      // The Wallet records credits; a money balance (Claude, in USD) keeps the event without a Wallet entry.
+      if (detail.kind === "top_up_detected" && detail.unit !== "USD") {
         let topUpId: string | null = null;
         try {
           topUpId = this.deps.wallet.addTopUp(

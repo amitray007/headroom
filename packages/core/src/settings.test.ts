@@ -24,6 +24,7 @@ describe("settings", () => {
       walletCurrency: null,
       historyRetentionDays: 90,
       accountActions: false,
+      providers: {},
       notifications: {
         kinds: kindSwitches(true),
         includeSessions: true,
@@ -35,6 +36,20 @@ describe("settings", () => {
     expect(nearestRefreshMinutes(600)).toBe(10);
     expect(nearestRefreshMinutes(1500)).toBe(30);
     expect(nearestRefreshMinutes(86_400)).toBe(30);
+  });
+
+  test("provider display choices keep valid entries and drop an invalid document", () => {
+    const defaults = defaultSettings(900);
+    expect(mergeSettings({}, defaults).providers).toEqual({});
+    expect(
+      mergeSettings({ providers: { claude: { hideZeroBalance: true } } }, defaults).providers,
+    ).toEqual({ claude: { hideZeroBalance: true } });
+    expect(
+      mergeSettings({ providers: { claude: { hideZeroBalance: "yes" } } }, defaults).providers,
+    ).toEqual({});
+    expect(
+      mergeSettings({ providers: { nobody: { hideZeroBalance: true } } }, defaults).providers,
+    ).toEqual({});
   });
 
   test("walletCurrency is null when missing or invalid and kept when valid", () => {

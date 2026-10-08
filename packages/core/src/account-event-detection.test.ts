@@ -295,6 +295,14 @@ describe("early_reset", () => {
   });
 });
 
+const usdBalance = (value: number) =>
+  metric({
+    providerMetricKey: "prepaid.balance",
+    kind: "currency_balance",
+    unit: "USD",
+    valueNum: value,
+  });
+
 describe("top_up_detected", () => {
   test("Codex: a rise of 1000 credits fires", () => {
     const events = detect({
@@ -329,6 +337,35 @@ describe("top_up_detected", () => {
         provider: "grok",
         previous: reading([balance("prepaid_balance", 25, "grok_credits")]),
         current: reading([balance("prepaid_balance", 5, "grok_credits")]),
+      }),
+    ).toEqual([]);
+  });
+
+  test("Claude usage credits in USD fire on a rise, not on spend", () => {
+    expect(
+      detect({
+        provider: "claude",
+        previous: reading([usdBalance(5)]),
+        current: reading([usdBalance(15)]),
+      }),
+    ).toEqual([
+      {
+        metricKey: "prepaid.balance",
+        detail: {
+          kind: "top_up_detected",
+          unit: "USD",
+          previous: 5,
+          current: 15,
+          added: 10,
+          topUpId: null,
+        },
+      },
+    ]);
+    expect(
+      detect({
+        provider: "claude",
+        previous: reading([usdBalance(15)]),
+        current: reading([usdBalance(4)]),
       }),
     ).toEqual([]);
   });

@@ -8,6 +8,9 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 
+import type { Provider } from "@headroom/core/contracts";
+import type { PanelDisplay } from "@headroom/view-model/present";
+
 import { api } from "../api.ts";
 import { applyDensity, browserStorage, saveDensity } from "./device-prefs.ts";
 import {
@@ -41,6 +44,12 @@ export const SettingsContext = createContext<SettingsValue>(fallback);
 /** Settings and update helper. Without a provider it returns the defaults. */
 export function useSettings(): SettingsValue {
   return useContext(SettingsContext);
+}
+
+/** The owner's display choices for one provider's panels (Settings, Providers). */
+export function usePanelDisplay(provider: Provider): PanelDisplay {
+  const { settings } = useSettings();
+  return { hideZeroBalance: settings.providers[provider]?.hideZeroBalance === true };
 }
 
 interface ProviderProps {
