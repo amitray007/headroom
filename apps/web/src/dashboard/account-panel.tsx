@@ -11,6 +11,7 @@ import {
   statusOf,
 } from "@headroom/view-model/labels";
 import { useDevicePrefs } from "../lib/device-prefs.ts";
+import { isDemoSite } from "../lib/site.ts";
 import { useNow } from "../lib/now.ts";
 import { autoResetSummary } from "@headroom/view-model/automation";
 import { presentPanel } from "@headroom/view-model/present";
@@ -200,7 +201,9 @@ export function AccountPanel(props: {
                     settleKey={connection.lastSuccessAt}
                     // Follows the Settings switch directly; the server refuses the action whenever the saved setting is off.
                     off={!actionsEnabled}
-                    {...(demo ? { failedLabel: "Turn Off Demo Mode to Reset" } : {})}
+                    {...(demo
+                      ? { failedLabel: isDemoSite ? "Demo Only" : "Turn Off Demo Mode to Reset" }
+                      : {})}
                     onConfirm={async () => {
                       try {
                         const outcome = await api.consumeResetCredit(connection.id, hold.creditId);

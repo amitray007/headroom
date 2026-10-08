@@ -16,6 +16,11 @@ import "./styles/states.css";
 import "./styles/buttons.css";
 import "./styles/controls.css";
 
+// The static demo site answers /api/ in the page, so it is installed before anything asks. A normal build drops this.
+// The test is written out here, not imported, so the bundler can drop the dynamic import with its chunk.
+const demoSite = import.meta.env.MODE === "demo" ? await import("./demo-site/index.ts") : null;
+demoSite?.installDemoSite();
+
 // Appearance, Privacy Mode, Demo Mode and density are on the page before the first render, so nothing flashes.
 const storage = browserStorage();
 applyStoredPrefs(document.documentElement, storage);
@@ -43,6 +48,7 @@ if (root === null) throw new Error("Missing #root element");
 createRoot(root).render(
   <StrictMode>
     <ErrorBoundary>
+      {demoSite === null ? null : <demoSite.DemoBanner />}
       <App />
     </ErrorBoundary>
   </StrictMode>,

@@ -27,7 +27,8 @@
     "db:generate": "drizzle-kit generate",
     "auth:generate": "cd packages/core && bunx auth@1.7.7 generate --config auth-schema.config.ts --output src/db/auth-schema.ts --yes",
     "web:dev": "bun run --cwd apps/web dev",
-    "web:build": "bun run --cwd apps/web build"
+    "web:build": "bun run --cwd apps/web build",
+    "web:build:demo": "bun run --cwd apps/web build --mode demo"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",

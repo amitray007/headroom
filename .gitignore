@@ -19,7 +19,10 @@ __pycache__/
 *.pyc
 node_modules/
 dist/
+apps/web/dist-demo/
+design/landing/demo/
 coverage/
 # Build and tooling
 *.tsbuildinfo
 .mise.local.toml
+design/landing/renders/

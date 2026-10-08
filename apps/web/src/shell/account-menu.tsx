@@ -1,4 +1,5 @@
 import { authClient } from "../auth.ts";
+import { isDemoSite } from "../lib/site.ts";
 import { Avatar, GearIcon, SignOutIcon, UserIcon } from "../icons.tsx";
 import { useDevicePrefs } from "../lib/device-prefs.ts";
 import { Menu, MenuBlock, MenuItem, MenuSeparator, MenuWho } from "../ui/menu.tsx";
@@ -43,10 +44,14 @@ export function AccountMenu(props: {
       <MenuItem icon={<UserIcon />} onSelect={props.onAccount}>
         Account
       </MenuItem>
-      <MenuSeparator />
-      <MenuItem icon={<SignOutIcon />} danger onSelect={() => void authClient.signOut()}>
-        Sign Out
-      </MenuItem>
+      {isDemoSite ? null : (
+        <>
+          <MenuSeparator />
+          <MenuItem icon={<SignOutIcon />} danger onSelect={() => void authClient.signOut()}>
+            Sign Out
+          </MenuItem>
+        </>
+      )}
     </Menu>
   );
 }

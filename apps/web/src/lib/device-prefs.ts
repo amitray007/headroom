@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 import { views, type ViewId } from "../router.ts";
+import { isDemoSite } from "./site.ts";
 
 /** Preferences that belong to this browser, not to the owner's server settings. */
 
@@ -35,12 +36,14 @@ export function readAppearance(storage: ReadableStorage): Appearance {
 
 /** Privacy Mode is on unless the owner switched it off. */
 export function readPrivacy(storage: ReadableStorage): boolean {
+  // The demo site's identities are made up, so it starts with them visible.
+  if (isDemoSite) return storage.getItem(privacyKey) === "1";
   return storage.getItem(privacyKey) !== "0";
 }
 
-/** Demo Mode is off unless the owner switched it on. */
+/** Demo Mode is off unless the owner switched it on. The demo site is always on. */
 export function readDemo(storage: ReadableStorage): boolean {
-  return storage.getItem(demoKey) === "1";
+  return isDemoSite || storage.getItem(demoKey) === "1";
 }
 
 export function applyAppearance(root: PrefsRoot, appearance: Appearance): void {
@@ -123,8 +126,8 @@ export function applyStoredPrefs(
   storage: ReadableStorage | null,
 ): void {
   if (storage === null) {
-    applyPrivacy(root, true);
-    applyDemo(root, false);
+    applyPrivacy(root, !isDemoSite);
+    applyDemo(root, isDemoSite);
     return;
   }
   const demo = readDemo(storage);
@@ -171,10 +174,10 @@ interface DevicePrefsEnv {
 export function createDevicePrefsStore(env: DevicePrefsEnv): DevicePrefsStore {
   const { storage, root } = env;
   const newSeed = (): number => Math.floor(env.random() * 0x1_0000_0000);
-  const demo = storage !== null && readDemo(storage);
+  const demo = isDemoSite || (storage !== null && readDemo(storage));
   let state: DevicePrefsState = {
     appearance: storage === null ? "system" : readAppearance(storage),
-    privacy: storage === null ? true : readPrivacy(storage),
+    privacy: storage === null ? !isDemoSite : readPrivacy(storage),
     demo,
     demoSeed: newSeed(),
     demoAnchor: env.now(),
@@ -204,7 +207,8 @@ export function createDevicePrefsStore(env: DevicePrefsEnv): DevicePrefsStore {
       commit({ ...state, privacy: on });
     },
     setDemo(on) {
-      if (on === state.demo) return;
+      // The demo site cannot leave Demo Mode.
+      if (on === state.demo || isDemoSite) return;
       if (storage !== null) saveDemo(storage, on);
       commit(
         on

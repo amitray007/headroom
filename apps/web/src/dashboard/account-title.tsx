@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { api, isDemoRefusal } from "../api.ts";
+import { api, demoRefusal, isDemoRefusal } from "../api.ts";
 import { AlertIcon, CheckIcon, PencilIcon } from "../icons.tsx";
 
 const maxName = 40;
@@ -114,7 +114,7 @@ export function AccountTitle(props: {
           </output>
         ) : null}
         {refused ? (
-          <output className="saved refused" title="Turn off Demo Mode to change accounts.">
+          <output className="saved refused" title={demoRefusal}>
             <AlertIcon /> Demo Mode
           </output>
         ) : null}

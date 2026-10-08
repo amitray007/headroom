@@ -4,6 +4,7 @@ import { api } from "../api.ts";
 import { CheckIcon, PauseIcon, PlayIcon, RetryIcon } from "../icons.tsx";
 import { connectionBusyMessage, isConnectionBusy } from "../lib/connection-busy.ts";
 import { useDevicePrefs } from "../lib/device-prefs.ts";
+import { isDemoSite } from "../lib/site.ts";
 import { ActionButton } from "../ui/action-button.tsx";
 import { Button } from "../ui/button.tsx";
 import { Spinner } from "../ui/spinner.tsx";
@@ -164,7 +165,11 @@ export function PanelActions(props: {
                   <CheckIcon /> Disconnected
                 </>
               ) : demo ? (
-                "Turn Off Demo Mode"
+                isDemoSite ? (
+                  "Demo Only"
+                ) : (
+                  "Turn Off Demo Mode"
+                )
               ) : busy ? (
                 // The pill is one short line, so the full note is the hover text and the spoken text.
                 <span title={connectionBusyMessage}>

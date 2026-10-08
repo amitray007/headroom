@@ -4,6 +4,7 @@ import type { NotificationKind, Provider } from "@headroom/core/contracts";
 import type { OverviewConnection } from "@headroom/view-model/overview";
 
 import { useDevicePrefs } from "../lib/device-prefs.ts";
+import { isDemoSite } from "../lib/site.ts";
 import { useSettings } from "../lib/settings.tsx";
 import type { SettingsPatch } from "../lib/settings-store.ts";
 import { Dialog } from "../ui/dialog.tsx";
@@ -185,13 +186,15 @@ function Privacy() {
         checked={prefs.privacy}
         onChange={prefs.setPrivacy}
       />
-      <SwitchRow
-        device
-        title="Demo Mode"
-        note="Show made-up accounts, figures and notifications, for screenshots and screen sharing. Saved on this device."
-        checked={prefs.demo}
-        onChange={prefs.setDemo}
-      />
+      {isDemoSite ? null : (
+        <SwitchRow
+          device
+          title="Demo Mode"
+          note="Show made-up accounts, figures and notifications, for screenshots and screen sharing. Saved on this device."
+          checked={prefs.demo}
+          onChange={prefs.setDemo}
+        />
+      )}
     </Section>
   );
 }

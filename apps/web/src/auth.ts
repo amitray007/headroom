@@ -6,6 +6,9 @@ export const authClient = createAuthClient({
   baseURL: window.location.origin,
   basePath: "/api/auth",
   plugins: [usernameClient(), passkeyClient()],
+  // Look up `fetch` on every call. The client otherwise keeps the one that existed when it was made, and the demo
+  // site replaces `window.fetch` after that.
+  fetchOptions: { customFetchImpl: (input, init) => fetch(input, init) },
 });
 
 interface AuthFailure {

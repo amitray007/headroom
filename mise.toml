@@ -58,3 +58,7 @@ run = "bun scripts/smoke.ts"
 [tasks.docker]
 description = "Build the container image locally"
 run = "docker build -t headroom:dev ."
+
+[tasks."demo:build"]
+description = "Build the static demo site (synthetic data, no server) into apps/web/dist-demo"
+run = "bun run web:build:demo"

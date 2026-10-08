@@ -23,6 +23,7 @@ import { DetailedSkeleton } from "./views/detailed/skeleton.tsx";
 import { TimelineSkeleton } from "./views/timeline/skeleton.tsx";
 import { WalletSkeleton } from "./views/wallet/skeleton.tsx";
 import { lazyNamed } from "./lib/lazy-named.ts";
+import { demoReadyEvent, isDemoSite } from "./lib/site.ts";
 import { SettingsProvider } from "./lib/settings.tsx";
 import { useWallet } from "./lib/wallet-store.ts";
 import { groupByProvider } from "@headroom/view-model/labels";
@@ -80,6 +81,11 @@ function SignedIn(props: { readonly name: string }) {
     () => (wallet.loaded ? expiringTopUps(wallet.book.topUps) : null),
     [wallet.loaded, wallet.book.topUps],
   );
+  // The demo site's page around the iframe waits for this before it shows the frame.
+  const rendered = connections !== null;
+  useEffect(() => {
+    if (isDemoSite && rendered) window.dispatchEvent(new Event(demoReadyEvent));
+  }, [rendered]);
   const notifications = useNotifications(
     connections,
     overview.failed,

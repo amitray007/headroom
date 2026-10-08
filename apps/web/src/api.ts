@@ -34,6 +34,7 @@ import type { Cost, TopUp, WalletBook } from "@headroom/view-model/wallet";
 import { z } from "zod";
 
 import { devicePrefs } from "./lib/device-prefs.ts";
+import { isDemoSite } from "./lib/site.ts";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -48,7 +49,9 @@ export class ApiError extends Error {
 }
 
 /** What a refused account change says. Callers that show `message` show this. */
-export const demoRefusal = "Turn off Demo Mode to change accounts.";
+export const demoRefusal = isDemoSite
+  ? "This is a demo. Deploy your own Headroom to connect accounts."
+  : "Turn off Demo Mode to change accounts.";
 
 /** Every id the demo generator makes starts with this. */
 export function isDemoId(id: string): boolean {
