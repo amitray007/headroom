@@ -105,6 +105,15 @@ const grant = (over: Record<string, unknown>) => ({
   ...over,
 });
 
+async function collectCloud(block: unknown) {
+  const connector = createClaudeConnector({
+    runner: new FakeRunner(),
+    fetch: fakeFetch({ [usageUrl]: () => json({ ...usageMinimal, iguana_necktie: block }) }).fetch,
+  });
+  const result = await connector.collect(credentialFromCredentialsFile(credentialsFile), identity);
+  return Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+}
+
 describe("Claude connector", () => {
   test("parses the authorization URL and normalizes pasted codes and redirect URLs", () => {
     expect(parseAuthorizeUrl(cliOutput)).toContain(
@@ -268,6 +277,51 @@ describe("Claude connector", () => {
     expect(byKey["seven_day"]).toMatchObject({ valueText: "0", availability: "available" });
     expect(Object.keys(byKey)).not.toContain("extra_usage.used");
     expect(byKey["reset_grants.available"]).toBeUndefined();
+  });
+
+  describe("cloud credits", () => {
+    test("the live dollar shape of 2026-10-08 gives what is left, the allowance and the expiry", async () => {
+      const byKey = await collectCloud({
+        utilization: 12,
+        resets_at: "2026-11-05T07:59:00+00:00",
+        limit_dollars: 250,
+        used_dollars: 30,
+        remaining_dollars: 220,
+        locked_reason: null,
+      });
+      const expiry = Date.parse("2026-11-05T07:59:00Z");
+      expect(byKey["cloud_credits.remaining"]).toMatchObject({
+        kind: "currency_balance",
+        valueText: "220.00",
+        unit: "USD",
+        windowEnd: expiry,
+        availability: "available",
+      });
+      expect(byKey["cloud_credits.limit"]).toMatchObject({
+        valueText: "250.00",
+        windowEnd: expiry,
+      });
+    });
+
+    test("without remaining_dollars, what is left comes from the allowance and the spend", async () => {
+      const byKey = await collectCloud({ limit_dollars: 250, used_dollars: 260 });
+      expect(byKey["cloud_credits.remaining"]).toMatchObject({ valueText: "0.00" });
+      const unknown = await collectCloud({ limit_dollars: 250 });
+      expect(unknown["cloud_credits.remaining"]).toMatchObject({
+        valueText: null,
+        availability: "unknown",
+      });
+    });
+
+    test("null, the old percent window, or a strange shape gives nothing and never fails the read", async () => {
+      const results = await Promise.all(
+        [null, { utilization: 40, resets_at: null }, "credit"].map(collectCloud),
+      );
+      for (const byKey of results) {
+        expect(byKey["cloud_credits.remaining"]).toBeUndefined();
+        expect(byKey["seven_day"]).toMatchObject({ availability: "available" });
+      }
+    });
   });
 
   describe("usage-credit balance", () => {

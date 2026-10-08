@@ -167,6 +167,65 @@ describe("claude", () => {
     );
     expect(amounts(unknown.cells)).toEqual([["Usage Credits", null, null, null]]);
   });
+  test("cloud credits are a figure on a bar of the allowance, with the expiry beneath", () => {
+    const money = { kind: "currency_balance", unit: "USD", scope: "account" } as const;
+    const expiry = new Date(2025, 10, 5).getTime();
+    const cloud = (left: number) =>
+      connection("claude", {
+        metrics: [
+          metric("cloud_credits.remaining", {
+            ...money,
+            valueText: left.toFixed(2),
+            valueNum: left,
+            windowEnd: expiry,
+          }),
+          metric("cloud_credits.limit", {
+            ...money,
+            valueText: "250.00",
+            valueNum: 250,
+            windowEnd: expiry,
+          }),
+        ],
+      });
+    const cell = presentPanel(cloud(220)).cells.find((c) => c.kind === "amount");
+    expect(cell).toMatchObject({
+      label: "Cloud Credits",
+      value: 220,
+      unit: "usd",
+      of: "250.00",
+      note: "of $250.00 · expires Nov 5",
+    });
+    expect(amounts(presentPanel(cloud(0)).cells)).toHaveLength(1);
+    expect(amounts(presentPanel(cloud(0), undefined, { hideZeroBalance: true }).cells)).toEqual([]);
+  });
+  test("hide at zero is one rule for every balance, never for spend or an unread balance", () => {
+    const money = { kind: "currency_balance", unit: "USD", scope: "account" } as const;
+    const zero = (key: string) => metric(key, { ...money, valueText: "0.00", valueNum: 0 });
+    const claudeZero = connection("claude", {
+      metrics: [
+        metric("extra_usage.used", {
+          kind: "spend",
+          unit: "USD",
+          scope: "month",
+          valueText: "0.00",
+          valueNum: 0,
+        }),
+        zero("prepaid.balance"),
+        zero("cloud_credits.remaining"),
+        metric("cloud_credits.limit", { ...money, valueText: "250.00", valueNum: 250 }),
+      ],
+    });
+    expect(amounts(presentPanel(claudeZero).cells).map((row) => row[0])).toEqual([
+      "Extra Usage",
+      "Usage Credits",
+      "Cloud Credits",
+    ]);
+    expect(
+      amounts(presentPanel(claudeZero, undefined, { hideZeroBalance: true }).cells).map(
+        (row) => row[0],
+      ),
+    ).toEqual(["Extra Usage"]);
+  });
   test("a missing bucket is absent, an unknown one is a cell without a number", () => {
     const unknown = presentPanel(
       connection("claude", {
@@ -549,6 +608,7 @@ describe("vercel", () => {
         decimals: 2,
         of: "5.00",
         note: "0.01 used of 5.00",
+        balance: true,
       },
       {
         kind: "amount",
@@ -561,6 +621,7 @@ describe("vercel", () => {
         decimals: 2,
         of: null,
         note: "On this gateway key",
+        balance: false,
       },
     ]);
     expect(panel.balance).toEqual({ label: "Credit Balance", value: 4.99, unit: "credits" });

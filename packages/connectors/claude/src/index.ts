@@ -38,6 +38,7 @@ import {
 } from "./endpoints.ts";
 import {
   claudeCredentialSchema,
+  cloudCreditsSchema,
   credentialsFileSchema,
   prepaidCreditsSchema,
   profileSchema,
@@ -47,7 +48,7 @@ import {
   type UsageResponse,
 } from "./schemas.ts";
 
-export const claudeConnectorVersion = "0.2.0";
+export const claudeConnectorVersion = "0.3.0";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -253,6 +254,12 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
           ...validated,
           reason:
             "claude.ai usage credits, promotional included; not the Console API credits. The tranche shape is source-inspected",
+        },
+        {
+          metricOrAction: "cloud_credits",
+          availability: "available",
+          ...validated,
+          reason: "promotional cloud-session credit in dollars, while the account has a grant",
         },
         {
           metricOrAction: "reset_grants",
@@ -476,7 +483,45 @@ function metricsFrom(
       interface: "private",
     });
   }
+  metrics.push(...cloudCreditMetrics(usage.iguana_necktie));
   return { metrics, resetCredits };
+}
+
+/**
+ * Promotional cloud-session credit: what is left, and the allowance it came with. The expiry rides on the remaining
+ * figure. A block without dollar fields is not credit and gives nothing.
+ */
+function cloudCreditMetrics(block: unknown): MetricObservation[] {
+  const parsed = cloudCreditsSchema.safeParse(block);
+  if (!parsed.success) return [];
+  const credit = parsed.data;
+  const used = credit.used_dollars ?? undefined;
+  const remaining =
+    credit.remaining_dollars ??
+    (used === undefined ? undefined : Math.max(0, credit.limit_dollars - used));
+  const expiresAt = parseDate(credit.resets_at);
+  return [
+    {
+      providerMetricKey: "cloud_credits.remaining",
+      kind: "currency_balance",
+      scope: "account",
+      valueText: remaining === undefined ? null : remaining.toFixed(2),
+      unit: "USD",
+      windowEnd: expiresAt,
+      availability: remaining === undefined ? "unknown" : "available",
+      interface: "private",
+    },
+    {
+      providerMetricKey: "cloud_credits.limit",
+      kind: "currency_balance",
+      scope: "account",
+      valueText: credit.limit_dollars.toFixed(2),
+      unit: "USD",
+      windowEnd: expiresAt,
+      availability: "available",
+      interface: "private",
+    },
+  ];
 }
 
 /**

@@ -83,6 +83,8 @@ export const usageResponseSchema = z
       .loose()
       .nullable()
       .optional(),
+    /** Cloud-session credit; parsed on its own by `cloudCreditsSchema` so an odd shape never fails the usage read. */
+    iguana_necktie: z.unknown().optional(),
     cedar_ember: z
       .object({
         eligible: z.boolean().optional(),
@@ -110,6 +112,20 @@ export const usageResponseSchema = z
   })
   .loose();
 export type UsageResponse = z.infer<typeof usageResponseSchema>;
+
+/**
+ * `iguana_necktie` in the usage response: promotional credit for Claude Code cloud sessions, in dollars (not cents).
+ * `resets_at` is when it expires, not a recurring reset. Validated 2026-10-08 on a Max account. Older responses used
+ * the key for a percent window with no dollar fields; that shape is not credit and is ignored.
+ */
+export const cloudCreditsSchema = z
+  .object({
+    limit_dollars: z.number(),
+    used_dollars: z.number().nullable().optional(),
+    remaining_dollars: z.number().nullable().optional(),
+    resets_at: z.string().nullable().optional(),
+  })
+  .loose();
 
 const trancheSchema = z
   .object({

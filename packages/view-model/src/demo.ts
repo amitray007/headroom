@@ -415,6 +415,27 @@ function claudeParts(draw: Draw, shape: "max" | "pro"): Parts {
         windowEnd: ahead(draw, "prepaid.expiring", 9 * day, 25 * day),
       }),
     );
+    // Promotional cloud-session credit, partly spent, that expires in a few weeks.
+    const cloudUsed = round(streamFor(draw, "cloud_credits.remaining").between(10, 120), 2);
+    const cloudExpiry = ahead(draw, "cloud_credits.remaining", 18 * day, 32 * day);
+    metrics.push(
+      metricOf({
+        key: "cloud_credits.remaining",
+        kind: "currency_balance",
+        scope: "account",
+        unit: "USD",
+        text: money(250 - cloudUsed),
+        windowEnd: cloudExpiry,
+      }),
+      metricOf({
+        key: "cloud_credits.limit",
+        kind: "currency_balance",
+        scope: "account",
+        unit: "USD",
+        text: money(250),
+        windowEnd: cloudExpiry,
+      }),
+    );
     // An eligible account with one grant that has weeks left. The Pro account is ineligible: no count at all.
     resetCredits.push(resetCredit("grant-0", ahead(draw, "grant-0", 14 * day, 40 * day), "1 left"));
     metrics.push(

@@ -250,34 +250,64 @@ function usageCreditsOut(connection: OverviewConnection): AppNotification[] {
   ];
 }
 
-/**
- * Provider-reported credits that lapse soon: the part of the Claude usage-credit balance that expires first, on the
- * same lead time as banked resets.
- */
+/** Provider-reported Claude credits with an expiry: the soonest-lapsing part of Usage Credits, and Cloud Credits. */
+const expiringCredits = [
+  { key: "prepaid.expiring", label: "Usage Credits" },
+  { key: "cloud_credits.remaining", label: "Cloud Credits" },
+] as const;
+
+/** Claude credits that lapse soon, on the same lead time as banked resets. */
 function usageCreditsExpiring(
   connection: OverviewConnection,
   settings: NotificationSettings,
   now: number,
 ): AppNotification[] {
   const snapshot = connection.snapshot;
-  const metric = metricOf(connection, "prepaid.expiring");
-  const amount = numberOf(metric);
-  const expires = metric?.windowEnd ?? null;
-  if (snapshot === null || amount === null || amount <= 0 || expires === null) return [];
+  if (snapshot === null) return [];
   const lead = settings.notifications.resetLeadDays * day;
-  if (expires <= now || expires - now > lead) return [];
-  const days = Math.ceil((expires - now) / day);
-  return [
-    {
+  const found: AppNotification[] = [];
+  for (const { key, label } of expiringCredits) {
+    const metric = metricOf(connection, key);
+    const amount = numberOf(metric);
+    const expires = metric?.windowEnd ?? null;
+    if (amount === null || amount <= 0 || expires === null) continue;
+    if (expires <= now || expires - now > lead) continue;
+    const days = Math.ceil((expires - now) / day);
+    found.push({
       ...base(connection, snapshot.observedAt),
-      id: `${connection.id}:credits_expiring:prepaid.expiring:${expires}`,
+      id: `${connection.id}:credits_expiring:${key}:${expires}`,
       kind: "credits_expiring",
       tone: "warn",
       occurredAt: snapshot.observedAt,
-      subject: { metricKey: "prepaid.expiring", label: "Usage Credits", window: null },
+      subject: { metricKey: key, label, window: null },
       figures: { expiresAt: expires, amount: { value: amount, unit: "USD" } },
-      title: `${providerName(connection.provider)} Credits Expire in ${days} ${days === 1 ? "Day" : "Days"}`,
-      message: `${formatUsd(amount)} of usage credits expire ${shortDate(expires)}.`,
+      title: `${providerName(connection.provider)} ${label} Expire in ${days} ${days === 1 ? "Day" : "Days"}`,
+      message: `${formatUsd(amount)} of ${label.toLowerCase()} expire ${shortDate(expires)}.`,
+    });
+  }
+  return found;
+}
+
+/** Cloud Credits all used before they expire. Once per grant: the expiry names the grant. */
+function cloudCreditsOut(connection: OverviewConnection, now: number): AppNotification[] {
+  const snapshot = connection.snapshot;
+  const remaining = metricOf(connection, "cloud_credits.remaining");
+  const limit = numberOf(metricOf(connection, "cloud_credits.limit"));
+  const expires = remaining?.windowEnd ?? null;
+  if (snapshot === null || numberOf(remaining) !== 0 || limit === null || limit <= 0) return [];
+  if (expires !== null && expires <= now) return [];
+  const grant = expires ?? new Date(snapshot.observedAt).toISOString().slice(0, 7);
+  return [
+    {
+      ...base(connection, snapshot.observedAt),
+      id: `${connection.id}:balance_low:cloud_credits.remaining:${grant}`,
+      kind: "balance_low",
+      tone: "bad",
+      occurredAt: snapshot.observedAt,
+      subject: { metricKey: "cloud_credits.remaining", label: "Cloud Credits", window: null },
+      figures: { amount: { value: 0, unit: "USD" }, cap: { value: limit, unit: "USD" } },
+      title: "Claude Cloud Credits Ran Out",
+      message: `All ${formatUsd(limit)} of cloud credits are used.`,
     },
   ];
 }
@@ -285,9 +315,11 @@ function usageCreditsExpiring(
 function balanceNotifications(
   connection: OverviewConnection,
   settings: NotificationSettings,
+  now: number,
 ): AppNotification[] {
   const snapshot = connection.snapshot;
-  if (connection.provider === "claude") return usageCreditsOut(connection);
+  if (connection.provider === "claude")
+    return [...usageCreditsOut(connection), ...cloudCreditsOut(connection, now)];
   if (connection.provider !== "vercel_ai_gateway" || snapshot === null) return [];
   const balance = numberOf(metricOf(connection, "credits.balance"));
   const spent = numberOf(metricOf(connection, "credits.total_used"));
@@ -782,7 +814,7 @@ export function deriveNotifications(
       found.push(
         ...limitNotifications(connection, settings, now),
         ...expiryNotifications(connection, settings, now),
-        ...balanceNotifications(connection, settings),
+        ...balanceNotifications(connection, settings, now),
         ...spendNotifications(connection, settings),
         ...extraUsageNotifications(connection),
         ...budgetNotifications(connection, settings),

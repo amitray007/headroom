@@ -36,6 +36,8 @@ export type Cell =
       /** A total the value is part of, already formatted, for example "5.00". */
       readonly of: string | null;
       readonly note: string | null;
+      /** A balance held (credits or money left), which the owner's hide-at-zero choice applies to. Spend is not. */
+      readonly balance: boolean;
     }
   | {
       readonly kind: "resets";
@@ -220,6 +222,8 @@ function amountOf(
     decimals?: number;
     of?: string | null;
     note?: string | null;
+    /** The figure is a balance held, which the hide-at-zero choice applies to. */
+    balance?: boolean;
   },
 ): Cell {
   const value = metric.unlimited === true ? null : numberOf(metric);
@@ -234,6 +238,7 @@ function amountOf(
     decimals: options.decimals ?? (value !== null && Number.isInteger(value) ? 0 : 2),
     of: options.of ?? null,
     note: options.note ?? null,
+    balance: options.balance === true,
   };
 }
 
@@ -279,7 +284,7 @@ interface Built {
 
 /**
  * The claude.ai usage-credit balance as a figure, with the part that lapses first in its caption: "$10.00 expires
- * Nov 4". A zero balance shows unless the owner chose to hide it; an unread balance always shows as unknown.
+ * Nov 4". A zero balance shows unless the owner chose to hide it (see `presentPanel`); unread shows as unknown.
  */
 function usageCreditsCell(context: Context): Cell[] {
   const balance = take(context, "prepaid.balance");
@@ -287,7 +292,6 @@ function usageCreditsCell(context: Context): Cell[] {
   // Only dollars have a figure style; another currency is not guessed into one.
   if (balance === null || balance.unit !== "USD") return [];
   const value = numberOf(balance);
-  if (value === 0 && context.display.hideZeroBalance) return [];
   const soon = expiring === null ? null : numberOf(expiring);
   const until = expiring?.windowEnd ?? null;
   const note =
@@ -295,7 +299,40 @@ function usageCreditsCell(context: Context): Cell[] {
       ? `${formatUsd(soon)} expires ${shortDate(until)}`
       : null;
   return [
-    amountOf(balance, { label: "Usage Credits", window: null, unit: "usd", decimals: 2, note }),
+    amountOf(balance, {
+      label: "Usage Credits",
+      window: null,
+      unit: "usd",
+      decimals: 2,
+      note,
+      balance: true,
+    }),
+  ];
+}
+
+/**
+ * Promotional cloud-session credit: what is left, on a bar of the allowance, with "of $250.00 · expires Nov 5" beneath.
+ */
+function cloudCreditsCell(context: Context): Cell[] {
+  const remaining = take(context, "cloud_credits.remaining");
+  const limit = take(context, "cloud_credits.limit");
+  if (remaining === null || remaining.unit !== "USD") return [];
+  const total = limit === null ? null : numberOf(limit);
+  const expires = remaining.windowEnd;
+  const parts = [
+    total === null || total <= 0 ? null : `of ${formatUsd(total)}`,
+    expires === null ? null : `expires ${shortDate(expires)}`,
+  ].filter((part) => part !== null);
+  return [
+    amountOf(remaining, {
+      label: "Cloud Credits",
+      window: null,
+      unit: "usd",
+      decimals: 2,
+      of: total === null || total <= 0 ? null : formatNumber(total, 2),
+      note: parts.length === 0 ? null : parts.join(" · "),
+      balance: true,
+    }),
   ];
 }
 
@@ -354,7 +391,7 @@ function claude(context: Context): Built {
       }),
     );
   }
-  others.push(...usageCreditsCell(context));
+  others.push(...usageCreditsCell(context), ...cloudCreditsCell(context));
   return { meters, others, facts, banked };
 }
 
@@ -397,6 +434,7 @@ function codex(context: Context): Built {
         unit: "credits",
         // The usage response carries no expiry for credits, so say nothing rather than imply none.
         note: null,
+        balance: true,
       }),
     );
   }
@@ -575,6 +613,7 @@ function vercel(context: Context): Built {
         decimals: 2,
         of: sum,
         note: sum !== null && spent !== null ? `${formatNumber(spent, 2)} used of ${sum}` : null,
+        balance: true,
       }),
     );
   }
@@ -697,7 +736,12 @@ export function presentPanel(
   const built = builders[connection.provider](context);
   const rest = leftovers(context);
   const meters = [...built.meters, ...rest.meters];
-  const cells: Cell[] = [...meters, ...built.others];
+  // One rule for every balance figure: with the owner's choice on, a balance of exactly zero is left out. An unread
+  // balance (null) still shows, so a failed read never looks like an empty one.
+  const others = display.hideZeroBalance
+    ? built.others.filter((cell) => !(cell.kind === "amount" && cell.balance && cell.value === 0))
+    : built.others;
+  const cells: Cell[] = [...meters, ...others];
   const facts = [...built.facts, ...rest.facts];
   const balanceCell = cells.find(
     (cell) => cell.kind === "amount" && cell.key === "credits.balance",

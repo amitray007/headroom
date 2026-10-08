@@ -463,7 +463,7 @@ describe("Claude usage credits", () => {
     expect(notice).toEqual(
       expect.objectContaining({
         tone: "warn",
-        title: "Claude Credits Expire in 2 Days",
+        title: "Claude Usage Credits Expire in 2 Days",
         figures: { expiresAt: soon, amount: { value: 10, unit: "USD" } },
       }),
     );
@@ -477,6 +477,58 @@ describe("Claude usage credits", () => {
         (item) => item.kind === "credits_expiring",
       ),
     ).toEqual([]);
+  });
+});
+
+const cloudCredits = (left: number, expires: number) =>
+  connection("claude", {
+    id: "cc",
+    metrics: [
+      metric("cloud_credits.remaining", {
+        kind: "currency_balance",
+        unit: "USD",
+        scope: "account",
+        valueNum: left,
+        valueText: left.toFixed(2),
+        windowEnd: expires,
+      }),
+      metric("cloud_credits.limit", {
+        kind: "currency_balance",
+        unit: "USD",
+        scope: "account",
+        valueNum: 250,
+        valueText: "250.00",
+        windowEnd: expires,
+      }),
+    ],
+  });
+
+describe("Claude cloud credits", () => {
+  test("expiring within the lead days, with what is left", () => {
+    const soon = now + 3 * 86_400_000 - 60_000;
+    const [notice] = ofKind("credits_expiring", cloudCredits(220, soon));
+    expect(notice).toEqual(
+      expect.objectContaining({
+        title: "Claude Cloud Credits Expire in 3 Days",
+        figures: { expiresAt: soon, amount: { value: 220, unit: "USD" } },
+      }),
+    );
+    expect(notice?.message).toMatch(/^\$220\.00 of cloud credits expire /);
+    expect(ofKind("credits_expiring", cloudCredits(220, now + 20 * 86_400_000))).toEqual([]);
+    expect(ofKind("credits_expiring", cloudCredits(0, soon))).toEqual([]);
+  });
+
+  test("ran out once the allowance is used, not after it expired", () => {
+    const later = now + 20 * 86_400_000;
+    expect(ofKind("balance_low", cloudCredits(0, later))[0]).toEqual(
+      expect.objectContaining({
+        tone: "bad",
+        title: "Claude Cloud Credits Ran Out",
+        message: "All $250.00 of cloud credits are used.",
+      }),
+    );
+    expect(ofKind("balance_low", cloudCredits(5, later))).toEqual([]);
+    expect(ofKind("balance_low", cloudCredits(0, now - 1))).toEqual([]);
   });
 });
 

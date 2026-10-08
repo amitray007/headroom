@@ -60,7 +60,7 @@ The response carries no provider account id or workspace id. The detail route is
 | `keepInactiveLast` | boolean (the Detailed view keeps paused and disconnected accounts at the bottom) | true |
 | `historyRetentionDays` | 30, 90, 180, 365 (how long snapshots and sync runs are kept; the newest of each per connection is always kept) | 90 |
 | `accountActions` | boolean | false |
-| `providers` | An object keyed by provider name; each value is `{ "hideZeroBalance": boolean }` (leave the provider's balance figure out of its panels while it is exactly 0). Only Claude's Usage Credits use it so far; the Settings Providers tab shows the switch only for providers it applies to | `{}` |
+| `providers` | An object keyed by provider name; each value is `{ "hideZeroBalance": boolean }` (leave every balance figure of the provider out of its panels while it is exactly 0; spend figures stay). Only Claude offers it so far, covering Usage Credits and Cloud Credits; the Settings Providers tab shows the switch only for providers it applies to | `{}` |
 | `notifications` | An object, see below | see below |
 | `walletCurrency` | One of the Wallet currencies, or null (follow the browser's locale) | null |
 

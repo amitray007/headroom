@@ -210,7 +210,7 @@ const kindGroups: readonly {
       {
         kind: "balance_low",
         title: "Balance Low",
-        note: "When a credit balance runs low, or Claude usage credits run out.",
+        note: "When a credit balance runs low, or Claude credits run out.",
       },
       {
         kind: "top_up_detected",
@@ -220,7 +220,7 @@ const kindGroups: readonly {
       {
         kind: "credits_expiring",
         title: "Credits Expiring",
-        note: "Before Wallet or Claude usage credits expire.",
+        note: "Before Wallet or Claude credits expire.",
       },
     ],
   },
