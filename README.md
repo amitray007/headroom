@@ -104,20 +104,40 @@ flowchart LR
 
 ## Quick start
 
+Every way to install, update and remove Headroom is in [Install](docs/operations/install.md).
+
+### Installer
+
+```sh
+curl -fsSL https://headroom.theblank.club/install | sh
+headroom --open              # serve on 127.0.0.1:8080 and open the dashboard
+headroom service install     # start at login
+```
+
+The script checks the download against the release checksums and puts `headroom` in `~/.local/bin`. Run it again, or run `headroom update`, to upgrade. It supports macOS and Linux on arm64 and x64.
+
+### Homebrew
+
+```sh
+brew install amitray007/tap/headroom
+brew services start headroom
+```
+
+### Package runners
+
+```sh
+npx headroomhq      # or bunx headroomhq, uvx headroomhq, pipx run headroomhq
+```
+
 ### Docker
 
 ```sh
 docker run -d --name headroom -p 8080:8080 \
   -v headroom-data:/var/lib/headroom/data -v headroom-secrets:/etc/headroom \
-  -e HEADROOM_ENABLED_PROVIDERS=codex,claude,grok,antigravity,copilot,cursor,vercel_ai_gateway \
   ghcr.io/amitray007/headroom:latest
 ```
 
-Open <http://localhost:8080> and create the owner account. The first start creates the master key and the session secret in the `headroom-secrets` volume. Back up both volumes together: without the key, every account must be reconnected.
-
-The same setup as a compose file is [deploy/compose.simple.yaml](deploy/compose.simple.yaml): `docker compose -f deploy/compose.simple.yaml up -d`. To reach Headroom from other devices, put an HTTPS reverse proxy in front and set `HEADROOM_PUBLIC_URL` to its address. Passkeys and secure cookies need HTTPS anywhere but localhost.
-
-Image tags: `latest` is the newest release, `0.1.0` and `0.1` pin a release, and `edge` follows `main`. See [Releases](docs/operations/releases.md).
+Open <http://localhost:8080> and create the owner account. Back up both volumes together: without the key, every account must be reconnected. A compose file is [deploy/compose.simple.yaml](deploy/compose.simple.yaml). To reach Headroom from other devices, put an HTTPS reverse proxy in front and set `HEADROOM_PUBLIC_URL` to its address. Image tags are in [Releases](docs/operations/releases.md).
 
 ### Docker on a Tailscale tailnet
 
@@ -142,14 +162,15 @@ mise run start         # builds the web app and the binary, then serves on :8080
 
 Open <http://localhost:8080>. In the checkout, `mise` sets data to `.data/` and the two secret files to `.state/`. Back up `.state/headroom.key` with `.data/headroom.db`: without the key every account must be reconnected.
 
-### Compiled binary
+### The binary
 
-The binary runs from any directory and keeps per-user state: on macOS under `~/Library/Application Support/Headroom/`, on Linux data in `${XDG_DATA_HOME:-~/.local/share}/headroom/` and the key and secret in `${XDG_CONFIG_HOME:-~/.config}/headroom/`.
+The binary keeps per-user state: on macOS under `~/Library/Application Support/Headroom/`, on Linux data in `${XDG_DATA_HOME:-~/.local/share}/headroom/` and the key and secret in `${XDG_CONFIG_HOME:-~/.config}/headroom/`. Codex, Claude and Grok sign in through their official CLI: install it on the same machine, or use Import. See [Install](docs/operations/install.md).
 
 ```sh
 headroom --open          # serve on 127.0.0.1:8080 and open the dashboard
 headroom --help          # commands, flags and the resolved file locations
 headroom paths           # print the data, key and secret locations
+headroom update          # install the newest release (--check only reports)
 headroom service install # run at login (launchd on macOS, a systemd user unit on Linux)
 headroom service status  # installed and running?
 headroom service uninstall

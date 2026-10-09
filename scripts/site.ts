@@ -188,6 +188,9 @@ mkdirSync(out);
 cpSync(demoBuild, join(out, "demo"), { recursive: true });
 // The launch film, its poster and captions.
 cpSync(join(repo, "site/media"), join(out, "media"), { recursive: true });
+// The installer, served at /install (for `curl -fsSL https://headroom.theblank.club/install | sh`) and /install.sh.
+cpSync(join(repo, "site/install.sh"), join(out, "install"));
+cpSync(join(repo, "site/install.sh"), join(out, "install.sh"));
 
 const server = serve();
 const browser = await chromium.launch(

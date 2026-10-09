@@ -1,0 +1,91 @@
+# Renders Formula/headroom.rb for a release and pushes it to amitray007/homebrew-tap.
+# release-please.yml calls it after the binaries are attached; run it by hand to republish a formula.
+# Needs the HOMEBREW_TAP_TOKEN secret (a token with contents: write on the tap). Without it the job skips.
+# See docs/operations/install.md.
+name: Homebrew
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Release version without the v, such as 0.2.0
+        required: true
+        type: string
+    secrets:
+      HOMEBREW_TAP_TOKEN:
+        required: false
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the v, such as 0.2.0
+        required: true
+        type: string
+permissions: {}
+concurrency:
+  group: homebrew
+  cancel-in-progress: false
+jobs:
+  formula:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ inputs.version }}
+      TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+    steps:
+      - name: Check the tap token
+        id: token
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "::notice::HOMEBREW_TAP_TOKEN is not set. Skipping the Homebrew formula."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.token.outputs.present == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - if: steps.token.outputs.present == 'true'
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+        with:
+          version: 2026.9.11
+          cache: true
+      - name: Download SHA256SUMS
+        if: steps.token.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${VERSION#v}"
+          mkdir -p "$RUNNER_TEMP/release"
+          gh release download "v${version}" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS --dir "$RUNNER_TEMP/release"
+      - name: Render the formula
+        if: steps.token.outputs.present == 'true'
+        run: |
+          version="${VERSION#v}"
+          mkdir -p "$RUNNER_TEMP/tap-formula"
+          mise exec -- bun scripts/render-formula.ts "$version" "$RUNNER_TEMP/release/SHA256SUMS" > "$RUNNER_TEMP/tap-formula/headroom.rb"
+          cat "$RUNNER_TEMP/tap-formula/headroom.rb"
+      - name: Check out the tap
+        if: steps.token.outputs.present == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: amitray007/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+      - name: Commit and push
+        if: steps.token.outputs.present == 'true'
+        working-directory: tap
+        run: |
+          version="${VERSION#v}"
+          mkdir -p Formula
+          cp "$RUNNER_TEMP/tap-formula/headroom.rb" Formula/headroom.rb
+          if git diff --quiet -- Formula/headroom.rb && [ -z "$(git ls-files --others --exclude-standard Formula/headroom.rb)" ]; then
+            echo "::notice::Formula/headroom.rb is already at ${version}."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/headroom.rb
+          git commit -m "headroom ${version}"
+          git push

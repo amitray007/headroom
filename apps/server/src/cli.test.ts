@@ -34,6 +34,15 @@ test("version, help, paths and service commands", () => {
   });
 });
 
+test("update takes only --check", () => {
+  expect(parseArgs(["update"])).toEqual({ ok: true, command: { kind: "update", check: false } });
+  expect(parseArgs(["update", "--check"])).toEqual({
+    ok: true,
+    command: { kind: "update", check: true },
+  });
+  expect(parseArgs(["update", "--force"]).ok).toBe(false);
+});
+
 test("unknown commands, flags and bad values are errors", () => {
   for (const args of [
     ["nope"],
