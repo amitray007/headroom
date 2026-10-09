@@ -36,8 +36,8 @@ Status: built on 2026-10-09 (D34, D35). The owner chose the "Live" concept: the 
 
 Remaining:
 
-1. When the repository is public, the owner sets Settings > Pages > Source to "GitHub Actions". Then run the `Pages` workflow once by hand. Each release redeploys it after that.
-2. Link the site from the README and the repository's About box. Its address is `https://amitray007.github.io/headroom/`.
+1. The site is live at https://headroom.theblank.club/ since 2026-10-09, with Pages deploying from GitHub Actions. `amitray007.github.io/headroom/` redirects there. Each release redeploys it; run the `Pages` workflow by hand to redeploy sooner.
+2. The DNS record goes through the Cloudflare proxy, so GitHub cannot issue its own certificate and "Enforce HTTPS" stays off. Either switch the record to DNS only and then enforce HTTPS in the Pages settings, or keep the proxy with Cloudflare's SSL mode on Full and "Always Use HTTPS" on.
 
 ## Phase 4: Launch video
 
