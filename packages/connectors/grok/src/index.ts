@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  cliAvailability,
   type BeginConnectOptions,
   type Capability,
   type CollectResult,
@@ -105,6 +106,9 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
     version: grokConnectorVersion,
     interface: "private",
     supportedMethods: ["cli_login", "import"],
+
+    methodAvailability: (method) =>
+      cliAvailability(method, cli.command[0], options.grokBinary ?? cli.command[0]),
 
     async beginConnect(begin: BeginConnectOptions): Promise<ConnectProgress> {
       if (begin.method === "import") {

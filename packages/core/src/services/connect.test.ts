@@ -6,7 +6,12 @@ import { createKeyring, generateKeyHex, parseKeyHex } from "../crypto/index.ts";
 import { openDatabase } from "../db/index.ts";
 import { AttemptStore, ConnectionStore } from "../lifecycle.ts";
 import { SnapshotStore } from "../snapshots.ts";
-import { ConnectService, InvalidAttemptStateError, ProviderDisabledError } from "./connect.ts";
+import {
+  ConnectService,
+  InvalidAttemptStateError,
+  MethodUnavailableError,
+  ProviderDisabledError,
+} from "./connect.ts";
 import { credentialFixture, FakeConnector, okCollect, partialCollect } from "./fake-connector.ts";
 
 async function rejection(promise: Promise<unknown>): Promise<unknown> {
@@ -49,6 +54,22 @@ function setup() {
 }
 
 describe("ConnectService", () => {
+  test("a method the host cannot run is refused before an attempt exists", async () => {
+    const { service, connector } = setup();
+    connector.unavailable.set("cli_login", {
+      method: "cli_login",
+      available: false,
+      reason: "cli_not_installed",
+      cli: "codex",
+    });
+    const error = await rejection(service.begin({ provider: "codex", method: "cli_login" }));
+    expect(error).toBeInstanceOf(MethodUnavailableError);
+    expect(error instanceof Error && error.message).toBe(
+      "the codex CLI is not installed on the server",
+    );
+    expect(connector.calls).toEqual([]);
+  });
+
   test("device flow: begin shows a code, poll waits, then credentials create a ready connection", async () => {
     const { service, connector, connections, credentials, snapshots, advance } = setup();
     const begun = await service.begin({ provider: "codex", method: "device_code" });

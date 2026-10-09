@@ -63,6 +63,59 @@ describe("providers and attempts", () => {
     expect((await post("/api/attempts", { provider: "codex", method: "nope" })).status).toBe(400);
   });
 
+  test("providers report per-method availability; a missing CLI fails fast with a specific error", async () => {
+    const { connector, get, post } = await harness();
+    connector.unavailable.set("cli_login", {
+      method: "cli_login",
+      available: false,
+      reason: "cli_not_installed",
+      cli: "codex",
+    });
+    const listed = z
+      .object({
+        providers: z.array(
+          z.object({
+            methods: z.array(z.string()),
+            availability: z.array(
+              z.object({
+                method: z.string(),
+                available: z.boolean(),
+                reason: z.string().nullable(),
+                cli: z.string().nullable(),
+              }),
+            ),
+          }),
+        ),
+      })
+      .parse(await (await get("/api/providers")).json());
+    const [codex] = listed.providers;
+    expect(codex?.availability.map((entry) => entry.method)).toEqual(codex?.methods ?? []);
+    expect(codex?.availability.find((entry) => entry.method === "cli_login")).toEqual({
+      method: "cli_login",
+      available: false,
+      reason: "cli_not_installed",
+      cli: "codex",
+    });
+    expect(codex?.availability.find((entry) => entry.method === "import")?.available).toBe(true);
+
+    const refused = await post("/api/attempts", { provider: "codex", method: "cli_login" });
+    expect(refused.status).toBe(409);
+    expect(await refused.json()).toEqual({
+      error: "method_unavailable",
+      method: "cli_login",
+      reason: "cli_not_installed",
+      cli: "codex",
+    });
+    expect(connector.calls).not.toContain("begin:cli_login");
+    expect(
+      z
+        .object({ attempt: z.object({ id: z.string() }) })
+        .safeParse(
+          await (await post("/api/attempts", { provider: "codex", method: "device_code" })).json(),
+        ).success,
+    ).toBe(true);
+  });
+
   test("device-code attempt through to a ready connection, then list and detail", async () => {
     const { connector, get, post } = await harness();
     const begun = attemptSchema.parse(

@@ -35,6 +35,7 @@ This is a logical schema for implementation planning. No database or migrations 
 | `connections.state` | `ready`, `partial`, `reconnect_required`, `paused` |
 | `connections.scope` | `individual`, `member`, `team_admin`, `organization` |
 | `connections.auth_method` | `cli_login`, `device_code`, `paste_redirect`, `approval_poll`, `api_key`, `import` |
+| `method availability reason` (API view value, not stored) | `cli_not_installed` |
 | `auth_attempts.state` | `created`, `awaiting_user`, `awaiting_input`, `validating`, `succeeded`, `failed`, `expired`, `cancelled` |
 | `auth_attempts.next_step` | `open_url`, `device_code`, `paste_redirect`, `select_account`, `api_key`, `paste_file`, none |
 | `*.interface` | `official`, `private` |

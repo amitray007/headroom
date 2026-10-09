@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { AuthMethod, Provider } from "@headroom/core/contracts";
+import type { AuthMethod, MethodAvailability, Provider } from "@headroom/core/contracts";
 
-import { api, type Attempt, type OverviewConnection } from "../api.ts";
+import { api, ApiError, type Attempt, type OverviewConnection } from "../api.ts";
 import { BrandMark } from "../icons.tsx";
 import { accountName, authMethodWords, planLabel, providerName } from "@headroom/view-model/labels";
 import { Button, ButtonLink } from "../ui/button.tsx";
@@ -13,7 +13,15 @@ import { Spinner } from "../ui/spinner.tsx";
 import { StatusSlot } from "../ui/pill.tsx";
 import { Stepper, type StepState } from "../ui/stepper.tsx";
 import { CheckStage, SignInStage } from "./stages.tsx";
-import { clockLeft, defaultMethod, isTerminal, shouldPoll, stoppedReason } from "./steps.ts";
+import {
+  clockLeft,
+  defaultMethod,
+  isTerminal,
+  isUsable,
+  shouldPoll,
+  stoppedReason,
+  unavailableNote,
+} from "./steps.ts";
 
 type Step = 2 | 3 | 4;
 
@@ -42,6 +50,8 @@ function useSecondClock(): number {
 interface FlowProps {
   readonly provider: Provider;
   readonly methods: readonly AuthMethod[];
+  /** What the server can start here; a method it does not list is usable. */
+  readonly availability?: readonly MethodAvailability[];
   /** Set when the flow signs an existing account in again. */
   readonly reconnectId?: string | undefined;
   readonly connections: readonly OverviewConnection[];
@@ -54,8 +64,11 @@ interface FlowProps {
 /** The panel that follows one sign-in attempt from the first step to its result. */
 export function ConnectFlow(props: FlowProps) {
   const { provider, methods, reconnectId, onClose, onConnected } = props;
+  const availability = props.availability ?? [];
   const name = providerName(provider);
-  const [method, setMethod] = useState<AuthMethod | null>(() => defaultMethod(methods));
+  const [method, setMethod] = useState<AuthMethod | null>(() =>
+    defaultMethod(methods, availability),
+  );
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +91,13 @@ export function ConnectFlow(props: FlowProps) {
             : await api.reconnect(reconnectId, next);
         if (generation.current === mine) setAttempt(created);
       } catch (cause) {
-        if (generation.current === mine) setStartError(messageOf(cause));
+        if (generation.current === mine) {
+          setStartError(
+            cause instanceof ApiError && cause.code === "method_unavailable"
+              ? "That method is not available on this server. Install its CLI, or use another method."
+              : messageOf(cause),
+          );
+        }
       }
     },
     [provider, reconnectId],
@@ -212,6 +231,8 @@ export function ConnectFlow(props: FlowProps) {
           .join(" · ");
 
   const showMethods = methods.length > 1 && !failed && !succeeded && !checking;
+  const blocked = availability.find((entry) => !entry.available && methods.includes(entry.method));
+  const alternatives = methods.filter((entry) => isUsable(entry, availability));
 
   return (
     <section className="panel step flow" aria-live="polite">
@@ -228,8 +249,29 @@ export function ConnectFlow(props: FlowProps) {
           label="Sign-in method"
           value={method}
           onChange={switchMethod}
-          options={methods.map((entry) => ({ value: entry, label: authMethodWords(entry) }))}
+          options={methods.map((entry) => ({
+            value: entry,
+            label: authMethodWords(entry),
+            disabled: !isUsable(entry, availability),
+          }))}
         />
+      ) : null}
+      {blocked !== undefined && !failed && !succeeded && !checking ? (
+        <p className="muted" style={{ margin: 0 }}>
+          {unavailableNote(name, blocked, alternatives)}
+        </p>
+      ) : null}
+      {method === null ? (
+        <div className="stage">
+          <Result ok={false} title="Not Available">
+            {blocked === undefined
+              ? `${name} cannot sign in on this server.`
+              : unavailableNote(name, blocked, alternatives)}
+          </Result>
+          <div className="row">
+            <CloseAction reconnecting={reconnectId !== undefined} onClose={onClose} />
+          </div>
+        </div>
       ) : null}
       {startError !== null ? (
         <div className="stage">
@@ -244,7 +286,7 @@ export function ConnectFlow(props: FlowProps) {
           </div>
         </div>
       ) : null}
-      {startError === null && attempt === null ? (
+      {method !== null && startError === null && attempt === null ? (
         <div className="stage">
           <div className="sk bar" style={{ width: "40%" }} />
         </div>

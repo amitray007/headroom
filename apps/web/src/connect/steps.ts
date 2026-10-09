@@ -1,4 +1,4 @@
-import type { AttemptState, AuthMethod } from "@headroom/core/contracts";
+import type { AttemptState, AuthMethod, MethodAvailability } from "@headroom/core/contracts";
 
 import type { Attempt } from "../api.ts";
 
@@ -20,9 +20,36 @@ export function shouldPoll(attempt: Attempt): boolean {
   );
 }
 
-/** The method a new attempt starts with: the first one that is not a file import. */
-export function defaultMethod(methods: readonly AuthMethod[]): AuthMethod | null {
-  return methods.find((method) => method !== "import") ?? methods[0] ?? null;
+/** Whether the server can start `method` here. A method the server did not report on is usable. */
+export function isUsable(method: AuthMethod, availability: readonly MethodAvailability[]): boolean {
+  return availability.find((entry) => entry.method === method)?.available !== false;
+}
+
+/**
+ * The method a new attempt starts with: the first usable one that is not a file import, else the
+ * first usable one. Null when the server can start none of them.
+ */
+export function defaultMethod(
+  methods: readonly AuthMethod[],
+  availability: readonly MethodAvailability[] = [],
+): AuthMethod | null {
+  const usable = methods.filter((method) => isUsable(method, availability));
+  return usable.find((method) => method !== "import") ?? usable[0] ?? null;
+}
+
+/** Plain words for a method the server cannot start. `provider` is the display name, as in "Codex". */
+export function unavailableNote(
+  provider: string,
+  entry: MethodAvailability,
+  alternatives: readonly AuthMethod[],
+): string {
+  const need =
+    entry.reason === "cli_not_installed"
+      ? `Needs the ${provider} CLI on the server.`
+      : "Not available on this server.";
+  if (alternatives.includes("import")) return `${need} Install it, or use Import.`;
+  if (alternatives.length > 0) return `${need} Install it, or use another method.`;
+  return `${need} Install it, then try again.`;
 }
 
 export type Accepts = "url" | "code" | "url_or_code";

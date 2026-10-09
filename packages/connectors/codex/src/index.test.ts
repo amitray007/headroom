@@ -87,6 +87,24 @@ describe("auth file", () => {
   });
 });
 
+describe("cli_login availability", () => {
+  test("follows the configured binary and leaves import alone", () => {
+    const missing = createCodexConnector({
+      runner: new FakeRunner(),
+      codexBinary: "/nonexistent/codex",
+    });
+    expect(missing.methodAvailability?.("cli_login")).toEqual({
+      method: "cli_login",
+      available: false,
+      reason: "cli_not_installed",
+      cli: "codex",
+    });
+    expect(missing.methodAvailability?.("import").available).toBe(true);
+    const present = createCodexConnector({ runner: new FakeRunner(), codexBinary: "sh" });
+    expect(present.methodAvailability?.("cli_login").available).toBe(true);
+  });
+});
+
 describe("cli_login flow", () => {
   test("begin starts the CLI and returns the device code; poll waits, then yields credentials and cleans up", async () => {
     const runner = new FakeRunner();
