@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { providers } from "@headroom/core/contracts";
 
-import { api, isDemoRefusal } from "../api.ts";
+import { api, demoRefusal, isDemoRefusal } from "../api.ts";
 import { defaultSettings } from "../lib/settings-store.ts";
 import { handleDemoRequest, resetDemoApi } from "./api.ts";
 import { isEmbedded, parseSiteMessage } from "./embed.ts";
+import { codeOf, botCheckProblem, saveProblem, testProblem } from "../shell/delivery/status.ts";
 import { createDemoFetch } from "./fetch.ts";
 
 const origin = "https://example.test";
@@ -92,6 +93,34 @@ describe("demo site API writes", () => {
     expect(await refused(api.updateChannel("c", { enabled: true }))).toBe(true);
     expect(await refused(api.deleteChannel("c"))).toBe(true);
     expect(await refused(api.saveOrder({ providers: [], accounts: {} }))).toBe(true);
+  });
+});
+
+/** The error word a refused call carries. */
+async function failure(call: Promise<unknown>): Promise<string | null> {
+  return call.then(
+    () => null,
+    (cause: unknown) => codeOf(cause),
+  );
+}
+
+describe("demo site delivery errors", () => {
+  test("the refusal reaches the delivery messages as the demo text", async () => {
+    const check = await failure(api.checkBot("123456:abc"));
+    const verify = await failure(
+      api.verifyDelivery({ type: "webhook", url: "https://x.test", secret: "s" }),
+    );
+    const create = await failure(
+      api.createChannel({
+        type: "webhook",
+        url: "https://x.test",
+        secret: "s",
+        includeIdentity: false,
+      }),
+    );
+    expect(botCheckProblem(check)).toBe(demoRefusal);
+    expect(testProblem("webhook", verify)).toBe(demoRefusal);
+    expect(saveProblem(create)).toBe(demoRefusal);
   });
 });
 

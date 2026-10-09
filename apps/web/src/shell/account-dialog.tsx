@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { api } from "../api.ts";
 import { authClient } from "../auth.ts";
 import { FingerprintIcon, PlusIcon } from "../icons.tsx";
+import { isDemoSite } from "../lib/site.ts";
 import { useLoad } from "../lib/load.ts";
 import { shortDate } from "@headroom/view-model/time";
 import { Button } from "../ui/button.tsx";
@@ -250,14 +251,14 @@ function Password() {
   );
 }
 
-/** Passkeys and password. The content mounts only while the dialog is open, so it loads fresh each time. */
+/** Passkeys and password; the demo site has neither. The content mounts only while the dialog is open, so it loads fresh each time. */
 export function AccountDialog(props: { readonly open: boolean; readonly onClose: () => void }) {
   return (
     <Dialog open={props.open} onClose={props.onClose} title="Account">
       {props.open ? (
         <>
-          <Passkeys />
-          <Password />
+          {isDemoSite ? null : <Passkeys />}
+          {isDemoSite ? null : <Password />}
         </>
       ) : null}
     </Dialog>

@@ -4,6 +4,7 @@ import { api } from "../../api.ts";
 import { Button } from "../../ui/button.tsx";
 import { Problem } from "./form-parts.tsx";
 import { SecretCard } from "./secret-card.tsx";
+import { codeOf, rotationProblem } from "./status.ts";
 
 /** New Secret: a confirm step, then the new secret shown once with Copy. */
 export function SecretRotation(props: {
@@ -20,7 +21,7 @@ export function SecretRotation(props: {
     api
       .newChannelSecret(props.channelId)
       .then((made) => setSecret(made.secret))
-      .catch(() => setProblem("Headroom could not make a new secret. Try again."))
+      .catch((cause: unknown) => setProblem(rotationProblem(codeOf(cause))))
       .finally(() => setBusy(false));
   };
 

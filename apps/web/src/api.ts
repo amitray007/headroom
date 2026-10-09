@@ -48,10 +48,17 @@ export class ApiError extends Error {
   }
 }
 
+const accountsRefusal = "Turn off Demo Mode to change accounts.";
+
 /** What a refused account change says. Callers that show `message` show this. */
 export const demoRefusal = isDemoSite
+  ? "This is a demo. Deploy your own Headroom to use this."
+  : accountsRefusal;
+
+/** What a refused connect or reconnect says. */
+export const demoConnectRefusal = isDemoSite
   ? "This is a demo. Deploy your own Headroom to connect accounts."
-  : "Turn off Demo Mode to change accounts.";
+  : accountsRefusal;
 
 /** Every id the demo generator makes starts with this. */
 export function isDemoId(id: string): boolean {
@@ -64,15 +71,16 @@ export function isDemoRefusal(cause: unknown): boolean {
 
 const demoOn = (): boolean => devicePrefs().getSnapshot().demo;
 
-function refuseInDemo<T>(): Promise<T> {
-  return Promise.reject(new ApiError(409, demoRefusal, "demo_mode"));
+function refuseInDemo<T>(message: string = demoRefusal): Promise<T> {
+  return Promise.reject(new ApiError(409, message, "demo_mode"));
 }
 
 /** An account change: refused without a request while Demo Mode is on. */
 function changesAccount<A extends unknown[], T>(
   call: (...args: A) => Promise<T>,
+  message: string = demoRefusal,
 ): (...args: A) => Promise<T> {
-  return (...args) => (demoOn() ? refuseInDemo() : call(...args));
+  return (...args) => (demoOn() ? refuseInDemo(message) : call(...args));
 }
 
 const setupSchema = z.object({
@@ -333,8 +341,10 @@ export const api = {
   setup: () => request("GET", "/api/setup", setupSchema),
   me: () => request("GET", "/api/me", meSchema),
   providers: () => request("GET", "/api/providers", providersSchema),
-  beginAttempt: changesAccount((provider: string, method: string) =>
-    request("POST", "/api/attempts", attemptEnvelope, { provider, method }),
+  beginAttempt: changesAccount(
+    (provider: string, method: string) =>
+      request("POST", "/api/attempts", attemptEnvelope, { provider, method }),
+    demoConnectRefusal,
   ),
   attempt: (id: string) => request("GET", `/api/attempts/${id}`, attemptEnvelope),
   submitInput: (id: string, input: SubmitInput) =>
@@ -372,10 +382,12 @@ export const api = {
     request("PUT", "/api/settings", settingsEnvelopeSchema, settings),
   connection: (id: string) =>
     demoOn() && isDemoId(id)
-      ? refuseInDemo<z.infer<typeof connectionDetailSchema>>()
+      ? refuseInDemo<z.infer<typeof connectionDetailSchema>>(demoConnectRefusal)
       : request("GET", `/api/connections/${id}`, connectionDetailSchema),
-  reconnect: changesAccount((id: string, method: string) =>
-    request("POST", `/api/connections/${id}/reconnect`, attemptEnvelope, { method }),
+  reconnect: changesAccount(
+    (id: string, method: string) =>
+      request("POST", `/api/connections/${id}/reconnect`, attemptEnvelope, { method }),
+    demoConnectRefusal,
   ),
   pause: changesAccount((id: string, paused: boolean) =>
     request("POST", `/api/connections/${id}/pause`, pauseSchema, { paused }),

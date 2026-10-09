@@ -1,11 +1,11 @@
 import { useState } from "react";
 
-import { api, ApiError } from "../../api.ts";
+import { api } from "../../api.ts";
 import { ExternalIcon } from "../../icons.tsx";
 import { Button, ButtonLink } from "../../ui/button.tsx";
 import { PasswordField } from "../../ui/password-field.tsx";
 import { Problem } from "./form-parts.tsx";
-import { botCheckProblem } from "./status.ts";
+import { botCheckProblem, codeOf } from "./status.ts";
 import { botTokenProblem, isBotToken } from "./validate.ts";
 
 /** Step 1 of Telegram: make a bot with BotFather and check its token. */
@@ -37,7 +37,7 @@ export function TelegramBotStep(props: {
       const found = await api.checkBot(clean);
       props.onVerified(clean, found.bot.username);
     } catch (cause) {
-      setProblem(botCheckProblem(cause instanceof ApiError ? cause.code : null));
+      setProblem(botCheckProblem(codeOf(cause)));
       setBusy(false);
     }
   };

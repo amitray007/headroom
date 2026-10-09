@@ -1,16 +1,16 @@
 import { useState } from "react";
 
-import { ApiError } from "../../api.ts";
+import { isDemoRefusal } from "../../api.ts";
 import { Button } from "../../ui/button.tsx";
 import { Result } from "../../ui/result.tsx";
 import { SwitchRow } from "../settings-rows.tsx";
 import { Problem } from "./form-parts.tsx";
-import { saveProblem } from "./status.ts";
+import { codeOf, saveProblem } from "./status.ts";
 
 type Phase =
   | { readonly kind: "ready" }
   | { readonly kind: "sent" }
-  | { readonly kind: "failed"; readonly text: string };
+  | { readonly kind: "failed"; readonly text: string; readonly demo: boolean };
 
 /**
  * The Test step of both flows. It sends a test with `send`, which throws when the send fails. After a good
@@ -49,7 +49,8 @@ export function TestStep(props: {
     } catch (cause) {
       setPhase({
         kind: "failed",
-        text: props.failureText(cause instanceof ApiError ? cause.code : null),
+        text: props.failureText(codeOf(cause)),
+        demo: isDemoRefusal(cause),
       });
       props.onFailed(true);
     } finally {
@@ -62,8 +63,8 @@ export function TestStep(props: {
     try {
       await props.finish();
       props.onFinished();
-    } catch {
-      setProblem(saveProblem);
+    } catch (cause) {
+      setProblem(saveProblem(codeOf(cause)));
     } finally {
       setSaving(false);
     }
@@ -94,7 +95,7 @@ export function TestStep(props: {
   if (phase.kind === "failed") {
     return (
       <>
-        <Result ok={false} title="Test Failed">
+        <Result ok={false} title={phase.demo ? "Demo Only" : "Test Failed"}>
           {phase.text}
         </Result>
         <Problem>{problem}</Problem>
@@ -102,7 +103,8 @@ export function TestStep(props: {
           <Button variant="primary" onClick={back}>
             Back
           </Button>
-          {props.saveAnyway === true ? (
+          {/* A save is refused for the same reason as the test. */}
+          {props.saveAnyway === true && !phase.demo ? (
             <Button variant="quiet" busy={saving} busyLabel="Saving" onClick={() => void finish()}>
               Save Anyway
             </Button>

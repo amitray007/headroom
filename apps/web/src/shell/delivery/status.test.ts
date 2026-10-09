@@ -1,12 +1,18 @@
 import { describe, expect, test } from "bun:test";
 
+import { ApiError, demoRefusal } from "../../api.ts";
+
 import {
   chatTypeWord,
   failureText,
   botCheckProblem,
+  changeProblem,
+  codeOf,
   botNameOf,
   destinationName,
   destinationState,
+  rotationProblem,
+  saveProblem,
   statusLine,
   testProblem,
 } from "./status.ts";
@@ -105,4 +111,27 @@ test("test problem", () => {
   expect(testProblem("webhook", "not_found")).toBe("Nothing answered at this path.");
   expect(testProblem("webhook", "nonsense")).toBe("Headroom could not send it.");
   expect(testProblem("telegram", null)).toBe("Headroom could not send it.");
+});
+
+describe("a demo refusal", () => {
+  test("reads the same on every delivery surface", () => {
+    expect(botCheckProblem("demo_mode")).toBe(demoRefusal);
+    expect(testProblem("webhook", "demo_mode")).toBe(demoRefusal);
+    expect(testProblem("telegram", "demo_mode")).toBe(demoRefusal);
+    expect(saveProblem("demo_mode")).toBe(demoRefusal);
+    expect(changeProblem("demo_mode")).toBe(demoRefusal);
+    expect(rotationProblem("demo_mode")).toBe(demoRefusal);
+  });
+  test("leaves the other failures as they were", () => {
+    expect(saveProblem(null)).toBe(
+      "Headroom could not save this. Check the details and try again.",
+    );
+    expect(changeProblem("x")).toBe("Headroom could not save that change. Try again.");
+    expect(rotationProblem(null)).toBe("Headroom could not make a new secret. Try again.");
+  });
+  test("reaches the mapping as the error word of an ApiError", () => {
+    expect(codeOf(new ApiError(409, "Request failed (409)", "demo_mode"))).toBe("demo_mode");
+    expect(codeOf(new Error("x"))).toBeNull();
+    expect(botCheckProblem(codeOf(new ApiError(409, "m", "demo_mode")))).toBe(demoRefusal);
+  });
 });

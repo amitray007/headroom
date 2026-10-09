@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { api, demoRefusal, isDemoId, isDemoRefusal, type OrderBody } from "../api.ts";
+import {
+  api,
+  demoConnectRefusal,
+  demoRefusal,
+  isDemoId,
+  isDemoRefusal,
+  type OrderBody,
+} from "../api.ts";
 import { devicePrefs } from "./device-prefs.ts";
 import { defaultSettings } from "./settings-store.ts";
 
@@ -209,6 +216,7 @@ describe("demo mode guard", () => {
       expect(isDemoRefusal(cause)).toBe(true);
     }
     expect(demoRefusal).toBe("Turn off Demo Mode to change accounts.");
+    expect(demoConnectRefusal).toBe(demoRefusal);
     expect(calls).toEqual([]);
   });
   test("wallet calls reach the server with Demo Mode off", async () => {

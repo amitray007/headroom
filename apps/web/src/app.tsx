@@ -157,8 +157,12 @@ function SignedIn(props: { readonly name: string }) {
   );
 }
 
-/** This browser was signed in last time, so the first paint is the dashboard frame, not the sign-in card. */
+/**
+ * This browser was signed in last time, so the first paint is the dashboard frame, not the sign-in card.
+ * The demo site is always signed in.
+ */
 function wasSignedIn(): boolean {
+  if (isDemoSite) return true;
   const storage = browserStorage();
   return storage !== null && readSessionHint(storage);
 }

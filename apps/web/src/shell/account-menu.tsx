@@ -41,11 +41,11 @@ export function AccountMenu(props: {
       <MenuItem icon={<GearIcon />} onSelect={props.onSettings}>
         Settings
       </MenuItem>
-      <MenuItem icon={<UserIcon />} onSelect={props.onAccount}>
-        Account
-      </MenuItem>
       {isDemoSite ? null : (
         <>
+          <MenuItem icon={<UserIcon />} onSelect={props.onAccount}>
+            Account
+          </MenuItem>
           <MenuSeparator />
           <MenuItem icon={<SignOutIcon />} danger onSelect={() => void authClient.signOut()}>
             Sign Out

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { api, ApiError, type ChannelView } from "../../api.ts";
+import { api, type ChannelView } from "../../api.ts";
 import { BellIcon, DestinationMark } from "../../icons.tsx";
 import { useNow } from "../../lib/now.ts";
 import { ActionButton } from "../../ui/action-button.tsx";
@@ -11,7 +11,7 @@ import { SwitchRow } from "../settings-rows.tsx";
 import { Problem } from "./form-parts.tsx";
 import { RemoveButton } from "./remove-button.tsx";
 import { SecretRotation } from "./secret-rotation.tsx";
-import { changeProblem, destinationName, statusLine, testProblem } from "./status.ts";
+import { changeProblem, codeOf, destinationName, statusLine, testProblem } from "./status.ts";
 
 interface Change {
   readonly enabled?: boolean;
@@ -53,14 +53,14 @@ export function ChannelPanel(props: {
     api
       .updateChannel(channel.id, change)
       .then(reload)
-      .catch(() => {
+      .catch((cause: unknown) => {
         // Undo only what this change set.
         setInstant((current) => ({
           ...current,
           ...(change.enabled === undefined ? {} : { enabled: undefined }),
           ...(change.includeIdentity === undefined ? {} : { includeIdentity: undefined }),
         }));
-        setError(changeProblem);
+        setError(changeProblem(codeOf(cause)));
       });
   };
   const test = async (): Promise<void> => {
@@ -68,7 +68,7 @@ export function ChannelPanel(props: {
     try {
       await api.testChannel(channel.id);
     } catch (cause) {
-      setTestFailure(testProblem(channel.type, cause instanceof ApiError ? cause.code : null));
+      setTestFailure(testProblem(channel.type, codeOf(cause)));
       throw cause;
     } finally {
       reload();
@@ -77,8 +77,8 @@ export function ChannelPanel(props: {
   const remove = async (): Promise<void> => {
     try {
       await api.deleteChannel(channel.id);
-    } catch {
-      setError(changeProblem);
+    } catch (cause) {
+      setError(changeProblem(codeOf(cause)));
     }
     reload();
   };

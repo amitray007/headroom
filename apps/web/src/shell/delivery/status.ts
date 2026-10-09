@@ -5,7 +5,7 @@ import {
 } from "@headroom/core/contracts";
 import { age } from "@headroom/view-model/time";
 
-import type { ChannelView } from "../../api.ts";
+import { ApiError, demoRefusal, type ChannelView } from "../../api.ts";
 
 const texts: Record<NotificationChannelType, Record<NotificationDeliveryFailure, string>> = {
   telegram: {
@@ -60,11 +60,34 @@ export function chatTypeWord(type: string): string {
   return "Chat";
 }
 
-export const saveProblem = "Headroom could not save this. Check the details and try again.";
-export const changeProblem = "Headroom could not save that change. Try again.";
+/** The error word an API call failed with, when it sent one. */
+export function codeOf(cause: unknown): string | null {
+  return cause instanceof ApiError ? cause.code : null;
+}
+
+/** The demo site refuses every change with this word; the owner sees why instead of a failure. */
+const isDemoCode = (code: string | null): boolean => code === "demo_mode";
+
+/** Why a first save failed. */
+export function saveProblem(code: string | null): string {
+  return isDemoCode(code)
+    ? demoRefusal
+    : "Headroom could not save this. Check the details and try again.";
+}
+
+/** Why a change to a saved channel failed. */
+export function changeProblem(code: string | null): string {
+  return isDemoCode(code) ? demoRefusal : "Headroom could not save that change. Try again.";
+}
+
+/** Why making a new webhook secret failed. */
+export function rotationProblem(code: string | null): string {
+  return isDemoCode(code) ? demoRefusal : "Headroom could not make a new secret. Try again.";
+}
 
 /** Why a test send failed, from the error word the server sent. */
 export function testProblem(type: NotificationChannelType, code: string | null): string {
+  if (isDemoCode(code)) return demoRefusal;
   const failure = notificationDeliveryFailureSchema.safeParse(code);
   return failure.success ? failureText(type, failure.data) : "Headroom could not send it.";
 }
@@ -97,6 +120,7 @@ export function botNameOf(label: string): string {
 
 /** Why a bot token check failed, from the error word the server sent. */
 export function botCheckProblem(code: string | null): string {
+  if (isDemoCode(code)) return demoRefusal;
   return code === "telegram_token_rejected" || code === "unauthorized"
     ? "Telegram did not accept this token. Copy it again from BotFather."
     : "Headroom could not reach Telegram. Try again.";
