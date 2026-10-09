@@ -8,12 +8,13 @@ import type {
   ConnectProgress,
   Connector,
   Identity,
+  MethodAvailability,
   RefreshResult,
   SubmitInput,
 } from "../connector.ts";
 import { classifyUnknown, ConnectorError } from "../connector.ts";
 import type { StoredCredential } from "../credentials.ts";
-import type { DisconnectResult, Provider } from "../enums.ts";
+import type { AuthMethod, DisconnectResult, Provider } from "../enums.ts";
 
 /**
  * Scriptable connector for service tests. Each method consumes the next queued
@@ -23,9 +24,15 @@ export class FakeConnector implements Connector {
   readonly provider: Provider;
   readonly version = "fake-1";
   readonly interface = "private" as const;
-  readonly supportedMethods = ["device_code", "api_key", "import"];
+  readonly supportedMethods = ["cli_login", "device_code", "api_key", "import"];
   readonly supportedActions = ["consume_reset_credit"] as const;
   actionQueue: ActionResult[] = [];
+  /** Methods a test marks unavailable on this host; every other method is available. */
+  unavailable = new Map<string, MethodAvailability>();
+
+  methodAvailability(method: AuthMethod): MethodAvailability {
+    return this.unavailable.get(method) ?? { method, available: true, reason: null, cli: null };
+  }
 
   readonly calls: string[] = [];
   beginQueue: ConnectProgress[] = [];

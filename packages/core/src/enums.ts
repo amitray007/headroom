@@ -24,6 +24,11 @@ export const authMethods = [
 export const authMethodSchema = z.enum(authMethods);
 export type AuthMethod = z.infer<typeof authMethodSchema>;
 
+/** Why a sign-in method cannot start on this host. Not stored; `/api/providers` reports it. */
+export const methodUnavailableReasons = ["cli_not_installed"] as const;
+export const methodUnavailableReasonSchema = z.enum(methodUnavailableReasons);
+export type MethodUnavailableReason = z.infer<typeof methodUnavailableReasonSchema>;
+
 export const attemptStates = [
   "created",
   "awaiting_user",

@@ -4,7 +4,12 @@ import { cx } from "./cx.ts";
 export function Segmented<T extends string>(props: {
   readonly value: T;
   readonly onChange: (value: T) => void;
-  readonly options: readonly { readonly value: T; readonly label: string }[];
+  readonly options: readonly {
+    readonly value: T;
+    readonly label: string;
+    /** Dims this option and ignores presses. */
+    readonly disabled?: boolean;
+  }[];
   /** Accessible name of the group. */
   readonly label: string;
   readonly full?: boolean;
@@ -22,6 +27,7 @@ export function Segmented<T extends string>(props: {
           key={option.value}
           type="button"
           aria-pressed={option.value === props.value}
+          disabled={option.disabled === true}
           onClick={() => props.onChange(option.value)}
         >
           {option.label}

@@ -39,6 +39,12 @@ Closing a browser tab does not cancel an attempt. Let it expire or provide an ex
 
 Never rewrite a provider's registered localhost redirect into the dashboard's domain. A remote server's localhost is not the browser user's localhost. The pasted-redirect step and the CLIs' own headless modes exist because of that.
 
+## Method availability
+
+`GET /api/providers` lists each provider's `methods` and, beside them, an `availability` entry per method: `{ method, available, reason, cli }`. Only `cli_login` can be unavailable. The connector resolves its configured binary (an absolute path, or a bare name looked up on `PATH`; options `codexBinary`, `claudeBinary`, `grokBinary`) with one `PATH` lookup per request, and never starts it. A missing binary gives `available: false`, `reason: "cli_not_installed"` and `cli` set to the program name. The reason is a view value, not stored, and is not an attempt state or an error category.
+
+The Connect page starts with the first available method that is not `import`, shows an unavailable method disabled with the note "Needs the Codex CLI on the server. Install it, or use Import.", and marks the provider card "Not Available on This Server" when no method can start. A client that starts an unavailable method anyway gets `409 method_unavailable` before any attempt exists, so nothing is created, spawned or stored. This is a host fact, not a sign-in failure.
+
 ## CLI login runner
 
 The runner is a plain `Bun.spawn` or pseudo-terminal wrapper in the backend, never a virtual shell. It sets only the CLI's config-directory variable (`CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `GROK_HOME` or the documented equivalent) plus `PATH` and `HOME` pointing inside the attempt's directory. It bounds runtime and output, redacts everything except the URL, code and exit state, and kills the process on expiry or cancel. The CLI is used for sign-in only. Refresh and collection are direct HTTP against the stored token, and the CLI never runs again for that connection.

@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { StoredCredential } from "./credentials.ts";
 import {
   type AccountActionKind,
+  type AuthMethod,
   type Availability,
   type DisconnectResult,
   type ErrorCategory,
@@ -12,6 +13,8 @@ import {
   type InterfaceLabel,
   type MetricKind,
   type Provider,
+  authMethodSchema,
+  methodUnavailableReasonSchema,
 } from "./enums.ts";
 
 /**
@@ -19,6 +22,15 @@ import {
  * Connectors keep no memory between calls; everything they need travels in `privateState`,
  * which the application stores encrypted on the attempt row.
  */
+
+/** Whether one sign-in method can start on this host. `cli` names the program a CLI method needs. */
+export const methodAvailabilitySchema = z.object({
+  method: authMethodSchema,
+  available: z.boolean(),
+  reason: methodUnavailableReasonSchema.nullable(),
+  cli: z.string().nullable(),
+});
+export type MethodAvailability = z.infer<typeof methodAvailabilitySchema>;
 
 /** Browser-visible payload for the current step. Never contains a secret. */
 export const nextStepPayloadSchema = z.discriminatedUnion("kind", [
@@ -183,6 +195,11 @@ export interface Connector {
   readonly version: string;
   readonly interface: InterfaceLabel;
   readonly supportedMethods: readonly string[];
+  /**
+   * Whether `method` can start on this host right now. Absent means always available. Cheap and
+   * free of side effects: `/api/providers` calls it on every request.
+   */
+  methodAvailability?(method: AuthMethod): MethodAvailability;
 
   beginConnect(options: BeginConnectOptions): Promise<ConnectProgress>;
   submitInput(privateState: unknown, input: SubmitInput): Promise<ConnectProgress>;

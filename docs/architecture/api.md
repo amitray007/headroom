@@ -16,7 +16,7 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 | `PUT /api/connections/:id/auto-reset`, `DELETE /api/connections/:id/auto-reset` | Set or clear the account's auto-reset rule, see [Automations](#automations) |
 | `PUT /api/connections/:id/budgets/:metricKey`, `DELETE /api/connections/:id/budgets/:metricKey` | Set or clear the account's budget for one spend metric |
 | `DELETE /api/connections/:id` | Disconnect and delete local data |
-| `GET /api/providers`, `/api/attempts/...` | Connect flow, see [the connection lifecycle](connections.md) |
+| `GET /api/providers`, `/api/attempts/...` | Connect flow, see [the connection lifecycle](connections.md) and [Providers](#providers) |
 | `GET /api/settings`, `PUT /api/settings` | Owner preferences |
 | `PUT /api/order` | Owner-defined order of providers and of accounts within a provider |
 | `GET /api/wallet` | The owner's Wallet entries: costs and top-ups, see [Wallet](#wallet) |
@@ -39,6 +39,12 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 - `automation`: `{ autoReset, budgets }`. `autoReset` is the owner's rule `{ enabled, window, thresholdPercent, minHoursLeft }` or null. `budgets` lists `{ metricKey, amount, unit }`, one per spend metric the owner set a budget for.
 
 The response carries no provider account id or workspace id. The detail route is built field by field for the same reason.
+
+## Providers
+
+`GET /api/providers` returns `{ providers }`. Each entry is `{ provider, version, interface, methods, availability }`. `availability` has one `{ method, available, reason, cli }` per method: `reason` is `cli_not_installed` or null, and `cli` names the program a `cli_login` method needs, else null. Clients that predate the field treat every method as usable. See [Method availability](connections.md#method-availability).
+
+`POST /api/attempts` and the reconnect route answer `409 { error: "method_unavailable", method, reason, cli }` when the method cannot start on this host, for example `The codex CLI is not installed on the server`. No attempt is created.
 
 ## Display name
 

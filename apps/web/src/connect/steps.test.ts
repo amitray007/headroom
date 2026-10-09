@@ -5,9 +5,11 @@ import {
   clockLeft,
   defaultMethod,
   isTerminal,
+  isUsable,
   pasteInputKind,
   shouldPoll,
   stoppedReason,
+  unavailableNote,
 } from "./steps.ts";
 import type { Attempt } from "../api.ts";
 
@@ -67,6 +69,38 @@ describe("defaultMethod", () => {
     expect(defaultMethod(["import", "device_code"])).toBe("device_code");
     expect(defaultMethod(["import"])).toBe("import");
     expect(defaultMethod([])).toBeNull();
+  });
+});
+
+describe("method availability", () => {
+  const missing = {
+    method: "cli_login",
+    available: false,
+    reason: "cli_not_installed",
+    cli: "codex",
+  } as const;
+
+  test("falls through to import when the CLI method is unavailable", () => {
+    expect(defaultMethod(["cli_login", "import"], [missing])).toBe("import");
+    expect(defaultMethod(["cli_login", "import"], [])).toBe("cli_login");
+  });
+
+  test("returns null when nothing can start", () => {
+    expect(defaultMethod(["cli_login"], [missing])).toBeNull();
+  });
+
+  test("a method the server did not list is usable", () => {
+    expect(isUsable("import", [missing])).toBe(true);
+    expect(isUsable("cli_login", [missing])).toBe(false);
+  });
+
+  test("the note says what to install and what to use instead", () => {
+    expect(unavailableNote("Codex", missing, ["import"])).toBe(
+      "Needs the Codex CLI on the server. Install it, or use Import.",
+    );
+    expect(unavailableNote("Codex", missing, [])).toBe(
+      "Needs the Codex CLI on the server. Install it, then try again.",
+    );
   });
 });
 

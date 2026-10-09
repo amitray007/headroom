@@ -8,7 +8,7 @@ import type {
   NextStepPayload,
   SubmitInput,
 } from "../connector.ts";
-import type { RefreshResult } from "../connector.ts";
+import type { MethodAvailability, RefreshResult } from "../connector.ts";
 import { classifyUnknown, nextStepPayloadSchema } from "../connector.ts";
 import type { CredentialStore, StoredCredential } from "../credentials.ts";
 import {
@@ -94,6 +94,9 @@ export class ConnectService {
     if (!connector.supportedMethods.includes(input.method)) {
       throw new UnsupportedMethodError(input.provider, input.method);
     }
+    // Fail before the attempt exists: a missing CLI is not a sign-in failure.
+    const availability = connector.methodAvailability?.(input.method);
+    if (availability && !availability.available) throw new MethodUnavailableError(availability);
     let existingIdentity: Identity | undefined;
     if (input.connectionId) {
       const connection = this.deps.connections.get(input.connectionId);
@@ -487,6 +490,17 @@ export class UnsupportedMethodError extends Error {
   ) {
     super(`provider ${provider} does not support method ${method}`);
     this.name = "UnsupportedMethodError";
+  }
+}
+
+export class MethodUnavailableError extends Error {
+  constructor(readonly availability: MethodAvailability) {
+    super(
+      availability.cli === null
+        ? `method ${availability.method} is not available on this server`
+        : `the ${availability.cli} CLI is not installed on the server`,
+    );
+    this.name = "MethodUnavailableError";
   }
 }
 

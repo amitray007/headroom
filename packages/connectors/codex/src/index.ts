@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  cliAvailability,
   type ActionRequest,
   type ActionResult,
   type BeginConnectOptions,
@@ -109,6 +110,9 @@ export function createCodexConnector(options: CodexConnectorOptions): Connector 
     version: codexConnectorVersion,
     interface: "private",
     supportedMethods: ["cli_login", "import"],
+
+    methodAvailability: (method) =>
+      cliAvailability(method, cli.command[0], options.codexBinary ?? cli.command[0]),
 
     async beginConnect(begin: BeginConnectOptions): Promise<ConnectProgress> {
       if (begin.method === "import") {

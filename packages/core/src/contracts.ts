@@ -4,8 +4,10 @@
  */
 export * from "./enums.ts";
 export {
+  methodAvailabilitySchema,
   nextStepPayloadSchema,
   submitInputSchema,
+  type MethodAvailability,
   type NextStepPayload,
   type SubmitInput,
   type Identity,

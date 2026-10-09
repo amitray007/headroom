@@ -1047,6 +1047,10 @@ time.when {
 .seg:disabled button {
   cursor: default;
 }
+.seg button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 
 /* View switcher: a segmented row of links with a pill that slides to the active one. */
 .view-switch {
@@ -1787,6 +1791,10 @@ label.srow {
   gap: 10px;
   font-size: var(--text-base);
   font-weight: 500;
+}
+.card .card-note {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
 }
 .card .card-name {
   min-width: 0;

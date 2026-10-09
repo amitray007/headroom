@@ -3,6 +3,7 @@ import {
   accountActionStateSchema,
   attemptStateSchema,
   authMethodSchema,
+  methodAvailabilitySchema,
   autoResetRuleSchema,
   availabilitySchema,
   connectionScopeSchema,
@@ -96,6 +97,8 @@ const providersSchema = z.object({
       version: z.string(),
       interface: interfaceLabelSchema,
       methods: z.array(authMethodSchema),
+      /** One entry per method; absent from an older server, which means every method works. */
+      availability: z.array(methodAvailabilitySchema).default([]),
     }),
   ),
 });

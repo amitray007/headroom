@@ -74,6 +74,7 @@ export {
   ConnectService,
   ProviderDisabledError,
   UnsupportedMethodError,
+  MethodUnavailableError,
   InvalidAttemptStateError,
   type AttemptView,
   type ConnectorRegistry,
@@ -156,3 +157,4 @@ export {
   type DeliveryRow,
   type LastDelivery,
 } from "./notifications/deliveries.ts";
+export { cliAvailability } from "./cli-availability.ts";

@@ -5,6 +5,7 @@ import {
   ActionNotConfirmedError,
   ActionsDisabledError,
   InvalidAttemptStateError,
+  MethodUnavailableError,
   ProviderDisabledError,
   UnsupportedActionError,
   UnsupportedMethodError,
@@ -19,6 +20,10 @@ export function handleServiceError(c: Context, error: unknown): Response {
       { error: "unsupported_method", provider: error.provider, method: error.method },
       400,
     );
+  }
+  if (error instanceof MethodUnavailableError) {
+    const { method, reason, cli } = error.availability;
+    return c.json({ error: "method_unavailable", method, reason, cli }, 409);
   }
   if (error instanceof InvalidAttemptStateError)
     return c.json({ error: "invalid_attempt_state", state: error.state }, 409);

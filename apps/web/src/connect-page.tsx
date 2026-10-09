@@ -7,6 +7,7 @@ import { AccountsTable } from "./connect/accounts-table.tsx";
 import "./connect/connect.css";
 import { ConnectFlow } from "./connect/flow.tsx";
 import { CardsSkeleton } from "./connect/skeletons.tsx";
+import { defaultMethod } from "./connect/steps.ts";
 import { useLoad } from "./lib/load.ts";
 import { BrandMark, PlugIcon } from "./icons.tsx";
 import { providerName } from "@headroom/view-model/labels";
@@ -68,7 +69,9 @@ export function ConnectPage(
   );
   const lockedProvider = existing.data?.connection.provider;
   const active = reconnectId === undefined ? picked : (lockedProvider ?? null);
-  const methods = entries.find((entry) => entry.provider === active)?.methods ?? [];
+  const activeEntry = entries.find((entry) => entry.provider === active);
+  const methods = activeEntry?.methods ?? [];
+  const availability = activeEntry?.availability ?? [];
 
   const choose = (provider: Provider): void => {
     setPicked(provider);
@@ -162,6 +165,10 @@ export function ConnectPage(
                 <BrandMark provider={entry.provider} size={24} />
                 {providerName(entry.provider)}
               </span>
+              {defaultMethod(entry.methods, entry.availability) === null &&
+              entry.methods.length > 0 ? (
+                <span className="card-note">Not Available on This Server</span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -172,6 +179,7 @@ export function ConnectPage(
             key={`${active}:${run}`}
             provider={active}
             methods={methods}
+            availability={availability}
             reconnectId={reconnectId}
             connections={overview.connections ?? []}
             onClose={close}
