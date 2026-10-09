@@ -6,7 +6,8 @@ type Command =
   | { kind: "version" }
   | { kind: "help" }
   | { kind: "paths" }
-  | { kind: "service"; action: "install" | "uninstall" | "status" };
+  | { kind: "service"; action: "install" | "uninstall" | "status" }
+  | { kind: "update"; check: boolean };
 
 export type Parsed = { ok: true; command: Command } | { ok: false; error: string };
 
@@ -24,6 +25,12 @@ export function parseArgs(args: readonly string[]): Parsed {
     return rest.length === 1
       ? { ok: true, command: { kind: "paths" } }
       : { ok: false, error: `unexpected argument: ${rest[1]}` };
+  }
+  if (first === "update") {
+    const extra = rest.slice(1).filter((a) => a !== "--check");
+    return extra.length === 0
+      ? { ok: true, command: { kind: "update", check: rest.includes("--check") } }
+      : { ok: false, error: `unexpected argument: ${extra[0]}` };
   }
   if (first === "service") {
     const action = serviceActions.find((a) => a === rest[1]);
@@ -85,6 +92,7 @@ Commands:
   service install        Run Headroom at login for this user
   service uninstall      Remove the login service
   service status         Report whether the service is installed and running
+  update                 Install the newest release (--check only reports)
 
 Flags:
   --port <n>             Listen port (overrides HEADROOM_PORT)

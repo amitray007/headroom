@@ -15,6 +15,7 @@ import { createApp, version } from "./app.ts";
 import { bootstrap } from "./bootstrap.ts";
 import { Scheduler } from "./scheduler.ts";
 import { runService, systemServiceDeps } from "./service.ts";
+import { insideDocker, runUpdate, systemUpdateDeps } from "./update.ts";
 
 const parsed = parseArgs(Bun.argv.slice(2));
 if (!parsed.ok) {
@@ -45,6 +46,16 @@ if (command.kind === "service") {
       logDir: dirname(loaded.dataDir),
       path: Bun.env["PATH"],
     }),
+  );
+  for (const line of outcome.lines) process.stdout.write(`${line}\n`);
+  process.exit(outcome.code);
+}
+
+if (command.kind === "update") {
+  const outcome = await runUpdate(
+    { check: command.check },
+    systemUpdateDeps(version, Bun.env["HOME"] || homedir()),
+    insideDocker(),
   );
   for (const line of outcome.lines) process.stdout.write(`${line}\n`);
   process.exit(outcome.code);
