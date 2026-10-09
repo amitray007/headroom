@@ -1,0 +1,126 @@
+# Builds the standalone headroom binary natively on four platforms, smoke-tests each one and
+# attaches the archives and SHA256SUMS to the GitHub release v<version>. Release-please calls it
+# after it creates the release; run it by hand to rebuild the assets of an existing release.
+# See docs/operations/releases.md.
+name: Binaries
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Release version without the v, such as 0.4.2
+        type: string
+        required: true
+      publish:
+        description: Upload the archives to the release
+        type: boolean
+        default: true
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing release version without the v, such as 0.4.2
+        type: string
+        required: true
+      publish:
+        description: Upload the archives to the release
+        type: boolean
+        default: true
+permissions: {}
+concurrency:
+  group: binaries-${{ inputs.version }}
+  cancel-in-progress: false
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { target: darwin-arm64, runner: macos-15 }
+          - { target: darwin-x64, runner: macos-15-intel }
+          - { target: linux-x64, runner: ubuntu-24.04 }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm }
+    env:
+      VERSION: ${{ inputs.version }}
+      TARGET: ${{ matrix.target }}
+    steps:
+      - name: Check the version
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "invalid version: $VERSION" >&2
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: v${{ inputs.version }}
+          persist-credentials: false
+      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+        with:
+          version: 2026.9.11
+          cache: true
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
+      - run: mise run install
+      - run: mise exec -- bun run web:build
+      - run: mise exec -- bun scripts/build-server.ts "--target=bun-${TARGET}"
+      - name: Sign ad hoc (macOS)
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          codesign --force --sign - dist/headroom
+          codesign --verify --verbose dist/headroom
+      - name: Smoke-test the binary
+        run: scripts/smoke-binary.sh dist/headroom "$VERSION"
+      - name: Package
+        run: |
+          mkdir -p out stage
+          cp dist/headroom LICENSE stage/
+          chmod 0755 stage/headroom
+          COPYFILE_DISABLE=1 tar -C stage -czf "out/headroom-${TARGET}.tar.gz" headroom LICENSE
+          tar -tzf "out/headroom-${TARGET}.tar.gz"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: headroom-${{ matrix.target }}
+          path: out/headroom-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    if: ${{ inputs.publish }}
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: release
+          pattern: headroom-*
+          merge-multiple: true
+      - name: Write and verify SHA256SUMS
+        working-directory: release
+        run: |
+          ls -l
+          test "$(find . -name 'headroom-*.tar.gz' | wc -l)" -eq 4
+          sha256sum headroom-*.tar.gz | LC_ALL=C sort -k2 > SHA256SUMS
+          cat SHA256SUMS
+          sha256sum -c SHA256SUMS
+      - name: Attest build provenance
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: release/headroom-*.tar.gz
+      - name: Upload to the release
+        working-directory: release
+        run: gh release upload "v${VERSION}" headroom-*.tar.gz SHA256SUMS --clobber

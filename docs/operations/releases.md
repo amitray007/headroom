@@ -44,6 +44,31 @@ Release-please updates `package.json` and `apps/server/src/version.ts`, so `head
 
 Each image carries OCI labels, a build provenance attestation and an SBOM. A failed smoke test publishes no public tag, so `latest` stays on the previous release.
 
+## Binaries
+
+The `Binaries` workflow attaches a standalone binary, with the web UI embedded, to each GitHub release. Each platform builds on a runner of its own architecture, so the smoke test runs the real binary.
+
+| Asset | Runner |
+| --- | --- |
+| `headroom-darwin-arm64.tar.gz` | `macos-15` |
+| `headroom-darwin-x64.tar.gz` | `macos-15-intel` |
+| `headroom-linux-x64.tar.gz` | `ubuntu-24.04` |
+| `headroom-linux-arm64.tar.gz` | `ubuntu-24.04-arm` |
+
+Each archive holds exactly `headroom` (mode 0755) and `LICENSE` at its root. `SHA256SUMS` lists every archive as `<sha256>  <filename>`, sorted by filename. Check a download with `sha256sum -c SHA256SUMS` (`shasum -a 256 -c` on macOS).
+
+How a build runs:
+
+1. Each leg builds the web UI and the binary, then runs `scripts/smoke-binary.sh`. The script checks `--version` and `--help`, starts the server on a free port with a temporary home, and checks that `/healthz` reports the version and `/` serves the web UI.
+2. The `publish` job runs only after all four legs pass. It writes `SHA256SUMS`, verifies it and uploads the files with `gh release upload --clobber`. A failed leg uploads nothing. Only this job has `contents: write`.
+3. The release workflow must call `binaries.yml` with `contents: write`, `id-token: write` and `attestations: write`. A called workflow cannot hold more permission than its caller.
+
+Signing: the macOS binaries are signed ad hoc (`codesign --sign -`), which gives Apple silicon the signature it requires to run. They are not notarized. A file downloaded by `curl`, Homebrew, npm or pip gets no quarantine flag, so Gatekeeper does not block it. A file saved by a browser does get the flag; clear it with `xattr -d com.apple.quarantine headroom`.
+
+Provenance: the `publish` job attests the archives with `actions/attest-build-provenance` only while the repository is public. Verify one with `gh attestation verify <archive> --repo amitray007/headroom`.
+
+To rebuild the assets of an existing release, open Actions > Binaries > Run workflow, type the version without the `v` and keep `publish` on. The workflow builds from the tag `vX.Y.Z` and replaces the assets on that release. Turn `publish` off to build and test without uploading.
+
 ## The public site
 
 The `Pages` workflow runs `mise run site:build` and deploys `dist-site/` to GitHub Pages: the landing page from `site/index.html` at the root and the demo (D34) at `demo/`. It runs after each release and by hand from the Actions tab, so the site shows the released app, not `main`. The `site` job in CI builds it on every pull request. How the build works is in [site/README.md](../../site/README.md).
