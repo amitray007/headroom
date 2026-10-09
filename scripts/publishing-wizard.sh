@@ -248,6 +248,7 @@ after)
   VERSION=$(gh release view --repo "$REPO" --json tagName --jq .tagName)
   VERSION="${VERSION#v}"
   say "Building the five npm packages from the v$VERSION release files."
+  note "The four archives are about 130 MB. The download can take several minutes; gh names only one file."
   WORK=$(mktemp -d)
   gh release download "v$VERSION" --repo "$REPO" --dir "$WORK/assets" --pattern 'headroom-*.tar.gz' --pattern SHA256SUMS
   mise exec -- bun scripts/package-npm.ts --version "$VERSION" --assets "$WORK/assets" --out "$WORK/npm" >/dev/null

@@ -83,12 +83,9 @@ Later, not now: release binaries with `SHA256SUMS`, a Docker Hub mirror.
 
 Status: on 2026-10-09 the owner chose native installs alongside Docker (D36). The app side is merged: per-user paths, loopback by default, the embedded web UI, `headroom service install`, and missing-CLI detection. The release side builds the binaries and the installer, Homebrew, npm (`headroomhq`) and PyPI (`headroomhq`) channels.
 
-Owner steps before the first native release:
+Done on 2026-10-09: release 0.1.3 published `headroomhq` to npm (five packages, trusted publishing) and PyPI (four wheels, trusted publishing), and the Homebrew formula to `Formula/headroom.rb`.
 
-1. Make the repository public. The installer, Homebrew and mise download from GitHub releases.
-2. npm and PyPI: run `scripts/publishing-wizard.sh before` before the release, and `scripts/publishing-wizard.sh after` once the release has published. See [Packaging](../packaging/README.md#publishing).
-
-Homebrew needs no owner step: the release commits `Formula/headroom.rb` to this repository, which is its own tap.
+Remaining owner step: make the repository and the GHCR package public. The installer, Homebrew and mise download from GitHub releases, and the npm and PyPI pages load their screenshots from the repository. npm and PyPI need nothing more; [Packaging](../packaging/README.md#publishing) records how they were set up.
 
 ## Deploy targets after Docker
 
