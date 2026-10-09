@@ -1,7 +1,7 @@
 #!/bin/bash
 # Render the launch assets into ../exports. Usage: ./render.sh <target>...
 #   launch   the 16:9 film, with captions burned in and without, plus SRT/VTT subtitles and the poster
-#   square   the 1:1 cut for feeds, captions burned in
+#   square   the 1:1 cut for feeds, with captions burned in and without, plus the subtitles
 #   stills   the Product Hunt gallery, 1270x760 PNG
 #   loop     the silent README loop (GIF and MP4), cut from the clean film; needs `launch` first
 #   all      every target above
@@ -39,8 +39,14 @@ launch() {
 
 square() {
   mkdir -p out "$EXPORTS/square"
-  render Square "props-$VOICE-clean.json" out/raw-square.mp4
+  render Square "props-$VOICE-clean.json" out/raw-square-captions.mp4
+  render SquareClean "props-$VOICE-clean.json" out/raw-square.mp4
+  loudnorm out/raw-square-captions.mp4 "$EXPORTS/square/headroom-launch-square-captions.mp4"
   loudnorm out/raw-square.mp4 "$EXPORTS/square/headroom-launch-square.mp4"
+  # The square cut keeps the film's timing, so the film's subtitles fit it.
+  python3 subs.py "$VOICE"
+  cp "out/headroom-launch-$VOICE.srt" "$EXPORTS/square/headroom-launch-square.srt"
+  cp "out/headroom-launch-$VOICE.vtt" "$EXPORTS/square/headroom-launch-square.vtt"
 }
 
 stills() {

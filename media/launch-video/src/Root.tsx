@@ -6,12 +6,11 @@ import { FPS } from "./theme";
 
 const empty: LaunchProps = { captions: [], scenes: [], total: 60 * FPS };
 
-/** Square 1:1 cut for feeds: content in the upper part, captions below, voice and music as in the film. */
-const square: ReframeProps = {
-  ...empty,
-  area: { cx: 540, cy: 540, w: 1000, h: 720 },
-  stack: { canvas: 1080, gap: 56, block: 120 },
-};
+/** Square 1:1 cut for feeds: content centred above a fixed caption band at the bottom, voice and music as in the film. */
+const square: ReframeProps = { ...empty, area: { cx: 540, cy: 420, w: 1000, h: 700 }, captionBottom: 96 };
+
+/** The same square cut without burned-in captions, for platforms that take an uploaded subtitle file. */
+const squareClean: ReframeProps = { ...square, area: { cx: 540, cy: 520, w: 1000, h: 820 }, captionBottom: undefined };
 
 /** Product Hunt gallery frame, 1270x760: content fills the frame, no captions or sound. */
 const gallery: ReframeProps = { ...empty, area: { cx: 635, cy: 380, w: 1180, h: 680 }, withAudio: false };
@@ -33,6 +32,16 @@ export const Root: React.FC = () => (
       id="Square"
       component={Reframe}
       defaultProps={square}
+      calculateMetadata={({ props }) => ({ durationInFrames: props.total })}
+      durationInFrames={empty.total}
+      fps={FPS}
+      width={1080}
+      height={1080}
+    />
+    <Composition
+      id="SquareClean"
+      component={Reframe}
+      defaultProps={squareClean}
       calculateMetadata={({ props }) => ({ durationInFrames: props.total })}
       durationInFrames={empty.total}
       fps={FPS}

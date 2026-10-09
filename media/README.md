@@ -18,7 +18,9 @@ Videos, audio, subtitles and images for launching and presenting Headroom. Put n
 | `launch/headroom-launch-captions.mp4` | The film with captions burned in, for players without subtitle support |
 | `launch/headroom-launch.srt`, `.vtt` | Subtitles for the film without captions: SRT for X and LinkedIn uploads, VTT for the web |
 | `launch/headroom-launch-poster.jpg` | The still a player shows before the film starts |
-| `square/headroom-launch-square.mp4` | The 1:1 cut, captions burned in, for feeds that autoplay without sound |
+| `square/headroom-launch-square-captions.mp4` | The 1:1 cut with captions burned in, in a fixed band at the bottom. Use it where you cannot upload subtitles: most feeds autoplay without sound |
+| `square/headroom-launch-square.mp4` | The 1:1 cut without captions, with the content centred. Upload it with `headroom-launch-square.srt` where the platform shows its own captions, such as X and LinkedIn |
+| `square/headroom-launch-square.srt`, `.vtt` | Subtitles for the square cut. The timing matches the film |
 | `product-hunt/01-headroom.png` to `08-your-server.png` | Eight gallery images, in the order the film shows them. The first is the cover |
 | `readme/headroom-loop.gif` | The README loop: Overview, Compare, Timeline and Wallet at 1.5x speed. `headroom-loop.mp4` is the same loop for places that play video |
 

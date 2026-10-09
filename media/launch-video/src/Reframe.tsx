@@ -28,23 +28,18 @@ const BOUNDS: Record<string, [number, number, number, number]> = {
 /** The box, in canvas pixels, that a scene's content is fitted into. */
 export type Area = { cx: number; cy: number; w: number; h: number };
 
-/**
- * With captions, the scaled content and the caption under it are centred together as one group, so a short scene
- * does not leave a gap above its caption. `block` is the room kept for a two-line caption.
- */
-export type Stack = { canvas: number; gap: number; block: number };
-
-const fit = (key: string, area: Area, stack?: Stack) => {
+const fit = (key: string, area: Area) => {
   const [l, t, r, b] = BOUNDS[key] ?? [0, 0, 1920, 1080];
   // Never enlarge: the screenshots inside would soften.
   const k = Math.min(1, area.w / (r - l), area.h / (b - t));
-  const h = k * (b - t);
-  const top = stack ? (stack.canvas - (h + stack.gap + stack.block)) / 2 : area.cy - h / 2;
-  return { k, x: area.cx - k * ((l + r) / 2), y: top - k * t, captionTop: top + h + (stack?.gap ?? 0) };
+  return { k, x: area.cx - k * ((l + r) / 2), y: area.cy - k * ((t + b) / 2) };
 };
 
-/** One caption at a time, sized for a phone feed: no box, larger type, centred under the content. */
-const FeedCaptions: React.FC<{ captions: LaunchProps["captions"]; top: (frame: number) => number }> = ({ captions, top }) => {
+/**
+ * One caption at a time, sized for a phone feed, in a fixed band at the bottom. Every caption ends on the same line,
+ * so the eye always finds it in the same place.
+ */
+const FeedCaptions: React.FC<{ captions: LaunchProps["captions"]; bottom: number }> = ({ captions, bottom }) => {
   const f = useCurrentFrame();
   return (
     <>
@@ -60,7 +55,7 @@ const FeedCaptions: React.FC<{ captions: LaunchProps["captions"]; top: (frame: n
               position: "absolute",
               left: 60,
               right: 60,
-              top: top(s(a)),
+              bottom,
               opacity: o,
               color: C.text,
               fontFamily: sans,
@@ -80,20 +75,16 @@ const FeedCaptions: React.FC<{ captions: LaunchProps["captions"]; top: (frame: n
   );
 };
 
-export type ReframeProps = LaunchProps & { area: Area; stack?: Stack; withAudio?: boolean };
+/** `captionBottom` burns the captions in, ending that far above the bottom edge; leave it out for a clean cut. */
+export type ReframeProps = LaunchProps & { area: Area; captionBottom?: number; withAudio?: boolean };
 
-export const Reframe: React.FC<ReframeProps> = ({ captions, scenes, total, music, area, stack, withAudio = true }) => {
-  // A caption sits under the scene that is on screen when it starts.
-  const captionTop = (frame: number) => {
-    const scene = scenes.find((p) => frame >= p.from && frame < p.from + p.frames) ?? scenes[scenes.length - 1];
-    return scene ? fit(scene.key, area, stack).captionTop : 0;
-  };
+export const Reframe: React.FC<ReframeProps> = ({ captions, scenes, total, music, area, captionBottom, withAudio = true }) => {
   return (
   <AbsoluteFill style={{ overflow: "hidden" }}>
     <Ground />
     {scenes.map((p) => {
       const Scene = SCENES[p.key];
-      const { k, x, y } = fit(p.key, area, stack);
+      const { k, x, y } = fit(p.key, area);
       return Scene ? (
         <Sequence key={p.key} from={p.from} durationInFrames={p.frames} layout="none">
           <ClockProvider anchors={p.anchors}>
@@ -124,7 +115,7 @@ export const Reframe: React.FC<ReframeProps> = ({ captions, scenes, total, music
         ))
       : null}
     {withAudio && music ? <Music src={music} captions={captions} total={total} /> : null}
-    {stack ? <FeedCaptions captions={captions} top={captionTop} /> : null}
+    {captionBottom === undefined ? null : <FeedCaptions captions={captions} bottom={captionBottom} />}
     <EndFooter scenes={scenes} bottom={30} />
     <Finish />
   </AbsoluteFill>
