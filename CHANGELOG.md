@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.2](https://github.com/amitray007/headroom/compare/v0.1.1...v0.1.2) (2026-10-09)
+
+
+### Features
+
+* **core:** per-user default paths, listen host and CLI binary overrides ([c906b28](https://github.com/amitray007/headroom/commit/c906b284b6ebdf47667242caad89be5c68b6e69c))
+* **packaging:** publish headroomhq to npm and PyPI from the release binaries ([74ff594](https://github.com/amitray007/headroom/commit/74ff594e6e2fcf0fed3bb62ec895f2bcff92d9b8))
+* report which sign-in methods the host can run ([c5020c0](https://github.com/amitray007/headroom/commit/c5020c04f8c39ca81a2c6eec237cc4d61360c575))
+* **server:** add headroom update ([d7d17b0](https://github.com/amitray007/headroom/commit/d7d17b0e6e9091692d0befffb5d23cb3833399fc))
+* **server:** add start flags, paths and login-service commands to the CLI ([951ae6a](https://github.com/amitray007/headroom/commit/951ae6a82ad2a4afda7024ac8ae38451b8d6618d))
+* **server:** serve the web UI from inside the binary ([cd85f39](https://github.com/amitray007/headroom/commit/cd85f399b0d6d27e707181c8c6213ab7ce53af4a))
+* **site:** add a one-line installer served at /install ([ca6ae98](https://github.com/amitray007/headroom/commit/ca6ae984f1cd0171654bbb6e8aaf26dd9f3e0e14))
+* **site:** add an install chooser with every install channel ([f5a39b2](https://github.com/amitray007/headroom/commit/f5a39b240d57f3520ef54191ec8acdd85240fc25))
+* **site:** play the launch film from the hero ([ca5d888](https://github.com/amitray007/headroom/commit/ca5d888586472f695feee7c8149784d6e322f758))
+
+
+### Bug Fixes
+
+* **site:** hide the demo's scrollbar inside the landing page ([de2ebef](https://github.com/amitray007/headroom/commit/de2ebefa2f5c63b6e659c45094c8e2b5e9ce7598))
+* **site:** set the embed attribute without the dataset index signature ([f80bbbf](https://github.com/amitray007/headroom/commit/f80bbbf847422f095839a8b47e69342a1bed89b3))
+
 ## [0.1.1](https://github.com/amitray007/headroom/compare/v0.1.0...v0.1.1) (2026-10-09)
 
 
