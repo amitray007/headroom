@@ -212,14 +212,15 @@ before)
   step "PyPI asks you to turn on two-factor authentication. Do it before the next stage."
   pause "Press Enter when you are signed in with 2FA on."
 
-  stage "PyPI: trust the release workflow"
+  stage "PyPI: trust the publishing workflow"
   say "A pending publisher lets the first release create the headroomhq project. No token is needed."
   open_url "https://pypi.org/manage/account/publishing/"
   step "Under 'Add a new pending publisher', pick GitHub."
   step "PyPI Project Name: headroomhq"
   step "Owner: amitray007"
   step "Repository name: headroom"
-  step "Workflow name: release-please.yml"
+  step "Workflow name: packages.yml"
+  note "PyPI checks the file that holds the publish job. Releases call packages.yml from release-please.yml."
   step "Environment name: pypi"
   step "Click Add."
   if confirm "Did PyPI list the pending publisher?"; then

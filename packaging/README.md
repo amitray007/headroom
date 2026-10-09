@@ -53,15 +53,15 @@ repository is public.
 One-time steps for the maintainer, in [scripts/publishing-wizard.sh](../scripts/publishing-wizard.sh):
 
 1. `publishing-wizard.sh before`, before the first release that should publish: a PyPI pending trusted publisher for
-   `headroomhq` (owner `amitray007`, repository `headroom`, workflow `release-please.yml`, environment `pypi`), and
+   `headroomhq` (owner `amitray007`, repository `headroom`, workflow `packages.yml`, environment `pypi`), and
    `PYPI_PUBLISH=true`. The `pypi` environment is created on the first run.
 2. `publishing-wizard.sh after`, once that release is out: the first npm publish of all five packages from the
    maintainer's machine, signed in with 2FA. npm trusts a workflow only for a package that exists, and this avoids a
    token that bypasses 2FA. The wizard then makes each package trust `release-please.yml` and `packages.yml` and sets
    `NPM_PUBLISH=true`. From then on every release publishes with OIDC and no secret.
 
-npm and PyPI check the workflow that started the run, not the called file. A release runs `release-please.yml`; a run
-by hand from the Actions tab runs `packages.yml`. npm trusts both. PyPI trusts `release-please.yml`; to republish to
-PyPI by hand, add `packages.yml` as a second trusted publisher on the project's PyPI settings page first.
+The two registries read different claims. PyPI matches the file that holds the publish job (`job_workflow_ref`), which
+is `packages.yml` both in a release and in a run by hand. npm is reported to match the workflow that started the run
+(`workflow_ref`): `release-please.yml` in a release, `packages.yml` in a run by hand, so npm trusts both.
 
 The workflow reads the version from the release tag. It does not rebuild any binary.
