@@ -1,5 +1,5 @@
 # Keeps one release pull request open with the next version and changelog. Merging it tags vX.Y.Z,
-# creates the GitHub release and publishes the image. See docs/operations/releases.md.
+# creates the GitHub release, publishes the image and the native binaries and packages. See docs/operations/releases.md.
 name: Release
 on:
   push:
@@ -45,3 +45,38 @@ jobs:
       pages: write
       id-token: write
     uses: ./.github/workflows/pages.yml
+
+  # Native installs (D36): the binaries first, then every channel that ships them.
+  binaries:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/binaries.yml
+    with:
+      version: ${{ needs.release-please.outputs.version }}
+
+  # npm and PyPI publish only when the NPM_PUBLISH and PYPI_PUBLISH variables are "true".
+  packages:
+    needs: [release-please, binaries]
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/packages.yml
+    with:
+      version: ${{ needs.release-please.outputs.version }}
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # Skips with a notice until the HOMEBREW_TAP_TOKEN secret exists.
+  homebrew:
+    needs: [release-please, binaries]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/homebrew.yml
+    with:
+      version: ${{ needs.release-please.outputs.version }}
+    secrets:
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

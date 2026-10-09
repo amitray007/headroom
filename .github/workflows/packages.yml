@@ -9,6 +9,10 @@ on:
         description: Release version without the v prefix, for example 0.1.1
         required: true
         type: string
+    secrets:
+      NPM_TOKEN:
+        description: Granular npm token with publish rights to the headroomhq packages
+        required: false
   workflow_dispatch:
     inputs:
       version:
