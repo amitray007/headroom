@@ -1,6 +1,6 @@
 # Evidence register
 
-This project consolidates an earlier research conversation, a source review and a CLIProxyAPI source inspection, all on 2026-10-01. No live sign-in, credential read, account mutation or inference request was performed during project setup.
+This project consolidates an earlier research conversation, a source review and a CLIProxyAPI source inspection, all on 2026-10-01. Project setup itself made no live sign-in, credential read, account mutation or inference request. The live checks that came later are in the table below, each with its date and scope.
 
 ## Proof levels
 

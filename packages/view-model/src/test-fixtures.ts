@@ -1,6 +1,6 @@
 import type { Metric, OverviewConnection, ResetCredit } from "./overview.ts";
 
-/** Synthetic data shaped like design/research/data-inventory.md. No real accounts. */
+/** Synthetic data in the shape the connectors produce. No real accounts. */
 
 export function metric(key: string, over: Partial<Metric> = {}): Metric {
   return {
