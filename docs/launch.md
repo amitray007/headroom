@@ -6,7 +6,7 @@ The plan for the public release: versioning, the Docker image, funding, the demo
 
 | Question | Choice |
 | --- | --- |
-| Version numbers | [Semantic Versioning](https://semver.org) from [Conventional Commits](https://www.conventionalcommits.org): `fix:` bumps the patch, `feat:` the minor, `feat!:` or `BREAKING CHANGE:` the major |
+| Version numbers | [Semantic Versioning](https://semver.org) from [Conventional Commits](https://www.conventionalcommits.org): `fix:` and `feat:` bump the patch before `1.0.0` (the minor after it), `feat!:` or `BREAKING CHANGE:` the minor before `1.0.0` (the major after it). The owner raises the minor or major on purpose with the `Release As` workflow |
 | Release tool | release-please: it keeps one release pull request open with the next version and the changelog. Merging it tags `vX.Y.Z` |
 | First version | `0.1.0`. Before `1.0.0`, a breaking change bumps the minor |
 | Demo site host | GitHub Pages, live when the repository is public |
@@ -69,6 +69,7 @@ Owner: the agent builds; the owner approves each step.
 | --- | --- | --- |
 | `ci.yml` | Pull request, push to `main` | Commit subjects, checks, audit, binary build, site build, image build |
 | `release-please.yml` | Push to `main` | Keeps the release pull request current. When it merges, tags the release and calls `image.yml` |
+| `release-as.yml` | Manual | Commits a `Release-As` footer so the next release is a chosen minor or major version, then runs `release-please.yml` |
 | `image.yml` | Push to `main`, release, manual | Builds both architectures, pushes the tags above, attests provenance, smoke-tests the pushed image |
 | `pages.yml` | Release (once the repository is public), manual | Builds the landing page and the demo and deploys them to GitHub Pages |
 

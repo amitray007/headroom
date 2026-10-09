@@ -1,0 +1,67 @@
+# Raises the next release to a minor or major version. Before 1.0, commits on main only bump the patch (D33).
+# This adds an empty "Release-As: X.Y.Z" commit to main, and release-please retitles its pull request to that
+# version. Merge the pull request to ship it. See docs/operations/releases.md.
+name: Release As
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Part to raise
+        type: choice
+        options: [minor, major]
+        default: minor
+      version:
+        description: Or an exact version, such as 0.4.0
+        type: string
+        required: false
+permissions: {}
+concurrency:
+  group: release-as
+  cancel-in-progress: false
+jobs:
+  release-as:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Choose the version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+          EXACT: ${{ inputs.version }}
+        run: |
+          current=$(jq -r '."."' .release-please-manifest.json)
+          IFS=. read -r major minor _ <<<"$current"
+          if [ -n "$EXACT" ]; then
+            next="${EXACT#v}"
+          elif [ "$BUMP" = major ]; then
+            next="$((major + 1)).0.0"
+          else
+            next="$major.$((minor + 1)).0"
+          fi
+          if ! printf '%s' "$next" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::$next is not a version such as 1.2.3"
+            exit 1
+          fi
+          if [ "$(printf '%s\n%s\n' "$current" "$next" | sort -V | tail -n 1)" != "$next" ] || [ "$next" = "$current" ]; then
+            echo "::error::$next is not higher than the current release $current"
+            exit 1
+          fi
+          echo "Current release $current, next $next"
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+      - name: Commit Release-As to main
+        env:
+          NEXT: ${{ steps.version.outputs.next }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: release $NEXT" -m "Release-As: $NEXT"
+          git push origin HEAD:main
+      - name: Update the release pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release-please.yml --ref main

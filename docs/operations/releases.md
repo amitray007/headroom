@@ -9,17 +9,28 @@ Every commit subject on `main` is a [Conventional Commit](https://www.convention
 | Subject | Next version from 0.4.2 | After 1.0, from 1.2.3 |
 | --- | --- | --- |
 | `fix: ...`, `perf: ...` | 0.4.3 | 1.2.4 |
-| `feat: ...` | 0.5.0 | 1.3.0 |
+| `feat: ...` | 0.4.3 | 1.3.0 |
 | `feat!: ...` or a `BREAKING CHANGE:` footer | 0.5.0 | 2.0.0 |
 | `docs`, `test`, `refactor`, `build`, `ci`, `chore`, `style` | no release | no release |
 
 A scope is optional: `fix(codex): ...`. The `commits` job in CI rejects a subject without a type. Run `scripts/check_commits.sh origin/main HEAD` before a push to check the same thing locally.
+
+Before 1.0, a feature bumps only the patch, so releases go 0.1.0, 0.1.1, 0.1.2. A breaking change still bumps the minor, so a user who pins `0.4` never receives one. Raise the minor or major version on purpose with the `Release As` workflow below.
 
 ## Cutting a release
 
 1. A push to `main` runs the `Release` workflow. It opens or updates one pull request, "chore(main): release X.Y.Z", with the version bump and the `CHANGELOG.md` entry.
 2. Merge that pull request when you want to ship. Release-please then tags `vX.Y.Z`, creates the GitHub release and calls the `Image` workflow. Once the repository is public, it also calls the `Pages` workflow.
 3. The `Image` workflow builds `linux/amd64` and `linux/arm64`, pushes the image as `sha-<short>`, smoke-tests it and only then adds the public tags.
+
+To ship a minor or major version instead of the next patch:
+
+1. Open Actions > Release As > Run workflow on `main`.
+2. Choose `minor` (0.4.2 to 0.5.0) or `major` (0.4.2 to 1.0.0), or type an exact version.
+3. The workflow adds an empty commit `chore: release X.Y.Z` with a `Release-As: X.Y.Z` footer to `main` and runs `Release`, which retitles the release pull request to that version.
+4. Merge the pull request as usual.
+
+The same footer works from a terminal: `git commit --allow-empty -m "chore: release 0.5.0" -m "Release-As: 0.5.0"`, then push. Commits after that release return to the patch default.
 
 Release-please updates `package.json` and `apps/server/src/version.ts`, so `headroom --version` and `/healthz` report the release.
 

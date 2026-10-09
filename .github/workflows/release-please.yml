@@ -4,6 +4,8 @@ name: Release
 on:
   push:
     branches: [main]
+  # release-as.yml starts it after its commit, which, made with GITHUB_TOKEN, does not trigger a push run.
+  workflow_dispatch:
 permissions: {}
 concurrency:
   group: release-please
