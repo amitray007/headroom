@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Build the PyPI wheels (one per platform) from the release archives.
 
-    python3 scripts/package-pypi.py --version 0.1.1 --assets <dir> --out <dir>
+    python3 scripts/package-pypi.py --version 0.1.1 --assets <dir> --out <dir> --readme <file>
 
 <dir> holds the release assets: the four headroom-<os>-<arch>.tar.gz archives and SHA256SUMS. The script checks
-every archive against SHA256SUMS first. A platform whose archive is missing is skipped only with --allow-partial.
+every archive against SHA256SUMS first. The --readme file comes from scripts/package-readme.ts, so the PyPI page shows
+the repository README; the summary, keywords and links come from packaging/metadata.json. A platform whose archive is missing is skipped only with --allow-partial.
 The wheel is written with zipfile; no build backend is needed. There is no sdist: the package is a prebuilt
 binary, so a source build has nothing to compile. See packaging/README.md.
 """
@@ -13,6 +14,7 @@ import argparse
 import base64
 import hashlib
 import io
+import json
 import os
 import re
 import sys
@@ -22,9 +24,16 @@ import zipfile
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PACKAGE_DIR = os.path.join(REPO, "packaging", "pypi")
 NAME = "headroomhq"
-SUMMARY = "Self-hosted dashboard for AI account allowances, balances and usage"
-HOMEPAGE = "https://headroom.theblank.club"
-SOURCE = "https://github.com/amitray007/headroom"
+with open(os.path.join(REPO, "packaging", "metadata.json"), "rb") as _handle:
+    METADATA = json.loads(_handle.read().decode("utf8"))
+CLASSIFIERS = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: System :: Monitoring",
+]
 # Fixed timestamp so a rebuild gives identical wheels.
 EPOCH = (2020, 1, 1, 0, 0, 0)
 
@@ -73,10 +82,11 @@ def record_hash(data: bytes) -> str:
     return f"sha256={digest}"
 
 
-def build_wheel(version: str, tags: list, binary: bytes, license_text: bytes, out_dir: str) -> str:
+def build_wheel(
+    version: str, tags: list, binary: bytes, license_text: bytes, readme: str, out_dir: str
+) -> str:
     dist_info = f"{NAME}-{version}.dist-info"
-    with open(os.path.join(PACKAGE_DIR, "README.md"), "rb") as handle:
-        readme = handle.read().decode("utf8")
+    source = METADATA["repository"]
     with open(os.path.join(PACKAGE_DIR, NAME, "__init__.py"), "rb") as handle:
         init_py = handle.read()
     with open(os.path.join(PACKAGE_DIR, NAME, "__main__.py"), "rb") as handle:
@@ -86,12 +96,18 @@ def build_wheel(version: str, tags: list, binary: bytes, license_text: bytes, ou
         "Metadata-Version: 2.4\n"
         f"Name: {NAME}\n"
         f"Version: {version}\n"
-        f"Summary: {SUMMARY}\n"
+        f"Summary: {METADATA['description']}\n"
+        f"Keywords: {','.join(METADATA['keywords'])}\n"
         "License-Expression: MIT\n"
         "License-File: LICENSE\n"
-        f"Project-URL: Homepage, {HOMEPAGE}\n"
-        f"Project-URL: Source, {SOURCE}\n"
-        f"Project-URL: Issues, {SOURCE}/issues\n"
+        + "".join(f"Classifier: {classifier}\n" for classifier in CLASSIFIERS)
+        + f"Project-URL: Homepage, {METADATA['homepage']}\n"
+        f"Project-URL: Demo, {METADATA['demo']}\n"
+        f"Project-URL: Documentation, {source}/blob/v{version}/docs/README.md\n"
+        f"Project-URL: Source, {source}\n"
+        f"Project-URL: Issues, {source}/issues\n"
+        f"Project-URL: Changelog, {source}/blob/v{version}/CHANGELOG.md\n"
+        f"Project-URL: Funding, {METADATA['funding']}\n"
         "Requires-Python: >=3.8\n"
         "Description-Content-Type: text/markdown\n"
         "\n"
@@ -138,6 +154,7 @@ def main() -> None:
     parser.add_argument("--version", required=True)
     parser.add_argument("--assets", required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--readme", required=True, help="written by scripts/package-readme.ts")
     parser.add_argument("--allow-partial", action="store_true")
     args = parser.parse_args()
     if not re.fullmatch(r"\d+\.\d+\.\d+", args.version):
@@ -147,6 +164,8 @@ def main() -> None:
     if not os.path.isfile(sums_path):
         sys.exit(f"{sums_path} is missing; refusing to package unverified archives")
     sums = read_sums(sums_path)
+    with open(args.readme, "rb") as handle:
+        readme = handle.read().decode("utf8")
 
     built = 0
     for platform, tags in PLATFORMS.items():
@@ -161,7 +180,7 @@ def main() -> None:
         if sums.get(name) != actual:
             sys.exit(f"{name} does not match SHA256SUMS")
         binary, license_text = read_archive(path)
-        print(build_wheel(args.version, tags, binary, license_text, args.out))
+        print(build_wheel(args.version, tags, binary, license_text, readme, args.out))
         built += 1
     if built == 0:
         sys.exit("no archives found")

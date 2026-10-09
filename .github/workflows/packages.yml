@@ -75,7 +75,9 @@ jobs:
       - name: Build the wheels
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: python3 -I scripts/package-pypi.py --version "$VERSION" --assets "$RUNNER_TEMP/assets" --out dist-packages/pypi
+        run: |
+          mise exec -- bun scripts/package-readme.ts --version "$VERSION" --out "$RUNNER_TEMP/README.md"
+          python3 -I scripts/package-pypi.py --version "$VERSION" --assets "$RUNNER_TEMP/assets" --out dist-packages/pypi --readme "$RUNNER_TEMP/README.md"
       - run: ls -l dist-packages/npm dist-packages/pypi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

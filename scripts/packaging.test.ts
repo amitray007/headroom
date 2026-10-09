@@ -28,6 +28,7 @@ let work = "";
 let assets = "";
 let npmOut = "";
 let wheelOut = "";
+let readmeFile = "";
 
 function run(cmd: string[], env: Record<string, string> = {}) {
   const result = Bun.spawnSync(cmd, {
@@ -43,6 +44,8 @@ beforeAll(() => {
   assets = join(work, "assets");
   npmOut = join(work, "npm");
   wheelOut = join(work, "wheels");
+  readmeFile = join(work, "README.md");
+  writeFileSync(readmeFile, "# Headroom\n\nThe package page.\n");
   mkdirSync(assets);
   const sums: string[] = [];
   for (const id of ids) {
@@ -82,8 +85,19 @@ test("package-npm writes five packages with matching versions", () => {
     bin: Record<string, string>;
     optionalDependencies: Record<string, string>;
     scripts?: unknown;
+    description: string;
+    keywords: string[];
+    homepage: string;
   };
   expect(main.version).toBe(version);
+  expect(main.description).toStartWith("Self-hosted dashboard for all your AI plans.");
+  expect(main.keywords).toContain("self-hosted");
+  expect(main.homepage).toBe("https://headroom.theblank.club");
+  const readme = readFileSync(join(npmOut, "headroomhq/README.md"), "utf8");
+  expect(readme).toContain("# Headroom");
+  expect(readme).toContain(
+    `https://github.com/amitray007/headroom/blob/v${version}/docs/README.md`,
+  );
   expect(main.bin).toEqual({ headroom: "bin/headroom.js", headroomhq: "bin/headroom.js" });
   expect(main.scripts).toBeUndefined();
   expect(main.optionalDependencies).toEqual(
@@ -153,6 +167,8 @@ test("package-pypi writes one wheel per platform with a valid RECORD", () => {
     assets,
     "--out",
     wheelOut,
+    "--readme",
+    readmeFile,
   ]);
   expect(result.err).toBe("");
   expect(result.code).toBe(0);
@@ -179,6 +195,10 @@ metadata = wheel.read(f"{dist}/METADATA").decode()
 assert "Name: headroomhq\\nVersion: ${version}\\n" in metadata
 assert "License-Expression: MIT" in metadata
 assert "Project-URL: Homepage, https://headroom.theblank.club" in metadata
+assert "Project-URL: Changelog, https://github.com/amitray007/headroom/blob/v${version}/CHANGELOG.md" in metadata
+assert "Summary: Self-hosted dashboard for all your AI plans." in metadata
+assert "Keywords: ai," in metadata
+assert metadata.endswith("# Headroom\\n\\nThe package page.\\n")
 wheel_file = wheel.read(f"{dist}/WHEEL").decode()
 assert "Root-Is-Purelib: false" in wheel_file
 print(",".join(line for line in wheel_file.splitlines() if line.startswith("Tag:")))

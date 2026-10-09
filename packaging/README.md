@@ -6,11 +6,26 @@ plus `SHA256SUMS`. Both builders check every archive against `SHA256SUMS` before
 
 | Folder        | Holds                                                                    |
 | ------------- | ------------------------------------------------------------------------ |
+| `metadata.json` | Summary, keywords and links for both registries                        |
 | `npm/main`    | Template for `headroomhq`: the launcher `bin/headroom.js`, no dependencies |
 | `npm/platform`| Template for the four `headroomhq-<os>-<arch>` packages                   |
 | `pypi`        | The `headroomhq` Python module that runs the bundled binary               |
 
-Builders: `scripts/package-npm.ts` and `scripts/package-pypi.py`. Both take `--version X.Y.Z --assets <dir> --out <dir>`.
+Builders: `scripts/package-npm.ts` and `scripts/package-pypi.py`. Both take `--version X.Y.Z --assets <dir> --out <dir>`;
+the PyPI builder also takes `--readme <file>`.
+
+## What the registry pages show
+
+The npm and PyPI pages match the GitHub repository:
+
+- The README is the repository `README.md`, written by `scripts/package-readme.ts`. It makes every relative link and
+  image absolute and pins it to the tag `v<version>`, so a page keeps showing the release it shipped with. Images load
+  from `raw.githubusercontent.com`, which serves them once the repository is public.
+- The summary, keywords, homepage, demo and funding links come from `metadata.json`. Keep its `description` and
+  `keywords` equal to the GitHub repository description and topics.
+- A registry page changes only with a new version: npm and PyPI do not let a published README be edited.
+
+The four platform packages keep a short README of their own, from `npm/platform/README.md`.
 `scripts/packaging.test.ts` builds both from a stand-in binary and, if `uv` is installed, installs the host wheel.
 
 ## npm

@@ -22,8 +22,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 
+import { packageReadme } from "./package-readme.ts";
+
 const repo = join(import.meta.dir, "..");
 const templates = join(repo, "packaging", "npm");
+const metadata = JSON.parse(readFileSync(join(repo, "packaging", "metadata.json"), "utf8")) as {
+  description: string;
+  keywords: string[];
+  homepage: string;
+  funding: string;
+};
 
 /** Release asset platform -> npm `os` and `cpu` values. */
 const platforms = [
@@ -135,10 +143,18 @@ try {
   mkdirSync(join(main, "bin"), { recursive: true });
   copyFileSync(join(templates, "main", "bin", "headroom.js"), join(main, "bin", "headroom.js"));
   chmodSync(join(main, "bin", "headroom.js"), 0o755);
-  copyFileSync(join(templates, "main", "README.md"), join(main, "README.md"));
+  // The registry page shows the repository README, pinned to this release.
+  writeFileSync(
+    join(main, "README.md"),
+    packageReadme(readFileSync(join(repo, "README.md"), "utf8"), version),
+  );
   copyFileSync(join(repo, "LICENSE"), join(main, "LICENSE"));
   const manifest = readJson(join(templates, "main", "package.json"));
   manifest.version = version;
+  manifest.description = metadata.description;
+  manifest.keywords = metadata.keywords;
+  manifest.homepage = metadata.homepage;
+  manifest.funding = { type: "github", url: metadata.funding };
   manifest.optionalDependencies = optionalDependencies;
   writeFileSync(join(main, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 } finally {

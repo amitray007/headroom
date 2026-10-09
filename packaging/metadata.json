@@ -1,0 +1,24 @@
+{
+  "description": "Self-hosted dashboard for all your AI plans. Track limits, resets and spend across Claude, Codex, Cursor, Copilot, Grok and more.",
+  "keywords": [
+    "ai",
+    "antigravity",
+    "claude",
+    "claude-code",
+    "codex",
+    "cursor",
+    "dashboard",
+    "github-copilot",
+    "grok",
+    "llm",
+    "openai-codex",
+    "rate-limits",
+    "self-hosted",
+    "usage-tracking",
+    "vercel-ai-gateway"
+  ],
+  "homepage": "https://headroom.theblank.club",
+  "demo": "https://headroom.theblank.club/demo/",
+  "repository": "https://github.com/amitray007/headroom",
+  "funding": "https://github.com/sponsors/amitray007"
+}

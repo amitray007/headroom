@@ -45,7 +45,7 @@ export function renderFormula(version: string, sumsText: string): string {
     return `  on_${os} do\n${cpus.join("\n")}\n  end`;
   };
   return `class Headroom < Formula
-  desc "Self-hosted dashboard for AI account limits, balances and usage"
+  desc "Self-hosted dashboard for all your AI plans"
   homepage "https://headroom.theblank.club"
   version "${version}"
   license "MIT"
