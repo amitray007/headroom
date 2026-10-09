@@ -1,15 +1,18 @@
-# Version-update PRs only for major releases. Minor and patch updates are ignored;
-# GitHub's security updates are configured in repository settings and are not affected.
+# Quiet by design.
+# - Version updates: major releases only, once a quarter, one grouped pull request per ecosystem.
+# - Security updates (on in repository settings): every fix for an ecosystem in one grouped pull request.
+#   The update-types ignores below apply to version updates only, so a security fix still arrives at any level.
 version: 2
 updates:
   - package-ecosystem: bun
     directory: /
     schedule:
-      interval: monthly
+      interval: quarterly
+    # fix: a merged dependency update ships in the next patch release.
     commit-message:
-      prefix: build
+      prefix: fix
       include: scope
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 1
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-minor", "version-update:semver-patch"]
@@ -17,14 +20,40 @@ updates:
       major-updates:
         patterns: ["*"]
         update-types: ["major"]
+      security-fixes:
+        applies-to: security-updates
+        patterns: ["*"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: monthly
+      interval: quarterly
     commit-message:
       prefix: ci
       include: scope
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 1
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-minor", "version-update:semver-patch"]
+    groups:
+      major-updates:
+        patterns: ["*"]
+        update-types: ["major"]
+      security-fixes:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  # The launch video project is a local rendering tool. A limit of 0 turns version updates off;
+  # security fixes still arrive, grouped.
+  - package-ecosystem: npm
+    directory: /media/launch-video
+    schedule:
+      interval: quarterly
+    commit-message:
+      prefix: build
+      include: scope
+    open-pull-requests-limit: 0
+    groups:
+      security-fixes:
+        applies-to: security-updates
+        patterns: ["*"]
