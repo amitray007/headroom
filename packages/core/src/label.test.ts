@@ -56,3 +56,16 @@ test("a plan that repeats the product name keeps only the plan", () => {
     plan: "Starter Quota",
   });
 });
+
+test("reads only a final parenthesis group with nothing nested", () => {
+  expect(splitLabel("codex", "a (b) c)")).toEqual({ identity: "a (b) c)", plan: null });
+  expect(splitLabel("codex", "team (eu) (pro)")).toEqual({ identity: "team (eu)", plan: "pro" });
+  expect(splitLabel("codex", "(pro)")).toEqual({ identity: null, plan: "pro" });
+});
+
+test("stays fast on a long run of spaces", () => {
+  const started = performance.now();
+  splitLabel("codex", `a${" ".repeat(50_000)}(`);
+  splitLabel("codex", `a${" ".repeat(50_000)}x)`);
+  expect(performance.now() - started).toBeLessThan(50);
+});

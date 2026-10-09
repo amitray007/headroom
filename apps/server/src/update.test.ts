@@ -36,7 +36,7 @@ function harness(
     home: "/home/u",
     fetch: async (url) => {
       urls.push(url);
-      if (url.includes("api.github.com")) {
+      if (new URL(url).hostname === "api.github.com") {
         return Response.json({ tag_name: over.tag ?? "v0.2.0" }, { status: over.apiStatus ?? 200 });
       }
       if (url.endsWith("SHA256SUMS")) {

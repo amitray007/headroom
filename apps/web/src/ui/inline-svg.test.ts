@@ -29,3 +29,9 @@ test("keeps brand colours when not monochrome", () => {
     'fill="#D97757"',
   );
 });
+
+test("removes nested comments completely", () => {
+  expect(
+    inlineSvg('<svg viewBox="0 0 1 1"><!-<!-- a -->- b --><path d="M0"/></svg>', false),
+  ).not.toContain("<!--");
+});

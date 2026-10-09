@@ -29,9 +29,13 @@ export interface SplitLabel {
 
 export function splitLabel(provider: Provider, label: string): SplitLabel {
   const trimmed = label.trim();
-  const match = /^(.*?)\s*\(([^()]*)\)$/.exec(trimmed);
-  const head = (match ? (match[1] ?? "") : trimmed).trim();
-  const tail = (match?.[2] ?? "").trim();
+  // A trailing "(...)" with no parenthesis inside it holds the plan. Found by index, not by a regex, so a long run of
+  // spaces cannot make the match slow.
+  const open = trimmed.endsWith(")") ? trimmed.lastIndexOf("(") : -1;
+  const inner = open >= 0 ? trimmed.slice(open + 1, -1) : null;
+  const hasPlan = inner !== null && !inner.includes(")");
+  const head = (hasPlan ? trimmed.slice(0, open) : trimmed).trim();
+  const tail = (hasPlan ? inner : "").trim();
   const identity = head === "" || head === fallbackLabels[provider] ? null : head;
   // "Antigravity Starter Quota" repeats the product name; the plan is "Starter Quota".
   const product = fallbackLabels[provider];

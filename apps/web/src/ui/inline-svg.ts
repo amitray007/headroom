@@ -3,7 +3,12 @@
  * the root width and height, optionally paint the mark with currentColor, and hide it from assistive tech.
  */
 export function inlineSvg(raw: string, monochrome: boolean): string {
-  let svg = raw.replace(/<\?xml[^>]*\?>/g, "").replace(/<!--[\s\S]*?-->/g, "");
+  let svg = raw.replace(/<\?xml[^>]*\?>/g, "");
+  // Repeat until nothing changes, so a nested comment cannot leave a "<!--" behind.
+  for (let previous = ""; previous !== svg; ) {
+    previous = svg;
+    svg = svg.replace(/<!--[\s\S]*?-->/g, "");
+  }
   svg = svg.replace(/<svg\b[^>]*>/, (root) => root.replace(/\s(?:width|height)="[^"]*"/g, ""));
   if (monochrome) {
     svg = svg
