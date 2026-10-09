@@ -1,8 +1,5 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-
 import { Hono } from "hono";
-import { getConnInfo, serveStatic } from "hono/bun";
+import { getConnInfo } from "hono/bun";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 
@@ -26,16 +23,7 @@ import { overviewRoutes } from "./routes/overview.ts";
 import { providerRoutes } from "./routes/providers.ts";
 import { settingsRoutes } from "./routes/settings.ts";
 import { walletRoutes } from "./routes/wallet.ts";
-
-const brandFiles = [
-  "favicon.ico",
-  "favicon.svg",
-  "favicon-32.png",
-  "apple-touch-icon.png",
-  "icon-192.png",
-  "icon-512.png",
-  "manifest.webmanifest",
-];
+import { resolveWebAssets, webUnavailableMessage } from "./web-assets.ts";
 
 export { version };
 
@@ -119,12 +107,11 @@ export function createApp(ctx: AppContext): Hono {
   app.route("/api", api);
 
   // Built web UI, when present: static assets, then index.html for client-side routes.
-  const webDir = ctx.config.webDir;
-  if (webDir && existsSync(join(webDir, "index.html"))) {
-    app.use("/assets/*", serveStatic({ root: webDir }));
-    // Brand files from apps/web/public sit at the root: browsers request /favicon.ico unprompted.
-    for (const file of brandFiles) app.get(`/${file}`, serveStatic({ root: webDir }));
-    app.get("*", serveStatic({ root: webDir, path: "index.html" }));
+  const web = resolveWebAssets(ctx.config.webDir);
+  if (web) {
+    app.get("*", (c) => web.file(c.req.path) ?? web.index());
+  } else {
+    ctx.log("warn", webUnavailableMessage(ctx.config.webDir));
   }
   return app;
 }

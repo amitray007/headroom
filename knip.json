@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreIssues": { "apps/server/src/web-assets.ts": ["exports"] },
   "workspaces": {
     ".": {
       "entry": ["scripts/*.ts"],

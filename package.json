@@ -13,7 +13,7 @@
   "scripts": {
     "dev": "bun --watch apps/server/src/index.ts",
     "build": "bun run web:build && bun run build:server",
-    "build:server": "bun build --compile --minify --sourcemap apps/server/src/index.ts --outfile dist/headroom",
+    "build:server": "bun scripts/build-server.ts",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "lint": "oxlint --type-aware --deny-warnings",
