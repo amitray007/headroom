@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.3](https://github.com/amitray007/headroom/compare/v0.1.2...v0.1.3) (2026-10-09)
+
+
+### Features
+
+* **packaging:** show the repository README and details on npm and PyPI ([45be16c](https://github.com/amitray007/headroom/commit/45be16cadd3764efb988caa9af8a090b34fb91ef))
+
+
+### Bug Fixes
+
+* **release:** trust packages.yml as the PyPI publisher ([63a4704](https://github.com/amitray007/headroom/commit/63a47045780341afe3cb789bedc02f837612e716))
+
 ## [0.1.2](https://github.com/amitray007/headroom/compare/v0.1.1...v0.1.2) (2026-10-09)
 
 
