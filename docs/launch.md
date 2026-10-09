@@ -43,6 +43,8 @@ Remaining:
 
 Owner: the agent builds; the owner approves each step.
 
+Status: on 2026-10-09 the owner approved a 61-second cut: the shimmer voice (OpenAI `tts-1-hd` through Vercel AI Gateway), a light music bed (Mixkit "Digital Clouds"), and scenes timed to the voice. It plays from the Watch the film button on the site (`site/media/`). Captions come burned in for the X and LinkedIn feeds, or as SRT and VTT files with a clean cut. The Remotion project is not in the repository yet. Remaining: the 1:1 cut, the README loop and the Product Hunt stills.
+
 1. A storyboard and a script of 60 to 75 seconds for the owner to approve:
    - Hook: the plans you pay for (Codex, Claude, Cursor, Copilot) each reset on a different clock.
    - Problem: seven dashboards, no single view of what is left.

@@ -186,6 +186,8 @@ if (!existsSync(join(demoBuild, "index.html"))) {
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out);
 cpSync(demoBuild, join(out, "demo"), { recursive: true });
+// The launch film, its poster and captions.
+cpSync(join(repo, "site/media"), join(out, "media"), { recursive: true });
 
 const server = serve();
 const browser = await chromium.launch(
