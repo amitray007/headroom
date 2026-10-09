@@ -37,10 +37,9 @@ jobs:
     with:
       version: ${{ needs.release-please.outputs.version }}
 
-  # GitHub Pages serves this repository's site only once it is public.
   pages:
     needs: release-please
-    if: needs.release-please.outputs.release_created == 'true' && !github.event.repository.private
+    if: needs.release-please.outputs.release_created == 'true'
     permissions:
       contents: read
       pages: write

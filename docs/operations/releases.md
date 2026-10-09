@@ -20,7 +20,7 @@ Before 1.0, a feature bumps only the patch, so releases go 0.1.0, 0.1.1, 0.1.2. 
 ## Cutting a release
 
 1. A push to `main` runs the `Release` workflow. It opens or updates one pull request, "chore(main): release X.Y.Z", with the version bump and the `CHANGELOG.md` entry.
-2. Merge that pull request when you want to ship. Release-please then tags `vX.Y.Z`, creates the GitHub release and calls the `Image` workflow. Once the repository is public, it also calls the `Pages` workflow.
+2. Merge that pull request when you want to ship. Release-please then tags `vX.Y.Z`, creates the GitHub release and calls the `Image` workflow. It also calls the `Pages` workflow, which redeploys the site.
 3. The `Image` workflow builds `linux/amd64` and `linux/arm64`, pushes the image as `sha-<short>`, smoke-tests it and only then adds the public tags.
 
 To ship a minor or major version instead of the next patch:

@@ -71,7 +71,7 @@ Owner: the agent builds; the owner approves each step.
 | `release-please.yml` | Push to `main` | Keeps the release pull request current. When it merges, tags the release and calls `image.yml` |
 | `release-as.yml` | Manual | Commits a `Release-As` footer so the next release is a chosen minor or major version, then runs `release-please.yml` |
 | `image.yml` | Push to `main`, release, manual | Builds both architectures, pushes the tags above, attests provenance, smoke-tests the pushed image |
-| `pages.yml` | Release (once the repository is public), manual | Builds the landing page and the demo and deploys them to GitHub Pages |
+| `pages.yml` | Release, manual | Builds the landing page and the demo and deploys them to GitHub Pages |
 
 Use least-privilege permissions in each job: `packages: write` only in `image.yml`, `pages: write` and `id-token: write` only in `pages.yml`. Pin every action to a commit SHA, as `ci.yml` does. Native `arm64` runners are free for public repositories; until then, `arm64` builds under QEMU.
 
