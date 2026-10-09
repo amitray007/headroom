@@ -1,0 +1,23 @@
+{
+  "name": "headroomhq-PLATFORM",
+  "version": "0.0.0",
+  "description": "The headroom binary for PLATFORM",
+  "homepage": "https://headroom.theblank.club",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amitray007/headroom.git"
+  },
+  "files": [
+    "bin/headroom",
+    "README.md",
+    "LICENSE"
+  ],
+  "os": [
+    "OS"
+  ],
+  "cpu": [
+    "CPU"
+  ],
+  "preferUnplugged": true
+}
