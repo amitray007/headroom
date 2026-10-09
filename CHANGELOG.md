@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.4](https://github.com/amitray007/headroom/compare/v0.1.3...v0.1.4) (2026-10-09)
+
+
+### Features
+
+* **media:** add the launch video project, its square cut, stills and README loop ([f05e3ec](https://github.com/amitray007/headroom/commit/f05e3ec0a455a15a3732adb6c922c08b3f8f492e))
+* **media:** pin the square cut's captions to the bottom and add a clean square ([d86afe2](https://github.com/amitray007/headroom/commit/d86afe25ae6a2bfb0bc0206e664a0fa7ff3a74e9))
+
 ## [0.1.3](https://github.com/amitray007/headroom/compare/v0.1.2...v0.1.3) (2026-10-09)
 
 
