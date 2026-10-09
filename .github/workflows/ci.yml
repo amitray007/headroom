@@ -41,6 +41,33 @@ jobs:
       - run: bun run audit:dependencies
       - run: mise run build
       - run: ./dist/headroom --version
+      - name: Smoke-test the binary
+        run: scripts/smoke-binary.sh dist/headroom "$(node -p "require('./package.json').version")"
+
+  # The macOS binary is built and ad-hoc signed on its own runner, as in binaries.yml.
+  binary-macos:
+    if: github.event_name == 'pull_request'
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+        with:
+          version: 2026.9.11
+          cache: true
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
+      - run: mise run install
+      - run: mise run build
+      - run: |
+          codesign --force --sign - dist/headroom
+          codesign --verify --verbose dist/headroom
+      - name: Smoke-test the binary
+        run: scripts/smoke-binary.sh dist/headroom "$(node -p "require('./package.json').version")"
 
   # The landing page skeleton is read from the demo, so a dashboard change can break the site build.
   site:
