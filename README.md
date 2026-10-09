@@ -104,6 +104,9 @@ flowchart LR
 
 ## Quick start
 
+> [!WARNING]
+> Headroom reads private provider endpoints. A provider can restrict, suspend or ban an account for this kind of access. Use it at your own risk: the authors are not responsible for what happens to your accounts. Read the [Disclaimer](DISCLAIMER.md) first.
+
 Every way to install, update and remove Headroom is in [Install](docs/operations/install.md).
 
 ### Installer
@@ -229,9 +232,9 @@ Headroom is free, and there is no paid cloud version. If it saves you a surprise
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE). See also the [Disclaimer](DISCLAIMER.md).
 
 > [!NOTE]
 > Headroom is an independent project, not affiliated with any provider listed above. Product names are trademarks of their owners.
 >
-> It is for personal self-hosted use. It reads your own accounts with your own credentials, and each provider's terms still apply.
+> It is for personal self-hosted use. It reads your own accounts with your own credentials, and each provider's terms still apply. The authors and contributors are not responsible if a provider bans, suspends, blocks or restricts an account, or for any other result of using Headroom.
