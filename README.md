@@ -22,7 +22,7 @@ Live limits, resets, credits and spend for every account, with credentials encry
 
 [Live demo](https://headroom.theblank.club/) · [Quick start](#quick-start) · [Screenshots](#screenshots) · [Providers](#supported-providers) · [How it works](#how-it-works) · [Docs](docs/README.md)
 
-<img src="docs/assets/screenshots/detailed.png" alt="Headroom Detailed view: every account sorted by how close it is to its limit" width="900">
+<img src="media/exports/readme/headroom-loop.gif" alt="Headroom tour: one panel per account, accounts sorted by how close they are to their limit, the account to use next, reset times on a timeline, and spend in one currency" width="900">
 
 <sub>All screenshots use Demo Mode: synthetic accounts on reserved <code>example</code> domains.</sub>
 

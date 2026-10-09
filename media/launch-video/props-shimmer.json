@@ -1,0 +1,313 @@
+{
+ "captions": [
+  [
+   0.25,
+   3.53,
+   "Claude. Codex. Cursor. Copilot. You pay for all of them.",
+   "vo/shimmer/0.3.mp3"
+  ],
+  [
+   4.25,
+   7.64,
+   "Each one resets on its own clock, in its own dashboard.",
+   "vo/shimmer/5.3.mp3"
+  ],
+  [
+   8.14,
+   10.54,
+   "Headroom puts them all on one screen.",
+   "vo/shimmer/11.4.mp3"
+  ],
+  [
+   11.14,
+   18.41,
+   "Each account gets a panel: its session and weekly limits, credits and banked resets, with a countdown to the next reset.",
+   "vo/shimmer/15.4.mp3"
+  ],
+  [
+   18.91,
+   22.64,
+   "Detailed sorts every account by how close it is to its limit.",
+   "vo/shimmer/24.3.mp3"
+  ],
+  [
+   22.69,
+   24.92,
+   "Compare names the one to use next.",
+   "vo/shimmer/28.0.mp3"
+  ],
+  [
+   25.42,
+   27.89,
+   "Timeline shows when your headroom comes back.",
+   "vo/shimmer/32.3.mp3"
+  ],
+  [
+   29.62,
+   32.7,
+   "Wallet adds up what it all costs, in one currency.",
+   "vo/shimmer/38.3.mp3"
+  ],
+  [
+   33.47,
+   37.01,
+   "Get a warning on Telegram or by webhook before you run out.",
+   "vo/shimmer/43.3.mp3"
+  ],
+  [
+   37.06,
+   41.54,
+   "Automations use a banked Codex reset, log top-ups and watch your budgets.",
+   "vo/shimmer/47.6.mp3"
+  ],
+  [
+   41.99,
+   43.16,
+   "It works on your phone.",
+   "vo/shimmer/52.3.mp3"
+  ],
+  [
+   43.21,
+   46.43,
+   "And Privacy Mode blurs emails when you share your screen.",
+   "vo/shimmer/55.0.mp3"
+  ],
+  [
+   47.04,
+   52.07,
+   "There's no hosted version, on purpose. Your logins stay encrypted on your own server.",
+   "vo/shimmer/58.4.mp3"
+  ],
+  [
+   53.44,
+   60.1,
+   "Run it on your own server. It's free and open source. Try the live demo at headroom.theblank.club.",
+   "vo/shimmer/66.4.mp3"
+  ]
+ ],
+ "scenes": [
+  {
+   "key": "hook",
+   "from": 0,
+   "frames": 120,
+   "anchors": [
+    [
+     0,
+     0
+    ],
+    [
+     9,
+     8
+    ],
+    [
+     150,
+     120
+    ]
+   ]
+  },
+  {
+   "key": "problem",
+   "from": 120,
+   "frames": 117,
+   "anchors": [
+    [
+     0,
+     0
+    ],
+    [
+     9,
+     8
+    ],
+    [
+     180,
+     117
+    ]
+   ]
+  },
+  {
+   "key": "reveal",
+   "from": 237,
+   "frames": 90,
+   "anchors": [
+    [
+     0,
+     0
+    ],
+    [
+     12,
+     8
+    ],
+    [
+     120,
+     90
+    ]
+   ]
+  },
+  {
+   "key": "overview",
+   "from": 327,
+   "frames": 233,
+   "anchors": [
+    [
+     0,
+     0
+    ],
+    [
+     12,
+     8
+    ],
+    [
+     270,
+     233
+    ]
+   ]
+  },
+  {
+   "key": "detailed",
+   "from": 560,
+   "frames": 195,
+   "anchors": [
+    [
+     0,
+     0
+    ],
+    [
+     9,
+     8
+    ],
+    [
+     132,
+     121
+    ],
+    [
+     240,
+     195
+    ]
+   ]
+  },
+  {
+   "key": "timeline",
+   "from": 755,
+   "frames": 126,
+   "anchors": [
+    [
+     0,
+     0
+    ],
+    [
+     9,
+     8
+    ],
+    [
+     180,
+     126
+    ]
+   ]
+  },
+  {
+   "key": "wallet",
+   "from": 881,
+   "frames": 120,
+   "anchors": [
+    [
+     0,
+     0
+    ],
+    [
+     9,
+     8
+    ],
+    [
+     150,
+     120
+    ]
+   ]
+  },
+  {
+   "key": "alerts",
+   "from": 1001,
+   "frames": 252,
+   "anchors": [
+    [
+     0,
+     0
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     129,
+     111
+    ],
+    [
+     270,
+     252
+    ]
+   ]
+  },
+  {
+   "key": "phone",
+   "from": 1254,
+   "frames": 150,
+   "anchors": [
+    [
+     0,
+     0
+    ],
+    [
+     6,
+     6
+    ],
+    [
+     66,
+     42
+    ],
+    [
+     180,
+     150
+    ]
+   ]
+  },
+  {
+   "key": "trust",
+   "from": 1404,
+   "frames": 192,
+   "anchors": [
+    [
+     0,
+     0
+    ],
+    [
+     12,
+     8
+    ],
+    [
+     240,
+     192
+    ]
+   ]
+  },
+  {
+   "key": "cta",
+   "from": 1596,
+   "frames": 222,
+   "anchors": [
+    [
+     0,
+     0
+    ],
+    [
+     12,
+     8
+    ],
+    [
+     240,
+     222
+    ]
+   ]
+  }
+ ],
+ "total": 1818,
+ "music": "music/digital-clouds.mp3"
+}

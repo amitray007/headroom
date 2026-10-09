@@ -1,0 +1,16 @@
+{
+  "0.3": "Claude. Codex. Cursor. Copilot. You pay for all of them.",
+  "5.3": "Each one resets on its own clock, in its own dashboard.",
+  "11.4": "Headroom puts them all on one screen.",
+  "15.4": "Each account gets a panel: its session and weekly limits, credits and banked resets, with a countdown to the next reset.",
+  "24.3": "Detailed sorts every account by how close it is to its limit.",
+  "28.0": "Compare names the one to use next.",
+  "32.3": "Timeline shows when your headroom comes back.",
+  "38.3": "Wallet adds up what it all costs, in one currency.",
+  "43.3": "Get a warning on Telegram or by webhook before you run out.",
+  "47.6": "Automations use a banked Codex reset, log top-ups and watch your budgets.",
+  "52.3": "It works on your phone.",
+  "55.0": "And Privacy Mode blurs emails when you share your screen.",
+  "58.4": "There's no hosted version, on purpose. Your logins stay encrypted on your own server.",
+  "66.4": "Run it on your own server. It's free and open source. Try the live demo at headroom dot the blank dot club."
+}

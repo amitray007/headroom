@@ -1,0 +1,3 @@
+# Remotion renders with Node. This pin applies to media/launch-video only.
+[tools]
+node = "24.21.0"

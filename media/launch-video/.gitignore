@@ -1,0 +1,4 @@
+node_modules/
+out/
+# Mixkit's license covers the track inside a published video, not sharing the file itself. See ../README.md.
+public/music/*.mp3

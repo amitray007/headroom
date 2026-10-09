@@ -1,0 +1,55 @@
+1
+00:00:00,250 --> 00:00:03,530
+Claude. Codex. Cursor. Copilot. You pay for all of them.
+
+2
+00:00:04,250 --> 00:00:07,640
+Each one resets on its own clock, in its own dashboard.
+
+3
+00:00:08,140 --> 00:00:10,540
+Headroom puts them all on one screen.
+
+4
+00:00:11,140 --> 00:00:18,410
+Each account gets a panel: its session and weekly limits, credits and banked resets, with a countdown to the next reset.
+
+5
+00:00:18,910 --> 00:00:22,640
+Detailed sorts every account by how close it is to its limit.
+
+6
+00:00:22,690 --> 00:00:24,920
+Compare names the one to use next.
+
+7
+00:00:25,420 --> 00:00:27,890
+Timeline shows when your headroom comes back.
+
+8
+00:00:29,620 --> 00:00:32,700
+Wallet adds up what it all costs, in one currency.
+
+9
+00:00:33,470 --> 00:00:37,010
+Get a warning on Telegram or by webhook before you run out.
+
+10
+00:00:37,060 --> 00:00:41,540
+Automations use a banked Codex reset, log top-ups and watch your budgets.
+
+11
+00:00:41,990 --> 00:00:43,160
+It works on your phone.
+
+12
+00:00:43,210 --> 00:00:46,430
+And Privacy Mode blurs emails when you share your screen.
+
+13
+00:00:47,040 --> 00:00:52,070
+There's no hosted version, on purpose. Your logins stay encrypted on your own server.
+
+14
+00:00:53,440 --> 00:01:00,100
+Run it on your own server. It's free and open source. Try the live demo at headroom.theblank.club.

@@ -10,6 +10,7 @@
     "bun.lock",
     "mise.lock",
     "**/*.md",
-    ".release-please-manifest.json"
+    ".release-please-manifest.json",
+    "media/**"
   ]
 }
