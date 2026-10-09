@@ -46,6 +46,12 @@
       }
     },
     {
+      "files": ["site/**"],
+      "env": {
+        "browser": true
+      }
+    },
+    {
       "files": ["apps/web/**"],
       "plugins": ["react", "jsx-a11y"],
       "env": {

@@ -62,3 +62,8 @@ run = "docker build -t headroom:dev ."
 [tasks."demo:build"]
 description = "Build the static demo site (synthetic data, no server) into apps/web/dist-demo"
 run = "bun run web:build:demo"
+
+[tasks."site:build"]
+description = "Build the public site into dist-site: the landing page with the demo at demo/ (needs Google Chrome)"
+depends = ["demo:build"]
+run = "bun scripts/site.ts"

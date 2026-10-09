@@ -18,12 +18,10 @@ A scope is optional: `fix(codex): ...`. The `commits` job in CI rejects a subjec
 ## Cutting a release
 
 1. A push to `main` runs the `Release` workflow. It opens or updates one pull request, "chore(main): release X.Y.Z", with the version bump and the `CHANGELOG.md` entry.
-2. Merge that pull request when you want to ship. Release-please then tags `vX.Y.Z`, creates the GitHub release and calls the `Image` workflow.
+2. Merge that pull request when you want to ship. Release-please then tags `vX.Y.Z`, creates the GitHub release and calls the `Image` workflow. Once the repository is public, it also calls the `Pages` workflow.
 3. The `Image` workflow builds `linux/amd64` and `linux/arm64`, pushes the image as `sha-<short>`, smoke-tests it and only then adds the public tags.
 
 Release-please updates `package.json` and `apps/server/src/version.ts`, so `headroom --version` and `/healthz` report the release.
-
-The first release is pinned with `release-as: 0.1.0` in `release-please-config.json`. Remove that line in the next commit after `v0.1.0` is tagged.
 
 ## Image tags
 
@@ -34,6 +32,10 @@ The first release is pinned with `release-as: 0.1.0` in `release-please-config.j
 | Release 1.2.3 | `1.2.3`, `1.2`, `1`, `latest`, `sha-<short>` |
 
 Each image carries OCI labels, a build provenance attestation and an SBOM. A failed smoke test publishes no public tag, so `latest` stays on the previous release.
+
+## The public site
+
+The `Pages` workflow runs `mise run site:build` and deploys `dist-site/` to GitHub Pages: the landing page from `site/index.html` at the root and the demo (D34) at `demo/`. It runs after each release and by hand from the Actions tab, so the site shows the released app, not `main`. The `site` job in CI builds it on every pull request. How the build works is in [site/README.md](../../site/README.md).
 
 ## Rolling back
 

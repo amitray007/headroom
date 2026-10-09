@@ -24,9 +24,7 @@ Status: built on 2026-10-09. How it works is in [Releases](operations/releases.m
 
 Remaining:
 
-1. The owner allows GitHub Actions to create pull requests (Settings > Actions > General > Workflow permissions). Without it, release-please cannot open the release pull request.
-2. The owner merges the first release pull request to tag `v0.1.0`. Then remove `release-as` from `release-please-config.json`.
-3. After the repository and the GHCR package are public, point the owner's Dokploy instance at `edge` or a release tag, so it stops building from source. Until then, pulling the image needs a registry login.
+1. After the repository and the GHCR package are public, point the owner's Dokploy instance at `edge` or a release tag, so it stops building from source. Until then, pulling the image needs a registry login.
 
 ## Phase 2: GitHub Sponsors
 
@@ -34,13 +32,12 @@ Status: the Sponsors profile was already public. On 2026-10-09 the repository ga
 
 ## Phase 3: Landing page and demo site
 
-Status: the demo site is built (D34): `mise run demo:build`. Three landing page concepts are in `design/landing/` (`a-live.html`, `b-ledger.html`, `c-boot.html`, brief in `brief.md`). Each embeds the live demo. To view them, run `mise run demo:build`, copy `apps/web/dist-demo` to `design/landing/demo`, and serve the repository root.
+Status: built on 2026-10-09 (D34, D35). The owner chose the "Live" concept: the landing page embeds the running demo, and scrolling through the tour switches its view. `mise run site:build` writes the site to `dist-site/`; [site/README.md](../site/README.md) explains it.
 
 Remaining:
 
-1. The owner picks a direction, or a mix.
-2. Build the chosen page as the site root, with the demo at `/demo`, and the `pages.yml` workflow.
-3. Go live on GitHub Pages when the repository is public.
+1. When the repository is public, the owner sets Settings > Pages > Source to "GitHub Actions". Then run the `Pages` workflow once by hand. Each release redeploys it after that.
+2. Link the site from the README and the repository's About box. Its address is `https://amitray007.github.io/headroom/`.
 
 ## Phase 4: Launch video
 
@@ -70,10 +67,10 @@ Owner: the agent builds; the owner approves each step.
 
 | Workflow | Trigger | Does |
 | --- | --- | --- |
-| `ci.yml` (exists) | Pull request, push to `main` | Checks, audit, binary build, image build. Add the commit subject check |
+| `ci.yml` | Pull request, push to `main` | Commit subjects, checks, audit, binary build, site build, image build |
 | `release-please.yml` | Push to `main` | Keeps the release pull request current. When it merges, tags the release and calls `image.yml` |
 | `image.yml` | Push to `main`, release, manual | Builds both architectures, pushes the tags above, attests provenance, smoke-tests the pushed image |
-| `pages.yml` | Release, manual | Builds the landing page and the demo and deploys them to GitHub Pages |
+| `pages.yml` | Release (once the repository is public), manual | Builds the landing page and the demo and deploys them to GitHub Pages |
 
 Use least-privilege permissions in each job: `packages: write` only in `image.yml`, `pages: write` and `id-token: write` only in `pages.yml`. Pin every action to a commit SHA, as `ci.yml` does. Native `arm64` runners are free for public repositories; until then, `arm64` builds under QEMU.
 
