@@ -7,6 +7,7 @@ import { handleDemoRequest, resetDemoApi } from "./api.ts";
 import { isEmbedded, parseSiteMessage } from "./embed.ts";
 import { codeOf, botCheckProblem, saveProblem, testProblem } from "../shell/delivery/status.ts";
 import { createDemoFetch } from "./fetch.ts";
+import { cleanPath } from "./index.ts";
 
 const origin = "https://example.test";
 const realFetch = globalThis.fetch;
@@ -163,5 +164,14 @@ describe("embed messages", () => {
     expect(isEmbedded("?embed=1")).toBe(true);
     expect(isEmbedded("")).toBe(false);
     expect(isEmbedded("?embed=0")).toBe(false);
+  });
+});
+
+describe("demo site address", () => {
+  test("drops a trailing index.html and keeps every other path", () => {
+    expect(cleanPath("/demo/index.html")).toBe("/demo/");
+    expect(cleanPath("/headroom/demo/index.html")).toBe("/headroom/demo/");
+    expect(cleanPath("/demo/")).toBe("/demo/");
+    expect(cleanPath("/demo/notindex.html")).toBe("/demo/notindex.html");
   });
 });

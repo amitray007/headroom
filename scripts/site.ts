@@ -105,7 +105,7 @@ async function probe(
         },
       });
     }, mode === "boot");
-    await page.goto(`${origin}/demo/index.html?embed=1#/`);
+    await page.goto(`${origin}/demo/?embed=1#/`);
     await page.waitForSelector(mode === "boot" ? ".page .sk" : ".page .panel .value");
     await page.evaluate(() => document.fonts.ready);
     // Let entrance animations and count-ups settle.

@@ -21,7 +21,7 @@ Opening `site/index.html` directly shows the page without the demo and with an e
 
 ## The embed
 
-The page shows the demo (`demo/index.html?embed=1`) in an iframe at a fixed logical size and scales it to fit: 1200 x 750 on wide screens, 390 x 800 on phones. The two pages talk by `postMessage` on the same origin only:
+The page shows the demo (`demo/?embed=1`) in an iframe at a fixed logical size and scales it to fit: 1200 x 750 on wide screens, 390 x 800 on phones. The two pages talk by `postMessage` on the same origin only:
 
 | From | Message | Effect |
 | --- | --- | --- |
