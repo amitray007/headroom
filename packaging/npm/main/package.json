@@ -1,0 +1,33 @@
+{
+  "name": "headroomhq",
+  "version": "0.0.0",
+  "description": "Self-hosted dashboard for AI account allowances, balances and usage",
+  "keywords": [
+    "ai",
+    "dashboard",
+    "headroom",
+    "quota",
+    "self-hosted",
+    "usage"
+  ],
+  "homepage": "https://headroom.theblank.club",
+  "bugs": "https://github.com/amitray007/headroom/issues",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amitray007/headroom.git"
+  },
+  "bin": {
+    "headroom": "bin/headroom.js",
+    "headroomhq": "bin/headroom.js"
+  },
+  "files": [
+    "bin/headroom.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "optionalDependencies": {},
+  "engines": {
+    "node": ">=18"
+  }
+}
