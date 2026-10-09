@@ -5,7 +5,7 @@
 export function inlineSvg(raw: string, monochrome: boolean): string {
   let svg = raw.replace(/<\?xml[^>]*\?>/g, "");
   // Repeat until nothing changes, so a nested comment cannot leave a "<!--" behind.
-  for (let previous = ""; previous !== svg; ) {
+  for (let previous = ""; previous !== svg;) {
     previous = svg;
     svg = svg.replace(/<!--[\s\S]*?-->/g, "");
   }
