@@ -12,7 +12,7 @@ on:
         type: string
     secrets:
       NPM_TOKEN:
-        description: Granular npm token, only for the first publish of a new package name; trusted publishing replaces it
+        description: Optional granular npm token. Releases use trusted publishing; see packaging/README.md
         required: false
   workflow_dispatch:
     inputs:
@@ -106,7 +106,7 @@ jobs:
           name: npm-packages
           path: packages
       # Platform packages first, so headroomhq never points at a version that is not yet published.
-      # npm uses trusted publishing (OIDC) when the package trusts this workflow, and NPM_TOKEN otherwise.
+      # npm uses trusted publishing (OIDC): each package trusts release-please.yml and packages.yml.
       - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

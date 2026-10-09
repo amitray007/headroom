@@ -183,9 +183,10 @@ finish() {
 # STAGES: npm and PyPI publishing for the headroomhq packages. See packaging/README.md.
 #
 #   scripts/publishing-wizard.sh before   # before merging the release that should publish first
-#   scripts/publishing-wizard.sh after    # once that release has published to npm
+#   scripts/publishing-wizard.sh after    # once that release is out
 #
-# No value is written to a file. The npm token goes straight into the NPM_TOKEN secret.
+# No token is created. npm's first publish happens here, signed in with 2FA; every later release
+# publishes from GitHub Actions with trusted publishing (OIDC).
 # ──────────────────────────────────────────────────────────────────────────
 
 REPO="amitray007/headroom"
@@ -195,31 +196,15 @@ cd "$(dirname "$0")/.."
 
 case "${1:-}" in
 before)
-  TOTAL_STAGES=5
+  TOTAL_STAGES=4
   banner "Headroom: npm and PyPI publishing, part 1 of 2"
 
   stage "npm: your account"
-  say "The packages publish under your npm account."
+  say "The packages publish under your npm account. Part 2 publishes them for the first time."
   open_url "https://www.npmjs.com/signup"
   step "Sign up, or sign in if you already have an account."
   step "Turn on two-factor authentication: profile picture > Account > Two-Factor Authentication."
   pause "Press Enter when you are signed in with 2FA on."
-
-  stage "npm: a token for the first publish"
-  say "npm can trust a workflow only for a package that exists."
-  say "So the first release publishes with a short-lived token. Part 2 replaces it."
-  open_url "https://www.npmjs.com/"
-  step "Profile picture > Access Tokens > Generate New Token."
-  step "Token name: headroom first publish"
-  step "Tick 'Bypass two-factor authentication'. CI cannot answer a 2FA prompt."
-  step "Packages and scopes > Permissions: Read and write (publish and stage)."
-  step "Select Packages: All Packages. The headroomhq packages do not exist yet."
-  step "Expiration: 7 days."
-  step "Generate Token, then copy it from the top of the page."
-  ask_secret NPM_TOKEN "Paste the npm token (hidden):"
-  if [[ -z "$NPM_TOKEN" ]]; then warn "No token entered. Run this stage again later."; else set_secret NPM_TOKEN "$NPM_TOKEN"; fi
-  unset NPM_TOKEN
-  set_var NPM_PUBLISH true
 
   stage "PyPI: your account"
   open_url "https://pypi.org/account/register/"
@@ -245,7 +230,7 @@ before)
   fi
 
   stage "Release"
-  say "The next release now publishes to npm and PyPI."
+  say "The next release publishes to PyPI. npm waits for part 2."
   say "Merge the release pull request when you are ready:"
   open_url "https://github.com/$REPO/pulls?q=is%3Apr+is%3Aopen+release"
   say "When the Release run has finished, run part 2:"
@@ -255,33 +240,48 @@ before)
   ;;
 
 after)
-  TOTAL_STAGES=4
+  TOTAL_STAGES=5
   banner "Headroom: npm and PyPI publishing, part 2 of 2"
 
-  stage "npm: check the first publish"
-  missing=()
+  stage "npm: build the packages"
+  VERSION=$(gh release view --repo "$REPO" --json tagName --jq .tagName)
+  VERSION="${VERSION#v}"
+  say "Building the five npm packages from the v$VERSION release files."
+  WORK=$(mktemp -d)
+  gh release download "v$VERSION" --repo "$REPO" --dir "$WORK/assets" --pattern 'headroom-*.tar.gz' --pattern SHA256SUMS
+  mise exec -- bun scripts/package-npm.ts --version "$VERSION" --assets "$WORK/assets" --out "$WORK/npm" >/dev/null
+  mkdir -p "$WORK/tgz"
+  for dir in "$WORK"/npm/*/; do (cd "$dir" && npm pack --silent --pack-destination "$WORK/tgz" >/dev/null); done
   for name in "${PACKAGES[@]}"; do
-    if version=$(npm view "$name" version 2>/dev/null) && [[ -n "$version" ]]; then
-      printf '  %s✓%s %s %s\n' "$GREEN" "$RESET" "$name" "$version"
-    else
-      printf '  %s✗%s %s is not on npm\n' "$RED" "$RESET" "$name"
-      missing+=("$name")
-    fi
+    [[ -f "$WORK/tgz/$name-$VERSION.tgz" ]] || { printf '  %s✗%s %s-%s.tgz is missing in %s\n' "$RED" "$RESET" "$name" "$VERSION" "$WORK/tgz"; exit 1; }
+    printf '  %s✓%s %s-%s.tgz\n' "$GREEN" "$RESET" "$name" "$VERSION"
   done
-  if (( ${#missing[@]} )); then
-    warn "Some packages are missing. Check the Packages job of the Release run:"
-    open_url "https://github.com/$REPO/actions/workflows/release-please.yml"
-    note "If npm refused the token for a new package name, ask the agent to publish them from your machine."
-    exit 1
-  fi
   pause "Press Enter to continue."
 
-  stage "npm: sign in on this machine"
-  say "Setting up trusted publishing needs your own npm login, with 2FA."
+  stage "npm: sign in"
+  say "Sign in with your own account. npm asks for 2FA in the browser."
   if npm whoami >/dev/null 2>&1; then
     note "Signed in as $(npm whoami)."
   else
     npm login --auth-type=web
+  fi
+  pause "Press Enter to continue."
+
+  stage "npm: first publish"
+  say "Publishing v$VERSION. The platform packages go first, headroomhq last."
+  say "npm may ask you to approve each publish in the browser."
+  if confirm "Publish the five packages to npm now? Published versions are public and permanent."; then
+    for name in "${PACKAGES[@]}"; do
+      if npm view "$name@$VERSION" version >/dev/null 2>&1; then
+        note "$name@$VERSION is already on npm."
+        continue
+      fi
+      printf '\n  %s%s@%s%s\n' "$BOLD" "$name" "$VERSION" "$RESET"
+      npm publish "$WORK/tgz/$name-$VERSION.tgz" --access public --auth-type=web || { warn "Publishing $name failed. Fix it and run part 2 again."; exit 1; }
+    done
+  else
+    warn "Nothing published. Run part 2 again when you are ready."
+    exit 1
   fi
   pause "Press Enter to continue."
 
@@ -299,18 +299,10 @@ after)
   done
   pause "Press Enter to continue."
 
-  stage "npm: delete the first-publish token"
-  say "Releases now publish with trusted publishing. The token is no longer needed."
-  open_url "https://www.npmjs.com/"
-  step "Profile picture > Access Tokens."
-  step "Delete the token named 'headroom first publish'."
-  if confirm "Remove the NPM_TOKEN secret from the repository too?"; then
-    if gh secret delete NPM_TOKEN --repo "$REPO" >/dev/null 2>&1; then
-      printf '  %s✓ deleted%s GitHub secret NPM_TOKEN\n' "$GREEN" "$RESET"
-    else
-      SKIPPED+=("gh secret delete NPM_TOKEN --repo $REPO")
-    fi
-  fi
+  stage "npm: publish from releases"
+  say "Every later release now publishes to npm from GitHub Actions, with no token."
+  set_var NPM_PUBLISH true
+  rm -rf "$WORK"
   pause "Press Enter to finish."
   finish
   ;;
