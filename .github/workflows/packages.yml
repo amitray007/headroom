@@ -1,6 +1,7 @@
 # Builds the npm packages and PyPI wheels from the release binaries of v<version> and publishes them.
 # release-please.yml calls it after the binaries are attached; run it by hand to republish a version.
-# Publishing stays off until the repo variables NPM_PUBLISH and PYPI_PUBLISH are 'true'. See packaging/README.md.
+# Publishing stays off until the repo variables NPM_PUBLISH and PYPI_PUBLISH are 'true'. Both registries trust the
+# workflow that started the run (release-please.yml, or packages.yml when run by hand). See packaging/README.md.
 name: Packages
 on:
   workflow_call:
@@ -11,7 +12,7 @@ on:
         type: string
     secrets:
       NPM_TOKEN:
-        description: Granular npm token with publish rights to the headroomhq packages
+        description: Granular npm token, only for the first publish of a new package name; trusted publishing replaces it
         required: false
   workflow_dispatch:
     inputs:
@@ -105,6 +106,7 @@ jobs:
           name: npm-packages
           path: packages
       # Platform packages first, so headroomhq never points at a version that is not yet published.
+      # npm uses trusted publishing (OIDC) when the package trusts this workflow, and NPM_TOKEN otherwise.
       - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

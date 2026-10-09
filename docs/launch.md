@@ -86,9 +86,9 @@ Status: on 2026-10-09 the owner chose native installs alongside Docker (D36). Th
 Owner steps before the first native release:
 
 1. Make the repository public. The installer, Homebrew and mise download from GitHub releases.
-2. npm: publish each `headroomhq` package once by hand, or create a granular token as the `NPM_TOKEN` secret, and set the repository variable `NPM_PUBLISH=true`.
-3. PyPI: add a pending trusted publisher for `headroomhq` and set `PYPI_PUBLISH=true`.
-4. Homebrew: create a token that can push to `amitray007/homebrew-tap` and store it as `HOMEBREW_TAP_TOKEN`.
+2. npm and PyPI: run `scripts/publishing-wizard.sh before` before the release, and `scripts/publishing-wizard.sh after` once the release has published. See [Packaging](../packaging/README.md#publishing).
+
+Homebrew needs no owner step: the release commits `Formula/headroom.rb` to this repository, which is its own tap.
 
 ## Deploy targets after Docker
 

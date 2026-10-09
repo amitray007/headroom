@@ -50,16 +50,19 @@ by hand). It publishes only when the repository variables below are `true`. Publ
 version that exists, and the PyPI step uses `skip-existing`. npm provenance and PyPI attestations switch on when the
 repository is public.
 
-One-time steps for the maintainer:
+One-time steps for the maintainer, in [scripts/publishing-wizard.sh](../scripts/publishing-wizard.sh):
 
-1. npm: create a granular access token with read and write access to the `headroomhq*` packages. Store it as the
-   repository secret `NPM_TOKEN`. Set the repository variable `NPM_PUBLISH` to `true`. Each new package name needs its
-   first publish with this token. Afterwards, add a trusted publisher for each of the five packages (owner
-   `amitray007`, repository `headroom`, workflow `packages.yml`) and delete the token. The job already has
-   `id-token: write`.
-2. PyPI: add a pending trusted publisher for project `headroomhq` (owner `amitray007`, repository `headroom`,
-   workflow `packages.yml`, environment `pypi`). Create the `pypi` environment in the repository settings. Set the
-   repository variable `PYPI_PUBLISH` to `true`.
-3. Run the workflow by hand once with an existing release version to publish the first packages.
+1. `publishing-wizard.sh before`, before the first release that should publish:
+   - npm: a granular token that can create packages, stored as the `NPM_TOKEN` secret, and `NPM_PUBLISH=true`. npm
+     trusts a workflow only for a package that exists, so the first publish needs the token.
+   - PyPI: a pending trusted publisher for `headroomhq` (owner `amitray007`, repository `headroom`, workflow
+     `release-please.yml`, environment `pypi`), and `PYPI_PUBLISH=true`. The `pypi` environment is created on the first
+     run.
+2. `publishing-wizard.sh after`, once that release has published: npm trusts `release-please.yml` and `packages.yml`
+   for all five packages, and the token is deleted. From then on every release publishes with OIDC and no secret.
+
+npm and PyPI check the workflow that started the run, not the called file. A release runs `release-please.yml`; a run
+by hand from the Actions tab runs `packages.yml`. npm trusts both. PyPI trusts `release-please.yml`; to republish to
+PyPI by hand, add `packages.yml` as a second trusted publisher on the project's PyPI settings page first.
 
 The workflow reads the version from the release tag. It does not rebuild any binary.
