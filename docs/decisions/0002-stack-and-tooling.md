@@ -8,7 +8,7 @@ Status: applied on 2026-10-01 as the project scaffold. Implements the stack choi
 | --- | --- | --- | --- |
 | Runtime, package manager, bundler, test runner | Bun | 1.4.2 via `mise.toml` | Native pseudo-terminal in `Bun.spawn` for the CLI login runner; `bun build --compile` for one binary; one tool for install, test and build |
 | Tool versions | mise with `mise.lock` | mise 2026.9.11 in CI | One authoritative version per tool; `mise run <task>` is the only entry point locally and in CI |
-| HTTP | Hono | 4.13.12 | Small, typed, Bun-native; typed client for the M5 frontend |
+| HTTP | Hono | 4.13.12 | Small, typed, Bun-native; typed client for the web frontend |
 | Validation | Zod | 4.6.5 | Every provider response, pasted file, config and API input passes a schema |
 | Database | SQLite via `bun:sqlite`, Drizzle | Drizzle added in M1 | Embedded, WAL, schema in TypeScript where the enumerations live |
 | Lint | Oxlint, type-aware | 1.86.0 plus `oxlint-tsgolint` 7.0.2003 | `correctness`, `suspicious` and `perf` as errors, warnings denied, unused disables reported; strict TypeScript rules including floating promises and exhaustive switches |
@@ -27,8 +27,9 @@ Status: applied on 2026-10-01 as the project scaffold. Implements the stack choi
 ```
 apps/server/      Hono app, scheduler, CLI runner, API; the compiled entry point
 packages/core/    canonical enumerations, Zod schemas, crypto, lifecycle rules
-packages/connectors/<provider>/   endpoints.ts, schemas.ts, fixtures/, index.ts (from M1)
-apps/web/         M5 only; Vite and React, embedded into the binary
+packages/connectors/<provider>/   endpoints.ts, schemas.ts, fixtures/, index.ts
+packages/view-model/   shared view types and the Demo Mode data
+apps/web/         Vite and React, embedded into the binary
 ```
 
 Workspace packages export TypeScript source directly; Bun runs it without a build step and `tsc` type-checks everything from the root.

@@ -2,7 +2,7 @@
 
 Headroom is one Bun process. It owns dashboard sign-in, account connections, provider clients, scheduled collection, normalized snapshots and the web interface. Sign-in runs through the pinned official CLI where one works headless, or through a direct OAuth or device-code client where it does not. Refresh and collection are always direct HTTP from inside the process. No CLI runs on the refresh path. See [ADR 0001](../decisions/0001-direct-provider-clients.md) for why.
 
-**Status: proposed design. No application components below are implemented.**
+**Status: implemented. The components below ship in the application; the design documents stay the specification.**
 
 ## Components and ownership
 
@@ -54,4 +54,4 @@ An optional callback bridge that listens on the provider's registered localhost 
 
 ## Current boundary
 
-The repository has no package manifest, web server, database schema or container image. Documentation commands are in the root Makefile. Runtime pinning, package checks and deployment configuration belong to the milestones in [the roadmap](../roadmap.md).
+The repository holds the Bun workspace (`apps/server`, `apps/web`, `packages/`), the SQLite schema with migrations, the Docker image and the release tooling. `mise run check` is the single gate; the root Makefile wraps it. Milestone status is in [the roadmap](../roadmap.md).

@@ -1,6 +1,6 @@
 # Deployment and credential storage
 
-The target is one Bun-compiled binary, one SQLite file, one key file and three pinned login-only CLIs on a Linux host, run directly or in a container. This document defines requirements, not a runnable guide.
+The target is one Bun-compiled binary, one SQLite file, one key file and three pinned login-only CLIs on a Linux host, run directly or in a container. This document defines the requirements the shipped image and binary meet. The runnable steps are in [Self-hosting on a tailnet](../operations/tailscale.md) and [Install](../operations/install.md).
 
 ## Shape
 

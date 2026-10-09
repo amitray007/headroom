@@ -14,7 +14,7 @@ Never include real tokens, cookies, authorization codes or provider responses. T
 
 ## Supported versions
 
-Headroom has no versioned releases yet. Security fixes go to `main`.
+Security fixes go to `main` and ship in the next release. The latest release is the supported version; update to it before you report a problem that an older version may cause.
 
 ## Threat model
 

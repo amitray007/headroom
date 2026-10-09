@@ -1,6 +1,6 @@
 # Data model
 
-This is a logical schema for implementation planning. No database or migrations exist yet. Enumerations below are canonical; dossiers and code use these names.
+This is the logical schema behind the SQLite database. Migrations live in `packages/core/src/db/migrations/`, and the Drizzle schema is `packages/core/src/db/schema.ts`. Enumerations below are canonical; dossiers and code use these names.
 
 ## Entities
 

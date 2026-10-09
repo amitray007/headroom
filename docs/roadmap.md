@@ -1,10 +1,10 @@
 # Implementation roadmap
 
-This is the complete plan for building Headroom on the direct-client design in [ADR 0001](decisions/0001-direct-provider-clients.md). Only M0 is complete. Milestones are ordered so that each one ships something the owner can use.
+This is the complete plan for building Headroom on the direct-client design in [ADR 0001](decisions/0001-direct-provider-clients.md). Milestones M0 to M5 are built and M6 is mostly built; each section carries its own status. Milestones are ordered so that each one ships something the owner can use.
 
 ## M0: Project foundation
 
-Status: complete. Product scope, architecture, seven provider dossiers, research, evidence register, decision records and documentation checks exist. No remote repository, code or deployment.
+Status: complete. Product scope, architecture, seven provider dossiers, research, evidence register, decision records and documentation checks exist. The repository is public on GitHub, and release 0.1.3 is published (D33, D36).
 
 ## M1: Core service and Codex
 
@@ -46,9 +46,9 @@ Completion: each connector passes the shared checks in [validation](validation.m
 
 ## M3: OAuth family
 
-Status: Claude and Antigravity implemented and validated live on 2026-10-01; Claude is off by default. Both first collections exposed shape differences that are now fixed and recorded in the dossiers.
+Status: Claude and Antigravity implemented and validated live on 2026-10-01; Claude is on by default like every provider. Both first collections exposed shape differences that are now fixed and recorded in the dossiers.
 
-- Claude: `claude` login through the CLI runner with its URL and pasted code, credential import of `.credentials.json`, token refresh, collection from `api/oauth/usage` with five-hour, seven-day, model-scoped buckets and reset grants. A `setup-token` cannot read limits, so only a real login counts. Off by default; the owner enables it knowingly. Direct PKCE client as fallback.
+- Claude: `claude` login through the CLI runner with its URL and pasted code, credential import of `.credentials.json`, token refresh, collection from `api/oauth/usage` with five-hour, seven-day, model-scoped buckets and reset grants. A `setup-token` cannot read limits, so only a real login counts. On by default; the owner can turn it off with `HEADROOM_ENABLED_PROVIDERS` and should read Anthropic's terms first. Direct PKCE client as fallback.
 - Antigravity: direct Google OAuth with the client constants CLIProxyAPI uses, pasted redirect, project id lookup, collection from `retrieveUserQuotaSummary` with the legacy per-model endpoints as fallback. Credits stay `unknown` until a source exists.
 
 Completion: each connector proves remote approval, refresh, revocation handling and fixtures. Each metric is labelled `private` and the UI shows the label.
@@ -65,17 +65,17 @@ Completion: a non-admin and an admin account each validate separately. Pool name
 
 ## M5: Dashboard and history
 
-Status: not started. Dependency: reliable snapshots from M1 to M4.
+Status: built. The web app has account cards, quota buckets, balances, reset countdowns, stale and partial states, interface labels, manual refresh, and compare, detailed, timeline and Wallet views, on a Vite app served from the binary. Desktop, mobile and keyboard checks continue with each change.
 
 Account cards, independent quota buckets, balance and spend views, reset countdowns and reset inventories, stale and partial states, private-interface labels, manual refresh. Historical charts only from stored observations. Choose the UI stack then: a small embedded Vite app or server-rendered templates. Validate desktop, mobile and keyboard use.
 
 ## M6: Actions and release readiness
 
-Status: the Codex `consume_reset_credit` action is built on 2026-10-02 behind the "Allow Account Actions" setting (the env flag was removed the same day) with an action row, idempotency key, confirmation naming the credit and expiry, `uncertain` handling and a follow-up snapshot. The route is source-inspected and stays unvalidated until the owner runs one from the dashboard (D23). Release readiness items are not started.
+Status: the Codex `consume_reset_credit` action is built on 2026-10-02 behind the "Allow Account Actions" setting (the env flag was removed the same day) with an action row, idempotency key, confirmation naming the credit and expiry, `uncertain` handling and a follow-up snapshot. The route is source-inspected and stays unvalidated until the owner runs one from the dashboard (D23). Release readiness is built: releases, the installer, Homebrew, npm and PyPI packages and a security reporting channel exist (D33, D36). The listed release checks stay open for each new provider.
 
 Codex reset redemption with an action row, idempotency key, confirmation naming the credit, outcome reconciliation and a follow-up snapshot. No generic retry after an uncertain mutation. Disconnect with provider revocation where documented. History retention is built (D29). Backup and restore verification. Optional callback bridge on provider localhost ports for the direct-client fallbacks.
 
-Before any public release: dependency licenses, CLI redistribution terms, attribution for any ported CLIProxyAPI or OpenUsage logic, private-interface labels, deployment instructions, security reporting channel. Creating a remote, committing, pushing, publishing and deploying remain separate actions.
+Before any public release: dependency licenses, CLI redistribution terms, attribution for any ported CLIProxyAPI or OpenUsage logic, private-interface labels, deployment instructions, security reporting channel. Committing, pushing, publishing and deploying remain separate actions.
 
 ## Working agreements
 

@@ -10,7 +10,7 @@ The first draft of Headroom spawned each provider's official CLI as a long-lived
 - Antigravity's status line is also an interactive-session artifact, and its credential store depends on an OS keyring that a headless Linux container does not have.
 - Every CLI needs its own home-directory isolation, output parsing, version pinning and restart proof on the refresh path. That is a large operational surface for a dashboard that only reads numbers.
 
-Two reference projects show the alternative. [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) (Go, MIT) implements each provider's sign-in itself, stores one JSON credential per account, refreshes in-process and drives remote logins from a management API. [OpenUsage](https://github.com/robinebers/openusage) (Swift, MIT) reads the credential files the official CLIs leave behind and calls the HTTP usage endpoints those CLIs call, which makes it the most precise endpoint reference available. Amit asked for Headroom to work the way CLIProxyAPI does, to take the usage routes from OpenUsage, and to reuse TypeScript packages where they exist.
+Two reference projects show the alternative. [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) (Go, MIT) implements each provider's sign-in itself, stores one JSON credential per account, refreshes in-process and drives remote logins from a management API. [OpenUsage](https://github.com/robinebers/openusage) (Swift, MIT) reads the credential files the official CLIs leave behind and calls the HTTP usage endpoints those CLIs call, which makes it the most precise endpoint reference available. The owner asked for Headroom to work the way CLIProxyAPI does, to take the usage routes from OpenUsage, and to reuse TypeScript packages where they exist.
 
 ## Decision
 
@@ -35,10 +35,10 @@ Two reference projects show the alternative. [CLIProxyAPI](https://github.com/ro
 These are private interfaces. The provider documents say:
 
 - OpenAI: app-server authentication "has never been permitted for commercial or hosted services". Reusing the CLI's credentials file and `wham/usage` is the same category.
-- Anthropic: third parties "may not collect, store, or intermediate Claude.ai credentials or session tokens"; sign-in must complete through Anthropic's own flow. CLI-driven login satisfies the second sentence literally; storing the resulting token for usage reads does not satisfy the first.
+- Anthropic: third parties "may not collect, store, or intermediate Claude.ai credentials or session tokens"; sign-in must complete through Anthropic's own flow. Headroom signs in through the official CLI, so sign-in completes in Anthropic's own flow. It then stores the owner's own token on the owner's server to read usage. Read Anthropic's terms before enabling Claude.
 - GitHub, Google, xAI and Cursor publish no terms for their internal usage endpoints.
 
-Headroom is a personal self-hosted tool. The only credentials it stores belong to the person running it, and the only risk is to that person's own accounts. Headroom does not proxy inference, resell access or host other people's accounts, and must not be offered as a hosted service on this design. Every private-interface connector is labelled in the UI, ships behind a per-provider enable flag, and the Claude connector stays off until Amit turns it on. If a provider changes an endpoint or revokes a token, the connection shows `reconnect_required` and nothing else breaks.
+Headroom is a personal self-hosted tool. The only credentials it stores belong to the person running it, and the only risk is to that person's own accounts. Headroom does not proxy inference, resell access or host other people's accounts, and must not be offered as a hosted service on this design. Every private-interface connector is labelled in the UI, ships behind a per-provider enable flag, and the owner can turn any provider off. Claude carries the highest policy risk, so read Anthropic's terms before using it. If a provider changes an endpoint or revokes a token, the connection shows `reconnect_required` and nothing else breaks.
 
 ## Consequences
 

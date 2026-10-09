@@ -1,6 +1,6 @@
 # Connector contract
 
-Each provider is one TypeScript module that implements one interface. The application never learns provider specifics beyond the typed values below. This is a specification, not code in the repository.
+Each provider is one TypeScript module that implements one interface. The application never learns provider specifics beyond the typed values below. The interface is implemented in `packages/core/src/connector.ts`; this page is its specification.
 
 ## Operations
 

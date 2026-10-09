@@ -23,7 +23,7 @@ Files: [`deploy/compose.yaml`](../../deploy/compose.yaml), [`deploy/ts/serve.jso
 | `HEADROOM_LOG_LEVEL` | No, default `info` | `debug`, `info`, `warn` or `error`. |
 | `HEADROOM_REFRESH_INTERVAL_SECONDS` | No, default `900` | The first value of the Refresh Every setting. The setting wins after that. |
 | `HEADROOM_STALE_AFTER_SECONDS` | No, default `43200` | When an account shows as stale. |
-| `TZ` | No, default `UTC` | Time zone for dates in Telegram and webhook messages, for example `Asia/Kolkata`. |
+| `TZ` | No, default `UTC` | Time zone for dates in Telegram and webhook messages, as an IANA name such as `UTC`. |
 
 The image fixes the rest: port 8080, data in `/var/lib/headroom/data`, keys in `/etc/headroom`. Leave `HEADROOM_TRUST_PROXY` unset. Every request then comes from the Tailscale container's address, so the sign-in rate limit is shared, which suits one owner.
 

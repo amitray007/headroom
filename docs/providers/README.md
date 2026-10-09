@@ -6,7 +6,7 @@ Research baseline: 2026-10-01. All seven connectors are implemented; each dossie
 
 | Provider | Proposed connection | Main metric source | Outstanding gate |
 | --- | --- | --- | --- |
-| [Claude](claude.md) | Official CLI login via the runner, or import `.credentials.json`; off by default | `api/oauth/usage` (private) | Owner opt-in; headless `claude` login on Linux to prove |
+| [Claude](claude.md) | Official CLI login via the runner, or import `.credentials.json`; on by default, highest policy risk | `api/oauth/usage` (private) | Read Anthropic's terms; headless `claude` login on Linux to prove |
 | [Codex](codex.md) | `codex login --device-auth` via the runner, or import `auth.json` | `wham/usage` and reset credits (private) | First connector; personal self-hosted posture |
 | [Cursor](cursor.md) | pi-cursor approval with polling; admin API key | Dashboard RPC with REST fallbacks (private); admin API (official) | pi-cursor must run without the pi runtime; admin key is write-capable |
 | [Copilot](copilot.md) | GitHub device code with a public CLI client id, or import a gh token | `copilot_internal/user` (private); org billing REST (official) | AI-credits model since June 2026; org seats return no per-seat percent |

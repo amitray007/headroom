@@ -6,7 +6,7 @@
 
 Primary route: direct in-process TypeScript clients per [ADR 0001](../decisions/0001-direct-provider-clients.md). Support two explicitly different Cursor connections.
 
-- **Member connection (scope `member`):** Headroom runs the browser-approval sign-in with the `@rahularya01/pi-cursor` package (MIT, TypeScript): PKCE, provider polling and token refresh (auth method `approval_poll`, next step `open_url`). It reads the member's own usage and reads the member's own usage. Every endpoint is `private`. Cursor publishes no terms for these endpoints. Headroom is personal self-hosted software, the member connector ships behind a per-provider enable flag, and a changed endpoint or revoked token shows `reconnect_required`.
+- **Member connection (scope `member`):** Headroom runs the browser-approval sign-in ported from the `@rahularya01/pi-cursor` package (MIT, TypeScript): PKCE, provider polling and token refresh (auth method `approval_poll`, next step `open_url`). It reads the member's own usage. Every endpoint is `private`. Cursor publishes no terms for these endpoints. Headroom is personal self-hosted software, the member connector ships behind a per-provider enable flag, and a changed endpoint or revoked token shows `reconnect_required`.
 - **Team admin connection (scope `team_admin`):** accept a Cursor Admin API key that an administrator creates in Cursor (next step `api_key`). Use the documented, read-only admin endpoints. Interface label `official`.
 
 Do not treat a team's spend cap as a member's included monthly allowance. Do not imply that a non-admin user can authorize team-wide data.
@@ -31,7 +31,7 @@ The official `agent login` CLI is the fallback for members.
 | `POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetSandUsageStatus` (body `{}`, same Bearer token and Connect header) returns the Grok Bot allowance: `usagePercent`, `currentPeriodStart`, `nextResetTimestampUtc`, and `usesPooledEnterpriseAllowance`, `hasNonZeroIncludedLimit`, `includedLimitZero`, which mark an account with no personal meter | source-inspected | [S8][S9] (OpenUsage); implemented 2026-10-04 against a synthetic fixture, not yet run against a real account |
 | REST fallbacks for Enterprise and team accounts: `GET https://cursor.com/api/usage` and `GET https://cursor.com/api/usage-summary`; a Stripe balance route `cursor.com/api/auth/stripe`; a usage-events CSV export at `cursor.com/api/dashboard/export-usage-events-csv` | source-inspected | [S8] |
 | The REST fallback combines the included request allowance with structured percentages and user-scoped on-demand spend; neither REST response alone is the whole snapshot | source-inspected | [S8] |
-| `@rahularya01/pi-cursor` `src/index.ts` re-exports its auth and usage modules, and they run without the pi runtime | unvalidated | Default export takes the pi `ExtensionAPI`; verify the modules, otherwise port them |
+| `@rahularya01/pi-cursor` `src/index.ts` re-exports its auth and usage modules, and they run without the pi runtime | unvalidated | Default export takes the pi `ExtensionAPI`. Headroom ports the login and usage code instead of depending on the package |
 | Which member endpoint to adopt | validated | `DashboardService/GetCurrentPeriodUsage` answered 200 on 2026-10-01 with `planUsage.{totalSpend, includedSpend, bonusSpend, limit, autoPercentUsed, apiPercentUsed, totalPercentUsed}`, `spendLimitUsage.{pooledUsed, limitType}` and `billingCycleStart`/`End` as epoch-millisecond strings; the REST fallback stays unneeded |
 | The member token from the polling flow is accepted by the dashboard endpoint | validated | Headroom's approval-poll login and first collection completed on 2026-10-01 |
 | A prior dashboard response had included and on-demand figures | prior observation | Sanitized earlier research; not a current test |
@@ -128,11 +128,10 @@ Earlier research observed a private dashboard response with a billing-cycle rang
 
 ## Implementation and validation checklist
 
-- [ ] Implement the Admin API connection first. It is the only `official` route.
+- [ ] Build the Admin API connection (not built yet; the member connection ships). It is the only `official` route.
 - [ ] Allowlist only `/teams/members`, `/teams/daily-usage-data`, `/teams/spend` and `/teams/filtered-usage-events`. Add a test that no other admin path can be called.
 - [ ] Paginate team daily usage and enforce the 30-day range. Respect rate limits and `Retry-After`.
 - [ ] Validate the member PKCE flow from a browser separate from the server host: approval, denial, expiry and poll interval.
-- [ ] Verify the pi-cursor auth and usage modules run under Bun without the pi runtime. If not, port them.
 - [ ] Validate the primary RPC and the REST fallback with a real token. Pin one primary. Record the pool names each returns.
 - [ ] Test token refresh and the `reconnect_required` path when refresh fails. Keep the old snapshot visible.
 - [ ] Add synthetic fixtures for success, partial response and schema drift on each pinned endpoint. Return `invalid_response` on drift.

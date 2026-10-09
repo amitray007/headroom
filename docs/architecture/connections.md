@@ -2,7 +2,7 @@
 
 A Connect starts a bounded login attempt on the server. Its result is a connection with encrypted credentials that outlive the attempt. The owner has exactly three actions on a connection: **Connect**, **Reconnect** and **Disconnect**. Refresh is automatic and never an owner action; an internal "Refresh now" control may exist for diagnosis and changes no state.
 
-**Status: proposed application behavior. Provider mechanisms are documented in the dossiers.**
+**Status: implemented application behavior. Provider mechanisms are documented in the dossiers.**
 
 ## Owner actions
 
@@ -108,7 +108,7 @@ A transient failure never produces a Reconnect prompt. A definitive failure neve
 
 ## Staleness
 
-Transient failures can continue for days while the connection stays `ready`. The card therefore always shows data age from `last_success_at`, and when that age exceeds the staleness threshold (default twelve hours, provider-overridable) the card shows a "no fresh data since" notice and the run error class. Staleness is information, not a state change, and does not offer Reconnect. Notification outside the dashboard is deferred to M5.
+Transient failures can continue for days while the connection stays `ready`. The card therefore always shows data age from `last_success_at`, and when that age exceeds the staleness threshold (default twelve hours, provider-overridable) the card shows a "no fresh data since" notice and the run error class. Staleness is information, not a state change, and does not offer Reconnect. Notification outside the dashboard is built; see [notifications](notifications.md).
 
 ## Reconnect
 

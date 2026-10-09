@@ -1,6 +1,6 @@
 # Tools and packages
 
-This catalog records reusable candidates from the research. None is installed or adopted in Headroom. A provider listed by a tool may mean local activity parsing rather than live subscription-quota support.
+This catalog records reusable candidates from the research. Headroom depends on `@ai-sdk/gateway` only (Vercel AI Gateway connector). It ports code from pi-cursor, CLIProxyAPI and OpenUsage and uses their endpoint references; it installs no other tool listed here. A provider listed by a tool may mean local activity parsing rather than live subscription-quota support.
 
 Reviewed/consolidated: 2026-10-01. Recheck package versions, exports, runtime requirements and license files before adoption. Historical version observations are not recommended pins.
 
@@ -29,8 +29,8 @@ Reviewed/consolidated: 2026-10-01. Recheck package versions, exports, runtime re
 | [Tokscale](https://github.com/junhoyeo/tokscale) | Activity accounting and live usage command | Activity-provider coverage exceeds quota coverage; logs do not establish account limits |
 | [OpenUsage.sh](https://github.com/janekbaraniewski/openusage) | Go collector and CLI JSON research candidate | Different project from robinebers/OpenUsage; internal Go packages were not a public integration SDK |
 | [shuvquota](https://github.com/shuv1337/shuvquota) | Lightweight quota CLI/web endpoint research candidate | No complete Cursor/Copilot/Vercel coverage established |
-| [ellite/openusage](https://github.com/ellite/openusage) | Docker dashboard and Claude balance research candidate | Browser-session/cURL import conflicts with the intended low-setup connection UX; GPL-family license requires review |
-| [caut](https://github.com/Dicklesworthstone/coding_agent_usage_tracker) | Broad advertised coverage in earlier research | Implemented provider coverage and credits lagged advertising; license text needed review before any adoption |
+| [ellite/openusage](https://github.com/ellite/openusage) | Docker dashboard and Claude balance research candidate | Uses browser-session or cURL import, a different connection model from Headroom's; GPL-family license requires review |
+| [caut](https://github.com/Dicklesworthstone/coding_agent_usage_tracker) | Broad advertised coverage in earlier research | Earlier research found narrower implemented coverage than advertised; check current coverage and the license text before any adoption |
 
 These projects change independently. The linked repositories establish identity; recheck the specific implementation and license at adoption. In particular, prior caut research reported narrower implemented coverage than its advertising; a later repository review describes additional providers. The current supported metric paths must be established from code before choosing it.
 

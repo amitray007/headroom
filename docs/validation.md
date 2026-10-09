@@ -28,14 +28,14 @@ A provider becomes supported only after its connection and requested data work i
 | Disconnect | Remove the connection | Jobs stop, credential row deleted, revocation result recorded |
 | Schema drift | Replay synthetic responses with missing and new fields | Unknown data never becomes zero or a fabricated metric |
 
-Do not conduct live account checks until the account owner authorizes them. The current setup did not start any login or inspect credentials.
+Do not conduct live account checks until the account owner authorizes them. Agents never run one with real credentials; the maintainer's live runs are recorded in the [evidence register](research/evidence.md).
 
 ## Provider-specific gates
 
 | Provider | Required proof before support |
 | --- | --- |
 | Codex | Device flow, identity claims, `wham/usage` buckets and credits, reset-credit inventory, refresh, revocation |
-| Claude | Owner opt-in flag, CLI login with pasted code, `api/oauth/usage` buckets and reset grants, refresh, no model request, `setup-token` rejected |
+| Claude | Enable flag, CLI login with pasted code, `api/oauth/usage` buckets and reset grants, refresh, no model request, `setup-token` rejected |
 | Cursor | Approval polling and refresh, usage summary pools and cycle, member versus admin scope, admin pagination and range limit |
 | Copilot | Device flow with a public CLI client id, `copilot_internal/user` with the documented headers, AI-credits percent and reset, org-managed seat handling, org billing REST for owners only |
 | Vercel | Gateway key scope, pinned `@ai-sdk/gateway` version, balance and total used, team selection, spend report plan gate |

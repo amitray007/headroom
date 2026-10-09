@@ -8,7 +8,7 @@ Sign in through the official CLI, as ADR 0001 decides. The primary route is `cli
 
 The second route is `import`: the user pastes an existing `auth.json` through the `paste_file` next step. The fallback is the direct device-code client ported from CLIProxyAPI. Refresh and collection are direct HTTP against the stored token. Refresh goes to the ChatGPT OAuth token endpoint with the stored refresh token. Collection reads `GET https://chatgpt.com/backend-api/wham/usage`, the endpoint the official CLI calls. Codex is the first connector.
 
-Policy posture: OpenAI says app-server authentication "has never been permitted for commercial or hosted services" [S1]. Reusing the CLI credentials file and the ChatGPT OAuth client is the same category. Headroom is personal self-hosted software that stores only the owner's own credentials. It does not proxy inference and must not be offered as a hosted service. The connector ships behind a per-provider enable flag and every metric is labelled `private` or `official`.
+Policy posture: OpenAI says app-server authentication "has never been permitted for commercial or hosted services" [S1]. Headroom reuses the CLI credentials file and the ChatGPT OAuth client. Headroom is personal self-hosted software that stores only the owner's own credentials on the owner's server. It does not proxy inference, hosts no one else's account and must not be offered as a hosted service. The owner should check OpenAI's terms before enabling this provider. The connector ships behind a per-provider enable flag and every metric is labelled `private` or `official`.
 
 Use the same design for Go, Plus, Pro, Business, Enterprise and future ChatGPT plans. Plan type is returned data, not an entitlement table that Headroom should hardcode.
 
@@ -27,9 +27,9 @@ Use the same design for Go, Plus, Pro, Business, Enterprise and future ChatGPT p
 | `GET https://chatgpt.com/backend-api/wham/usage` returns quota, credits and plan | source-inspected | CLIProxyAPI `internal/runtime/executor/helps/codex_quota.go` [S4]; ai-usagebar [S5] |
 | Usage fields: `plan_type`, `rate_limits` (primary and secondary windows), `additional_rate_limits`, `code_review_rate_limits`, `credits`, `metered_limit_name` | source-inspected | CLIProxyAPI `codex_quota.go` [S4] |
 | A reset-credit inventory read route exists under `wham/rate-limit-reset-credits` | validated | Observed by this project on 2026-10-01 with a Headroom CLI-login credential: 200 with `credits[]` carrying a status and expiry per credit; the count matched `rate_limit_reset_credits.available_count` in the usage body |
-| A direct HTTP route to consume a reset credit: `POST /wham/rate-limit-reset-credits/consume` | source-inspected | Found in the pinned CLI 0.159.3 next to the read route on 2026-10-02, with the serde names `credit_type` (`usage_limit`, `credits`) and a response naming `windows_reset`; the app-server call that fronts it takes creditId, creditType and idempotencyKey. Body field names are inferred and unvalidated until Amit runs one consume from the dashboard |
+| A direct HTTP route to consume a reset credit: `POST /wham/rate-limit-reset-credits/consume` | source-inspected | Found in the pinned CLI 0.159.3 next to the read route on 2026-10-02, with the serde names `credit_type` (`usage_limit`, `credits`) and a response naming `windows_reset`; the app-server call that fronts it takes creditId, creditType and idempotencyKey. Body field names are inferred and unvalidated until a consume is observed from the dashboard |
 | App-server exposes rate limits, reset-credit inventory, redemption and token history | documented | [S1] |
-| Using the ChatGPT OAuth client outside OpenAI's apps is permitted for hosted services | documented (contradicted) | [S1] says it is not permitted |
+| OpenAI's terms on using the ChatGPT OAuth client outside OpenAI's apps | documented | [S1] says app-server authentication "has never been permitted for commercial or hosted services". Headroom is not a hosted service; the owner should check the terms |
 | A server-hosted device flow works for every workspace | unvalidated | Device-code access can be restricted by account or workspace policy |
 | A prior account returned a weekly quota, credits, reset inventory and daily buckets | prior observation | Sanitized earlier research; not a current test |
 
@@ -46,7 +46,7 @@ Every metric below comes from direct HTTP collection unless noted. A completed l
 | Monthly limit | `unsupported` | Not a documented account field | Store only if a returned bucket expresses it. |
 | Credits | `available` when returned | `credits`: `has_credits`, `unlimited`, `balance` | `private`. Provider credit unit, not dollars. `unlimited` is an explicit flag, not a number. |
 | Next reset | `available` when returned | `resets_at`, Unix seconds | `private`. Retain the raw timestamp. |
-| Banked reset count | `unknown` | `…/wham/rate-limit-reset-credits` read route | `private`. Unvalidated. The app-server count is `official` but not the primary route. |
+| Banked reset count | `unknown` | `…/wham/rate-limit-reset-credits` read route | `private`. Validated 2026-10-01 (see the evidence table above). The app-server count is `official` but not the primary route. |
 | Reset redemption | `available` behind the "Allow Account Actions" setting | `POST …/rate-limit-reset-credits/consume` with the action row id as idempotency key | `private`. Explicit owner action with a confirmation naming the credit and its expiry. The owner can also set an auto-reset rule (ADR 0003) that calls the same route when a watched `rate_limit.*` window is used up, behind the same setting; it is the only background caller. Unvalidated until the owner runs the first one. |
 | Usage history | `unknown` on the direct route | App-server `dailyUsageBuckets` | `official` by fallback only. `null` means unavailable, not zero. |
 | Admin versus non-admin | Provider-enforced | Account or workspace policy | Do not infer privileges from a plan name. |
@@ -85,7 +85,7 @@ A further fallback runs the official Codex app-server per connection with its ow
 | Credentials file | `$CODEX_HOME/auth.json` | `official` | Read once, encrypt, delete. |
 | Token refresh | ChatGPT OAuth token endpoint with the stored refresh token | `private` | Refresh in the connector. |
 | Usage | `GET https://chatgpt.com/backend-api/wham/usage` | `private` | Quota windows, credits, plan. |
-| Reset-credit inventory | `GET https://chatgpt.com/backend-api/wham/rate-limit-reset-credits` (per ai-usagebar) | `private` | Read only. Unvalidated. |
+| Reset-credit inventory | `GET https://chatgpt.com/backend-api/wham/rate-limit-reset-credits` (per ai-usagebar) | `private` | Read only. Validated 2026-10-01. |
 
 ### Direct client fallback
 
@@ -134,7 +134,7 @@ Earlier account research observed a response with a weekly-style quota, workspac
 
 - Headless CLI login works on every server image. The Linux proof decides.
 - Device-code login can be disabled by a personal security setting or workspace admin.
-- OpenAI permits reuse of the CLI credentials or the ChatGPT OAuth client. Headroom's posture is personal self-hosted use only.
+- OpenAI's terms cover reuse of the CLI credentials or the ChatGPT OAuth client for the owner's use. Headroom's posture is personal self-hosted use only; the owner checks OpenAI's terms.
 - The private usage endpoint keeps its path, headers or fields. A changed shape yields `invalid_response` for that metric.
 - A refresh token stays valid. OpenAI can revoke it; the connection then shows `reconnect_required`.
 - Every plan exposes credits, daily history, all bucket details or reset-credit rows.
@@ -154,7 +154,7 @@ Earlier account research observed a response with a weekly-style quota, workspac
 - [ ] Test two Codex connections without credential or snapshot leakage.
 - [ ] Preserve `null`, absent and empty-list distinctions in the normalized schema.
 - [ ] Validate the reset-credit inventory read route before showing a count.
-- [ ] Keep redemption out until M6. Then require a confirmation screen that names the credit, and refresh quotas after the action.
+- [x] Redemption is built behind the "Allow Account Actions" setting (D23): a confirmation screen names the credit, and quotas refresh after the action. The route stays unvalidated until the owner runs one.
 - [ ] Add capability flags rather than treating unavailable fields as failures.
 
 ## Sources
