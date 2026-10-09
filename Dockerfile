@@ -60,6 +60,7 @@ RUN codex --version && claude --version && grok --version
 ENV HEADROOM_DATA_DIR=/var/lib/headroom/data \
     HEADROOM_MASTER_KEY_FILE=/etc/headroom/master.key \
     HEADROOM_AUTH_SECRET_FILE=/etc/headroom/auth.secret \
+    HEADROOM_HOST=0.0.0.0 \
     HEADROOM_PORT=8080 \
     HEADROOM_WEB_DIR=/usr/local/share/headroom/web
 VOLUME ["/var/lib/headroom/data", "/etc/headroom"]

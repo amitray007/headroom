@@ -4,6 +4,12 @@ bun = "1.4.2"
 [settings]
 lockfile = true
 
+# Local development keeps state in the checkout; an installed binary uses per-user directories.
+[env]
+HEADROOM_DATA_DIR = ".data"
+HEADROOM_MASTER_KEY_FILE = ".state/headroom.key"
+HEADROOM_AUTH_SECRET_FILE = ".state/headroom.auth-secret"
+
 [tasks.install]
 description = "Install workspace dependencies with the locked versions"
 run = "bun install --frozen-lockfile"
