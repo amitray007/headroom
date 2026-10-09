@@ -1,3 +1,6 @@
+import { homedir } from "node:os";
+import { dirname } from "node:path";
+
 import { createAntigravityConnector } from "@headroom/connector-antigravity";
 import { createClaudeConnector } from "@headroom/connector-claude";
 import { createCodexConnector } from "@headroom/connector-codex";
@@ -5,26 +8,64 @@ import { createCopilotConnector } from "@headroom/connector-copilot";
 import { createCursorConnector } from "@headroom/connector-cursor";
 import { createGrokConnector } from "@headroom/connector-grok";
 import { createVercelConnector } from "@headroom/connector-vercel-ai-gateway";
-import { loadConfig } from "@headroom/core";
+import { baseUrl, loadConfig } from "@headroom/core";
 
+import { openBrowser, parseArgs, pathsText, usageText } from "./cli.ts";
 import { createApp, version } from "./app.ts";
 import { bootstrap } from "./bootstrap.ts";
 import { Scheduler } from "./scheduler.ts";
+import { runService, systemServiceDeps } from "./service.ts";
 
-if (Bun.argv.includes("--version")) {
+const parsed = parseArgs(Bun.argv.slice(2));
+if (!parsed.ok) {
+  const early = loadConfig(Bun.env);
+  process.stderr.write(`headroom: ${parsed.error}\n\n${usageText(early)}`);
+  process.exit(2);
+}
+const command = parsed.command;
+if (command.kind === "version") {
   process.stdout.write(`headroom ${version}\n`);
   process.exit(0);
 }
 
-const config = loadConfig(Bun.env);
+const loaded = loadConfig(Bun.env);
+if (command.kind === "help") {
+  process.stdout.write(usageText(loaded));
+  process.exit(0);
+}
+if (command.kind === "paths") {
+  process.stdout.write(pathsText(loaded));
+  process.exit(0);
+}
+if (command.kind === "service") {
+  const outcome = runService(
+    command.action,
+    systemServiceDeps({
+      home: Bun.env["HOME"] || homedir(),
+      logDir: dirname(loaded.dataDir),
+      path: Bun.env["PATH"],
+    }),
+  );
+  for (const line of outcome.lines) process.stdout.write(`${line}\n`);
+  process.exit(outcome.code);
+}
+
+const config = {
+  ...loaded,
+  ...(command.port !== undefined ? { port: command.port } : {}),
+  ...(command.host !== undefined ? { host: command.host } : {}),
+};
 const levels = { debug: 10, info: 20, warn: 30, error: 40 } as const;
 const threshold = levels[config.logLevel];
 const ctx = bootstrap({
   config,
   connectors: (runner) => [
-    createCodexConnector({ runner }),
-    createClaudeConnector({ runner }),
-    createGrokConnector({ runner }),
+    createCodexConnector({ runner, ...(config.codexBin ? { codexBinary: config.codexBin } : {}) }),
+    createClaudeConnector({
+      runner,
+      ...(config.claudeBin ? { claudeBinary: config.claudeBin } : {}),
+    }),
+    createGrokConnector({ runner, ...(config.grokBin ? { grokBinary: config.grokBin } : {}) }),
     createAntigravityConnector(),
     createCopilotConnector(),
     createCursorConnector(),
@@ -35,7 +76,6 @@ const ctx = bootstrap({
     process.stderr.write(`${new Date().toISOString()} ${level} ${message}\n`);
   },
 });
-ctx.log("info", `headroom ${version} listening on :${config.port}, data in ${config.dataDir}`);
 ctx.log(
   "info",
   `enabled providers: ${
@@ -65,10 +105,17 @@ ctx.exchangeRates.start();
 
 const server = Bun.serve({
   port: config.port,
+  hostname: config.host,
   // Production behaviour everywhere: no Bun error pages with stack traces.
   development: false,
   fetch: createApp(ctx).fetch,
 });
+
+ctx.log(
+  "info",
+  `headroom ${version} listening on ${config.host}:${config.port}; open ${baseUrl(config)}; data in ${config.dataDir}`,
+);
+if (command.open) openBrowser(baseUrl(config));
 
 /** How long shutdown waits for the tick in flight, and then for open requests. Compose gives 20 s. */
 const drainMs = 10_000;

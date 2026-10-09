@@ -2,22 +2,63 @@ import { expect, test } from "bun:test";
 
 import { baseUrl, loadConfig } from "./config.ts";
 
-test("defaults suit local development", () => {
-  const config = loadConfig({});
+const mac = { platform: "darwin", home: "/Users/amy" };
+const linux = { platform: "linux", home: "/home/amy" };
+
+test("defaults on macOS live under Application Support", () => {
+  const config = loadConfig({}, mac);
   expect(config).toEqual({
-    dataDir: ".data",
-    masterKeyFile: ".state/headroom.key",
-    authSecretFile: ".state/headroom.auth-secret",
+    dataDir: "/Users/amy/Library/Application Support/Headroom/data",
+    masterKeyFile: "/Users/amy/Library/Application Support/Headroom/headroom.key",
+    authSecretFile: "/Users/amy/Library/Application Support/Headroom/headroom.auth-secret",
     port: 8080,
+    host: "127.0.0.1",
     trustedOrigins: [],
     logLevel: "info",
     trustProxy: false,
     webDir: "apps/web/dist",
-    enabledProviders: ["codex"],
+    enabledProviders: [
+      "codex",
+      "claude",
+      "grok",
+      "antigravity",
+      "copilot",
+      "cursor",
+      "vercel_ai_gateway",
+    ],
     refreshIntervalSeconds: 900,
     staleAfterSeconds: 43_200,
   });
   expect(baseUrl(config)).toBe("http://localhost:8080");
+});
+
+test("defaults on Linux follow XDG and keep the key out of the data directory", () => {
+  const plain = loadConfig({}, linux);
+  expect(plain.dataDir).toBe("/home/amy/.local/share/headroom/data");
+  expect(plain.masterKeyFile).toBe("/home/amy/.config/headroom/headroom.key");
+  expect(plain.authSecretFile).toBe("/home/amy/.config/headroom/headroom.auth-secret");
+  const xdg = loadConfig({ XDG_DATA_HOME: "/x/data", XDG_CONFIG_HOME: "/x/conf" }, linux);
+  expect(xdg.dataDir).toBe("/x/data/headroom/data");
+  expect(xdg.masterKeyFile).toBe("/x/conf/headroom/headroom.key");
+});
+
+test("host, sign-in binaries and path overrides come from the environment", () => {
+  const config = loadConfig(
+    {
+      HEADROOM_HOST: "0.0.0.0",
+      HEADROOM_CODEX_BIN: "/opt/codex",
+      HEADROOM_CLAUDE_BIN: "/opt/claude",
+      HEADROOM_GROK_BIN: "/opt/grok",
+      HEADROOM_DATA_DIR: ".data",
+    },
+    mac,
+  );
+  expect(config.host).toBe("0.0.0.0");
+  expect(config.codexBin).toBe("/opt/codex");
+  expect(config.claudeBin).toBe("/opt/claude");
+  expect(config.grokBin).toBe("/opt/grok");
+  expect(config.dataDir).toBe(".data");
+  expect(loadConfig({}, mac).codexBin).toBeUndefined();
 });
 
 test("environment overrides, coerces and normalizes origins", () => {

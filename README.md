@@ -80,7 +80,7 @@ Headroom holds the sign-in tokens for every AI account you connect. A hosted cop
 
 - **Private:** the endpoint the provider's own app or CLI calls. It can change without notice.
 - **Official:** a published API.
-- **Enable providers** with `HEADROOM_ENABLED_PROVIDERS`. The commands above turn on all seven; without the variable, only Codex.
+- **Enable providers** with `HEADROOM_ENABLED_PROVIDERS`. The default is all seven.
 - **Evidence:** the [provider dossiers](docs/providers/README.md) record what is validated.
 
 ## How it works
@@ -140,17 +140,35 @@ mise install && mise run install
 mise run start         # builds the web app and the binary, then serves on :8080
 ```
 
-Open <http://localhost:8080>. Data goes to `.data/` and the two secret files to `.state/`. Back up `.state/headroom.key` with `.data/headroom.db`: without the key every account must be reconnected.
+Open <http://localhost:8080>. In the checkout, `mise` sets data to `.data/` and the two secret files to `.state/`. Back up `.state/headroom.key` with `.data/headroom.db`: without the key every account must be reconnected.
+
+### Compiled binary
+
+The binary runs from any directory and keeps per-user state: on macOS under `~/Library/Application Support/Headroom/`, on Linux data in `${XDG_DATA_HOME:-~/.local/share}/headroom/` and the key and secret in `${XDG_CONFIG_HOME:-~/.config}/headroom/`.
+
+```sh
+headroom --open          # serve on 127.0.0.1:8080 and open the dashboard
+headroom --help          # commands, flags and the resolved file locations
+headroom paths           # print the data, key and secret locations
+headroom service install # run at login (launchd on macOS, a systemd user unit on Linux)
+headroom service status  # installed and running?
+headroom service uninstall
+```
+
+`service install` must run from the compiled binary, not `bun`. On a headless Linux server also run `loginctl enable-linger $USER`. Back up the key with the database.
 
 ### Configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `HEADROOM_PUBLIC_URL` | none | The address you open Headroom at. Required behind a proxy; passkeys and cookies use it |
-| `HEADROOM_ENABLED_PROVIDERS` | `codex` | Comma list: `codex`, `claude`, `grok`, `antigravity`, `copilot`, `cursor`, `vercel_ai_gateway` |
-| `HEADROOM_PORT` | `8080` | HTTP port |
-| `HEADROOM_DATA_DIR` | `.data` | Where the database lives |
-| `HEADROOM_MASTER_KEY_FILE` | `.state/headroom.key` | The key that seals credentials. Keep it out of the data folder |
+| `HEADROOM_ENABLED_PROVIDERS` | all seven | Comma list: `codex`, `claude`, `grok`, `antigravity`, `copilot`, `cursor`, `vercel_ai_gateway` |
+| `HEADROOM_HOST` | `127.0.0.1` | Listen address. The container image sets `0.0.0.0` |
+| `HEADROOM_PORT` | `8080` | HTTP port (`--port` overrides) |
+| `HEADROOM_DATA_DIR` | macOS `~/Library/Application Support/Headroom/data`, Linux `~/.local/share/headroom/data` | Where the database lives |
+| `HEADROOM_MASTER_KEY_FILE` | next to the data on macOS, `~/.config/headroom/headroom.key` on Linux | The key that seals credentials. Keep it out of the data folder |
+| `HEADROOM_AUTH_SECRET_FILE` | same folder as the key, `headroom.auth-secret` | Session signing secret |
+| `HEADROOM_CODEX_BIN`, `HEADROOM_CLAUDE_BIN`, `HEADROOM_GROK_BIN` | resolved on `PATH` | Absolute path of a sign-in CLI |
 
 Every variable is listed in [Deployment and credential storage](docs/architecture/deployment.md).
 
