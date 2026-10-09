@@ -30,12 +30,13 @@ headroom service install     # start at login
 ## Homebrew
 
 ```sh
-brew install amitray007/tap/headroom
+brew tap amitray007/headroom https://github.com/amitray007/headroom
+brew install amitray007/headroom/headroom
 headroom --open
 brew services start headroom   # start now and at every login
 ```
 
-`brew services` runs `headroom start` and writes its log to `$(brew --prefix)/var/log/headroom.log`. Update with `brew upgrade headroom`.
+This repository is the tap: the formula is `Formula/headroom.rb`. Homebrew finds a tap by itself only when its repository is named `homebrew-*`, so the first command gives the address once. Installing by the full name also trusts that one formula, as [Tap Trust](https://docs.brew.sh/Tap-Trust) requires. `brew services` runs `headroom start` and writes its log to `$(brew --prefix)/var/log/headroom.log`. Update with `brew upgrade headroom`.
 
 ## Package runners
 
@@ -112,4 +113,4 @@ A running server keeps the old version until it restarts. Restart a login servic
 
 ## Maintainers
 
-`release-please.yml` publishes a release and its archives. [homebrew.yml](../../.github/workflows/homebrew.yml) then renders `Formula/headroom.rb` with `scripts/render-formula.ts <version> <SHA256SUMS>` and pushes it to `amitray007/homebrew-tap`. It needs the `HOMEBREW_TAP_TOKEN` secret and skips with a notice when the secret is missing. The installer is `site/install.sh`; the site build publishes it at `/install`.
+`release-please.yml` publishes a release and its archives. [homebrew.yml](../../.github/workflows/homebrew.yml) then renders `Formula/headroom.rb` with `scripts/render-formula.ts <version> <SHA256SUMS>` and commits it to `main` as `chore(brew): headroom <version>`, with the workflow's own token. The installer is `site/install.sh`; the site build publishes it at `/install`.

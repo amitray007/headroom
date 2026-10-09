@@ -2,7 +2,7 @@
  * Print the Homebrew formula (Formula/headroom.rb) for one release.
  *
  * Usage: bun scripts/render-formula.ts <version> <path to SHA256SUMS>
- * The homebrew workflow runs it and commits the output to amitray007/homebrew-tap.
+ * The homebrew workflow runs it and commits the output to Formula/headroom.rb in this repository, which is its own tap.
  * See docs/operations/install.md.
  */
 import { readFileSync } from "node:fs";

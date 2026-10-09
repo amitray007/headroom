@@ -119,7 +119,8 @@ The script checks the download against the release checksums and puts `headroom`
 ### Homebrew
 
 ```sh
-brew install amitray007/tap/headroom
+brew tap amitray007/headroom https://github.com/amitray007/headroom
+brew install amitray007/headroom/headroom
 brew services start headroom
 ```
 
