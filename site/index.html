@@ -765,7 +765,10 @@
       }
       .install {
         display: grid;
-        gap: 32px;
+        gap: 40px;
+      }
+      .install > * {
+        min-width: 0;
       }
       .install p.sub {
         color: var(--text-secondary);
@@ -773,20 +776,110 @@
         max-width: 46ch;
         font-size: 17px;
       }
-      .code {
-        position: relative;
+      .install .more {
+        display: inline-block;
+        margin-top: 28px;
+        font-size: 15px;
+        color: var(--text-secondary);
+      }
+      .install .more:hover {
+        color: var(--foreground);
+      }
+      @media (min-width: 900px) {
+        .install {
+          grid-template-columns: 1fr 1.25fr;
+          gap: 96px;
+          align-items: start;
+        }
+      }
+
+      /* The install chooser: one tab per way to install, the installer first. */
+      .picker {
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: var(--radius-panel);
-        padding: 24px 24px 24px;
+        padding: 8px;
+      }
+      .tabs {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+        padding: 4px;
+        background: var(--surface-muted);
+        border-radius: 14px;
+      }
+      @media (min-width: 560px) {
+        .tabs {
+          grid-template-columns: repeat(6, auto);
+        }
+      }
+      .tab {
+        height: 36px;
+        padding: 0 12px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: none;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        transition:
+          background-color 160ms,
+          color 160ms;
+      }
+      .tab:hover {
+        color: var(--foreground);
+      }
+      .tab[aria-selected="true"] {
+        background: var(--surface);
+        border-color: var(--border);
+        color: var(--foreground);
+        box-shadow: 0 1px 2px oklch(0% 0 0 / 0.06);
+      }
+      .pane {
+        padding: 20px 16px 12px;
+        animation: pane-in 220ms var(--ease-enter);
+      }
+      .pane[hidden] {
+        display: none;
+      }
+      @keyframes pane-in {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+      }
+      .fit {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 10px;
+        margin: 0 0 16px;
+        font-size: 15px;
+        color: var(--text-secondary);
+      }
+      .tag {
+        font: 500 11px var(--mono);
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--success);
+        border: 1px solid currentColor;
+        border-radius: 9999px;
+        padding: 2px 8px;
+      }
+      .code {
+        position: relative;
+        background: var(--surface-muted);
+        border-radius: 14px;
+        padding: 14px 16px 18px;
       }
       .code code {
         display: block;
-        font: 400 13.5px/1.7 var(--mono);
+        font: 400 13.5px/1.75 var(--mono);
         overflow-x: auto;
-        padding-right: 0;
       }
-      /* One flag per line, so the formatter cannot reflow the command. */
+      /* One command or flag per line, so the formatter cannot reflow it. */
       .code code > span {
         display: block;
         white-space: nowrap;
@@ -794,16 +887,29 @@
       .code code > span.i {
         padding-left: 4ch;
       }
-      .install > * {
-        min-width: 0;
-      }
+      /* On a phone a long command wraps, hanging after the prompt, instead of scrolling out of sight. */
       @media (max-width: 480px) {
+        .pane {
+          padding: 16px 8px 8px;
+        }
+        .code {
+          padding: 12px 12px 16px;
+        }
         .code code {
-          font-size: 11.5px;
+          font-size: 11px;
+        }
+        .code code > span {
+          white-space: normal;
+          overflow-wrap: anywhere;
+          padding-left: 2ch;
+          text-indent: -2ch;
         }
         .code code > span.i {
-          padding-left: 2ch;
+          padding-left: 4ch;
         }
+      }
+      .code .nw {
+        white-space: nowrap;
       }
       .code .p {
         color: var(--text-muted);
@@ -813,39 +919,53 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 14px;
+        margin-bottom: 8px;
         font: 500 12px var(--mono);
         color: var(--text-muted);
         letter-spacing: 0.04em;
       }
       .copy {
-        height: 32px;
+        height: 30px;
         padding: 0 14px;
         border-radius: 9999px;
         border: 1px solid var(--border-strong);
-        background: none;
+        background: var(--surface);
         cursor: pointer;
         font-size: 13px;
         min-width: 72px;
       }
       .copy:hover {
-        background: var(--surface-muted);
+        background: var(--background);
       }
-      .after {
-        margin: 16px 0 0;
-        color: var(--text-secondary);
+      .meta {
+        display: grid;
+        gap: 14px;
+        margin: 18px 0 0;
+      }
+      .meta dt {
+        font: 500 11px var(--mono);
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      .meta dd {
+        margin: 4px 0 0;
         font-size: 14px;
       }
-      .after code {
-        font-family: var(--mono);
-        color: var(--foreground);
+      .meta code {
+        font: 400 13px var(--mono);
       }
-      @media (min-width: 900px) {
-        .install {
-          grid-template-columns: 1fr 1.25fr;
-          gap: 96px;
-          align-items: start;
+      @media (min-width: 640px) {
+        .meta {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 20px;
         }
+      }
+      .status {
+        min-height: 1.5em;
+        margin: 12px 0 0 8px;
+        color: var(--text-secondary);
+        font-size: 14px;
       }
 
       footer {
@@ -1466,42 +1586,256 @@
     <section class="block" id="install">
       <div class="wrap install">
         <div>
-          <p class="eyebrow">Quick start</p>
-          <h2 class="big">One command.</h2>
+          <p class="eyebrow">Install</p>
+          <h2 class="big">Running in a minute.</h2>
           <p class="sub lines">
-            <span>Free and open source.</span
-            ><span>Runs with Docker on Intel and ARM machines.</span>
+            <span>Free and open source.</span><span>Pick the way you already use.</span
+            ><span>Each one runs the same app.</span>
           </p>
+          <a
+            class="more"
+            href="https://github.com/amitray007/headroom/blob/main/docs/operations/install.md"
+            >Updates, start at login and removal</a
+          >
         </div>
         <div>
-          <div class="code">
-            <div class="row">
-              <span>SHELL</span
-              ><button
-                class="copy"
-                id="copy"
+          <div class="picker">
+            <div class="tabs" role="tablist" aria-label="Ways to install">
+              <button
+                class="tab"
+                role="tab"
+                id="tab-installer"
+                aria-controls="pane-installer"
+                aria-selected="true"
                 type="button"
-                aria-label="Copy the docker run command"
               >
-                Copy
+                Installer
+              </button>
+              <button
+                class="tab"
+                role="tab"
+                id="tab-brew"
+                aria-controls="pane-brew"
+                aria-selected="false"
+                tabindex="-1"
+                type="button"
+              >
+                Homebrew
+              </button>
+              <button
+                class="tab"
+                role="tab"
+                id="tab-npm"
+                aria-controls="pane-npm"
+                aria-selected="false"
+                tabindex="-1"
+                type="button"
+              >
+                npm
+              </button>
+              <button
+                class="tab"
+                role="tab"
+                id="tab-pypi"
+                aria-controls="pane-pypi"
+                aria-selected="false"
+                tabindex="-1"
+                type="button"
+              >
+                PyPI
+              </button>
+              <button
+                class="tab"
+                role="tab"
+                id="tab-mise"
+                aria-controls="pane-mise"
+                aria-selected="false"
+                tabindex="-1"
+                type="button"
+              >
+                mise
+              </button>
+              <button
+                class="tab"
+                role="tab"
+                id="tab-docker"
+                aria-controls="pane-docker"
+                aria-selected="false"
+                tabindex="-1"
+                type="button"
+              >
+                Docker
               </button>
             </div>
-            <code id="cmd"
-              ><span><span class="p">$ </span>docker run -d --name headroom \</span
-              ><span class="i">-p 8080:8080 \</span
-              ><span class="i">-v headroom-data:/var/lib/headroom/data \</span
-              ><span class="i">-v headroom-secrets:/etc/headroom \</span
-              ><span class="i">ghcr.io/amitray007/headroom:latest</span></code
-            >
+
+            <div class="pane" role="tabpanel" id="pane-installer" aria-labelledby="tab-installer">
+              <p class="fit">
+                <span class="tag">Recommended</span><span>For a Mac or Linux machine.</span>
+              </p>
+              <div class="code">
+                <div class="row">
+                  <span>TERMINAL</span><button class="copy" type="button">Copy</button>
+                </div>
+                <code
+                  ><span
+                    ><span class="p">$ </span>curl -fsSL https://headroom.theblank.club/install
+                    <span class="nw">| sh</span></span
+                  ><span><span class="p">$ </span>headroom --open</span></code
+                >
+              </div>
+              <dl class="meta">
+                <div>
+                  <dt>Safety</dt>
+                  <dd>Checks each download</dd>
+                </div>
+                <div>
+                  <dt>Update</dt>
+                  <dd><code>headroom update</code></dd>
+                </div>
+                <div>
+                  <dt>Start at login</dt>
+                  <dd><code>headroom service install</code></dd>
+                </div>
+              </dl>
+            </div>
+
+            <div class="pane" role="tabpanel" id="pane-brew" aria-labelledby="tab-brew" hidden>
+              <p class="fit"><span>You already use Homebrew.</span></p>
+              <div class="code">
+                <div class="row">
+                  <span>TERMINAL</span><button class="copy" type="button">Copy</button>
+                </div>
+                <code
+                  ><span><span class="p">$ </span>brew install amitray007/tap/headroom</span
+                  ><span><span class="p">$ </span>headroom --open</span></code
+                >
+              </div>
+              <dl class="meta">
+                <div>
+                  <dt>Works on</dt>
+                  <dd>macOS and Linux</dd>
+                </div>
+                <div>
+                  <dt>Update</dt>
+                  <dd><code>brew upgrade headroom</code></dd>
+                </div>
+                <div>
+                  <dt>Start at login</dt>
+                  <dd><code>brew services start headroom</code></dd>
+                </div>
+              </dl>
+            </div>
+
+            <div class="pane" role="tabpanel" id="pane-npm" aria-labelledby="tab-npm" hidden>
+              <p class="fit"><span>You have Node.js. Nothing else to set up.</span></p>
+              <div class="code">
+                <div class="row">
+                  <span>TERMINAL</span><button class="copy" type="button">Copy</button>
+                </div>
+                <code
+                  ><span><span class="p">$ </span>npx headroomhq --open</span></code
+                >
+              </div>
+              <dl class="meta">
+                <div>
+                  <dt>Needs</dt>
+                  <dd>Node.js 18 or later</dd>
+                </div>
+                <div>
+                  <dt>Keep it</dt>
+                  <dd><code>npm i -g headroomhq</code></dd>
+                </div>
+                <div>
+                  <dt>Also with</dt>
+                  <dd><code>bunx</code>, <code>pnpm dlx</code></dd>
+                </div>
+              </dl>
+            </div>
+
+            <div class="pane" role="tabpanel" id="pane-pypi" aria-labelledby="tab-pypi" hidden>
+              <p class="fit"><span>You use Python tools like uv.</span></p>
+              <div class="code">
+                <div class="row">
+                  <span>TERMINAL</span><button class="copy" type="button">Copy</button>
+                </div>
+                <code
+                  ><span><span class="p">$ </span>uvx headroomhq --open</span></code
+                >
+              </div>
+              <dl class="meta">
+                <div>
+                  <dt>Needs</dt>
+                  <dd>uv or pipx</dd>
+                </div>
+                <div>
+                  <dt>Keep it</dt>
+                  <dd><code>uv tool install headroomhq</code></dd>
+                </div>
+                <div>
+                  <dt>Also with</dt>
+                  <dd><code>pipx run headroomhq</code></dd>
+                </div>
+              </dl>
+            </div>
+
+            <div class="pane" role="tabpanel" id="pane-mise" aria-labelledby="tab-mise" hidden>
+              <p class="fit"><span>You manage your tools with mise.</span></p>
+              <div class="code">
+                <div class="row">
+                  <span>TERMINAL</span><button class="copy" type="button">Copy</button>
+                </div>
+                <code
+                  ><span><span class="p">$ </span>mise use -g github:amitray007/headroom</span
+                  ><span><span class="p">$ </span>headroom --open</span></code
+                >
+              </div>
+              <dl class="meta">
+                <div>
+                  <dt>Works on</dt>
+                  <dd>macOS and Linux</dd>
+                </div>
+                <div>
+                  <dt>Update</dt>
+                  <dd><code>mise upgrade</code></dd>
+                </div>
+                <div>
+                  <dt>Start at login</dt>
+                  <dd><code>headroom service install</code></dd>
+                </div>
+              </dl>
+            </div>
+
+            <div class="pane" role="tabpanel" id="pane-docker" aria-labelledby="tab-docker" hidden>
+              <p class="fit"><span>For Windows, a home server or a NAS.</span></p>
+              <div class="code">
+                <div class="row">
+                  <span>TERMINAL</span><button class="copy" type="button">Copy</button>
+                </div>
+                <code
+                  ><span><span class="p">$ </span>docker run -d --name headroom \</span
+                  ><span class="i">-p 8080:8080 \</span
+                  ><span class="i">-v headroom-data:/var/lib/headroom/data \</span
+                  ><span class="i">-v headroom-secrets:/etc/headroom \</span
+                  ><span class="i">ghcr.io/amitray007/headroom:latest</span></code
+                >
+              </div>
+              <dl class="meta">
+                <div>
+                  <dt>Then open</dt>
+                  <dd><code>localhost:8080</code></dd>
+                </div>
+                <div>
+                  <dt>Works on</dt>
+                  <dd>Any machine with Docker</dd>
+                </div>
+                <div>
+                  <dt>Update</dt>
+                  <dd>Pull the image, then recreate</dd>
+                </div>
+              </dl>
+            </div>
           </div>
-          <p class="after">Then open <code>http://localhost:8080</code>.</p>
-          <p
-            class="after"
-            id="copied"
-            role="status"
-            aria-live="polite"
-            style="min-height: 1.5em; margin-top: 4px"
-          ></p>
+          <p class="status" id="copied" role="status" aria-live="polite"></p>
         </div>
       </div>
     </section>
@@ -1738,33 +2072,89 @@
         });
         film.addEventListener("close", () => filmVideo.pause());
 
-        // Copy
-        const copyBtn = document.getElementById("copy");
-        const note = document.getElementById("copied");
-        const text =
-          "docker run -d --name headroom -p 8080:8080 -v headroom-data:/var/lib/headroom/data -v headroom-secrets:/etc/headroom ghcr.io/amitray007/headroom:latest";
-        copyBtn.addEventListener("click", async () => {
-          let ok = false;
-          try {
-            await navigator.clipboard.writeText(text);
-            ok = true;
-          } catch {
-            const t = document.createElement("textarea");
-            t.value = text;
-            document.body.append(t);
-            t.select();
-            try {
-              ok = document.execCommand("copy");
-            } catch {}
-            t.remove();
+        // Install chooser: tabs with arrow keys, the last choice remembered, Docker first on Windows.
+        const tabs = [...document.querySelectorAll('#install [role="tab"]')];
+        const select = (tab, focus) => {
+          for (const t of tabs) {
+            const on = t === tab;
+            t.setAttribute("aria-selected", String(on));
+            t.tabIndex = on ? 0 : -1;
+            document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
           }
-          copyBtn.textContent = ok ? "Copied" : "Copy failed";
-          note.textContent = ok ? "Command copied." : "Select the command and copy it by hand.";
-          setTimeout(() => {
-            copyBtn.textContent = "Copy";
-            note.textContent = "";
-          }, 2200);
+          if (focus) tab.focus();
+        };
+        const platform = navigator.userAgentData?.platform || navigator.platform || "";
+        let saved = null;
+        try {
+          saved = localStorage.getItem("headroom-install");
+        } catch {}
+        const first =
+          tabs.find((t) => t.id === saved) ||
+          (/win/i.test(platform) ? document.getElementById("tab-docker") : null);
+        if (first) select(first, false);
+        tabs.forEach((tab, i) => {
+          tab.addEventListener("click", () => {
+            select(tab, false);
+            try {
+              localStorage.setItem("headroom-install", tab.id);
+            } catch {}
+          });
+          tab.addEventListener("keydown", (e) => {
+            const to = {
+              ArrowRight: i + 1,
+              ArrowLeft: i - 1,
+              Home: 0,
+              End: tabs.length - 1,
+            }[e.key];
+            if (to === undefined) return;
+            e.preventDefault();
+            const next = tabs[(to + tabs.length) % tabs.length];
+            select(next, true);
+            try {
+              localStorage.setItem("headroom-install", next.id);
+            } catch {}
+          });
         });
+
+        // Copy: each pane copies its own commands, without the prompts.
+        const note = document.getElementById("copied");
+        for (const btn of document.querySelectorAll("#install .copy")) {
+          const lines = [...btn.closest(".code").querySelectorAll("code > span")].map((line) =>
+            [...line.childNodes]
+              .filter((n) => !(n.classList && n.classList.contains("p")))
+              .map((n) => n.textContent)
+              .join("")
+              // The markup wraps long lines and uses non-breaking spaces; the shell needs one plain line.
+              .replace(/\s+/g, " ")
+              .trim(),
+          );
+          const text = lines.join("\n");
+          btn.setAttribute("aria-label", "Copy: " + lines[0].replace(/ \\$/, ""));
+          btn.addEventListener("click", async () => {
+            let ok = false;
+            try {
+              await navigator.clipboard.writeText(text);
+              ok = true;
+            } catch {
+              const t = document.createElement("textarea");
+              t.value = text;
+              document.body.append(t);
+              t.select();
+              try {
+                ok = document.execCommand("copy");
+              } catch {}
+              t.remove();
+            }
+            btn.textContent = ok ? "Copied" : "Copy failed";
+            note.textContent = ok
+              ? "Copied. Paste it in a terminal."
+              : "Select the command and copy it by hand.";
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              note.textContent = "";
+            }, 2200);
+          });
+        }
       })();
     </script>
   </body>
