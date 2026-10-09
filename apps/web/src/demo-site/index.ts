@@ -16,7 +16,7 @@ export function installDemoSite(): void {
   }
   window.fetch = createDemoFetch(window.fetch.bind(window), window.location.origin);
   if (isEmbedded(window.location.search)) {
-    document.documentElement.dataset.embed = "";
+    document.documentElement.setAttribute("data-embed", "");
     startEmbedBridge();
   }
 }
