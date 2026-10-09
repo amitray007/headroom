@@ -15,5 +15,8 @@ export function installDemoSite(): void {
     window.history.replaceState(window.history.state, "", cleanPath(pathname) + search + hash);
   }
   window.fetch = createDemoFetch(window.fetch.bind(window), window.location.origin);
-  if (isEmbedded(window.location.search)) startEmbedBridge();
+  if (isEmbedded(window.location.search)) {
+    document.documentElement.dataset.embed = "";
+    startEmbedBridge();
+  }
 }

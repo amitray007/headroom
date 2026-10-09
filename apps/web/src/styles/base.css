@@ -23,6 +23,13 @@ a {
   outline-offset: 3px;
   border-radius: 6px;
 }
+/* Inside the landing page's frame the demo still scrolls, without a scrollbar. */
+html[data-embed] {
+  scrollbar-width: none;
+}
+html[data-embed]::-webkit-scrollbar {
+  display: none;
+}
 /* The hidden attribute must beat display rules on panels and stages. */
 [hidden] {
   display: none !important;
