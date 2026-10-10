@@ -232,7 +232,7 @@ Headroom is free, and there is no paid cloud version. If it saves you a surprise
 
 ## License
 
-[MIT](LICENSE). See also the [Disclaimer](DISCLAIMER.md).
+[MIT](LICENSE). Headroom also contains work from other projects under their own licenses: see [Third-party notices](THIRD_PARTY_NOTICES.md) and [LICENSES/](LICENSES/README.md). See also the [Disclaimer](DISCLAIMER.md).
 
 > [!NOTE]
 > Headroom is an independent project, not affiliated with any provider listed above. Product names are trademarks of their owners.

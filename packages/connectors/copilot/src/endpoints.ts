@@ -1,6 +1,7 @@
 /**
  * Every URL, header and constant the Copilot connector uses. Sources: docs/providers/copilot.md,
  * the gh CLI source for the public OAuth client id, and OpenUsage's Copilot client for headers.
+ * The OpenUsage license is in THIRD_PARTY_NOTICES.md.
  */
 
 /** Public OAuth App client id of the GitHub CLI (cli/cli internal/authflow/flow.go). */

@@ -78,9 +78,9 @@ jobs:
       - name: Package
         run: |
           mkdir -p out stage
-          cp dist/headroom LICENSE stage/
+          cp dist/headroom LICENSE THIRD_PARTY_NOTICES.md stage/
           chmod 0755 stage/headroom
-          COPYFILE_DISABLE=1 tar -C stage -czf "out/headroom-${TARGET}.tar.gz" headroom LICENSE
+          COPYFILE_DISABLE=1 tar -C stage -czf "out/headroom-${TARGET}.tar.gz" headroom LICENSE THIRD_PARTY_NOTICES.md
           tar -tzf "out/headroom-${TARGET}.tar.gz"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

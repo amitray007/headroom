@@ -1,7 +1,7 @@
 /**
  * Every URL, header and constant the Claude connector uses. Sources: docs/providers/claude.md,
  * CLIProxyAPI and OpenUsage (source-inspected), and the pinned Claude Code CLI (validated headless).
- * This connector is off by default (D16); the owner enables it knowingly.
+ * The CLIProxyAPI and OpenUsage licenses are in THIRD_PARTY_NOTICES.md.
  */
 
 /** Public OAuth client id of Claude Code; needed for token refresh. Source-inspected in CLIProxyAPI and OpenUsage. */

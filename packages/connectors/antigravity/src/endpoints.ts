@@ -1,6 +1,7 @@
 /**
  * Every URL, header and constant the Antigravity connector uses. Sources: docs/providers/antigravity.md,
  * CLIProxyAPI internal/auth/antigravity (source-inspected) and OpenUsage's Antigravity client.
+ * Their licenses are in THIRD_PARTY_NOTICES.md.
  *
  * The OAuth client is Google's "installed application" type for Antigravity. Google documents that
  * installed-app client secrets are not confidential; both reference projects ship these values.

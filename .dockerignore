@@ -13,3 +13,6 @@ design
 docs
 deploy
 *.md
+# The license notices ship in the image.
+!THIRD_PARTY_NOTICES.md
+!LICENSES/**

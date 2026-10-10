@@ -44,7 +44,7 @@ A connector lives in `packages/connectors/<provider>` with an endpoints file, Zo
 - Label every metric `official` or `private`, and keep the evidence labels in the dossier: documented, source-inspected, prior observation, validated, unvalidated.
 - Monitoring must never send a model request, redeem a reset or buy credits. A mutating action needs an explicit owner action: a confirmed press, or a rule the owner configured ([ADR 0003](docs/decisions/0003-owner-automations.md)).
 - Separate authentication from data access. One failing endpoint must not turn other values into zero.
-- Code ported from another project keeps its license attribution in the file header.
+- Code ported from another project names that project in the file header. Add the project's license to `LICENSES/` and to `scripts/notices.ts`, then run `mise run notices` ([LICENSES/README.md](LICENSES/README.md)).
 
 ## Documentation
 

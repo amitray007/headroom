@@ -203,7 +203,7 @@ export function BrandMark(props: { readonly provider: Provider; readonly size?: 
   );
 }
 
-/** Lucide's webhook glyph (ISC licence). */
+/** Lucide's webhook glyph (ISC licence; the notice is in THIRD_PARTY_NOTICES.md). */
 const WebhookIcon = stroke(
   <>
     <path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2" />

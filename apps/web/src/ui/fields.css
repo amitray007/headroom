@@ -1,6 +1,7 @@
 /* Form fields: Select, MoneyInput, DatePicker, RadioCards and the listbox they share.
    They sit next to TextField (the global `.field`: 40px tall, 18px corners, strong border) and follow Arc's
-   select, money-input, date-picker, calendar and radio-cards. Arc hides focus rings on its fields; this app keeps them. */
+   select, money-input, date-picker, calendar and radio-cards. Arc hides focus rings on its fields; this app keeps them.
+   Arc's license is in THIRD_PARTY_NOTICES.md. */
 
 /* ---------- Field chrome ---------- */
 .fld .dl-note {

@@ -38,8 +38,12 @@ run = "bun run test"
 description = "Report unused files, exports and dependencies"
 run = "bun run knip"
 
+[tasks.notices]
+description = "Write THIRD_PARTY_NOTICES.md from LICENSES/ and the installed packages"
+run = "bun run notices"
+
 [tasks.check]
-description = "Everything CI runs: docs, format, lint, typecheck, knip, test"
+description = "Everything CI runs: docs, notices, format, lint, typecheck, knip, test"
 depends = ["docs"]
 run = "bun run check"
 

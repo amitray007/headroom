@@ -1,7 +1,8 @@
 /**
  * Every URL and header the Cursor member connector uses. Sources: docs/providers/cursor.md and
  * pi-cursor's auth and usage modules (MIT, source-inspected; the login flow is ported, not imported,
- * because the package exports only its pi extension surface).
+ * because the package exports only its pi extension surface). The pi-cursor and OpenUsage licenses
+ * are in THIRD_PARTY_NOTICES.md.
  */
 export const loginUrl = "https://cursor.com/loginDeepControl";
 export const pollUrl = "https://api2.cursor.sh/auth/poll";

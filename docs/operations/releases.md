@@ -55,7 +55,7 @@ The `Binaries` workflow attaches a standalone binary, with the web UI embedded, 
 | `headroom-linux-x64.tar.gz` | `ubuntu-24.04` |
 | `headroom-linux-arm64.tar.gz` | `ubuntu-24.04-arm` |
 
-Each archive holds exactly `headroom` (mode 0755) and `LICENSE` at its root. `SHA256SUMS` lists every archive as `<sha256>  <filename>`, sorted by filename. Check a download with `sha256sum -c SHA256SUMS` (`shasum -a 256 -c` on macOS).
+Each archive holds exactly `headroom` (mode 0755), `LICENSE` and `THIRD_PARTY_NOTICES.md` at its root. `SHA256SUMS` lists every archive as `<sha256>  <filename>`, sorted by filename. Check a download with `sha256sum -c SHA256SUMS` (`shasum -a 256 -c` on macOS).
 
 How a build runs:
 

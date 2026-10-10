@@ -1,5 +1,6 @@
 /* Arc UI controls: user menu, popover, switch, password field and strength. Loaded after components.css.
-   Values follow Arc's free MIT components (uiarc.dev), ported to plain CSS and the native Popover API. */
+   Values follow Arc's free MIT components (uiarc.dev), ported to plain CSS and the native Popover API.
+   Arc's license is in THIRD_PARTY_NOTICES.md. */
 
 :root {
   /* Focus ring for the controls below: stronger than --border-strong, still neutral. */

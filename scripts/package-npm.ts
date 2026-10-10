@@ -26,6 +26,7 @@ import { packageReadme } from "./package-readme.ts";
 
 const repo = join(import.meta.dir, "..");
 const templates = join(repo, "packaging", "npm");
+const NOTICES = "THIRD_PARTY_NOTICES.md";
 const metadata = JSON.parse(readFileSync(join(repo, "packaging", "metadata.json"), "utf8")) as {
   description: string;
   keywords: string[];
@@ -116,7 +117,7 @@ try {
     ]);
     if (tar.exitCode !== 0)
       throw new Error(`tar failed for ${platform.id}: ${tar.stderr.toString()}`);
-    for (const needed of ["headroom", "LICENSE"]) {
+    for (const needed of ["headroom", "LICENSE", NOTICES]) {
       if (!existsSync(join(unpack, needed)))
         throw new Error(`headroom-${platform.id}.tar.gz has no ${needed}`);
     }
@@ -125,6 +126,7 @@ try {
     copyFileSync(join(unpack, "headroom"), join(dir, "bin", "headroom"));
     chmodSync(join(dir, "bin", "headroom"), 0o755);
     copyFileSync(join(unpack, "LICENSE"), join(dir, "LICENSE"));
+    copyFileSync(join(unpack, NOTICES), join(dir, NOTICES));
     writeFileSync(
       join(dir, "README.md"),
       fill(readFileSync(join(templates, "platform", "README.md"), "utf8"), platform.id),
@@ -149,6 +151,7 @@ try {
     packageReadme(readFileSync(join(repo, "README.md"), "utf8"), version),
   );
   copyFileSync(join(repo, "LICENSE"), join(main, "LICENSE"));
+  copyFileSync(join(repo, NOTICES), join(main, NOTICES));
   const manifest = readJson(join(templates, "main", "package.json"));
   manifest.version = version;
   manifest.description = metadata.description;

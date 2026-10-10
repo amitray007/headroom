@@ -1,6 +1,7 @@
 /**
  * Every URL, header and constant the Grok connector uses. Sources: docs/providers/grok.md,
  * OpenUsage's Grok client (source-inspected) and the pinned Grok CLI (validated headless).
+ * The OpenUsage license is in THIRD_PARTY_NOTICES.md.
  */
 
 export const billingUrl = "https://cli-chat-proxy.grok.com/v1/billing?format=credits";

@@ -24,6 +24,7 @@ import zipfile
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PACKAGE_DIR = os.path.join(REPO, "packaging", "pypi")
 NAME = "headroomhq"
+NOTICES = "THIRD_PARTY_NOTICES.md"
 with open(os.path.join(REPO, "packaging", "metadata.json"), "rb") as _handle:
     METADATA = json.loads(_handle.read().decode("utf8"))
 CLASSIFIERS = [
@@ -61,20 +62,20 @@ def read_sums(path: str) -> dict:
 
 
 def read_archive(path: str) -> tuple:
-    """Return the bytes of `headroom` and `LICENSE` from a release archive."""
+    """Return the bytes of `headroom`, `LICENSE` and the third-party notices from a release archive."""
     found = {}
     with tarfile.open(path, "r:gz") as archive:
         for member in archive.getmembers():
             name = member.name.removeprefix("./")
-            if name in ("headroom", "LICENSE") and member.isfile():
+            if name in ("headroom", "LICENSE", NOTICES) and member.isfile():
                 extracted = archive.extractfile(member)
                 if extracted is None:
                     raise SystemExit(f"cannot read {name} from {path}")
                 found[name] = extracted.read()
-    for needed in ("headroom", "LICENSE"):
+    for needed in ("headroom", "LICENSE", NOTICES):
         if needed not in found:
             raise SystemExit(f"{path} has no {needed} at the archive root")
-    return found["headroom"], found["LICENSE"]
+    return found["headroom"], found["LICENSE"], found[NOTICES]
 
 
 def record_hash(data: bytes) -> str:
@@ -83,7 +84,13 @@ def record_hash(data: bytes) -> str:
 
 
 def build_wheel(
-    version: str, tags: list, binary: bytes, license_text: bytes, readme: str, out_dir: str
+    version: str,
+    tags: list,
+    binary: bytes,
+    license_text: bytes,
+    notices: bytes,
+    readme: str,
+    out_dir: str,
 ) -> str:
     dist_info = f"{NAME}-{version}.dist-info"
     source = METADATA["repository"]
@@ -100,6 +107,7 @@ def build_wheel(
         f"Keywords: {','.join(METADATA['keywords'])}\n"
         "License-Expression: MIT\n"
         "License-File: LICENSE\n"
+        f"License-File: {NOTICES}\n"
         + "".join(f"Classifier: {classifier}\n" for classifier in CLASSIFIERS)
         + f"Project-URL: Homepage, {METADATA['homepage']}\n"
         f"Project-URL: Demo, {METADATA['demo']}\n"
@@ -131,6 +139,7 @@ def build_wheel(
         (f"{dist_info}/WHEEL", wheel_file, 0o644),
         (f"{dist_info}/entry_points.txt", entry_points, 0o644),
         (f"{dist_info}/licenses/LICENSE", license_text, 0o644),
+        (f"{dist_info}/licenses/{NOTICES}", notices, 0o644),
     ]
     record = io.StringIO()
     for path, data, _ in files:
@@ -179,8 +188,8 @@ def main() -> None:
             actual = sha256_hex(handle.read())
         if sums.get(name) != actual:
             sys.exit(f"{name} does not match SHA256SUMS")
-        binary, license_text = read_archive(path)
-        print(build_wheel(args.version, tags, binary, license_text, readme, args.out))
+        binary, license_text, notices = read_archive(path)
+        print(build_wheel(args.version, tags, binary, license_text, notices, readme, args.out))
         built += 1
     if built == 0:
         sys.exit("no archives found")

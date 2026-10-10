@@ -56,8 +56,12 @@ beforeAll(() => {
       mode: 0o755,
     });
     writeFileSync(join(staging, "LICENSE"), "MIT test license\n");
+    writeFileSync(join(staging, "THIRD_PARTY_NOTICES.md"), "# Third-party notices\n");
     const archive = join(assets, `headroom-${id}.tar.gz`);
-    expect(run(["tar", "-czf", archive, "-C", staging, "headroom", "LICENSE"]).code).toBe(0);
+    expect(
+      run(["tar", "-czf", archive, "-C", staging, "headroom", "LICENSE", "THIRD_PARTY_NOTICES.md"])
+        .code,
+    ).toBe(0);
     sums.push(
       `${createHash("sha256").update(readFileSync(archive)).digest("hex")}  headroom-${id}.tar.gz`,
     );
@@ -93,6 +97,7 @@ test("package-npm writes five packages with matching versions", () => {
   expect(main.description).toStartWith("Self-hosted dashboard for all your AI plans.");
   expect(main.keywords).toContain("self-hosted");
   expect(main.homepage).toBe("https://headroom.theblank.club");
+  expect(existsSync(join(npmOut, "headroomhq/THIRD_PARTY_NOTICES.md"))).toBe(true);
   const readme = readFileSync(join(npmOut, "headroomhq/README.md"), "utf8");
   expect(readme).toContain("# Headroom");
   expect(readme).toContain(
@@ -116,6 +121,7 @@ test("package-npm writes five packages with matching versions", () => {
     expect(manifest.preferUnplugged).toBe(true);
     expect(statSync(join(dir, "bin/headroom")).mode & 0o111).toBe(0o111);
     expect(existsSync(join(dir, "LICENSE"))).toBe(true);
+    expect(existsSync(join(dir, "THIRD_PARTY_NOTICES.md"))).toBe(true);
   }
 });
 
@@ -188,12 +194,14 @@ for line in wheel.read(f"{dist}/RECORD").decode().splitlines():
     assert int(size) == len(data), path
 assert set(names) == {
     "headroomhq/__init__.py", "headroomhq/__main__.py", "headroomhq/bin/headroom",
-    f"{dist}/METADATA", f"{dist}/WHEEL", f"{dist}/entry_points.txt", f"{dist}/licenses/LICENSE", f"{dist}/RECORD",
+    f"{dist}/METADATA", f"{dist}/WHEEL", f"{dist}/entry_points.txt", f"{dist}/licenses/LICENSE",
+    f"{dist}/licenses/THIRD_PARTY_NOTICES.md", f"{dist}/RECORD",
 }
 assert (wheel.getinfo("headroomhq/bin/headroom").external_attr >> 16) & 0o111 == 0o111
 metadata = wheel.read(f"{dist}/METADATA").decode()
 assert "Name: headroomhq\\nVersion: ${version}\\n" in metadata
 assert "License-Expression: MIT" in metadata
+assert "License-File: THIRD_PARTY_NOTICES.md" in metadata
 assert "Project-URL: Homepage, https://headroom.theblank.club" in metadata
 assert "Project-URL: Changelog, https://github.com/amitray007/headroom/blob/v${version}/CHANGELOG.md" in metadata
 assert "Summary: Self-hosted dashboard for all your AI plans." in metadata

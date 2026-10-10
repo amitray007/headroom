@@ -56,6 +56,7 @@ ${block("linux")}
 
   def install
     bin.install "headroom"
+    prefix.install "THIRD_PARTY_NOTICES.md"
   end
 
   service do

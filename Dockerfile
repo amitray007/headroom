@@ -54,6 +54,8 @@ RUN useradd --system --uid 10001 --create-home --home-dir /var/lib/headroom head
   && chown -R headroom:headroom /var/lib/headroom /etc/headroom
 COPY --from=build /src/dist/headroom /usr/local/bin/headroom
 COPY --from=build /src/apps/web/dist /usr/local/share/headroom/web
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/headroom/
+COPY LICENSES /usr/share/doc/headroom/LICENSES
 USER headroom
 # The login CLIs must run as the app user, not only as root.
 RUN codex --version && claude --version && grok --version
