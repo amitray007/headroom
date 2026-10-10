@@ -191,6 +191,8 @@ cpSync(join(repo, "site/media"), join(out, "media"), { recursive: true });
 // The installer, served at /install (for `curl -fsSL https://headroom.theblank.club/install | sh`) and /install.sh.
 cpSync(join(repo, "site/install.sh"), join(out, "install"));
 cpSync(join(repo, "site/install.sh"), join(out, "install.sh"));
+// The link preview image (og:image).
+cpSync(join(repo, "site/og.png"), join(out, "og.png"));
 
 const server = serve();
 const browser = await chromium.launch(

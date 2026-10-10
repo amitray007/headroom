@@ -6,6 +6,7 @@ The landing page for Headroom, with the demo app inside it. GitHub Pages serves 
 | --- | --- |
 | `index.html` | The landing page: one file, inline CSS and JavaScript, no framework, no build step of its own |
 | `media/` | The launch film (`headroom-launch.mp4`, no burned-in captions), its poster and its captions (`.vtt`). The Watch the film button in the hero opens it in a dialog. `media/launch-video/render.sh launch` in the repository root writes these files; see [media/README.md](../media/README.md) |
+| `og.png` | The link preview image, 1200 x 630, for `og:image`. It is the repository's social preview (`docs/assets/social-preview.png`) cut to the Open Graph ratio |
 | `skeleton-probe.js` | Runs in the demo page during the build and reads the layout for the skeleton |
 | `../scripts/site.ts` | The build: copies the demo, generates the skeleton, writes `dist-site/` |
 
