@@ -55,6 +55,8 @@ For a permanent install: `npm i -g headroomhq` or `uv tool install headroomhq`.
 mise use -g github:amitray007/headroom
 ```
 
+By default mise installs a release only after it is 24 hours old (`minimum_release_age`). On the day of a release, name the version: `mise use -g github:amitray007/headroom@<version>`.
+
 ## Docker
 
 ```sh

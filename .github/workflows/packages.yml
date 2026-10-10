@@ -122,7 +122,8 @@ jobs:
               echo "$name@$VERSION is already published; skipping"
               continue
             fi
-            npm publish "packages/$name-$VERSION.tgz" --access public "${provenance[@]}"
+            # "./" marks a file: without it npm reads packages/<file> as a GitHub repository.
+            npm publish "./packages/$name-$VERSION.tgz" --access public "${provenance[@]}"
           done
 
   pypi:
@@ -141,4 +142,7 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           skip-existing: true
-          attestations: ${{ needs.build.outputs.public }}
+          # PyPI cannot verify attestations from a reusable workflow: it signs in with packages.yml but checks
+          # the attestation against the caller, release-please.yml (pypa/gh-action-pypi-publish#166). Attest
+          # only when this workflow runs on its own; a release publishes without attestations.
+          attestations: ${{ needs.build.outputs.public == 'true' && contains(github.workflow_ref, '/packages.yml@') }}
