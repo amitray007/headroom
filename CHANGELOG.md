@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.5](https://github.com/amitray007/headroom/compare/v0.1.4...v0.1.5) (2026-10-10)
+
+
+### Features
+
+* **image:** install the current sign-in CLIs and smoke-test each sign-in ([7999738](https://github.com/amitray007/headroom/commit/79997388819096c26185c7648cb68972863f69a1))
+* ship third-party license notices with every release ([0727232](https://github.com/amitray007/headroom/commit/0727232e3a6867fdf9af660a840998195463fb25))
+* **site:** add a link preview image ([89055ee](https://github.com/amitray007/headroom/commit/89055eec3c82efd04d03fd438e099b6490ec3a81))
+
+
+### Bug Fixes
+
+* **deps:** take the latest patch and minor releases ([f6c4663](https://github.com/amitray007/headroom/commit/f6c466380e387684555d78ea546630ac0b278349))
+* **release:** publish to npm and PyPI from the release workflow ([45e0372](https://github.com/amitray007/headroom/commit/45e0372d5f173291c2407a295e1f4ae8015f873f))
+
 ## [0.1.4](https://github.com/amitray007/headroom/compare/v0.1.3...v0.1.4) (2026-10-09)
 
 
