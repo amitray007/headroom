@@ -13,7 +13,7 @@
     "@headroom/connector-vercel-ai-gateway": "workspace:*",
     "@headroom/core": "workspace:*",
     "@headroom/view-model": "workspace:*",
-    "hono": "4.13.12",
+    "hono": "4.13.13",
     "zod": "4.6.5"
   }
 }
