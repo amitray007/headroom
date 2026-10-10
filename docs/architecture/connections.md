@@ -30,7 +30,7 @@ Closing a browser tab does not cancel an attempt. Let it expire or provide an ex
 
 | Method | Browser step | Server behavior | Candidates |
 | --- | --- | --- | --- |
-| CLI login | Open the URL or enter the device code the CLI printed; paste a code back when the CLI asks | Spawn the pinned official CLI headless with a per-connection config directory and an allowlisted environment; parse only the URL, code and terminal state; feed the pasted code to stdin; read and encrypt the credentials file it writes; delete the directory | Codex, Claude, Grok |
+| CLI login | Open the URL or enter the device code the CLI printed; paste a code back when the CLI asks | Spawn the official CLI headless with a per-connection config directory and an allowlisted environment; parse only the URL, code and terminal state; feed the pasted code to stdin; read and encrypt the credentials file it writes; delete the directory | Codex, Claude, Grok |
 | Device code | Open provider URL, enter the shown code, approve | Poll the provider token endpoint until approved, denied or expired | Copilot; fallback for Codex and Grok |
 | Pasted redirect | Open provider URL, approve, paste the redirected URL or displayed code | Verify state, exchange the code with the stored PKCE verifier | Antigravity; fallback for Claude |
 | Approval with polling | Open provider URL and approve | Poll the provider with the stored verifier | Cursor member |

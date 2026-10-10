@@ -1,6 +1,8 @@
 # Publishes ghcr.io/<owner>/headroom. A push to main publishes `edge`; a release publishes
 # X.Y.Z, X.Y, X (from 1.0) and `latest`. The image is pushed under `sha-<short>` first and
 # gets its public tags only after the smoke test passes. See docs/operations/releases.md.
+# Every build installs the current sign-in CLIs (Codex latest, Claude Code stable, Grok stable); the smoke
+# test starts and cancels a sign-in with each, so a CLI release that breaks sign-in never gets a public tag.
 name: Image
 on:
   push:
@@ -27,10 +29,40 @@ jobs:
       packages: write
     outputs:
       digest: ${{ steps.build.outputs.digest }}
+      codex: ${{ steps.clis.outputs.codex }}
+      claude: ${{ steps.clis.outputs.claude }}
+      grok: ${{ steps.clis.outputs.grok }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Codex has no stable channel, so its latest release; Claude Code's stable channel trails latest by
+      # about a week and skips releases with regressions. Grok's checksums are taken here and checked again
+      # in the build, so both architectures install the bytes hashed here.
+      - name: Resolve the sign-in CLIs
+        id: clis
+        run: |
+          set -euo pipefail
+          semver='^[0-9]+\.[0-9]+\.[0-9]+$'
+          codex=$(npm view @openai/codex@latest version)
+          claude=$(npm view @anthropic-ai/claude-code@stable version)
+          grok=$(curl -fsSL https://x.ai/cli/stable | tr -d '[:space:]')
+          for version in "$codex" "$claude" "$grok"; do
+            [[ "$version" =~ $semver ]] || { echo "unexpected version: $version" >&2; exit 1; }
+          done
+          tmp=$(mktemp -d)
+          for arch in x86_64 aarch64; do
+            curl -fsSL -o "$tmp/grok-$arch" "https://x.ai/cli/grok-${grok}-linux-${arch}"
+          done
+          {
+            echo "codex=$codex"
+            echo "claude=$claude"
+            echo "grok=$grok"
+            echo "grok_amd64=$(sha256sum "$tmp/grok-x86_64" | cut -d' ' -f1)"
+            echo "grok_arm64=$(sha256sum "$tmp/grok-aarch64" | cut -d' ' -f1)"
+          } >> "$GITHUB_OUTPUT"
+          rm -rf "$tmp"
+          echo "Sign-in CLIs: Codex $codex, Claude Code $claude, Grok $grok" >> "$GITHUB_STEP_SUMMARY"
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -54,6 +86,12 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            CODEX_VERSION=${{ steps.clis.outputs.codex }}
+            CLAUDE_CODE_VERSION=${{ steps.clis.outputs.claude }}
+            GROK_VERSION=${{ steps.clis.outputs.grok }}
+            GROK_SHA256_AMD64=${{ steps.clis.outputs.grok_amd64 }}
+            GROK_SHA256_ARM64=${{ steps.clis.outputs.grok_arm64 }}
           provenance: mode=max
           sbom: true
           cache-from: type=gha
@@ -70,6 +108,11 @@ jobs:
       REF: ${{ needs.build.outputs.digest }}
       EXPECTED: ${{ inputs.version }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/smoke.ts
+          sparse-checkout-cone-mode: false
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
@@ -91,9 +134,24 @@ jobs:
             fi
             if [[ "$arch" == amd64 ]]; then echo "AMD64=$digest" >> "$GITHUB_ENV"; fi
           done
+      - name: Check the sign-in CLI versions
+        env:
+          CODEX: ${{ needs.build.outputs.codex }}
+          CLAUDE: ${{ needs.build.outputs.claude }}
+          GROK: ${{ needs.build.outputs.grok }}
+        run: |
+          set -euo pipefail
+          check() { # check <command> <version>
+            out=$(docker run --rm --entrypoint "$1" "$IMAGE@$AMD64" --version)
+            echo "$1: $out"
+            [[ "$out" == *"$2"* ]] || { echo "expected $1 $2" >&2; exit 1; }
+          }
+          check codex "$CODEX"
+          check claude "$CLAUDE"
+          check grok "$GROK"
       - name: Start with no settings and answer the health check
         run: |
-          docker run -d --name headroom -p 8080:8080 "$IMAGE@$AMD64"
+          docker run -d --name headroom -p 8080:8080 -e HEADROOM_PUBLIC_URL=http://localhost:8080 "$IMAGE@$AMD64"
           for _ in $(seq 1 30); do
             if body=$(curl -fsS http://127.0.0.1:8080/healthz); then
               echo "$body"
@@ -103,6 +161,12 @@ jobs:
           done
           docker logs headroom
           exit 1
+      # Uses the image's own Bun, so the runner needs no toolchain.
+      - name: Start and cancel a sign-in with each CLI
+        run: |
+          docker run --rm --network host -e HEADROOM_SMOKE_URL=http://localhost:8080 \
+            -v "$PWD/scripts/smoke.ts:/smoke/smoke.ts:ro" --entrypoint bun "$IMAGE@$AMD64" \
+            /smoke/smoke.ts codex claude grok || { docker logs headroom; exit 1; }
 
   publish:
     needs: [build, smoke]

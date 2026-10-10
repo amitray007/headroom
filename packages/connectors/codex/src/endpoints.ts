@@ -10,7 +10,7 @@ export const tokenUrl = "https://auth.openai.com/oauth/token";
 export const usageUrl = "https://chatgpt.com/backend-api/wham/usage";
 export const resetCreditsUrl = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits";
 /**
- * Consumes one earned reset credit. Source-inspected in the pinned CLI (0.159.3) next to the read
+ * Consumes one earned reset credit. Source-inspected in CLI 0.159.3 next to the read
  * route; the app-server call that fronts it takes creditId, creditType and idempotencyKey. Body
  * field names below are the serde names found in the binary (`credit_type` with the variants
  * `usage_limit` and `credits`). Unvalidated: the owner runs the first real consume from the dashboard.
@@ -48,7 +48,7 @@ export function resetCreditsHeaders(
   };
 }
 
-/** The pinned official CLI, its headless login command, and the file it writes. */
+/** The official CLI, its headless login command, and the file it writes. */
 export const cli = {
   command: ["codex", "login", "--device-auth"],
   homeVariable: "CODEX_HOME",

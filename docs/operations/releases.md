@@ -21,7 +21,7 @@ Before 1.0, a feature bumps only the patch, so releases go 0.1.0, 0.1.1, 0.1.2. 
 
 1. A push to `main` runs the `Release` workflow. It opens or updates one pull request, "chore(main): release X.Y.Z", with the version bump and the `CHANGELOG.md` entry.
 2. Merge that pull request when you want to ship. Release-please then tags `vX.Y.Z`, creates the GitHub release and calls the `Image` workflow. It also calls the `Pages` workflow, which redeploys the site.
-3. The `Image` workflow builds `linux/amd64` and `linux/arm64`, pushes the image as `sha-<short>`, smoke-tests it and only then adds the public tags.
+3. The `Image` workflow installs the current sign-in CLIs (D37), builds `linux/amd64` and `linux/arm64`, pushes the image as `sha-<short>`, smoke-tests it and only then adds the public tags. The smoke test checks the version, the health check and a started and cancelled sign-in with Codex, Claude Code and Grok.
 
 To ship a minor or major version instead of the next patch:
 

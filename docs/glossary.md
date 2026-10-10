@@ -7,7 +7,7 @@
 | Login attempt | A temporary approval workflow that can succeed, fail, expire or be cancelled |
 | Credential store | The encrypted `credentials` table; one row and one writer per connection |
 | Connector | One TypeScript module per provider: sign-in, refresh, identity, collection and actions |
-| CLI login runner | Backend wrapper that spawns a pinned official CLI once for sign-in, bounded and redacted; never used for refresh |
+| CLI login runner | Backend wrapper that spawns an official CLI once for sign-in, bounded and redacted; never used for refresh |
 | Credential import | Pasting an existing CLI or CLIProxyAPI auth file into Headroom, which re-encrypts it |
 | Interface label | `official` for a documented API, `private` for an endpoint the official client calls without published terms |
 | Scope | Whose data a connection sees: `individual`, `member`, `team_admin` or `organization` |

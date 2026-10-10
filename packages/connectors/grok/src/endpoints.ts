@@ -1,6 +1,6 @@
 /**
  * Every URL, header and constant the Grok connector uses. Sources: docs/providers/grok.md,
- * OpenUsage's Grok client (source-inspected) and the pinned Grok CLI (validated headless).
+ * OpenUsage's Grok client (source-inspected) and Grok CLI 1.0.46 (validated headless).
  * The OpenUsage license is in THIRD_PARTY_NOTICES.md.
  */
 
@@ -20,7 +20,7 @@ export function apiHeaders(accessToken: string): Record<string, string> {
   };
 }
 
-/** The pinned official CLI, its headless login command, and the file it writes under $GROK_HOME. */
+/** The official CLI, its headless login command, and the file it writes under $GROK_HOME. */
 export const cli = {
   command: ["grok", "login", "--device-auth"],
   homeVariable: "GROK_HOME",

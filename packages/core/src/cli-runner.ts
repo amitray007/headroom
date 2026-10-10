@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join, resolve } from "node:path";
 
 /**
- * Runs a pinned official CLI once for sign-in. See "CLI login runner" in
+ * Runs an official CLI once for sign-in. See "CLI login runner" in
  * docs/architecture/connections.md. The process lives only in memory, so an
  * attempt cannot survive a Headroom restart; the connector marks it failed.
  */

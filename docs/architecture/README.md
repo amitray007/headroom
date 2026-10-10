@@ -1,6 +1,6 @@
 # Architecture overview
 
-Headroom is one Bun process. It owns dashboard sign-in, account connections, provider clients, scheduled collection, normalized snapshots and the web interface. Sign-in runs through the pinned official CLI where one works headless, or through a direct OAuth or device-code client where it does not. Refresh and collection are always direct HTTP from inside the process. No CLI runs on the refresh path. See [ADR 0001](../decisions/0001-direct-provider-clients.md) for why.
+Headroom is one Bun process. It owns dashboard sign-in, account connections, provider clients, scheduled collection, normalized snapshots and the web interface. Sign-in runs through the official CLI where one works headless, or through a direct OAuth or device-code client where it does not. Refresh and collection are always direct HTTP from inside the process. No CLI runs on the refresh path. See [ADR 0001](../decisions/0001-direct-provider-clients.md) for why.
 
 **Status: implemented. The components below ship in the application; the design documents stay the specification.**
 
@@ -11,7 +11,7 @@ Headroom is one Bun process. It owns dashboard sign-in, account connections, pro
 | Web interface | Owner sign-in, Connect steps, account selection and usage display | Browser session cookie only; no provider tokens |
 | HTTP API | Authorize the owner, manage connections and attempts, expose snapshots | SQLite |
 | Connector modules | One per provider: begin login, finish login, refresh, identity, collect, disconnect | None; they read and write through the credential store |
-| CLI login runner | Spawn a pinned official CLI headless for one sign-in, bound and redact it, hand its credentials file to the connector | Temporary per-attempt directory, deleted on completion |
+| CLI login runner | Spawn an official CLI headless for one sign-in, bound and redact it, hand its credentials file to the connector | Temporary per-attempt directory, deleted on completion |
 | Credential store | Encrypt, persist and serialize access to each connection's tokens or key | `credentials` table; master key file outside the database |
 | Scheduler | Per-connection refresh with lease, jitter and backoff | `sync_runs` rows |
 | Snapshot store | Normalized observations, capabilities, actions | SQLite tables in [the data model](data-model.md) |

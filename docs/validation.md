@@ -8,7 +8,7 @@ A provider becomes supported only after its connection and requested data work i
 | --- | --- | --- |
 | Policy label | Confirm each metric's interface label and the provider's published stance | Dossier and capability rows agree; private connectors sit behind a flag |
 | Fresh login | Start with no stored credentials | Browser approval completes from a device other than the server |
-| CLI login | Run the pinned CLI headless on Linux in an empty directory | Login completes without a keyring, writes the expected file, and the directory is deleted afterwards |
+| CLI login | Run the CLI headless on Linux in an empty directory | Login completes without a keyring, writes the expected file, and the directory is deleted afterwards |
 | Import | Paste a synthetic auth file with a wrong shape, then a valid one | Wrong shape is rejected without storage; valid one yields identity and a snapshot |
 | Remote browser | Approve from a device separate from the server | No unreachable localhost redirect is required; pasted redirect works where used |
 | Identity | Read account or workspace identity and compare on refresh | Snapshot belongs to the selected connection |

@@ -1,6 +1,6 @@
 /**
  * Every URL, header and constant the Claude connector uses. Sources: docs/providers/claude.md,
- * CLIProxyAPI and OpenUsage (source-inspected), and the pinned Claude Code CLI (validated headless).
+ * CLIProxyAPI and OpenUsage (source-inspected), and Claude Code CLI 2.1.286 (validated headless).
  * The CLIProxyAPI and OpenUsage licenses are in THIRD_PARTY_NOTICES.md.
  */
 
@@ -41,7 +41,7 @@ export function oauthHeaders(accessToken: string): Record<string, string> {
   };
 }
 
-/** The pinned official CLI, its headless login command, and the file it writes under $CLAUDE_CONFIG_DIR. */
+/** The official CLI, its headless login command, and the file it writes under $CLAUDE_CONFIG_DIR. */
 export const cli = {
   command: ["claude", "auth", "login"],
   homeVariable: "CLAUDE_CONFIG_DIR",
