@@ -77,11 +77,16 @@
         .toggle {
           padding: 6px 8px;
         }
-        .toggle {
+        .bar nav .toggle {
           min-width: 0;
+          padding: 12px;
         }
-        .bar nav .gh span {
+        .bar nav .gh span,
+        .toggle span {
           display: none;
+        }
+        .bar nav a.x {
+          padding: 10px 8px;
         }
       }
       @media (min-width: 900px) {
@@ -184,7 +189,8 @@
           color 160ms,
           background-color 160ms;
       }
-      .bar nav .gh {
+      .bar nav .gh,
+      .bar nav .x {
         display: inline-flex;
         gap: 8px;
         align-items: center;
@@ -193,6 +199,14 @@
         width: 16px;
         height: 16px;
         fill: currentColor;
+      }
+      .x svg {
+        width: 14px;
+        height: 14px;
+        fill: currentColor;
+      }
+      .bar nav .x {
+        padding: 10px;
       }
       /* One sentence per line: each span is its own line. */
       .lines > span {
@@ -1057,6 +1071,12 @@
               /></svg
             ><span>GitHub</span></a
           >
+          <a class="x" href="https://x.com/Niyxuis" aria-label="X"
+            ><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+              /></svg
+          ></a>
           <button
             class="toggle"
             id="scheme"
