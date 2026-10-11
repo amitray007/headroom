@@ -52,6 +52,10 @@ On screens wider than 1180px, two badges hang on lanyards from the top of the he
 - The strip on the maker badge has one bar per day for the last 28 days, darker on days with more commits. The build reads it from the git history, so the Pages workflow checks out the full history. In a shallow clone the strip stays empty.
 - If GitHub does not answer, the build still succeeds and the badge shows the last value it has.
 
+## Visit counts
+
+The page loads the tracker of a self-hosted Umami instance (`um.theblank.club`). It sets no cookies. `data-domains` limits it to `headroom.theblank.club`, so local previews and CI builds send nothing. Session recording (`recorder.js`) is not used.
+
 ## Writing for the page
 
 Use plain, short sentences, one per line where the design sets them as lines. Do not invent numbers, users or quotes. The footer keeps the note that Headroom reads private endpoints and is not affiliated with any provider.
