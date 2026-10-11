@@ -123,9 +123,37 @@ async function probe(
 
 const escape = (text: string): string => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;");
 
+/** Run git in the repository and return its trimmed output. */
+const git = (...args: string[]): string =>
+  Bun.spawnSync(["git", ...args], { cwd: repo })
+    .stdout.toString()
+    .trim();
+
 /**
- * The repository's star count for the hero card, or "" when GitHub does not answer. The page asks GitHub again in
- * the visitor's browser, so a miss here only means the card shows the version until that answer arrives.
+ * The maker badge's strip: one bar per day for the last 28 days, darker on days with more commits. Returns "" in a
+ * shallow clone, where the history is missing; the Pages workflow checks out the full history.
+ */
+function commitStrip(): string {
+  if (git("rev-parse", "--is-shallow-repository") !== "false") return "";
+  const perDay = new Map<string, number>();
+  for (const day of git("log", "--since=28 days ago", "--format=%cs").split("\n")) {
+    if (day) perDay.set(day, (perDay.get(day) ?? 0) + 1);
+  }
+  const days = Array.from({ length: 28 }, (_, i) =>
+    new Date(Date.now() - (27 - i) * 86_400_000).toISOString().slice(0, 10),
+  );
+  const most = Math.max(1, ...perDay.values());
+  return days
+    .map((day) => {
+      const share = Math.sqrt((perDay.get(day) ?? 0) / most);
+      return `<i style="opacity:${(0.12 + 0.88 * share).toFixed(2)}"></i>`;
+    })
+    .join("");
+}
+
+/**
+ * The repository's star count for the open source badge, or "" when GitHub does not answer. The page asks GitHub
+ * again in the visitor's browser, so a miss here only means the badge shows "-" until that answer arrives.
  * GITHUB_TOKEN, when set (the Pages workflow sets it), avoids the anonymous rate limit on shared runners.
  */
 async function starCount(): Promise<string> {
@@ -242,15 +270,15 @@ try {
   await browser.close();
   await server.stop(true);
 }
-// The released version and the star count for the GitHub card beside the hero.
-const { version } = (await Bun.file(join(repo, "package.json")).json()) as { version: string };
-const versionSlot = "<span data-version></span>";
-if (!html.includes(versionSlot)) throw new Error(`site/index.html has no ${versionSlot}`);
-html = html.replaceAll(versionSlot, `<span data-version>v${escape(version)}</span>`);
-const starsSlot = 'data-stars=""';
+// The badges beside the hero: the star count and the maker's commit strip.
+const starsSlot = '<span id="stars">-</span>';
 if (!html.includes(starsSlot)) throw new Error(`site/index.html has no ${starsSlot}`);
 const stars = await starCount();
-html = html.replace(starsSlot, `data-stars="${stars}"`);
-console.log(`version v${version}, ${stars || "no"} stars`);
+if (stars) html = html.replace(starsSlot, `<span id="stars">${stars}</span>`);
+const stripSlot = '<div class="strip" title="Commits to Headroom per day, last 28 days"></div>';
+if (!html.includes(stripSlot)) throw new Error(`site/index.html has no ${stripSlot}`);
+const strip = commitStrip();
+html = html.replace(stripSlot, () => stripSlot.replace("></div>", `>${strip}</div>`));
+console.log(`${stars || "no"} stars, ${strip ? "commit strip" : "no history for the strip"}`);
 writeFileSync(join(out, "index.html"), html);
 console.log(`site written to ${out}`);
