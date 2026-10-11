@@ -2485,6 +2485,7 @@
             grabbed = false,
             hovered = false,
             moved = false,
+            press = null,
             frameId = 0;
           const draw = () => swing.style.setProperty("--a", angle.toFixed(4) + "rad");
           // Keep a flick from spinning the badge over the page.
@@ -2516,13 +2517,12 @@
             const y = e.clientY - box.top;
             return clamp(Math.atan2(-x, Math.max(y, 1)), MAX_ANGLE);
           };
+          // A press only becomes a drag after the pointer moves a few pixels, so a plain click still reaches the
+          // link or button under it. The drag turns the badge by how far the pointer moved, without a jump.
           swing.addEventListener("pointerdown", (e) => {
-            if (e.target.closest("button")) return;
-            grabbed = true;
+            if (e.button !== 0 || e.target.closest("button")) return;
+            press = { x: e.clientX, y: e.clientY, id: e.pointerId, aim: aim(e), angle };
             moved = false;
-            swing.setPointerCapture(e.pointerId);
-            swing.classList.add("dragging");
-            if (!reduced) start();
           });
           // Entering a badge gives it a small nudge; moving over it does nothing more.
           swing.addEventListener("pointerenter", (e) => {
@@ -2532,13 +2532,23 @@
             start();
           });
           swing.addEventListener("pointermove", (e) => {
-            if (reduced || !grabbed) return;
-            const next = aim(e);
-            if (Math.abs(next - angle) > 0.01) moved = true;
+            if (reduced || !press) return;
+            if (!grabbed) {
+              if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < 6) return;
+              grabbed = moved = true;
+              swing.classList.add("dragging");
+              start();
+              // Capture fails if the pointer is already gone; the drag still works while it stays on the badge.
+              try {
+                swing.setPointerCapture(press.id);
+              } catch {}
+            }
+            const next = clamp(press.angle + aim(e) - press.aim, MAX_ANGLE);
             speed = clamp(next - angle, MAX_SPEED);
             angle = next;
           });
           const release = () => {
+            press = null;
             if (!grabbed) return;
             grabbed = false;
             swing.classList.remove("dragging");
