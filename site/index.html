@@ -1045,6 +1045,211 @@
       .reduce *::after {
         transition: none !important;
       }
+
+      /* The cards beside the hero: GitHub on the left, X on the right. Each sits level with the hero's centre and
+         in the middle of the space beside the headline. Visitors can drag them; they spring back. */
+      .hero {
+        position: relative;
+      }
+      .fidget {
+        position: absolute;
+        z-index: 2;
+        top: 50%;
+        width: 232px;
+        transform: translateY(-50%);
+        animation: bob 7s ease-in-out infinite;
+      }
+      .fidget.gh-card {
+        left: calc(25% - 241px);
+      }
+      .fidget.x-card {
+        right: calc(25% - 241px);
+      }
+      @keyframes bob {
+        50% {
+          translate: 0 -8px;
+        }
+      }
+      .fcard {
+        --dx: 0px;
+        --dy: 0px;
+        --rx: 0deg;
+        --ry: 0deg;
+        --rz: -3deg;
+        padding: 16px;
+        border-radius: var(--radius-panel);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-floating);
+        text-align: left;
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+        transform: perspective(700px) translate(var(--dx), var(--dy)) rotateX(var(--rx))
+          rotateY(var(--ry)) rotate(var(--rz));
+        transition: box-shadow 200ms;
+      }
+      .x-card .fcard {
+        --rz: 3deg;
+      }
+      .fcard.dragging {
+        cursor: grabbing;
+        box-shadow:
+          0 30px 70px oklch(0% 0 0 / 0.18),
+          0 0 0 1px var(--border-strong);
+      }
+      .fhead {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        color: var(--text-secondary);
+      }
+      .fhead b {
+        display: block;
+        color: var(--foreground);
+        font-weight: 500;
+        font-size: 14px;
+      }
+      .ftile {
+        display: grid;
+        place-items: center;
+        flex: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        background: var(--logo-tile);
+        color: var(--logo-ink);
+      }
+      .ftile svg {
+        width: 16px;
+        height: 16px;
+        fill: currentColor;
+      }
+      .fbig {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 16px 0 14px;
+      }
+      .fbtn {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 9999px;
+        border: 1px solid var(--border-strong);
+        background: var(--surface-muted);
+        color: var(--foreground);
+        cursor: pointer;
+        transition: transform 160ms var(--ease-enter);
+      }
+      .fbtn:active {
+        transform: scale(0.88);
+      }
+      .star svg {
+        width: 22px;
+        height: 22px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linejoin: round;
+        transition: fill 200ms;
+      }
+      .star.on svg {
+        fill: oklch(80% 0.16 85);
+        stroke: oklch(70% 0.16 70);
+        animation: spin 600ms var(--ease-enter);
+      }
+      @keyframes spin {
+        from {
+          rotate: -180deg;
+          scale: 0.4;
+        }
+      }
+      .spark {
+        position: absolute;
+        width: 6px;
+        height: 6px;
+        border-radius: 9999px;
+        background: oklch(80% 0.16 85);
+        pointer-events: none;
+        animation: spark 700ms var(--ease-enter) forwards;
+      }
+      @keyframes spark {
+        to {
+          translate: var(--tx) var(--ty);
+          opacity: 0;
+          scale: 0.3;
+        }
+      }
+      .fcount {
+        font: 500 28px/30px var(--font);
+        letter-spacing: -0.03em;
+        font-variant-numeric: tabular-nums;
+      }
+      .x-card .fcount {
+        font-size: 22px;
+      }
+      .fcount small {
+        display: block;
+        margin-top: 2px;
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 400;
+        letter-spacing: 0;
+        color: var(--text-muted);
+      }
+      .fcta {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 36px;
+        border-radius: 9999px;
+        font-size: 14px;
+        font-weight: 500;
+        text-decoration: none;
+        background: var(--foreground);
+        color: var(--background);
+      }
+      .fcta:hover {
+        opacity: 0.88;
+      }
+      .hero .fnote {
+        margin: 10px 0 0;
+        max-width: none;
+        font: 400 11px/1.4 var(--mono);
+        color: var(--text-muted);
+        text-align: center;
+      }
+      .fcard:not(.counted) .fver {
+        display: none;
+      }
+      .ping i {
+        width: 12px;
+        height: 12px;
+        border-radius: 9999px;
+        background: var(--success);
+        animation: ping 2.4s infinite;
+      }
+      .ping.on i {
+        animation: ping 500ms 3;
+      }
+      @keyframes ping {
+        0% {
+          box-shadow: 0 0 0 0 color-mix(in oklch, var(--success) 60%, transparent);
+        }
+        70%,
+        100% {
+          box-shadow: 0 0 0 8px transparent;
+        }
+      }
+      @media (max-width: 1180px) {
+        .fidget {
+          display: none;
+        }
+      }
     </style>
   </head>
   <body>
@@ -1089,6 +1294,55 @@
       </header>
 
       <div class="hero" id="top">
+        <div class="fidget gh-card">
+          <div class="fcard" data-fidget data-stars="">
+            <div class="fhead">
+              <span class="ftile"
+                ><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <path
+                    d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"
+                  /></svg
+              ></span>
+              <span><b>Open source</b>amitray007/headroom</span>
+            </div>
+            <div class="fbig">
+              <button class="fbtn star" type="button" aria-label="Spin the star">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="m12 2.8 2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.14l-5.62 2.96 1.07-6.27L2.9 9.4l6.3-.9z"
+                  />
+                </svg>
+              </button>
+              <div class="fcount">
+                <span id="stars"><span data-version></span></span
+                ><small id="stars-label">latest release</small>
+              </div>
+            </div>
+            <a class="fcta" href="https://github.com/amitray007/headroom">Star on GitHub</a>
+            <p class="fnote">
+              MIT licence<span class="fver"> · <span data-version></span></span>
+            </p>
+          </div>
+        </div>
+        <div class="fidget x-card">
+          <div class="fcard" data-fidget>
+            <div class="fhead">
+              <span class="ftile"
+                ><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+                  /></svg
+              ></span>
+              <span><b>Built in public</b>x.com/Niyxuis</span>
+            </div>
+            <div class="fbig">
+              <button class="fbtn ping" type="button" aria-label="Ping"><i></i></button>
+              <div class="fcount">@Niyxuis<small>on X</small></div>
+            </div>
+            <a class="fcta" href="https://x.com/Niyxuis">Follow on X</a>
+            <p class="fnote">drag either card</p>
+          </div>
+        </div>
         <h1 class="lines"><span>All your AI plans,</span><span>on one screen.</span></h1>
         <p class="lines">
           <span>See what's left, and when it resets.</span><span>It runs on your own server.</span>
@@ -2193,6 +2447,142 @@
               note.textContent = "";
             }, 2200);
           });
+        }
+
+        // The cards beside the hero. Drag one and it springs back; it tilts toward the pointer.
+        for (const card of document.querySelectorAll("[data-fidget]")) {
+          let x = 0,
+            y = 0,
+            vx = 0,
+            vy = 0,
+            grab = null,
+            frameId = 0,
+            moved = false;
+          const place = () => {
+            card.style.setProperty("--dx", x.toFixed(1) + "px");
+            card.style.setProperty("--dy", y.toFixed(1) + "px");
+          };
+          const spring = () => {
+            vx = (vx - x * 0.08) * 0.82;
+            vy = (vy - y * 0.08) * 0.82;
+            x += vx;
+            y += vy;
+            if (Math.abs(x) + Math.abs(y) + Math.abs(vx) + Math.abs(vy) > 0.2) {
+              frameId = requestAnimationFrame(spring);
+            } else {
+              x = y = 0;
+            }
+            place();
+          };
+          card.addEventListener("pointerdown", (e) => {
+            if (e.target.closest("button")) return;
+            grab = { x: e.clientX - x, y: e.clientY - y };
+            moved = false;
+            cancelAnimationFrame(frameId);
+            card.setPointerCapture(e.pointerId);
+            card.classList.add("dragging");
+          });
+          card.addEventListener("pointermove", (e) => {
+            if (!reduced) {
+              const box = card.getBoundingClientRect();
+              const tiltY = ((e.clientX - box.left) / box.width - 0.5) * 14;
+              const tiltX = ((e.clientY - box.top) / box.height - 0.5) * -14;
+              card.style.setProperty("--ry", tiltY.toFixed(1) + "deg");
+              card.style.setProperty("--rx", tiltX.toFixed(1) + "deg");
+            }
+            if (!grab) return;
+            const nx = e.clientX - grab.x;
+            const ny = e.clientY - grab.y;
+            if (Math.abs(nx) + Math.abs(ny) > 3) moved = true;
+            vx = nx - x;
+            vy = ny - y;
+            x = nx;
+            y = ny;
+            place();
+          });
+          const release = () => {
+            if (!grab) return;
+            grab = null;
+            card.classList.remove("dragging");
+            if (reduced) {
+              x = y = 0;
+              place();
+            } else {
+              frameId = requestAnimationFrame(spring);
+            }
+          };
+          card.addEventListener("pointerup", release);
+          card.addEventListener("pointercancel", release);
+          card.addEventListener("pointerleave", () => {
+            card.style.setProperty("--rx", "0deg");
+            card.style.setProperty("--ry", "0deg");
+          });
+          // A drag that ends on a link must not follow it.
+          card.addEventListener(
+            "click",
+            (e) => {
+              if (moved && e.target.closest("a")) e.preventDefault();
+            },
+            true,
+          );
+        }
+
+        // Restart a one-shot animation on each press.
+        const replay = (el) => {
+          el.classList.remove("on");
+          void el.offsetWidth;
+          el.classList.add("on");
+        };
+        const star = document.querySelector(".fbtn.star");
+        star.addEventListener("click", () => {
+          replay(star);
+          if (reduced) return;
+          for (let i = 0; i < 10; i++) {
+            const spark = document.createElement("i");
+            spark.className = "spark";
+            const angle = (i / 10) * Math.PI * 2;
+            spark.style.setProperty("--tx", Math.cos(angle) * 38 + "px");
+            spark.style.setProperty("--ty", Math.sin(angle) * 38 + "px");
+            star.append(spark);
+            setTimeout(() => spark.remove(), 750);
+          }
+        });
+        const ping = document.querySelector(".fbtn.ping");
+        ping.addEventListener("click", () => replay(ping));
+        ping.addEventListener("animationend", () => ping.classList.remove("on"));
+
+        // The star count. The build writes the count at deploy time into data-stars; the page then asks GitHub
+        // for the current one, at most once a minute per visitor. Under STAR_MIN the card shows the version.
+        const STAR_MIN = 25;
+        const STAR_KEY = "headroom-stars";
+        const ghCard = document.querySelector(".gh-card .fcard");
+        const showStars = (n) => {
+          if (!(n >= STAR_MIN)) return;
+          document.getElementById("stars").textContent = n.toLocaleString("en");
+          document.getElementById("stars-label").textContent = "stars on GitHub";
+          ghCard.classList.add("counted");
+        };
+        showStars(Number(ghCard.dataset.stars));
+        if (matchMedia("(min-width: 1181px)").matches) {
+          let saved = null;
+          try {
+            saved = JSON.parse(localStorage.getItem(STAR_KEY));
+          } catch {}
+          if (saved && Date.now() - saved.at < 60_000) {
+            showStars(saved.n);
+          } else {
+            fetch("https://api.github.com/repos/amitray007/headroom")
+              .then((r) => (r.ok ? r.json() : null))
+              .then((repo) => {
+                const n = repo?.stargazers_count;
+                if (typeof n !== "number") return;
+                showStars(n);
+                try {
+                  localStorage.setItem(STAR_KEY, JSON.stringify({ n, at: Date.now() }));
+                } catch {}
+              })
+              .catch(() => {});
+          }
         }
       })();
     </script>

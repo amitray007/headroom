@@ -123,6 +123,29 @@ async function probe(
 
 const escape = (text: string): string => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;");
 
+/**
+ * The repository's star count for the hero card, or "" when GitHub does not answer. The page asks GitHub again in
+ * the visitor's browser, so a miss here only means the card shows the version until that answer arrives.
+ * GITHUB_TOKEN, when set (the Pages workflow sets it), avoids the anonymous rate limit on shared runners.
+ */
+async function starCount(): Promise<string> {
+  const token = process.env["GITHUB_TOKEN"];
+  try {
+    const response = await fetch("https://api.github.com/repos/amitray007/headroom", {
+      headers: {
+        accept: "application/vnd.github+json",
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return "";
+    const body = (await response.json()) as { stargazers_count?: unknown };
+    return typeof body.stargazers_count === "number" ? String(body.stargazers_count) : "";
+  } catch {
+    return "";
+  }
+}
+
 /** One colour for both schemes: light-dark() when they differ. */
 const both = (dark: string, light: string): string =>
   dark === light ? dark : `light-dark(${light}, ${dark})`;
@@ -219,5 +242,15 @@ try {
   await browser.close();
   await server.stop(true);
 }
+// The released version and the star count for the GitHub card beside the hero.
+const { version } = (await Bun.file(join(repo, "package.json")).json()) as { version: string };
+const versionSlot = "<span data-version></span>";
+if (!html.includes(versionSlot)) throw new Error(`site/index.html has no ${versionSlot}`);
+html = html.replaceAll(versionSlot, `<span data-version>v${escape(version)}</span>`);
+const starsSlot = 'data-stars=""';
+if (!html.includes(starsSlot)) throw new Error(`site/index.html has no ${starsSlot}`);
+const stars = await starCount();
+html = html.replace(starsSlot, `data-stars="${stars}"`);
+console.log(`version v${version}, ${stars || "no"} stars`);
 writeFileSync(join(out, "index.html"), html);
 console.log(`site written to ${out}`);

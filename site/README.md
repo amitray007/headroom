@@ -8,7 +8,7 @@ The landing page for Headroom, with the demo app inside it. GitHub Pages serves 
 | `media/` | The launch film (`headroom-launch.mp4`, no burned-in captions), its poster and its captions (`.vtt`). The Watch the film button in the hero opens it in a dialog. `media/launch-video/render.sh launch` in the repository root writes these files; see [media/README.md](../media/README.md) |
 | `og.png` | The link preview image, 1200 x 630, for `og:image`. It is the repository's social preview (`docs/assets/social-preview.png`) cut to the Open Graph ratio |
 | `skeleton-probe.js` | Runs in the demo page during the build and reads the layout for the skeleton |
-| `../scripts/site.ts` | The build: copies the demo, generates the skeleton, writes `dist-site/` |
+| `../scripts/site.ts` | The build: copies the demo, generates the skeleton, fills in the version and star count, writes `dist-site/` |
 
 ## Build and preview
 
@@ -43,6 +43,15 @@ Until `ready` arrives, the frame shows a skeleton with the same size and scale a
 - Both colour schemes are read, and each colour is written as `light-dark()`, so the page's theme switch also applies to the skeleton.
 
 The build fails if the demo no longer has the elements the probe reads (`.page > header.top`, `.sk` in the loading frame, `.panel .value` in the overview). Fix the probe in the same change as the dashboard.
+
+## The cards beside the hero
+
+On screens wider than 1180px, two cards sit level with the hero, one on each side: GitHub on the left, X on the right. Visitors can drag them, and they spring back.
+
+- The version comes from `package.json` at build time. The build fills every `<span data-version></span>`, so the card shows the released version after each deploy.
+- The star count is read twice. The build writes the count at deploy time into `data-stars`. The page then asks the GitHub API in the visitor's browser and keeps the answer for 60 seconds in `localStorage`. GitHub allows 60 anonymous requests an hour per visitor, so the page stays well inside it.
+- Below 25 stars the card shows the version instead of the count. The page switches by itself once the count reaches 25.
+- If GitHub does not answer, the build still succeeds and the card shows the last value it has.
 
 ## Writing for the page
 
