@@ -47,6 +47,9 @@ const CANCEL_AVG = 25;
 /** A plan whose busiest window came this close to the limit is never called too big. */
 const DOWNSIZE_MAX_PEAK = 90;
 
+/** Complete windows an account needs before a plan is called too small or too big. */
+const MIN_WINDOWS = 2;
+
 const spanMs = 90 * 24 * hour;
 const monthNames = [
   "Jan",
@@ -67,8 +70,9 @@ const verdicts = [
   { glyph: "↑", word: "Too small" },
   { glyph: "✓", word: "Fits" },
   { glyph: "↓", word: "Room to spare" },
+  { glyph: "·", word: "Not enough history yet" },
 ] as const;
-type VerdictIndex = 0 | 1 | 2;
+type VerdictIndex = 0 | 1 | 2 | 3;
 
 function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? "" : "s"}`;
@@ -116,7 +120,14 @@ function historyOf(account: AccountSeries, now: number): History | null {
   const hits = cells.filter((cell) => cell.hit).length;
   const average = Math.round(cells.reduce((total, cell) => total + cell.peak, 0) / cells.length);
   const cost = account.story.monthlyCost;
-  const verdict: VerdictIndex = hits / cells.length >= HIT_SHARE ? 0 : average < ROOM_AVG ? 2 : 1;
+  const verdict: VerdictIndex =
+    cells.length < MIN_WINDOWS
+      ? 3
+      : hits / cells.length >= HIT_SHARE
+        ? 0
+        : average < ROOM_AVG
+          ? 2
+          : 1;
   return {
     account,
     unit: limit.kind === "weekly" ? "week" : limit.kind === "cycle" ? "month" : "window",
@@ -148,8 +159,6 @@ function useTip(ref: RefObject<HTMLDivElement | null>) {
   const width = useWidth(ref);
   const tip = useTipLayer();
   const show = (event: PointerEvent, title: string, body: string): void => {
-    const box = ref.current?.getBoundingClientRect();
-    if (box === undefined) return;
     tip.show(event.clientX, event.clientY, title, body);
   };
   const hide = tip.hide;
@@ -520,6 +529,12 @@ function HistoryGrid(props: {
 function summaryLine(history: History): { readonly big: string; readonly cap: string } {
   const label = history.account.label;
   const unit = history.unit;
+  if (history.verdict === 3) {
+    return {
+      big: `${label}: not enough history yet`,
+      cap: `Needs ${MIN_WINDOWS} complete ${unit}s to judge the plan`,
+    };
+  }
   const unused =
     history.unused === null
       ? "price not set"
@@ -541,17 +556,25 @@ function HistoryView(props: {
 }) {
   const picked = props.picked;
   const first = props.rows[0];
-  const selected = props.rows.find((row) => row.account.id === picked) ?? first;
+  const match = props.rows.find((row) => row.account.id === picked);
+  // A picked id with no row must not highlight another account: show the first row, unpicked.
+  const selected = match ?? first;
   const small = props.rows.filter((row) => row.verdict === 0).length;
   const room = props.rows.filter((row) => row.verdict === 2).length;
   const worst = first;
-  const base = {
-    big: `${plural(small, "plan")} ${small === 1 ? "is" : "are"} too small, ${room} ${room === 1 ? "has" : "have"} room to spare`,
-    cap:
-      worst === undefined || worst.hits === 0
-        ? "No account hit its limit in 90 days"
-        : `${worst.account.label} hit the limit in ${worst.hits} of ${worst.cells.length} ${worst.unit}s`,
-  };
+  const judged = props.rows.some((row) => row.verdict !== 3);
+  const base = !judged
+    ? {
+        big: "Not enough history yet",
+        cap: `Plan Fit needs ${MIN_WINDOWS} complete windows of an account`,
+      }
+    : {
+        big: `${plural(small, "plan")} ${small === 1 ? "is" : "are"} too small, ${room} ${room === 1 ? "has" : "have"} room to spare`,
+        cap:
+          worst === undefined || worst.hits === 0
+            ? "No account hit its limit in 90 days"
+            : `${worst.account.label} hit the limit in ${worst.hits} of ${worst.cells.length} ${worst.unit}s`,
+      };
   const headline = useHeadline(base);
   if (selected === undefined) return <p className="fit-empty">No closed windows in 90 days.</p>;
   return (
@@ -648,8 +671,8 @@ function planOf(series: Series): Plan {
     const story = account.story;
     const average = story.primary.averagePeak;
     const slots = lockedWorkSlots(series, account);
-    if (average === null) {
-      keep.push({ account, reason: "Too little history." });
+    if (average === null || story.primary.past.length < MIN_WINDOWS) {
+      keep.push({ account, reason: "Not enough history yet." });
       continue;
     }
     const cost = story.monthlyCost;
@@ -933,6 +956,8 @@ function ActionRow(props: {
   readonly action: Action;
   readonly onHover: (line: { readonly big: string; readonly cap: string } | null) => void;
   readonly onOpenHistory: (id: string) => void;
+  /** Ids that have a History row; accounts without one get no History button. */
+  readonly hasHistory: (id: string) => boolean;
 }) {
   const { action } = props;
   return (
@@ -952,14 +977,16 @@ function ActionRow(props: {
       </div>
       <div className="fit-end">
         <Impact action={action} />
-        <button
-          type="button"
-          className="fit-link"
-          aria-label={`History of ${action.account.label}`}
-          onClick={() => props.onOpenHistory(action.account.id)}
-        >
-          History
-        </button>
+        {props.hasHistory(action.account.id) ? (
+          <button
+            type="button"
+            className="fit-link"
+            aria-label={`History of ${action.account.label}`}
+            onClick={() => props.onOpenHistory(action.account.id)}
+          >
+            History
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -990,6 +1017,8 @@ function SectionHead(props: {
 function ActionsView(props: {
   readonly series: Series;
   readonly onOpenHistory: (id: string) => void;
+  /** Ids that have a History row; accounts without one get no History button. */
+  readonly hasHistory: (id: string) => boolean;
 }) {
   const plan = planOf(props.series);
   const [keepOpen, setKeepOpen] = useState(false);
@@ -1030,6 +1059,7 @@ function ActionsView(props: {
             action={action}
             onHover={hover}
             onOpenHistory={props.onOpenHistory}
+            hasHistory={props.hasHistory}
           />
         ))}
       </section>
@@ -1060,6 +1090,7 @@ function ActionsView(props: {
           open={keepOpen}
           onToggle={() => setKeepOpen((value) => !value)}
           onOpenHistory={props.onOpenHistory}
+          hasHistory={props.hasHistory}
         />
       ) : null}
     </div>
@@ -1072,6 +1103,8 @@ function KeepSection(props: {
   readonly open: boolean;
   readonly onToggle: () => void;
   readonly onOpenHistory: (id: string) => void;
+  /** Ids that have a History row; accounts without one get no History button. */
+  readonly hasHistory: (id: string) => boolean;
 }): ReactNode {
   return (
     <section className="fit-sec-block">
@@ -1106,14 +1139,16 @@ function KeepSection(props: {
                   />
                 </div>
                 <div className="fit-end">
-                  <button
-                    type="button"
-                    className="fit-link"
-                    aria-label={`History of ${entry.account.label}`}
-                    onClick={() => props.onOpenHistory(entry.account.id)}
-                  >
-                    History
-                  </button>
+                  {props.hasHistory(entry.account.id) ? (
+                    <button
+                      type="button"
+                      className="fit-link"
+                      aria-label={`History of ${entry.account.label}`}
+                      onClick={() => props.onOpenHistory(entry.account.id)}
+                    >
+                      History
+                    </button>
+                  ) : null}
                 </div>
               </div>
             );
@@ -1136,6 +1171,7 @@ export function PlanFitCard(props: { readonly series: Series }) {
       {view === "actions" ? (
         <ActionsView
           series={props.series}
+          hasHistory={(id) => rows.some((row) => row.account.id === id)}
           onOpenHistory={(id) => {
             setPicked(id);
             setView("history");

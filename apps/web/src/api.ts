@@ -32,6 +32,7 @@ import {
   type OverviewConnection,
 } from "@headroom/view-model/overview";
 import type { Cost, TopUp, WalletBook } from "@headroom/view-model/wallet";
+import { historySchema, type History } from "@headroom/view-model/history";
 import { z } from "zod";
 
 import { devicePrefs } from "./lib/device-prefs.ts";
@@ -355,6 +356,9 @@ export const api = {
   cancelAttempt: (id: string) => request("POST", `/api/attempts/${id}/cancel`, attemptEnvelope),
   connections: () => request("GET", "/api/connections", connectionListSchema),
   overview: () => request("GET", "/api/overview", overviewSchema),
+  /** Stored usage history for Analytics; the server keeps at most `retentionDays` of it. */
+  history: (days: 7 | 30 | 90): Promise<History> =>
+    request("GET", `/api/history?days=${days}`, historySchema),
   // Demo accounts have no server order; the page keeps the new order itself.
   saveOrder: (order: OrderBody) =>
     demoOn() ? Promise.resolve(order) : request("PUT", "/api/order", orderSchema, order),

@@ -100,8 +100,29 @@ const inRange = (series: Series, slot: number): boolean =>
 
 /** The value in a slot: active accounts for All, percentage points of its own limit for one account. Null is unknown. */
 function valueAt(series: Series, account: AccountSeries | null, slot: number): number | null {
-  if (account === null) return series.active[slot] ?? 0;
+  if (account === null) {
+    // No account has a reading in this slot: unknown, not "zero accounts active".
+    const known = series.accounts.some((entry) => (entry.hourly[slot] ?? null) !== null);
+    return known ? (series.active[slot] ?? 0) : null;
+  }
   return account.hourly[slot] ?? null;
+}
+
+const isKnown = (value: number | null): value is number => value !== null;
+
+const fixedOrUnknown = (value: number | null | undefined): string =>
+  value === null || value === undefined ? "no data" : value.toFixed(1);
+
+/** A polyline through the known values; an unknown value breaks the line. `at` gives the "x,y" of a point. */
+function trace(
+  values: readonly (number | null)[],
+  at: (value: number, index: number) => string,
+): string {
+  return values
+    .map((value, i) =>
+      value === null ? "" : `${(values[i - 1] ?? null) === null ? "M" : "L"}${at(value, i)}`,
+    )
+    .join("");
 }
 function lockedAt(series: Series, account: AccountSeries | null, slot: number): number {
   if (account === null) return series.locked[slot] ?? 0;
@@ -186,10 +207,10 @@ function dayProfile(series: Series, account: AccountSeries | null) {
     row[h] = (row[h] ?? 0) + value;
     count[h] = (count[h] ?? 0) + 1;
   }
-  const mean = (group: number): number[] =>
+  const mean = (group: number): (number | null)[] =>
     Array.from({ length: 24 }, (_, h) => {
       const n = counts[group]?.[h] ?? 0;
-      return n > 0 ? (sums[group]?.[h] ?? 0) / n : 0;
+      return n > 0 ? (sums[group]?.[h] ?? 0) / n : null;
     });
   return { wd: mean(0), we: mean(1) };
 }
@@ -199,7 +220,10 @@ function summary(series: Series, account: AccountSeries | null) {
   let best = 0;
   let bestSum = -1;
   for (let start = 0; start <= 21; start += 1) {
-    const total = (wd[start] ?? 0) + (wd[start + 1] ?? 0) + (wd[start + 2] ?? 0);
+    const band = [wd[start], wd[start + 1], wd[start + 2]];
+    // A band with an hour of no data at all cannot be called the busiest.
+    if (band.some((value) => value === null || value === undefined)) continue;
+    const total = band.reduce<number>((sum, value) => sum + (value ?? 0), 0);
     if (total > bestSum) {
       bestSum = total;
       best = start;
@@ -453,13 +477,11 @@ function Matrix(props: { readonly series: Series }) {
   if (!narrow && width > 0) {
     const px0 = gutter + mw + 22;
     const pp = width - px0 - 20;
-    const mx = Math.max(...profile.wd, ...profile.we, 0.01);
+    const mx = Math.max(...profile.wd.filter(isKnown), ...profile.we.filter(isKnown), 0.01);
     const xv = (value: number): number => px0 + (value / mx) * pp;
     const yc = (h: number): number => top + h * rh + rh / 2;
-    const path = (values: readonly number[]): string =>
-      values
-        .map((value, h) => `${h === 0 ? "M" : "L"}${xv(value).toFixed(1)},${yc(h).toFixed(1)}`)
-        .join("");
+    const path = (values: readonly (number | null)[]): string =>
+      trace(values, (value, h) => `${xv(value).toFixed(1)},${yc(h).toFixed(1)}`);
     marginMarks = (
       <g>
         <text className="rh-t rh-t2" x={px0} y={10}>
@@ -500,7 +522,7 @@ function Matrix(props: { readonly series: Series }) {
               height={rh}
               {...bind(
                 `${hh(h)} on a typical day`,
-                `Weekdays ${(profile.wd[h] ?? 0).toFixed(1)} · weekends ${(profile.we[h] ?? 0).toFixed(1)} ${unitShort(account)}${
+                `Weekdays ${fixedOrUnknown(profile.wd[h])} · weekends ${fixedOrUnknown(profile.we[h])} ${unitShort(account)}${
                   n > 0 ? ` · ${plural(n, "run-out")}` : ""
                 }`,
               )}
@@ -784,7 +806,8 @@ function Weeks(props: { readonly series: Series }) {
   let bestDay = 0;
   let bestMean = -1;
   dayTotals.forEach((total, d) => {
-    const mean = total / Math.max(1, dayCounts[d] ?? 1);
+    if ((dayCounts[d] ?? 0) === 0) return;
+    const mean = total / (dayCounts[d] ?? 1);
     if (mean > bestMean) {
       bestMean = mean;
       bestDay = d;
@@ -840,15 +863,31 @@ function Weeks(props: { readonly series: Series }) {
     sums[i] = (sums[i] ?? 0) + value;
     counts[i] = (counts[i] ?? 0) + 1;
   }
-  const avg = sums.map((sum, i) => ((counts[i] ?? 0) > 0 ? sum / (counts[i] ?? 1) : 0));
-  const maxT = Math.max(...avg, 0.01);
+  // An hour of the week with no data at all is unknown (null) and drawn as a gap.
+  const avg = sums.map((sum, i) => ((counts[i] ?? 0) > 0 ? sum / (counts[i] ?? 1) : null));
+  const maxT = Math.max(...avg.filter(isKnown), 0.01);
   const yT = (value: number): number => tb - (value / maxT) * (tb - tt);
-  const typical = avg
-    .map(
-      (value, i) =>
-        `${i === 0 ? "M" : "L"}${(px + (i + 0.5) * hw).toFixed(1)},${yT(value).toFixed(1)}`,
-    )
-    .join("");
+  const typical = trace(
+    avg,
+    (value, i) => `${(px + (i + 0.5) * hw).toFixed(1)},${yT(value).toFixed(1)}`,
+  );
+  // One closed shape per run of known hours.
+  const typicalArea = (() => {
+    let out = "";
+    let from = -1;
+    for (let i = 0; i <= avg.length; i += 1) {
+      const known = i < avg.length && avg[i] !== null;
+      if (known && from < 0) from = i;
+      if (!known && from >= 0) {
+        const line = trace(avg.slice(from, i), (value, k) => {
+          return `${(px + (from + k + 0.5) * hw).toFixed(1)},${yT(value).toFixed(1)}`;
+        });
+        out += `${line}L${(px + (i - 0.5) * hw).toFixed(1)},${tb}L${(px + (from + 0.5) * hw).toFixed(1)},${tb}Z`;
+        from = -1;
+      }
+    }
+    return out;
+  })();
 
   // Week rows, Monday first.
   const start = new Date(day0);
@@ -1024,10 +1063,7 @@ function Weeks(props: { readonly series: Series }) {
                 avg per hour
               </text>
             )}
-            <path
-              className="rh-area-soft"
-              d={`${typical}L${px + pw - hw / 2},${tb}L${px + hw / 2},${tb}Z`}
-            />
+            <path className="rh-area-soft" d={typicalArea} />
             <path className="rh-line" d={typical} />
             {avg.map((value, i) => (
               <rect
@@ -1039,7 +1075,9 @@ function Weeks(props: { readonly series: Series }) {
                 height={hT}
                 {...bind(
                   `${weekdays[Math.floor(i / 24)] ?? ""} ${hh(i % 24)} in a typical week`,
-                  `${value.toFixed(1)} ${unitShort(account)} · avg of ${plural(counts[i] ?? 0, "week")}`,
+                  value === null
+                    ? "No data in this hour of the week"
+                    : `${value.toFixed(1)} ${unitShort(account)} · avg of ${plural(counts[i] ?? 0, "week")}`,
                 )}
               />
             ))}
@@ -1165,8 +1203,13 @@ function rangeStats(
 
 function RangeView(props: { readonly series: Series }) {
   const { series } = props;
-  const everyone = useMemo(() => new Set(series.accounts.map((entry) => entry.id)), [series]);
-  const [selected, setSelected] = useState<ReadonlySet<string>>(everyone);
+  // Excluded ids, not included ones: an account that appears later is in by default, and a removed id is ignored.
+  const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
+  const selected = useMemo(
+    () =>
+      new Set(series.accounts.filter((entry) => !excluded.has(entry.id)).map((entry) => entry.id)),
+    [series, excluded],
+  );
   const [range, setRange] = useState<readonly [number, number]>([rangeDays - 14, rangeDays - 1]);
   const anchor = useRef<number | null>(null);
   const split = useRef<HTMLDivElement>(null);
@@ -1254,10 +1297,11 @@ function RangeView(props: { readonly series: Series }) {
     anchor.current = null;
   };
   const pick = (id: string): void => {
-    const next = new Set(selected);
+    const next = new Set(excluded);
     if (next.has(id)) next.delete(id);
     else next.add(id);
-    setSelected(next.size === 0 ? everyone : next);
+    // Excluding every account resets to all of them.
+    setExcluded(series.accounts.every((entry) => next.has(entry.id)) ? new Set() : next);
   };
   const dimmed = useMemo(
     () =>
@@ -1308,7 +1352,7 @@ function RangeView(props: { readonly series: Series }) {
             <p className="an2-ro-cap">{who} · drag across the lanes to change the range</p>
           </div>
           <fieldset className="seg" aria-label="Accounts in range">
-            <button type="button" aria-pressed={allOn} onClick={() => setSelected(everyone)}>
+            <button type="button" aria-pressed={allOn} onClick={() => setExcluded(new Set())}>
               All Accounts
             </button>
           </fieldset>
@@ -1628,10 +1672,12 @@ function ByAccount(props: { readonly series: Series }) {
       let count = 0;
       for (let slot = 0; slot < slotCount; slot += 1) {
         const at = slotTime(series, slot);
-        if (keep(at) && hourOf(at) === h) {
-          total += series.active[slot] ?? 0;
-          count += 1;
-        }
+        if (!keep(at) || hourOf(at) !== h) continue;
+        // An hour with no reading from any account is unknown: it stays out of the mean.
+        const value = valueAt(series, null, slot);
+        if (value === null) continue;
+        total += value;
+        count += 1;
       }
       return count > 0 ? total / count : 0;
     });

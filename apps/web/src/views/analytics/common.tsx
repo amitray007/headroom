@@ -104,7 +104,9 @@ export function useHeadline(base: Line): {
   const slot = useSlot<Line | null>(null);
   const show = useCallback((line: Line) => slot.set(line), [slot]);
   const clear = useCallback(() => slot.set(null), [slot]);
-  return { node: <LiveHeadline slot={slot} base={base} />, show, clear };
+  const { big, cap } = base;
+  const node = useMemo(() => <LiveHeadline slot={slot} base={{ big, cap }} />, [slot, big, cap]);
+  return useMemo(() => ({ node, show, clear }), [node, show, clear]);
 }
 
 interface TipState {
@@ -136,7 +138,8 @@ export function useTipLayer(): {
     [slot],
   );
   const hide = useCallback(() => slot.set(null), [slot]);
-  return { node: <LiveTip slot={slot} />, show, hide };
+  const node = useMemo(() => <LiveTip slot={slot} />, [slot]);
+  return useMemo(() => ({ node, show, hide }), [node, show, hide]);
 }
 
 function Headline(props: { readonly line: Line }) {

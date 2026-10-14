@@ -3,7 +3,7 @@ import { providerName } from "@headroom/view-model/labels";
 import type { AccountStory, Analytics, Reading } from "./model.ts";
 
 /**
- * MOCKUP ONLY. Hour-by-hour series for the Analytics cards, derived from the synthetic history in model.ts.
+ * Hour-by-hour series for the Analytics cards, derived from the stored history in model.ts.
  *
  * Units: a slot is one hour. `hourly` holds percentage points of that account's own limit; values from different
  * accounts are never added. Combined measures count accounts instead. An unknown hour is null, never zero.
@@ -120,56 +120,36 @@ function labelsOf(stories: readonly AccountStory[]): Map<string, string> {
   return labels;
 }
 
-function curvesOf(story: AccountStory): Curve[] {
+function curvesOf(story: AccountStory, now: number): Curve[] {
   const limit = story.primary;
-  const past: Curve[] = limit.past.map((window) => ({
-    key: window.key,
-    start: window.start,
-    end: window.end,
-    peak: window.peak,
-    hitAt: window.limitHitAt,
-    lockEnd: window.limitHitAt === null ? null : window.end,
-    early: window.ended === "reset_early",
-    current: false,
-    readings: window.curve,
-  }));
+  const closed: Curve[] = [...limit.past, ...limit.fragments]
+    .toSorted((a, b) => a.start - b.start)
+    .map((window) => ({
+      key: window.key,
+      start: window.start,
+      end: window.end,
+      peak: window.peak,
+      hitAt: window.limitHitAt,
+      lockEnd: window.limitHitAt === null ? null : window.end,
+      early: window.ended === "reset_early",
+      current: false,
+      readings: window.curve,
+    }));
+  // A lock still in progress runs from the hour the limit reached 100 % to now; it is not an ended window.
+  const hitAt = limit.readings.find((reading) => (reading.used ?? 0) >= 100)?.at ?? null;
+  const locked = limit.used >= 100;
   const current: Curve = {
     key: `${limit.key}:current`,
     start: limit.start,
     end: limit.end,
     peak: limit.used,
-    hitAt: null,
-    lockEnd: null,
+    hitAt: locked ? (hitAt ?? now) : null,
+    lockEnd: locked ? now : null,
     early: false,
     current: true,
     readings: limit.readings,
   };
-  // MOCKUP: after an early reset a fresh window starts at once, but the synthetic history keeps the schedule.
-  // Fill that stretch at the account's usual pace, so it does not read as a gap in the readings.
-  const filled: Curve[] = [];
-  past.forEach((curve, index) => {
-    filled.push(curve);
-    const next = past[index + 1] ?? current;
-    if (!curve.early || next.start <= curve.end) return;
-    const span = next.start - curve.end;
-    const steps = Math.max(1, Math.round(span / hour));
-    const rise = (limit.averagePeak ?? 50) * (span / (limit.end - limit.start));
-    filled.push({
-      key: `${curve.key}:after`,
-      start: curve.end,
-      end: next.start,
-      peak: rise,
-      hitAt: null,
-      lockEnd: null,
-      early: false,
-      current: false,
-      readings: Array.from({ length: steps + 1 }, (_, step) => ({
-        at: curve.end + (step * span) / steps,
-        used: (rise * step) / steps,
-      })),
-    });
-  });
-  return [...filled, current];
+  return [...closed, current];
 }
 
 /** Spread each rise between two readings over the slots it covers. A gap between readings stays unknown. */
@@ -208,12 +188,12 @@ function lockedOf(curves: readonly Curve[], from: number): boolean[] {
   return locked;
 }
 
-/** Build the hourly series for the last 30 days from the Analytics mockup. */
+/** Build the hourly series for the last 30 days from the Analytics model. */
 export function buildSeries(analytics: Analytics, now: number): Series {
   const from = Math.floor((now - 30 * day) / hour) * hour;
   const labels = labelsOf(analytics.accounts);
   const accounts: AccountSeries[] = analytics.accounts.map((story) => {
-    const curves = curvesOf(story);
+    const curves = curvesOf(story, now);
     const length = story.primary.end - story.primary.start;
     return {
       id: story.id,

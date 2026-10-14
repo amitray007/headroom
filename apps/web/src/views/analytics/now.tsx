@@ -143,8 +143,6 @@ function Plot(props: { readonly children: (api: TipApi) => ReactNode }) {
   const width = useWidth(ref);
   const tip = useTipLayer();
   const move = (event: PointerEvent, title: ReactNode, body: ReactNode): void => {
-    const box = event.currentTarget.closest(".now-plot")?.getBoundingClientRect();
-    if (box === undefined) return;
     tip.show(event.clientX, event.clientY, title, body);
   };
   return (
@@ -476,12 +474,22 @@ function RecentSvg(props: {
   const { forecast: f, series, tip } = props;
   const width = tip.width;
   const account = f.account;
+  // Local calendar days, midnight to midnight. Today is partial: it ends at the last full hour of the series.
+  const today = new Date(series.now);
+  const dayStart = (back: number): number =>
+    new Date(today.getFullYear(), today.getMonth(), today.getDate() - back).getTime();
   const days = Array.from({ length: 7 }, (_, d) => {
-    const first = slotCount - 24 * (7 - d);
+    const start = dayStart(6 - d);
+    const isToday = d === 6;
+    const end = isToday ? series.now : dayStart(5 - d);
     let sum = 0;
     let known = 0;
     let locked = 0;
-    for (let slot = first; slot < first + 24; slot += 1) {
+    let slots = 0;
+    for (let slot = 0; slot < slotCount; slot += 1) {
+      const at = series.from + slot * hour;
+      if (at < start || at >= end) continue;
+      slots += 1;
       const value = account.hourly[slot];
       if (value !== null && value !== undefined) {
         sum += value;
@@ -489,12 +497,13 @@ function RecentSvg(props: {
       }
       if (account.locked[slot] === true) locked += 1;
     }
-    const at = series.now - (6 - d) * day;
     return {
-      at,
+      at: start,
       value: known === 0 ? null : sum,
-      locked: locked === 24,
-      label: d === 6 ? "Today" : (dayNames[new Date(at).getDay()] ?? ""),
+      locked: slots > 0 && locked === slots,
+      // A partial day is judged against the share of a day's allowance that has elapsed.
+      share: isToday ? Math.min(1, Math.max(0.05, (series.now - start) / day)) : 1,
+      label: isToday ? "Today" : (dayNames[new Date(start).getDay()] ?? ""),
     };
   });
   const left = Math.max(0, 100 - f.used);
@@ -521,7 +530,7 @@ function RecentSvg(props: {
           {days.map((d, i) => {
             const mid = i * band + band / 2;
             const barHeight = d.value === null ? 0 : Math.max(1, base - y(d.value));
-            const over = d.value !== null && d.value > allowed;
+            const over = d.value !== null && d.value > allowed * d.share;
             const body = d.locked
               ? "Locked, use unknown"
               : d.value === null
@@ -540,7 +549,16 @@ function RecentSvg(props: {
                     y1={base - 1}
                     y2={base - 1}
                   />
-                ) : d.value === null ? null : (
+                ) : d.value === null ? (
+                  <line
+                    className="now-grid-line"
+                    data-limit
+                    x1={mid - 7}
+                    x2={mid + 7}
+                    y1={base - 1}
+                    y2={base - 1}
+                  />
+                ) : (
                   <>
                     <rect
                       className="now-bar"
