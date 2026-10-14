@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.1.6](https://github.com/amitray007/headroom/compare/v0.1.5...v0.1.6) (2026-10-14)
+
+
+### Features
+
+* Analytics view built from stored usage history ([1287fa0](https://github.com/amitray007/headroom/commit/1287fa07ac74e08c28c07f3d0c77ea12c6921d6e))
+* **server:** serve usage history at /api/history ([3dfc4b7](https://github.com/amitray007/headroom/commit/3dfc4b7a80e48ca53c9c8e125e09f2ca8134a326))
+* **site:** add GitHub and X cards beside the hero ([3fde495](https://github.com/amitray007/headroom/commit/3fde49524797d4e524c14a421796a9e7ae28fee3))
+* **site:** count visits with self-hosted Umami ([a312d48](https://github.com/amitray007/headroom/commit/a312d48984501ff69ba325c476ce5c919174922e))
+* **site:** hang the hero cards on lanyards with a live star count ([9bf0c5b](https://github.com/amitray007/headroom/commit/9bf0c5b078bd8ecc67b63f0a18784c59c63e5d14))
+* **site:** link the X profile in the top nav ([1542722](https://github.com/amitray007/headroom/commit/154272217a6dacb8f5eedfcf6c6cd194d0c51cc7))
+* **web:** add the Analytics view ([e864772](https://github.com/amitray007/headroom/commit/e864772bedcaa7a7baa26d9dfe76864e945de9eb))
+* **web:** build Analytics from stored history ([2fcf05c](https://github.com/amitray007/headroom/commit/2fcf05c24505e9a40475725fa340a428578ee9ed))
+* **web:** group the view switcher and centre it in the top bar ([3944b95](https://github.com/amitray007/headroom/commit/3944b9551541f2fed5ac34346f2070bbf30d13f1))
+
+
+### Bug Fixes
+
+* second review round on Analytics history ([04a916e](https://github.com/amitray007/headroom/commit/04a916e2a07263b095db7a7848468774be1529f5))
+* **site:** let clicks on the badge buttons reach their links ([c9fc539](https://github.com/amitray007/headroom/commit/c9fc539ed901aef47a78c50ed07e03e09971e67d))
+* **site:** open the GitHub and X links in a new tab ([81bca7f](https://github.com/amitray007/headroom/commit/81bca7f39dee644f4c988d383b5c2ef4b2d08e7a))
+* tell a moved reset day from an early reset, and keep the cache marker fast ([b796954](https://github.com/amitray007/headroom/commit/b796954109e5ed54dbb939f33211bb4a8f5dec6c))
+* **web:** correct Analytics on real history edge cases ([ff5a64d](https://github.com/amitray007/headroom/commit/ff5a64d33d7bb7f20d2a74da3e9c5075cd72b841))
+
+
+### Performance Improvements
+
+* **server:** read history in one scan, cache it and bucket by local hour ([6ca5a6b](https://github.com/amitray007/headroom/commit/6ca5a6b791a4ab3acdfc66128faacfa6f0118994))
+
 ## [0.1.5](https://github.com/amitray007/headroom/compare/v0.1.4...v0.1.5) (2026-10-10)
 
 
