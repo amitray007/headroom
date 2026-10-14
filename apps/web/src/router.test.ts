@@ -30,6 +30,7 @@ describe("router", () => {
       "compare",
       "timeline",
       "wallet",
+      "analytics",
       "connect",
       "gallery",
     ] as const) {

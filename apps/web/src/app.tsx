@@ -20,6 +20,7 @@ import {
 } from "./lib/device-prefs.ts";
 import { CompareSkeleton } from "./views/compare/skeleton.tsx";
 import { DetailedSkeleton } from "./views/detailed/skeleton.tsx";
+import { AnalyticsSkeleton } from "./views/analytics/skeleton.tsx";
 import { TimelineSkeleton } from "./views/timeline/skeleton.tsx";
 import { WalletSkeleton } from "./views/wallet/skeleton.tsx";
 import { lazyNamed } from "./lib/lazy-named.ts";
@@ -38,6 +39,7 @@ const ConnectPage = lazyNamed(() => import("./connect-page.tsx"), "ConnectPage")
 const DetailedPage = lazyNamed(() => import("./views/detailed/page.tsx"), "DetailedPage");
 const ComparePage = lazyNamed(() => import("./views/compare/page.tsx"), "ComparePage");
 const TimelinePage = lazyNamed(() => import("./views/timeline/page.tsx"), "TimelinePage");
+const AnalyticsPage = lazyNamed(() => import("./views/analytics/page.tsx"), "AnalyticsPage");
 const WalletPage = lazyNamed(() => import("./views/wallet/page.tsx"), "WalletPage");
 
 // Development only: the component gallery lives at #/dev/ui. Production builds leave it out entirely.
@@ -145,6 +147,11 @@ function SignedIn(props: { readonly name: string }) {
         {route.page === "timeline" ? (
           <Suspense fallback={<TimelineSkeleton />}>
             <TimelinePage overview={overview} />
+          </Suspense>
+        ) : null}
+        {route.page === "analytics" ? (
+          <Suspense fallback={<AnalyticsSkeleton />}>
+            <AnalyticsPage overview={overview} />
           </Suspense>
         ) : null}
         {route.page === "wallet" ? (

@@ -1,0 +1,596 @@
+/* Plan Fit. Greyscale data; --danger only for blocked time and limit hits. */
+
+.fit-actions,
+.fit-panel,
+.fit-main {
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.fit-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.fit-empty {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+/* Tiles */
+.fit-tile {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.fit-tile-l,
+.fit-tile-c {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.fit-tile-v {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.fit-tile-v small {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* Sections */
+.fit-sec-block {
+  display: grid;
+  min-width: 0;
+}
+.fit-sh {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 13px;
+}
+.fit-sh-t {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--foreground);
+  font-weight: 500;
+}
+.fit-sh-v {
+  color: var(--text-muted);
+}
+
+/* Action rows: verb, accounts, impact */
+.fit-act {
+  display: grid;
+  min-height: 64px;
+  grid-template-columns: 120px minmax(0, 1fr) 120px;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 10px var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.fit-act:hover {
+  background: color-mix(in oklab, var(--foreground) 3%, var(--surface));
+}
+.fit-verb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.fit-glyph {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+.fit-lines {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+.fit-line {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 12px 16px 160px minmax(96px, 180px) minmax(0, 1fr);
+  align-items: center;
+  gap: 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+.fit-line .brand {
+  width: 16px;
+  height: 16px;
+}
+.fit-line-arrow {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+.fit-line-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fit-line-text {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: 1.3;
+}
+.fit-meter {
+  position: relative;
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+.fit-meter i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--foreground) 45%, transparent);
+}
+.fit-meter i[data-tone="danger"] {
+  background: var(--danger);
+}
+.fit-meter b {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: var(--foreground);
+}
+.fit-note-line {
+  margin: 0;
+  padding-left: 28px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.fit-end {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+.fit-imp {
+  display: grid;
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  text-align: right;
+  white-space: nowrap;
+}
+.fit-imp.blk {
+  color: var(--danger);
+}
+.fit-imp.unknown {
+  color: var(--text-secondary);
+}
+.fit-imp small {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.fit-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.fit-link:hover {
+  text-decoration: underline;
+}
+.fit-link:focus-visible {
+  outline: 1px solid var(--border-strong);
+  outline-offset: 2px;
+}
+
+/* Tight: a shorter name column. */
+.fit-actions[data-tight] .fit-line {
+  grid-template-columns: 12px 16px 120px minmax(96px, 140px) minmax(0, 1fr);
+}
+
+/* Narrow: verb and impact share a line, the accounts take the next one. */
+.fit-actions[data-narrow] .fit-act {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "verb end" "lines lines";
+  gap: var(--space-2) var(--space-3);
+}
+.fit-actions[data-narrow] .fit-verb {
+  grid-area: verb;
+}
+.fit-actions[data-narrow] .fit-end {
+  grid-area: end;
+}
+.fit-actions[data-narrow] .fit-lines {
+  grid-area: lines;
+}
+.fit-actions[data-narrow] .fit-line {
+  grid-template-columns: 12px 16px minmax(0, 1fr) 96px;
+  row-gap: 2px;
+}
+.fit-actions[data-narrow] .fit-line-text {
+  grid-column: 3 / -1;
+}
+
+/* Keep */
+/* Keep: a header row that opens and closes the list. */
+.fit-disclose {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 12px auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.fit-disclose:hover {
+  background: color-mix(in oklab, var(--foreground) 3%, var(--surface));
+}
+.fit-disclose:focus-visible {
+  outline: 1px solid var(--border-strong);
+  outline-offset: -1px;
+}
+.fit-chevron {
+  align-self: center;
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+.fit-chevron path {
+  fill: none;
+  stroke: var(--text-secondary);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.fit-disclose[aria-expanded="true"] .fit-chevron {
+  transform: rotate(90deg);
+}
+.fit-disclose-hint {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.fit-keep-row {
+  min-height: 48px;
+}
+.fit-actions[data-narrow] .fit-keep-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "lines end";
+  align-items: start;
+}
+.fit-actions[data-narrow] .fit-keep-row > span:first-child {
+  display: none;
+}
+
+/* History grid */
+.fit-row:focus-visible {
+  outline: 1px solid var(--border-strong);
+  outline-offset: -1px;
+}
+.fit-main {
+  display: grid;
+  gap: var(--space-3);
+}
+.fit-grid {
+  --name: 150px;
+  --gutter: 108px;
+  position: relative;
+  display: grid;
+}
+.fit-grid[data-narrow] {
+  --name: 112px;
+  --gutter: 92px;
+}
+.fit-row {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  grid-template-columns: var(--name) minmax(0, 1fr) var(--gutter);
+  align-items: center;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.fit-row.head {
+  height: 18px;
+  cursor: default;
+}
+.fit-row[aria-pressed="true"] {
+  background: color-mix(in oklab, var(--foreground) 5%, var(--surface));
+}
+.fit-row:not(.head):hover {
+  background: color-mix(in oklab, var(--foreground) 3%, var(--surface));
+}
+.fit-row .an2-who {
+  gap: 6px;
+}
+.fit-row .an2-who-name {
+  font-size: 12px;
+}
+.fit-plot {
+  min-width: 0;
+}
+.fit-plot svg {
+  display: block;
+}
+.fit-verdict {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+.fit-verdict[data-v="0"] {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.fit-month {
+  stroke: var(--border);
+}
+.fit-cell {
+  fill: color-mix(in oklab, var(--foreground) 10%, var(--surface));
+}
+.fit-cell[data-shade="1"] {
+  fill: color-mix(in oklab, var(--foreground) 24%, var(--surface));
+}
+.fit-cell[data-shade="2"] {
+  fill: color-mix(in oklab, var(--foreground) 40%, var(--surface));
+}
+.fit-cell[data-shade="3"] {
+  fill: color-mix(in oklab, var(--foreground) 58%, var(--surface));
+}
+.fit-cell[data-hit] {
+  fill: var(--danger);
+}
+.fit-cell-now {
+  fill: transparent;
+  stroke: var(--text-muted);
+  stroke-dasharray: 3 2;
+}
+.fit-sw-cur,
+.fit-sw-now,
+.fit-sw-hit {
+  display: inline-block;
+  width: 12px;
+  height: 8px;
+  border-radius: 2px;
+}
+.fit-sw-cur {
+  border: 1px dashed var(--text-muted);
+}
+.fit-sw-now {
+  border: 1px solid var(--foreground);
+}
+
+/* Narrow: name and verdict share a line, the cells take the next one. */
+.fit-grid[data-narrow] .fit-row:not(.head) {
+  height: auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "who verdict" "plot plot";
+  gap: 2px 8px;
+  padding: 4px 6px;
+}
+.fit-grid[data-narrow] .fit-row:not(.head) > .an2-who {
+  grid-area: who;
+}
+.fit-grid[data-narrow] .fit-row:not(.head) > .fit-plot {
+  grid-area: plot;
+}
+.fit-grid[data-narrow] .fit-row:not(.head) > .fit-verdict {
+  grid-area: verdict;
+}
+.fit-grid[data-narrow] .fit-row.head {
+  grid-template-columns: minmax(0, 1fr);
+}
+.fit-grid[data-narrow] .fit-row.head > span {
+  display: none;
+}
+
+/* Panel */
+.fit-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fit-head .brand {
+  flex: none;
+}
+.fit-id {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+.fit-id .fit-id-name {
+  overflow: hidden;
+  color: var(--foreground);
+  font-size: var(--text-base);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fit-id span {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.fit-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+.fit-panel.wide {
+  max-width: 760px;
+}
+@media (width >= 900px) {
+  .fit-panel.wide .fit-tiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.fit-sec {
+  margin: 16px 0 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.fit-sec b {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.fit-obs {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+}
+.fit-panel .an2-legend {
+  margin-top: var(--space-2);
+}
+
+/* Peak columns */
+.fit-cols {
+  position: relative;
+}
+.fit-cols svg {
+  display: block;
+  overflow: visible;
+}
+.fit-limit {
+  stroke: var(--foreground);
+  stroke-width: 1;
+}
+.fit-base {
+  stroke: var(--border);
+}
+.fit-avg {
+  stroke: var(--foreground);
+  stroke-dasharray: 4 3;
+  stroke-width: 1.25;
+  pointer-events: none;
+}
+.fit-col {
+  fill: color-mix(in oklab, var(--foreground) 40%, var(--surface));
+}
+.fit-col[data-hit] {
+  fill: var(--danger);
+}
+.fit-col-now {
+  fill: none;
+  stroke: var(--foreground);
+  stroke-width: 1;
+}
+.fit-hit {
+  fill: transparent;
+}
+.fit-t {
+  fill: var(--text-muted);
+  font-size: 10.5px;
+}
+.fit-t.small {
+  font-size: 10px;
+}
+.fit-t.strong {
+  fill: var(--foreground);
+  font-weight: 500;
+}
+
+.fit-sw-hit {
+  background: var(--danger);
+}
+
+/* History: the headline row spans the card, so the view switch lines up with the card's right edge. */
+.fit-history {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* Each history row draws in percentages of its own height. */
+.fit-row-svg {
+  height: 32px;
+}
+
+/* Side by side, the history grid grows to the panel's height: rows take the spare space, up to a limit. Stacked on
+   a narrow screen, nothing grows. */
+@media (width >= 900px) {
+  .fit-split {
+    align-items: stretch;
+  }
+  .fit-split > .fit-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .fit-split .fit-grid {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+  }
+  .fit-split .fit-row:not(.head) {
+    height: auto;
+    min-height: 32px;
+    max-height: 52px;
+    flex: 1 1 32px;
+  }
+  /* The SVG fills its stretched cell by position; a percentage height alone would not resolve here. */
+  .fit-split .fit-row:not(.head) .fit-plot {
+    position: relative;
+    align-self: stretch;
+  }
+  .fit-split .fit-row-svg {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+  }
+}
+
+.fit-sec-block + .fit-sec-block {
+  margin-top: var(--space-2);
+}
+
+/* Keep is the card's last block: a rule appears only between its header and an open list, never under the card's
+   last line. */
+.fit-disclose[aria-expanded="false"] {
+  border-bottom-color: transparent;
+}
+.fit-keep-row:last-child {
+  border-bottom: 0;
+}

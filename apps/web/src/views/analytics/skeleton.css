@@ -1,0 +1,586 @@
+/* Analytics skeleton: the real cards' frames, labels and cell sizes, with placeholders where data goes. Sizes
+   mirror rhythm.css, now.css and fit.css, so nothing moves when the page arrives. */
+
+.ans {
+  --ans-tone: color-mix(in oklab, var(--foreground) 8%, var(--surface));
+}
+.ans-view {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.ans-round {
+  flex: none;
+  border-radius: 50%;
+}
+.ans-nm {
+  display: block;
+  font-size: var(--text-base);
+}
+.ans-sb {
+  display: block;
+  font-size: var(--text-xs);
+}
+.ans-cell {
+  display: block;
+  margin: 0.5px;
+  border-radius: 2px;
+  background: var(--ans-tone);
+}
+.ans .an2-legend > span > span {
+  display: block;
+}
+.ans-sub {
+  margin: 0 0 8px;
+  font-size: var(--text-xs);
+}
+.ans-sec {
+  margin: 0 0 2px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.ans-sec b {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+/* Rhythm matrix: 31 days by 24 hours */
+.ans-mx {
+  container-type: inline-size;
+  min-width: 0;
+}
+.ans-mx-body {
+  --rh: 14px;
+  --gut: 48px;
+  display: grid;
+  grid-template-columns: var(--gut) minmax(0, 1fr) 160px;
+  grid-template-rows: 36px calc(24 * var(--rh)) 24px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.ans-mx-dates {
+  position: relative;
+  grid-column: 2;
+  grid-row: 1;
+}
+.ans-mx-months > span {
+  position: absolute;
+  top: 0;
+  font-size: 11px;
+  line-height: 12px;
+}
+.ans-mx-days {
+  position: absolute;
+  inset: 21px 0 auto;
+  height: 6px;
+}
+.ans-mx-hours {
+  position: relative;
+  grid-column: 1;
+  grid-row: 2;
+}
+.ans-mx-hours > span {
+  position: absolute;
+  right: 8px;
+  color: var(--text-muted);
+  line-height: var(--rh);
+}
+.ans-mx-cells {
+  display: grid;
+  grid-column: 2;
+  grid-row: 2;
+  grid-auto-flow: column;
+  grid-template-columns: repeat(31, minmax(0, 1fr));
+  grid-template-rows: repeat(24, var(--rh));
+}
+.ans-mx-cells .ans-cell {
+  margin: 0.5px;
+}
+.ans-mx-locked {
+  grid-column: 1;
+  grid-row: 3;
+  height: 8px;
+  margin: 6px 8px 0 0;
+  color: var(--text-muted);
+  line-height: 8px;
+  text-align: right;
+}
+.ans-mx-strip {
+  display: grid;
+  grid-column: 2;
+  grid-row: 3;
+  grid-template-columns: repeat(31, minmax(0, 1fr));
+  height: 8px;
+  margin-top: 6px;
+}
+.ans-cell-strip {
+  background: color-mix(in oklab, var(--foreground) 5%, var(--surface));
+}
+.ans-mx-profile {
+  position: relative;
+  grid-column: 3;
+  grid-row: 1 / -1;
+  padding: 1px 20px 0 22px;
+}
+.ans-mx-profile .ans-t2 {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 12px;
+}
+.ans-mx-profile .ans-t {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  line-height: 12px;
+}
+.ans-mx-line {
+  position: absolute;
+  inset: 36px 20px auto 22px;
+  height: calc(24 * var(--rh));
+  border-left: 1px solid var(--border);
+}
+.ans-mx-line .sk {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  clip-path: polygon(
+    0 0,
+    3% 0,
+    8% 22%,
+    38% 34%,
+    78% 40%,
+    96% 52%,
+    84% 62%,
+    42% 74%,
+    14% 88%,
+    5% 100%,
+    0 100%
+  );
+}
+@container (width < 640px) {
+  .ans-mx-body {
+    --rh: 12px;
+    --gut: 36px;
+    grid-template-columns: var(--gut) minmax(0, 1fr);
+  }
+  .ans-mx-profile {
+    display: none;
+  }
+  .ans-mx-locked {
+    margin-right: 0;
+    text-align: left;
+  }
+}
+
+/* Usage per window */
+.ans-windows {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.ans-disclose {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-self: start;
+  padding: 4px 8px 4px 4px;
+  color: var(--foreground);
+  font-size: var(--text-sm);
+}
+.ans-disclose path {
+  fill: none;
+  stroke: var(--text-secondary);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ans-disclose-title {
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ans-disclose-hint {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+@media (width < 700px) {
+  .ans-disclose-hint {
+    display: none;
+  }
+}
+
+/* Right Now: the forecast grid and the account panel */
+.ans-fc {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  container-type: inline-size;
+}
+.ans-grid {
+  --label: 132px;
+  --gutter: 136px;
+  min-width: 560px;
+}
+@container (width < 560px) {
+  .ans-grid {
+    --label: 104px;
+    --gutter: 0px;
+    min-width: 0;
+  }
+  .ans-fc .ans-gutter {
+    display: none;
+  }
+}
+.ans-line {
+  display: grid;
+  grid-template-columns: var(--label) minmax(0, 1fr) var(--gutter);
+  align-items: center;
+}
+.ans-axis {
+  height: 34px;
+}
+.ans-axis-days {
+  position: relative;
+  height: 100%;
+}
+.ans-axis-day,
+.ans-now-label {
+  position: absolute;
+  bottom: 2px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.ans-now-label {
+  top: 0;
+  bottom: auto;
+  translate: -50% 0;
+  color: var(--foreground);
+  font-weight: 500;
+}
+.ans-body {
+  position: relative;
+}
+.ans-row {
+  height: 38px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.ans-who {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding-left: 4px;
+  font-size: var(--text-xs);
+}
+.ans-who-text {
+  display: grid;
+}
+.ans-cells {
+  display: grid;
+  grid-template-columns: repeat(28, minmax(0, 1fr));
+  gap: 1.5px;
+  height: 28px;
+}
+.ans-cells .ans-cell {
+  margin: 0;
+  background: color-mix(in oklab, var(--foreground) 10%, var(--surface));
+}
+.ans-gutter {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  padding-left: 10px;
+  line-height: 1.25;
+}
+.ans-gutter-a {
+  font-size: var(--text-xs);
+}
+.ans-gutter-b {
+  font-size: 11px;
+}
+.ans-sw-cell {
+  display: inline-block;
+  width: 12px;
+  height: 8px;
+  margin: 0 0 0 4px;
+  border-radius: 2px;
+  background: color-mix(in oklab, var(--foreground) 10%, var(--surface));
+}
+.ans-sw-cell[data-level="1"] {
+  margin-left: 0;
+  background: color-mix(in oklab, var(--foreground) 24%, var(--surface));
+}
+.ans-sw-cell[data-level="2"] {
+  margin-left: 0;
+  background: color-mix(in oklab, var(--foreground) 40%, var(--surface));
+}
+.ans-sw-cell[data-level="3"] {
+  margin-left: 0;
+  background: color-mix(in oklab, var(--foreground) 58%, var(--surface));
+}
+.ans-head {
+  display: grid;
+  gap: 8px;
+}
+.ans-who-strong {
+  gap: 8px;
+  padding-left: 0;
+}
+.ans-burn {
+  display: grid;
+  gap: 8px;
+}
+.ans-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 0;
+}
+.ans-facts div {
+  display: grid;
+  gap: 1px;
+}
+.ans-facts dt {
+  font-size: 11px;
+}
+.ans-facts dd {
+  margin: 0;
+  font-size: var(--text-base);
+}
+.ans-recent {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.ans-recent > .sk {
+  margin-bottom: 8px;
+}
+@media (width >= 900px) {
+  .ans-now {
+    align-items: stretch;
+  }
+  .ans-now > .ans-fc {
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .ans-now .ans-grid {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+  }
+  .ans-now .ans-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+  }
+  .ans-now .ans-row {
+    height: auto;
+    min-height: 38px;
+    max-height: 54px;
+    flex: 1 1 38px;
+  }
+  .ans-now .ans-row .ans-cells {
+    height: auto;
+    align-self: stretch;
+    margin-block: 5px;
+  }
+}
+
+/* Plan Fit: the history grid and the account panel */
+.ans-main {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  container-type: inline-size;
+}
+.ans-fitgrid {
+  --name: 150px;
+  --gutter: 108px;
+  display: grid;
+}
+.ans-frow {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  grid-template-columns: var(--name) minmax(0, 1fr) var(--gutter);
+  align-items: center;
+  padding: 0 6px;
+  font-size: 12px;
+}
+.ans-frow .ans-who {
+  gap: 6px;
+  padding-left: 0;
+}
+.ans-fhead {
+  height: 18px;
+}
+.ans-fplot {
+  position: relative;
+  min-width: 0;
+  align-self: stretch;
+}
+.ans-fhead .ans-fplot > span {
+  position: absolute;
+  top: 3px;
+  font-size: 10.5px;
+}
+.ans-fcells {
+  position: absolute;
+  inset: 22% 0;
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  gap: 2px;
+}
+.ans-fcells .ans-cell {
+  margin: 0;
+  border-radius: 3px;
+}
+.ans-verdict {
+  justify-self: end;
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+@container (width < 560px) {
+  .ans-fitgrid {
+    --name: 112px;
+    --gutter: 92px;
+  }
+  .ans-frow:not(.ans-fhead) {
+    height: auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "who verdict" "plot plot";
+    gap: 2px 8px;
+    padding: 4px 6px;
+  }
+  .ans-frow:not(.ans-fhead) > .ans-who {
+    grid-area: who;
+  }
+  .ans-frow:not(.ans-fhead) > .ans-fplot {
+    height: 32px;
+    grid-area: plot;
+  }
+  .ans-frow:not(.ans-fhead) > .ans-verdict {
+    grid-area: verdict;
+  }
+  .ans-fhead {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ans-fhead > span {
+    display: none;
+  }
+}
+.ans-fhead2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ans-id {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+.ans-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+.ans-tile {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.ans-tile-l {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.ans-tile-v {
+  font-size: 20px;
+  white-space: nowrap;
+}
+.ans-tile-v small {
+  margin-left: 4px;
+  font-size: var(--text-xs);
+}
+.ans-fsec {
+  margin: 16px 0 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.ans-fsec b {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.ans-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(60px, 28%, 96px);
+  height: 138px;
+}
+.ans-cols-plot {
+  display: flex;
+  height: 100px;
+  margin-top: 16px;
+  border-top: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border);
+}
+.ans-col-slot {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  flex: 1;
+  align-items: flex-end;
+  justify-content: center;
+}
+.ans-col-slot .sk {
+  width: min(calc(100% - 3px), 24px);
+  border-radius: 2px;
+}
+.ans-cols-label {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 10px 0 0 6px;
+  font-size: 10.5px;
+}
+.ans-fitpanel .an2-legend {
+  margin-top: var(--space-2);
+}
+.ans-obs {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+}
+@media (width >= 900px) {
+  .ans-fitsplit {
+    align-items: stretch;
+  }
+  .ans-fitsplit > .ans-main {
+    display: flex;
+    flex-direction: column;
+  }
+  .ans-fitsplit .ans-fitgrid {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+  }
+  .ans-fitsplit .ans-frow:not(.ans-fhead) {
+    height: auto;
+    min-height: 32px;
+    max-height: 52px;
+    flex: 1 1 32px;
+  }
+}
+
+/* Placeholders have fixed widths; keep them from widening the card on a narrow screen. */
+.ans .an2-card,
+.ans .an2-ro,
+.ans-view {
+  grid-template-columns: minmax(0, 1fr);
+}
