@@ -19,6 +19,7 @@ import { connectionRoutes } from "./routes/connections.ts";
 import { deliveryRoutes } from "./routes/delivery.ts";
 import { exchangeRateRoutes } from "./routes/exchange-rates.ts";
 import { orderRoutes } from "./routes/order.ts";
+import { historyRoutes } from "./routes/history.ts";
 import { overviewRoutes } from "./routes/overview.ts";
 import { providerRoutes } from "./routes/providers.ts";
 import { settingsRoutes } from "./routes/settings.ts";
@@ -98,6 +99,7 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/connections", connectionRoutes(ctx));
   api.route("/attempts", attemptRoutes(ctx));
   api.route("/overview", overviewRoutes(ctx));
+  api.route("/history", historyRoutes(ctx));
   api.route("/order", orderRoutes(ctx));
   api.route("/settings", settingsRoutes(ctx));
   api.route("/delivery", deliveryRoutes(ctx));

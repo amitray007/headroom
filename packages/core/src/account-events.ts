@@ -21,6 +21,23 @@ interface EventRow {
   detail_json: string;
 }
 
+function parseRow(row: EventRow): AccountEvent[] {
+  let detail: unknown;
+  try {
+    detail = JSON.parse(row.detail_json);
+  } catch {
+    return [];
+  }
+  const parsed = accountEventSchema.safeParse({
+    id: row.id,
+    connectionId: row.connection_id,
+    occurredAt: row.occurred_at,
+    metricKey: row.metric_key,
+    detail,
+  });
+  return parsed.success ? [parsed.data] : [];
+}
+
 export class AccountEventStore {
   constructor(
     private readonly db: Db,
@@ -63,22 +80,23 @@ export class AccountEventStore {
         FROM account_events WHERE occurred_at >= ${since.getTime()}
       ) WHERE position <= ${perConnectionLimit}
       ORDER BY occurred_at DESC, id DESC`);
-    return rows.flatMap((row) => {
-      let detail: unknown;
-      try {
-        detail = JSON.parse(row.detail_json);
-      } catch {
-        return [];
-      }
-      const parsed = accountEventSchema.safeParse({
-        id: row.id,
-        connectionId: row.connection_id,
-        occurredAt: row.occurred_at,
-        metricKey: row.metric_key,
-        detail,
-      });
-      return parsed.success ? [parsed.data] : [];
-    });
+    return rows.flatMap(parseRow);
+  }
+
+  /** Events with `from <= occurredAt <= to` for the given accounts, oldest first, with no per-account cap. */
+  between(from: number, to: number, connectionIds: readonly string[]): AccountEvent[] {
+    if (connectionIds.length === 0) return [];
+    const ids = sql.join(
+      connectionIds.map((id) => sql`${id}`),
+      sql`, `,
+    );
+    return this.db
+      .all<EventRow>(
+        sql`SELECT id, connection_id, occurred_at, metric_key, detail_json FROM account_events
+          WHERE occurred_at BETWEEN ${from} AND ${to} AND connection_id IN (${ids})
+          ORDER BY occurred_at ASC, id ASC`,
+      )
+      .flatMap(parseRow);
   }
 
   /** Delete events older than `cutoff`. Returns how many. */

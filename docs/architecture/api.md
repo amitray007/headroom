@@ -9,6 +9,7 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 | Route | Purpose |
 | --- | --- |
 | `GET /api/overview` | Every account with its latest snapshot, run and action state in one call |
+| `GET /api/history?days=7\|30\|90` | Usage history for the Analytics view, see [History](#history) |
 | `GET /api/connections` | Light list: state, label, name, staleness, latest run, metric count |
 | `GET /api/connections/:id` | One connection with capabilities, snapshot and latest run |
 | `PATCH /api/connections/:id` | Set or clear the owner-set display name |
@@ -24,6 +25,17 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 | `POST /api/wallet/top-ups`, `PUT /api/wallet/top-ups/:id`, `DELETE /api/wallet/top-ups/:id` | Record a top-up, edit one, or remove one |
 | `GET /api/exchange-rates`, `POST /api/exchange-rates/refresh` | The daily reference rates the Wallet converts with; the POST fetches them again now, at most once a minute, and touches no account |
 | `/api/delivery/...` | Notification channels (Telegram, webhook), tests and Telegram chat discovery, see [Delivery](#delivery) |
+
+## History
+
+`GET /api/history?days=7|30|90` (default 90; any other value returns 400 `invalid_days`) returns `{ from, to, bucketMs, retentionDays, connections }`, validated by `historySchema` in `packages/view-model/src/history.ts`. `from` is now minus `days`, `to` is now, `bucketMs` is one hour, and `retentionDays` is the `historyRetentionDays` setting. It lists the same accounts as the overview, in the same order. Each has:
+
+- `coverage`: `{ firstAt, lastAt, readings }` for its snapshots in range. It is null and 0 when there is none. History starts when the account is connected and is bounded by retention, so a long range can stay partly empty.
+- `series`: one per `(providerMetricKey, scope)` of `quota_percentage` metrics with a number and availability `available`. `points` are `[hour start, highest used percent in that hour]`, oldest first, only for hours with a reading. `windows` are the limit windows seen, oldest first: `{ start, end }` from `window_start` and `window_end`, or `start: null` and `end: resets_at`. Ends within 10 minutes of each other count as one window and keep the latest reading's values.
+- `failures`: sync runs in range whose outcome is neither `succeeded` nor `partial`, as `{ at, outcome }`, oldest first. Each is a gap, never a zero.
+- `events`: every account event in range, oldest first, with no per-account cap.
+
+The hourly maximum is a `GROUP BY` over `snapshots` joined to `metrics`, using the `snapshots(connection_id, observed_at)` and `metrics(snapshot_id)` indexes. No new index is needed.
 
 ## Overview
 
