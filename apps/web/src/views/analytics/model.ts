@@ -135,15 +135,27 @@ function monthBefore(end: number): number {
   );
 }
 
-/** Start of a past window that has no stored start: the window before it ended, else a month or a length back. */
+/**
+ * Start of a past window that has no stored start: a month or a length before its end. The end of the
+ * window before it is used only for a cycle, and only when it agrees with that estimate to within a day;
+ * a weekly window can start at an early reset or after a gap, so the previous end says nothing there.
+ */
 function inferredStart(
   end: number,
   previousEnd: number | undefined,
   monthly: boolean,
   length: number,
 ): number {
-  if (previousEnd !== undefined && previousEnd < end) return previousEnd;
-  return monthly ? monthBefore(end) : end - length;
+  const candidate = monthly ? monthBefore(end) : end - length;
+  if (
+    monthly &&
+    previousEnd !== undefined &&
+    previousEnd < end &&
+    Math.abs(previousEnd - candidate) <= day
+  ) {
+    return previousEnd;
+  }
+  return candidate;
 }
 
 /**

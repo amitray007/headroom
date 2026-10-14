@@ -7,8 +7,8 @@ import type { SyncRunOutcome } from "./enums.ts";
 
 /**
  * Usage history for the Analytics view, read from stored snapshots. Only `quota_percentage` metrics
- * with a number: the same percent-of-limit readings the overview draws as meters. One scan reads the
- * readings and JS folds them into buckets and windows; coverage and failures are small SQL queries.
+ * with a number: the same percent-of-limit readings the overview draws as meters. One streamed scan
+ * of the readings is folded by JS into buckets and windows; coverage and failures are small SQL queries.
  */
 
 export interface HistoryRange {
@@ -49,15 +49,15 @@ interface FailureRow {
   at: number;
   outcome: SyncRunOutcome;
 }
-type ReadingRow = [
-  connection: string,
-  key: string,
-  scope: string,
-  observedAt: number,
-  value: number,
-  start: number | null,
-  end: number | null,
-];
+interface ReadingRow {
+  connection: string;
+  key: string;
+  scope: string;
+  at: number;
+  value: number;
+  start: number | null;
+  end: number | null;
+}
 interface WindowReading {
   start: number | null;
   end: number;
@@ -99,15 +99,18 @@ function dedupeWindows(readings: Iterable<WindowReading>): HistorySeriesResult["
 }
 
 /**
- * Cheap change marker for the history of these accounts: the newest snapshot, sync run and event
- * time. Each is a correlated MAX on an index, so it stays fast however much history is stored.
+ * Cheap change marker for the history of these accounts: the newest snapshot, sync run start and
+ * finish, run count and event time, so a run that later finishes as a failure changes the marker.
+ * Each is a correlated aggregate on an index, so it stays fast however much history is stored.
  */
 export function historyMarker(db: Db, connectionIds: readonly string[]): string {
   if (connectionIds.length === 0) return "";
-  const row = db.values<[number | null, number | null, number | null]>(sql`
+  const row = db.values<(number | null)[]>(sql`
     SELECT
       MAX((SELECT MAX(observed_at) FROM snapshots WHERE connection_id = c.id)),
       MAX((SELECT MAX(started_at) FROM sync_runs WHERE connection_id = c.id)),
+      MAX((SELECT MAX(finished_at) FROM sync_runs WHERE connection_id = c.id)),
+      SUM((SELECT COUNT(*) FROM sync_runs WHERE connection_id = c.id)),
       MAX((SELECT MAX(occurred_at) FROM account_events WHERE connection_id = c.id))
     FROM connections c WHERE c.id IN (${idList(connectionIds)})`)[0];
   return (row ?? []).join(":");
@@ -119,15 +122,20 @@ export function readHistory(db: Db, range: HistoryRange): HistoryConnectionResul
   const ids = idList(connectionIds);
   const shift = (range.tzOffsetMinutes ?? 0) * 60_000;
 
-  // One ungrouped scan; the folding below is cheaper than two grouped queries.
-  const rows = db.values<ReadingRow>(sql`
-    SELECT s.connection_id, m.provider_metric_key, m.scope, s.observed_at, m.value_num,
-      m.window_start, COALESCE(m.window_end, m.resets_at)
-    FROM snapshots s JOIN metrics m ON m.snapshot_id = s.id
-    WHERE s.connection_id IN (${ids}) AND s.observed_at BETWEEN ${from} AND ${to}
-      AND m.kind = 'quota_percentage' AND m.availability = 'available' AND m.value_num IS NOT NULL`);
+  // One streamed scan: rows are folded as the statement yields them, so memory holds one row per bucket
+  // and window, not one per reading. Parameters are bound (never interpolated).
+  const rows = db.$client
+    .query<ReadingRow, (string | number)[]>(
+      `SELECT s.connection_id AS connection, m.provider_metric_key AS key, m.scope AS scope,
+        s.observed_at AS at, m.value_num AS value, m.window_start AS start,
+        COALESCE(m.window_end, m.resets_at) AS end
+      FROM snapshots s JOIN metrics m ON m.snapshot_id = s.id
+      WHERE s.connection_id IN (${connectionIds.map(() => "?").join(", ")}) AND s.observed_at BETWEEN ? AND ?
+        AND m.kind = 'quota_percentage' AND m.availability = 'available' AND m.value_num IS NOT NULL`,
+    )
+    .iterate(...connectionIds, from, to);
   const byConnection = new Map<string, Map<string, SeriesAcc>>();
-  for (const [connection, key, scope, at, value, start, end] of rows) {
+  for (const { connection, key, scope, at, value, start, end } of rows) {
     let all = byConnection.get(connection);
     if (!all) byConnection.set(connection, (all = new Map()));
     const mapKey = `${key}\u0000${scope}`;

@@ -65,7 +65,7 @@ function setup() {
   };
   const query = (ids: string[], from = t0 - 10 * hour, to = t0 + 10 * hour) =>
     readHistory(db, { from, to, bucketMs, connectionIds: ids });
-  return { db, connect, read, fail, query, events: new AccountEventStore(db, clock) };
+  return { db, connect, read, fail, query, snapshots, events: new AccountEventStore(db, clock) };
 }
 
 describe("readHistory", () => {
@@ -210,5 +210,14 @@ describe("readHistory", () => {
     const after = historyMarker(h.db, [a.id]);
     expect(after).not.toBe(before);
     expect(historyMarker(h.db, [])).toBe("");
+  });
+
+  test("marks a change when a run in flight finishes as failed", () => {
+    const h = setup();
+    const a = h.connect("a");
+    const run = h.snapshots.startRun(a.id);
+    const before = historyMarker(h.db, [a.id]);
+    h.snapshots.finishRun(run.id, "provider_unavailable");
+    expect(historyMarker(h.db, [a.id])).not.toBe(before);
   });
 });

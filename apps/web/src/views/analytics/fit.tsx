@@ -1083,7 +1083,7 @@ function ActionsView(props: {
       {section(
         "Unblock work",
         `${plan.freed} h in 30 days`,
-        "Hours a limit was locked while you usually work.",
+        "Hours a limit was locked while you usually work (weekdays 08:00-20:00 until there are two weeks of history).",
         unblock,
       )}
       {section(

@@ -6,7 +6,8 @@ import { drizzle, type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { migrationFiles } from "./migrations/index.ts";
 import * as schema from "./schema.ts";
 
-export type Db = BunSQLiteDatabase<typeof schema>;
+/** The drizzle handle, with its SQLite client for streamed reads that must not materialize every row. */
+export type Db = BunSQLiteDatabase<typeof schema> & { readonly $client: Database };
 export { schema };
 
 export interface OpenDatabaseOptions {

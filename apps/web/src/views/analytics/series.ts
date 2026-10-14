@@ -66,7 +66,24 @@ export interface Series {
   readonly runouts: readonly Runout[];
   /** For each hour of the week (Monday 00:00 is 0), whether the owner usually works then. */
   readonly working: readonly boolean[];
+  /** False when there is too little data for a pattern; `working` then holds the default 08:00-20:00 on weekdays. */
+  readonly hasPattern: boolean;
 }
+
+const minPatternDays = 14;
+
+/** Start of the local hour holding `at`; moves the grid in half-hour and 45-minute zones. */
+function localHour(at: number): number {
+  const shift = -new Date(at).getTimezoneOffset() * 60_000;
+  return Math.floor((at + shift) / hour) * hour - shift;
+}
+
+/** The documented default when no pattern shows: weekdays 08:00 to 20:00. */
+const defaultWorking: readonly boolean[] = Array.from({ length: 168 }, (_, index) => {
+  const weekday = Math.floor(index / 24) < 5;
+  const clock = index % 24;
+  return weekday && clock >= 8 && clock < 20;
+});
 
 /** Monday 00:00 is 0, Sunday 23:00 is 167, in local time. */
 export function hourOfWeek(at: number): number {
@@ -190,7 +207,7 @@ function lockedOf(curves: readonly Curve[], from: number): boolean[] {
 
 /** Build the hourly series for the last 30 days from the Analytics model. */
 export function buildSeries(analytics: Analytics, now: number): Series {
-  const from = Math.floor((now - 30 * day) / hour) * hour;
+  const from = localHour(now - 30 * day);
   const labels = labelsOf(analytics.accounts);
   const accounts: AccountSeries[] = analytics.accounts.map((story) => {
     const curves = curvesOf(story, now);
@@ -225,18 +242,23 @@ export function buildSeries(analytics: Analytics, now: number): Series {
     )
     .toSorted((a, b) => a.at - b.at);
 
-  // Usual working hours: hours of the week when, on average, about a third of the accounts are active.
-  const sums = Array.from({ length: 168 }, () => 0);
-  const counts = Array.from({ length: 168 }, () => 0);
-  for (let slot = 0; slot < slotCount; slot += 1) {
-    const index = hourOfWeek(from + slot * hour);
-    sums[index] = (sums[index] ?? 0) + (active[slot] ?? 0);
-    counts[index] = (counts[index] ?? 0) + 1;
-  }
+  // Usual working hours: an hour of the week is working when, in at least half of the weeks that have data
+  // for it, about a third of the accounts were active. Slots with no data for any account do not count.
+  const observed = Array.from({ length: 168 }, () => 0);
+  const busy = Array.from({ length: 168 }, () => 0);
   const threshold = Math.max(1, Math.round(accounts.length * 0.35));
-  const usual = sums.map((sum, index) => sum / Math.max(1, counts[index] ?? 1) >= threshold);
-  // With no clear pattern every hour counts as working, so a lock in any hour still counts as blocked work.
-  const working = usual.some(Boolean) ? usual : usual.map(() => true);
+  let observedSlots = 0;
+  for (let slot = 0; slot < slotCount; slot += 1) {
+    if (!accounts.some((account) => (account.hourly[slot] ?? null) !== null)) continue;
+    observedSlots += 1;
+    const index = hourOfWeek(from + slot * hour);
+    observed[index] = (observed[index] ?? 0) + 1;
+    if ((active[slot] ?? 0) >= threshold) busy[index] = (busy[index] ?? 0) + 1;
+  }
+  const usual = observed.map((seen, index) => seen > 0 && (busy[index] ?? 0) / seen >= 0.5);
+  // Under two weeks of data, or with no qualifying hour, there is no pattern to trust.
+  const hasPattern = observedSlots >= minPatternDays * 24 && usual.some(Boolean);
+  const working = hasPattern ? usual : defaultWorking;
 
-  return { from, now, accounts, active, locked, runouts, working };
+  return { from, now, accounts, active, locked, runouts, working, hasPattern };
 }
