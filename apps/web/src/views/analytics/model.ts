@@ -135,27 +135,32 @@ function monthBefore(end: number): number {
   );
 }
 
+/** Whether the readings fall at `at`: the last one in the two hours before it is clearly above the first after. */
+function dropsAt(points: HistorySeries["points"], at: number): boolean {
+  const before = points.findLast(([time]) => time < at && time >= at - 2 * hour)?.[1];
+  const after = points.find(([time]) => time >= at && time < at + 2 * hour)?.[1];
+  return before !== undefined && after !== undefined && before - after >= 5;
+}
+
 /**
  * Start of a past window that has no stored start: a month or a length before its end. The end of the
- * window before it is used only for a cycle, and only when it agrees with that estimate to within a day;
- * a weekly window can start at an early reset or after a gap, so the previous end says nothing there.
+ * window before it decides only when it falls inside that estimate:
+ * - a cycle starts there when it agrees with the estimate to within a day;
+ * - a weekly window starts there only when the readings drop there (the provider moved its reset day).
+ *   Without a drop the previous window was cut short by an early reset, and this one began a full
+ *   length before its end.
  */
 function inferredStart(
   end: number,
   previousEnd: number | undefined,
   monthly: boolean,
   length: number,
+  points: HistorySeries["points"],
 ): number {
   const candidate = monthly ? monthBefore(end) : end - length;
-  if (
-    monthly &&
-    previousEnd !== undefined &&
-    previousEnd < end &&
-    Math.abs(previousEnd - candidate) <= day
-  ) {
-    return previousEnd;
-  }
-  return candidate;
+  if (previousEnd === undefined || previousEnd >= end) return candidate;
+  if (monthly) return Math.abs(previousEnd - candidate) <= day ? previousEnd : candidate;
+  return previousEnd > candidate && dropsAt(points, previousEnd) ? previousEnd : candidate;
 }
 
 /**
@@ -174,7 +179,13 @@ function pastWindows(
     .map((entryWindow, index) => ({
       start:
         entryWindow.start ??
-        inferredStart(entryWindow.end, ordered[index - 1]?.end, window.kind === "cycle", length),
+        inferredStart(
+          entryWindow.end,
+          ordered[index - 1]?.end,
+          window.kind === "cycle",
+          length,
+          series.points,
+        ),
       end: entryWindow.end,
     }))
     .filter((entryWindow) => entryWindow.start < window.start - minute)

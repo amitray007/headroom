@@ -99,21 +99,20 @@ function dedupeWindows(readings: Iterable<WindowReading>): HistorySeriesResult["
 }
 
 /**
- * Cheap change marker for the history of these accounts: the newest snapshot, sync run start and
- * finish, run count and event time, so a run that later finishes as a failure changes the marker.
- * Each is a correlated aggregate on an index, so it stays fast however much history is stored.
+ * Cheap change marker for the history of these accounts: the newest snapshot, the newest run with its
+ * finish and outcome (so a run that later finishes as a failure changes it), and the newest event. Each is
+ * one lookup on an index that starts with the connection, so it stays fast however much history is stored.
  */
 export function historyMarker(db: Db, connectionIds: readonly string[]): string {
   if (connectionIds.length === 0) return "";
-  const row = db.values<(number | null)[]>(sql`
+  const rows = db.values<(number | string | null)[]>(sql`
     SELECT
-      MAX((SELECT MAX(observed_at) FROM snapshots WHERE connection_id = c.id)),
-      MAX((SELECT MAX(started_at) FROM sync_runs WHERE connection_id = c.id)),
-      MAX((SELECT MAX(finished_at) FROM sync_runs WHERE connection_id = c.id)),
-      SUM((SELECT COUNT(*) FROM sync_runs WHERE connection_id = c.id)),
-      MAX((SELECT MAX(occurred_at) FROM account_events WHERE connection_id = c.id))
-    FROM connections c WHERE c.id IN (${idList(connectionIds)})`)[0];
-  return (row ?? []).join(":");
+      (SELECT MAX(observed_at) FROM snapshots WHERE connection_id = c.id),
+      (SELECT started_at || '/' || COALESCE(finished_at, '') || '/' || COALESCE(outcome, '')
+        FROM sync_runs WHERE connection_id = c.id ORDER BY started_at DESC LIMIT 1),
+      (SELECT MAX(occurred_at) FROM account_events WHERE connection_id = c.id)
+    FROM connections c WHERE c.id IN (${idList(connectionIds)}) ORDER BY c.id`);
+  return rows.map((row) => row.join(":")).join(";");
 }
 
 export function readHistory(db: Db, range: HistoryRange): HistoryConnectionResult[] {

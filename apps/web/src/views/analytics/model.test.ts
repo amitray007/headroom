@@ -207,6 +207,29 @@ describe("weekly windows with no stored start", () => {
     );
     expect(last?.start).toBe(E4 - 7 * day);
   });
+
+  test("a reset day that moves keeps each window's own readings", () => {
+    const E1 = T;
+    const E2 = E1 + 4 * day; // the provider moved its weekly reset three days earlier
+    const E3 = E2 + 7 * day;
+    const now = E3 - 2 * day;
+    const { account, history } = setup({
+      scope: "window:604800s",
+      key: "weekly",
+      used: 30,
+      resetsAt: E3,
+      points: [...rise(E1 - 7 * day, E1, 0, 90), ...rise(E1, E2, 0, 40), ...rise(E2, now, 0, 30)],
+      windows: [E1, E2, E3].map((end) => ({ start: null, end })),
+    });
+    const limit = buildAnalytics([account], history, now, 90, new Map()).accounts[0]?.primary;
+    const windows = [...(limit?.past ?? []), ...(limit?.fragments ?? [])];
+    const first = windows.find((item) => item.start === E1 - 7 * day);
+    const second = windows.find((item) => item.start === E1);
+    expect(first?.ended).toBe("on_schedule");
+    expect(first?.peak).toBeGreaterThan(85);
+    expect(second?.end).toBe(E2);
+    expect(second?.peak).toBeLessThan(45);
+  });
 });
 
 /** Weekday 09:00-17:00 local use, one point per local hour, for `days` days before `now`. */
