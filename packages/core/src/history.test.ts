@@ -4,7 +4,7 @@ import { AccountEventStore } from "./account-events.ts";
 import type { CollectResult } from "./connector.ts";
 import { openDatabase } from "./db/index.ts";
 import type { SyncRunOutcome } from "./enums.ts";
-import { readHistory } from "./history.ts";
+import { historyMarker, readHistory } from "./history.ts";
 import { ConnectionStore } from "./lifecycle.ts";
 import { SnapshotStore } from "./snapshots.ts";
 
@@ -167,5 +167,48 @@ describe("readHistory", () => {
       },
     ]);
     expect(h.query([])).toEqual([]);
+  });
+
+  test("buckets on local hours for a time zone offset", () => {
+    const h = setup();
+    const a = h.connect("a");
+    h.read(a.id, t0 + 40 * minute, { value: "30" }); // UTC xx:40 is local xx+1:10 at +5:30
+    const [result] = readHistory(h.db, {
+      from: t0 - 10 * hour,
+      to: t0 + 10 * hour,
+      bucketMs,
+      tzOffsetMinutes: 330,
+      connectionIds: [a.id],
+    });
+    expect(result?.series[0]?.points).toEqual([[t0 + 30 * minute, 30]]);
+  });
+
+  test("a slowly drifting end cannot chain windows together", () => {
+    const h = setup();
+    const a = h.connect("a");
+    for (let i = 0; i < 6; i++)
+      h.read(a.id, t0 + i * minute, { resetsAt: t0 + 20 * hour + i * 4 * minute });
+    const windows = h.query([a.id])[0]?.series[0]?.windows ?? [];
+    expect(windows.length).toBeGreaterThan(1);
+  });
+
+  test("jittered ends within one window collapse to the latest reading's", () => {
+    const h = setup();
+    const a = h.connect("a");
+    for (let i = 0; i < 50; i++)
+      h.read(a.id, t0 + i * minute, { resetsAt: t0 + 20 * hour + i * 1_000 });
+    expect(h.query([a.id])[0]?.series[0]?.windows).toEqual([
+      { start: null, end: t0 + 20 * hour + 49_000 },
+    ]);
+  });
+
+  test("marks a change when a snapshot, run or event is added", () => {
+    const h = setup();
+    const a = h.connect("a");
+    const before = historyMarker(h.db, [a.id]);
+    h.read(a.id, t0 + hour);
+    const after = historyMarker(h.db, [a.id]);
+    expect(after).not.toBe(before);
+    expect(historyMarker(h.db, [])).toBe("");
   });
 });

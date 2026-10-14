@@ -82,7 +82,7 @@ export {
 export { CollectionService, type CollectionOutcome } from "./services/collect.ts";
 export { ActionStore, type AccountActionRow } from "./actions.ts";
 export { AccountEventStore } from "./account-events.ts";
-export { readHistory, type HistoryRange } from "./history.ts";
+export { historyMarker, readHistory, type HistoryRange } from "./history.ts";
 export { AutomationStore } from "./automation.ts";
 export {
   detectAccountEvents,
