@@ -74,10 +74,14 @@ export interface AccountStory {
   /** "Max", "Pro", or null when the provider reports none. */
   readonly plan: string | null;
   readonly inactive: boolean;
+  /** The overview marks the latest reading out of date. */
+  readonly stale: boolean;
   /** The account's main limit: the first weekly or monthly limit in panel order, else its first limit. */
   readonly primary: LimitStory;
   /** What the owner pays a month in US dollars, from the Wallet. Null when not set or not convertible. */
   readonly monthlyCost: number | null;
+  /** Why `monthlyCost` is null, in a few words: "Price not set", "Price in EUR, no rate". */
+  readonly priceNote: string;
 }
 
 export interface Analytics {
@@ -114,6 +118,34 @@ function withGaps(readings: readonly Reading[]): Reading[] {
 const mean = (values: readonly number[]): number | null =>
   values.length === 0 ? null : round1(values.reduce((sum, v) => sum + v, 0) / values.length);
 
+/** The same clock time one calendar month before `end`, clamped to the shorter month, in UTC. */
+function monthBefore(end: number): number {
+  const at = new Date(end);
+  const year = at.getUTCFullYear();
+  const month = at.getUTCMonth();
+  const daysBefore = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return Date.UTC(
+    year,
+    month - 1,
+    Math.min(at.getUTCDate(), daysBefore),
+    at.getUTCHours(),
+    at.getUTCMinutes(),
+    at.getUTCSeconds(),
+    at.getUTCMilliseconds(),
+  );
+}
+
+/** Start of a past window that has no stored start: the window before it ended, else a month or a length back. */
+function inferredStart(
+  end: number,
+  previousEnd: number | undefined,
+  monthly: boolean,
+  length: number,
+): number {
+  if (previousEnd !== undefined && previousEnd < end) return previousEnd;
+  return monthly ? monthBefore(end) : end - length;
+}
+
 /**
  * The closed windows of one limit. A window ends at its reset, at the start of the window after it, at an
  * early-reset event, or where the readings drop from 100 %; the last three are early resets.
@@ -125,9 +157,12 @@ function pastWindows(
 ): { complete: PastWindow[]; fragments: PastWindow[] } {
   const length = window.end - window.start;
   const firstReading = series.points[0]?.[0] ?? Number.POSITIVE_INFINITY;
-  const earlier = series.windows
-    .map((entryWindow) => ({
-      start: entryWindow.start ?? entryWindow.end - length,
+  const ordered = series.windows.toSorted((a, b) => a.end - b.end);
+  const earlier = ordered
+    .map((entryWindow, index) => ({
+      start:
+        entryWindow.start ??
+        inferredStart(entryWindow.end, ordered[index - 1]?.end, window.kind === "cycle", length),
       end: entryWindow.end,
     }))
     .filter((entryWindow) => entryWindow.start < window.start - minute)
@@ -153,6 +188,7 @@ function pastWindows(
     const hitIndex = inside.findIndex(([, used]) => used >= 100);
     if (hitIndex >= 0) {
       // A drop from 100 % before the reset is an early reset, whether or not an event says so.
+      // `inside` holds only points from this window's start up to, not including, its end.
       const drop = inside.findIndex(([, used], i) => i > hitIndex && used < 100);
       if (drop >= 0) {
         end = inside[drop]?.[0] ?? end;
@@ -196,22 +232,26 @@ function story(
   const series = entry?.series.find((item) => item.providerMetricKey === window.key);
 
   // The current window: stored points inside it, then the live value at now.
+  // A window whose reset has passed (a stale or disconnected account) stops at its end: nothing after it counts.
+  const stop = Math.min(now, end);
   const stored = (series?.points ?? [])
-    .filter(([at]) => at >= start && at < now)
+    .filter(([at]) => at >= start && at < stop)
     .map(([at, value]): Reading => ({ at, used: value }));
-  const readings = withGaps([...stored, { at: now, used }]);
+  const readings = withGaps([...stored, { at: stop, used }]);
 
   const elapsedShare = Math.min(1, Math.max(0, (now - start) / length));
   // Too early in a window, a projection only amplifies noise; wait for a tenth of it to pass.
   const pace = elapsedShare >= 0.1 ? used / 100 / elapsedShare : null;
   const projectedAtReset = elapsedShare >= 0.1 ? round1(used / elapsedShare) : null;
-  const reachedAt = readings.find((reading) => (reading.used ?? 0) >= 100)?.at ?? now;
+  const reachedAt = readings.find((reading) => (reading.used ?? 0) >= 100)?.at ?? stop;
   const runsOutAt =
-    used >= 100
-      ? reachedAt
-      : projectedAtReset !== null && projectedAtReset > 100
-        ? start + (100 / used) * (now - start)
-        : null;
+    end <= now
+      ? null
+      : used >= 100
+        ? reachedAt
+        : projectedAtReset !== null && projectedAtReset > 100
+          ? start + (100 / used) * (now - start)
+          : null;
 
   // Session limits reset every few hours; no card reads their history.
   const closed =
@@ -266,6 +306,7 @@ export function buildAnalytics(
   now: number,
   rangeDays: RangeDays,
   monthlyCosts: ReadonlyMap<string, number | null>,
+  priceNotes: ReadonlyMap<string, string> = new Map(),
 ): Analytics {
   const accounts: AccountStory[] = [];
   const known: HistoryConnection[] = [];
@@ -282,8 +323,10 @@ export function buildAnalytics(
       name: accountName(connection),
       plan: planLabel(connection.plan),
       inactive: isInactive(connection),
+      stale: connection.stale,
       primary,
       monthlyCost: monthlyCosts.get(connection.id) ?? null,
+      priceNote: priceNotes.get(connection.id) ?? "Price not set",
     });
   }
   const firsts = known

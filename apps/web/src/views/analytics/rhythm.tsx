@@ -1291,7 +1291,9 @@ function RangeView(props: { readonly series: Series }) {
       return;
     }
     const d = dayAt(event);
-    setRange([Math.min(anchor.current, d), Math.max(anchor.current, d)]);
+    const low = Math.min(anchor.current, d);
+    const high = Math.max(anchor.current, d);
+    setRange((previous) => (previous[0] === low && previous[1] === high ? previous : [low, high]));
   };
   const onUp = (): void => {
     anchor.current = null;

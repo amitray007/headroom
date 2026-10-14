@@ -33,7 +33,9 @@ describe("demoHistory", () => {
           if (series === undefined) continue;
           const last = series.points.at(-1);
           if (last === undefined || last[0] < window.start) continue;
-          expect(last[0]).toBe(Math.floor(anchor / hour) * hour);
+          // Buckets start at local hours, so the last one is within an hour before the anchor.
+          expect(last[0]).toBeLessThanOrEqual(anchor);
+          expect(last[0]).toBeGreaterThan(anchor - hour);
           expect(last[1]).toBe(window.used);
           checked += 1;
         }
@@ -48,7 +50,8 @@ describe("demoHistory", () => {
     for (const connection of history.connections) {
       for (const series of connection.series) {
         series.points.forEach(([at, used], index) => {
-          expect(at % hour).toBe(0);
+          // Buckets start on local hours, which in a half-hour zone such as IST is not a UTC hour.
+          expect((at - new Date(at).getTimezoneOffset() * 60_000) % hour).toBe(0);
           expect(used).toBeGreaterThanOrEqual(0);
           expect(used).toBeLessThanOrEqual(100);
           if (index > 0) expect(at).toBeGreaterThan(series.points[index - 1]?.[0] ?? 0);

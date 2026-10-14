@@ -143,8 +143,8 @@ function curvesOf(story: AccountStory, now: number): Curve[] {
     start: limit.start,
     end: limit.end,
     peak: limit.used,
-    hitAt: locked ? (hitAt ?? now) : null,
-    lockEnd: locked ? now : null,
+    hitAt: locked ? (hitAt ?? Math.min(now, limit.end)) : null,
+    lockEnd: locked ? Math.min(now, limit.end) : null,
     early: false,
     current: true,
     readings: limit.readings,
@@ -233,8 +233,10 @@ export function buildSeries(analytics: Analytics, now: number): Series {
     sums[index] = (sums[index] ?? 0) + (active[slot] ?? 0);
     counts[index] = (counts[index] ?? 0) + 1;
   }
-  const threshold = Math.max(2, Math.round(accounts.length * 0.35));
-  const working = sums.map((sum, index) => sum / Math.max(1, counts[index] ?? 1) >= threshold);
+  const threshold = Math.max(1, Math.round(accounts.length * 0.35));
+  const usual = sums.map((sum, index) => sum / Math.max(1, counts[index] ?? 1) >= threshold);
+  // With no clear pattern every hour counts as working, so a lock in any hour still counts as blocked work.
+  const working = usual.some(Boolean) ? usual : usual.map(() => true);
 
   return { from, now, accounts, active, locked, runouts, working };
 }

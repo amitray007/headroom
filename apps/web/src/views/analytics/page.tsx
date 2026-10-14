@@ -68,18 +68,23 @@ const PlanFit = memo(PlanFitCard);
 
 type Connections = NonNullable<ViewProps["overview"]["connections"]>;
 
-/** Monthly cost in US dollars from the Wallet: 0 for a free or included plan, null when not set or no exchange rate. */
+/**
+ * Monthly cost in US dollars from the Wallet: 0 for a free or included plan. Null is unknown, with the reason in
+ * `note`: no cost entry, the Wallet did not load, or the price is in a currency with no exchange rate.
+ */
 function monthlyUsd(
   cost: Parameters<typeof monthlyOf>[0],
   perUsd: Readonly<Partial<Record<string, number>>> | null,
-): number | null {
-  // No cost entry is unknown. A free plan, or one included in another subscription, is a known $0: monthlyOf
-  // returns zero for it.
-  if (cost === null) return null;
+  walletFailed: boolean,
+): { readonly usd: number | null; readonly note: string } {
+  if (walletFailed) return { usd: null, note: "Price unavailable" };
+  // A free plan, or one included in another subscription, is a known $0: monthlyOf returns zero for it.
   const monthly = monthlyOf(cost);
-  if (monthly === null) return null;
+  if (monthly === null) return { usd: null, note: "Price not set" };
   const usd = convert(monthly, "USD", perUsd ?? {});
-  return usd === null ? null : usd.minor / 100;
+  return usd === null
+    ? { usd: null, note: `Price in ${monthly.currency}, no rate` }
+    : { usd: usd.minor / 100, note: "" };
 }
 
 const wholeDays = (days: number): string => {
@@ -106,6 +111,9 @@ function historyNote(coverageDays: number | null, retentionDays: number): string
   }
   return parts.join(" ");
 }
+
+const clock = (at: number): string =>
+  new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 const emptyCards = ["Rhythm", "Right Now", "Plan Fit"] as const;
 
@@ -138,21 +146,22 @@ function AnalyticsBoard(props: { readonly connections: Connections }) {
   );
   // The cards read history, not the live second: rebuild every five minutes, not on each 30 second tick.
   const now = Math.floor(useNow() / rebuildEvery) * rebuildEvery;
-  const costs = useMemo(
+  const priced = useMemo(
     () =>
-      new Map(
-        connections.map((connection) => [
-          connection.id,
-          monthlyUsd(wallet.book.costs[connection.id] ?? null, rates.perUsd),
-        ]),
-      ),
-    [connections, wallet.book.costs, rates.perUsd],
+      connections.map((connection) => ({
+        id: connection.id,
+        ...monthlyUsd(wallet.book.costs[connection.id] ?? null, rates.perUsd, wallet.loadFailed),
+      })),
+    [connections, wallet.book.costs, wallet.loadFailed, rates.perUsd],
   );
+  const costs = useMemo(() => new Map(priced.map((item) => [item.id, item.usd])), [priced]);
+  const priceNotes = useMemo(() => new Map(priced.map((item) => [item.id, item.note])), [priced]);
   const history = state.kind === "ready" ? state.history : null;
   // History reaches back 90 days; the rhythm and the actions read the last 30 of them.
   const analytics = useMemo(
-    () => (history === null ? null : buildAnalytics(connections, history, now, 90, costs)),
-    [connections, history, now, costs],
+    () =>
+      history === null ? null : buildAnalytics(connections, history, now, 90, costs, priceNotes),
+    [connections, history, now, costs, priceNotes],
   );
   const series = useMemo(
     () => (analytics === null ? null : buildSeries(analytics, now)),
@@ -171,15 +180,25 @@ function AnalyticsBoard(props: { readonly connections: Connections }) {
       </ErrorNotice>
     );
   }
-  if (analytics === null || series === null) return <AnalyticsSkeleton />;
-  const note = historyNote(analytics.history.coverageDays, analytics.history.retentionDays);
-  if (analytics.history.empty) {
+  if (analytics === null || series === null || !wallet.loaded) return <AnalyticsSkeleton />;
+  const note = [
+    historyNote(analytics.history.coverageDays, analytics.history.retentionDays),
+    state.kind === "ready" && state.refreshFailedAfter !== null
+      ? `Showing history from ${clock(state.refreshFailedAfter)}. Refresh failed.`
+      : null,
+    wallet.loadFailed ? "Prices did not load, so costs and savings are unknown." : null,
+  ]
+    .filter((line): line is string => line !== null)
+    .join(" ");
+  if (analytics.history.empty || analytics.accounts.length === 0) {
     return (
       <>
         {emptyCards.map((title) => (
           <section className="an2-card" aria-label={title} key={title}>
             <p className="an-empty">
-              No history yet. Headroom reads your limits every few minutes; check back in a day.
+              {analytics.history.empty
+                ? "No history yet. Headroom reads your limits every few minutes; check back in a day."
+                : "No limits to chart yet. Analytics charts usage limits. Your accounts report money only."}
             </p>
           </section>
         ))}
@@ -188,7 +207,7 @@ function AnalyticsBoard(props: { readonly connections: Connections }) {
   }
   return (
     <>
-      {note === null ? null : <p className="an-note">{note}</p>}
+      {note === "" ? null : <p className="an-note">{note}</p>}
       <Rhythm series={series} />
       <RightNow series={series} />
       <PlanFit series={series} />

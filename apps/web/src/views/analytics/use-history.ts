@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { History } from "@headroom/view-model/history";
 
@@ -10,7 +10,12 @@ const pollEveryMs = 5 * 60_000;
 export type HistoryState =
   | { readonly kind: "loading" }
   | { readonly kind: "failed" }
-  | { readonly kind: "ready"; readonly history: History };
+  | {
+      readonly kind: "ready";
+      readonly history: History;
+      /** When the shown history was fetched, if the latest refresh failed; else null. */
+      readonly refreshFailedAfter: number | null;
+    };
 
 /** Demo Mode's made-up history: built once for `key`, never fetched. */
 export interface DemoHistory {
@@ -34,31 +39,54 @@ export function useHistory(
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- the made-up history follows the seed and anchor in `demoKey`, not the identity of `make`
     [demoKey],
   );
-  const [real, setReal] = useState<{ history: History | null; failed: boolean }>({
-    history: null,
-    failed: false,
-  });
+  const [real, setReal] = useState<{
+    history: History | null;
+    fetchedAt: number;
+    failed: boolean;
+  }>({ history: null, fetchedAt: 0, failed: false });
   const live = demoHistory === null;
+  // Only the newest request may write: an older response that lands late is dropped.
+  const sequence = useRef(0);
+  const lastTry = useRef(0);
   const load = useCallback(async (): Promise<void> => {
+    sequence.current += 1;
+    const mine = sequence.current;
+    lastTry.current = Date.now();
     try {
       const history = await api.history(90);
-      setReal({ history, failed: false });
+      if (mine === sequence.current) setReal({ history, fetchedAt: Date.now(), failed: false });
     } catch {
-      setReal((previous) => ({ ...previous, failed: true }));
+      if (mine === sequence.current) setReal((previous) => ({ ...previous, failed: true }));
     }
   }, []);
   useEffect(() => {
     if (!live) return;
     void load();
-    const timer = setInterval(() => void load(), pollEveryMs);
-    return () => clearInterval(timer);
+    // A hidden tab does not poll; showing it again refetches when the last try is older than the poll interval.
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, pollEveryMs);
+    const onVisible = (): void => {
+      if (document.visibilityState === "visible" && Date.now() - lastTry.current > pollEveryMs) {
+        void load();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
     // A different set of connections is a different history.
   }, [live, idsKey, load]);
   const state: HistoryState =
     demoHistory !== null
-      ? { kind: "ready", history: demoHistory }
+      ? { kind: "ready", history: demoHistory, refreshFailedAfter: null }
       : real.history !== null
-        ? { kind: "ready", history: real.history }
+        ? {
+            kind: "ready",
+            history: real.history,
+            refreshFailedAfter: real.failed ? real.fetchedAt : null,
+          }
         : real.failed
           ? { kind: "failed" }
           : { kind: "loading" };

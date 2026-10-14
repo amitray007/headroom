@@ -69,10 +69,12 @@ interface Forecast {
   readonly note: string | null;
 }
 
-function forecastOf(account: AccountSeries): Forecast {
+function forecastOf(account: AccountSeries, now: number): Forecast {
   const limit = account.story.primary;
+  // No current reading: the account needs a sign-in, its reading is out of date, or its window already reset.
   const inactive = account.story.inactive;
-  const projected = inactive ? null : limit.projectedAtReset;
+  const noReading = inactive || account.story.stale || limit.end <= now;
+  const projected = noReading ? null : limit.projectedAtReset;
   return {
     account,
     used: limit.used,
@@ -80,9 +82,15 @@ function forecastOf(account: AccountSeries): Forecast {
     end: limit.end,
     elapsed: limit.elapsedShare,
     projected,
-    runsOut: inactive ? null : limit.runsOutAt,
-    pace: inactive ? null : limit.pace,
-    note: inactive ? "Reconnect to forecast" : projected === null ? "Too early to forecast" : null,
+    runsOut: noReading ? null : limit.runsOutAt,
+    pace: noReading ? null : limit.pace,
+    note: inactive
+      ? "Reconnect to forecast"
+      : noReading
+        ? "No current reading"
+        : projected === null
+          ? "Too early to forecast"
+          : null,
   };
 }
 
@@ -1092,7 +1100,7 @@ export function RightNowCard(props: { readonly series: Series }) {
   const { series } = props;
   const [view, setView] = useStoredView("now", ["forecast", "table"] as const, "forecast");
   const [picked, setPicked] = useState<string | null>(null);
-  const all = series.accounts.map(forecastOf);
+  const all = series.accounts.map((account) => forecastOf(account, series.now));
   const ordered = [...all.filter(ready).toSorted(attention), ...all.filter((f) => !ready(f))];
   const selected = ordered.find((f) => f.account.id === picked && ready(f)) ?? ordered.find(ready);
   const headline = useHeadline(headlineOf(all, series.now));

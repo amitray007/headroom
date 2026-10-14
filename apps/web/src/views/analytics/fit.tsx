@@ -332,7 +332,9 @@ function HistoryPanel(props: {
         <BrandMark provider={history.account.story.provider} size={24} />
         <div className="fit-id">
           <FullName className="fit-id-name" name={history.account.label} />
-          <span>{cost === null ? "Price not set" : `${dollars(cost)} a month`}</span>
+          <span>
+            {cost === null ? history.account.story.priceNote : `${dollars(cost)} a month`}
+          </span>
         </div>
         <Verdict verdict={history.verdict} />
       </div>
@@ -537,7 +539,7 @@ function summaryLine(history: History): { readonly big: string; readonly cap: st
   }
   const unused =
     history.unused === null
-      ? "price not set"
+      ? history.account.story.priceNote.toLowerCase()
       : `~${money(history.unused)} of ${dollars(history.account.story.monthlyCost ?? 0)} a month unused (est.)`;
   return {
     big:
@@ -927,6 +929,12 @@ function Lines(props: { readonly action: Action }) {
   );
 }
 
+/** Why an action's money is unknown: the account's own price note, or its price when the other account's is missing. */
+function unknownReason(action: Action): string {
+  const story = action.account.story;
+  return story.monthlyCost === null ? story.priceNote.toLowerCase() : "price not set";
+}
+
 function Impact(props: { readonly action: Action }) {
   const { action } = props;
   if (action.blocked > 0) {
@@ -940,7 +948,7 @@ function Impact(props: { readonly action: Action }) {
   if (action.money === null) {
     return (
       <span className="fit-imp unknown">
-        Unknown<small>price not set</small>
+        Unknown<small>{unknownReason(action)}</small>
       </span>
     );
   }

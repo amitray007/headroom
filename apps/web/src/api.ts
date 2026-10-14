@@ -358,7 +358,11 @@ export const api = {
   overview: () => request("GET", "/api/overview", overviewSchema),
   /** Stored usage history for Analytics; the server keeps at most `retentionDays` of it. */
   history: (days: 7 | 30 | 90): Promise<History> =>
-    request("GET", `/api/history?days=${days}`, historySchema),
+    request(
+      "GET",
+      `/api/history?days=${days}&tz=${-new Date().getTimezoneOffset()}`,
+      historySchema,
+    ),
   // Demo accounts have no server order; the page keeps the new order itself.
   saveOrder: (order: OrderBody) =>
     demoOn() ? Promise.resolve(order) : request("PUT", "/api/order", orderSchema, order),

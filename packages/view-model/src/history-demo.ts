@@ -45,7 +45,16 @@ function hash(text: string): number {
 }
 
 const round1 = (value: number): number => Math.round(value * 10) / 10;
-const hourOf = (at: number): number => Math.floor(at / hour) * hour;
+// Buckets start at local hours, as the server's do when the page sends its offset. Only the part of the offset
+// below a whole hour matters: it moves the grid in half-hour and 45-minute zones.
+const localShift = (at: number): number =>
+  (((-new Date(at).getTimezoneOffset() * minute) % hour) + hour) % hour;
+const hourOf = (at: number): number =>
+  Math.floor((at + localShift(at)) / hour) * hour - localShift(at);
+const ceilHour = (at: number): number => {
+  const floor = hourOf(at);
+  return floor === at ? at : floor + hour;
+};
 
 interface Profile {
   readonly night: number;
@@ -111,7 +120,7 @@ function makeSeries(
 
   // The current window: cumulative weight up to the anchor, scaled so the last point equals the reported value.
   const times: number[] = [];
-  for (let at = Math.ceil(start / hour) * hour; at <= hourOf(anchor); at += hour) times.push(at);
+  for (let at = ceilHour(start); at <= hourOf(anchor); at += hour) times.push(at);
   // Jitter from a keyed hash, not the shared generator: the number of points grows with time, and drawing from
   // the generator here would reshuffle every later draw.
   const jitterKey = hash(`${seed}:${connection.id}:${window.key}:now`);
@@ -149,8 +158,7 @@ function makeSeries(
       const hit = raw >= 100;
       const target = hit ? raw : Math.max(3, raw);
       const hours: number[] = [];
-      for (let at = Math.ceil(windowStart / hour) * hour; at < windowEnd; at += hour)
-        hours.push(at);
+      for (let at = ceilHour(windowStart); at < windowEnd; at += hour) hours.push(at);
       const curveWeights = hours.map(
         (at, index) =>
           hourWeight(at, profile) * dayFactor(curveKey, at) * (0.7 + 0.6 * noise(curveKey, index)),
@@ -219,7 +227,7 @@ function gapHours(key: number, anchor: number, days: number): Set<number> {
   const firstDay = Math.floor((anchor - (days + 8) * day) / day);
   for (let d = firstDay; d * day <= anchor; d += 1) {
     if (noise(key, d) >= 0.1) continue;
-    const first = d * day + (8 + Math.floor(noise(key, d + 500) * 8)) * hour;
+    const first = hourOf(d * day + (8 + Math.floor(noise(key, d + 500) * 8)) * hour);
     const span = 2 + Math.floor(noise(key, d + 900) * 3);
     for (let i = 0; i < span; i += 1) gaps.add(first + i * hour);
   }
