@@ -5,7 +5,8 @@
   position: relative;
   z-index: 40;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  /* The switcher centres in the space between the lockup and the right group, so both gaps match. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-4);
   margin-bottom: var(--space-7);
@@ -573,8 +574,8 @@ time.when {
     grid-column: 1 / -1;
     grid-row: 2;
     display: flex;
-    /* The tabs always fit here, so nothing scrolls; the active pill's subpixel edge stays inside. */
-    overflow-x: clip;
+    /* Six views can outgrow a phone: then the row scrolls sideways, and the active one is scrolled into view. */
+    overflow-x: auto;
   }
   /* Five views share the width evenly instead of scrolling a few pixels. */
   .top > .view-switch a {
@@ -1056,6 +1057,7 @@ time.when {
 .view-switch {
   position: relative;
   grid-column: 2;
+  justify-self: center;
   max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none;
@@ -1083,6 +1085,20 @@ time.when {
 .view-switch a:active {
   scale: 0.96;
   transition-duration: var(--dur-instant);
+}
+@media (max-width: 480px) {
+  .view-sep {
+    display: none;
+  }
+}
+/* A thin rule between the two groups of views. */
+.view-sep {
+  flex: none;
+  align-self: center;
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--border-strong);
 }
 .view-pill {
   position: absolute;
