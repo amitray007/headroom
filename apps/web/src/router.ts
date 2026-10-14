@@ -7,6 +7,7 @@ export const views = [
   { id: "compare", label: "Compare" },
   { id: "timeline", label: "Timeline" },
   { id: "wallet", label: "Wallet" },
+  { id: "analytics", label: "Analytics" },
 ] as const;
 
 export type ViewId = (typeof views)[number]["id"];
@@ -47,6 +48,7 @@ export function href(route: Route): string {
     case "detailed":
     case "compare":
     case "timeline":
+    case "analytics":
     case "wallet":
       return `#/${route.page}`;
     case "connect":

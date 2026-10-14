@@ -1,0 +1,304 @@
+/* Shared parts of the Analytics cards. Charts are greyscale; --danger marks only events: ran out, locked. */
+
+.an2-card {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+/* A view's first row: the headline, then its tools and the card's view switch at the right edge. */
+.an2-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+.an2-top > .an2-ro {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.an2-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+.an2-card-foot {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+/* Headline readout: the answer in one line, swapped for the detail under the pointer. */
+.an2-ro {
+  display: grid;
+  gap: 2px;
+}
+.an2-ro p {
+  margin: 0;
+}
+.an2-ro-big {
+  font-size: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.an2-ro-cap {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.an2-tip {
+  position: fixed;
+  z-index: 50;
+  display: grid;
+  min-width: 140px;
+  max-width: 240px;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-floating);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  pointer-events: none;
+  transform: translate(12px, 12px);
+}
+.an2-tip[data-flip] {
+  transform: translate(calc(-100% - 12px), 12px);
+}
+.an2-tip[data-up] {
+  transform: translate(12px, calc(-100% - 12px));
+}
+.an2-tip[data-flip][data-up] {
+  transform: translate(calc(-100% - 12px), calc(-100% - 12px));
+}
+.an2-tip p {
+  margin: 0;
+}
+.an2-tip-title {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+/* The small select sizes to its text; keep it flush with the card's right edge. */
+.an2-filter {
+  display: flex;
+  max-width: 100%;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.an2-who {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+.an2-who .brand {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.an2-who-text {
+  display: grid;
+  min-width: 0;
+}
+.an2-who-name {
+  overflow: hidden;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.an2-who.strong .an2-who-name {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.an2-who-sub {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+/* Usage lanes */
+.an2-lanes {
+  display: grid;
+  align-items: start;
+}
+.an2-lane-names {
+  display: grid;
+}
+.an2-lane-name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.an2-lane-name:disabled {
+  cursor: default;
+}
+.an2-lane-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.an2-lane-name .brand {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+.an2-lane-name[data-dim],
+.an2-lane[data-dim] {
+  opacity: 0.35;
+}
+.an2-lane-base {
+  stroke: var(--border);
+}
+.an2-lane-limit {
+  stroke: var(--border);
+  stroke-dasharray: 2 3;
+}
+.an2-lane-fill {
+  fill: color-mix(in oklab, var(--foreground) 14%, transparent);
+  stroke: color-mix(in oklab, var(--foreground) 55%, transparent);
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+.an2-lane-lock {
+  fill: var(--danger);
+}
+.an2-band {
+  fill: color-mix(in oklab, var(--danger) 14%, transparent);
+}
+.an2-hit {
+  fill: transparent;
+}
+
+.an2-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.an2-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.an2-sw {
+  display: inline-block;
+  width: 12px;
+  height: 8px;
+  border-radius: 2px;
+}
+.an2-sw[data-kind="fill"] {
+  border: 1px solid color-mix(in oklab, var(--foreground) 55%, transparent);
+  background: color-mix(in oklab, var(--foreground) 14%, transparent);
+}
+.an2-sw[data-kind="lock"] {
+  height: 3px;
+  background: var(--danger);
+}
+.an2-sw[data-kind="dot"] {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+.an2-sw[data-kind="line"] {
+  height: 0;
+  border-top: 2px solid var(--foreground);
+}
+.an2-sw[data-kind="dash"] {
+  height: 0;
+  border-top: 1.5px dashed var(--text-muted);
+}
+.an2-sw[data-kind="band"] {
+  background: color-mix(in oklab, var(--danger) 18%, transparent);
+}
+/* A grey ramp step, 0 (quiet) to 4 (busiest), shared by every heatmap. */
+.an2-sw[data-kind="ramp"],
+.an2-cell {
+  --ramp: 5%;
+  background: color-mix(in oklab, var(--foreground) var(--ramp), var(--surface));
+}
+.an2-sw[data-level="1"],
+.an2-cell[data-level="1"] {
+  --ramp: 18%;
+}
+.an2-sw[data-level="2"],
+.an2-cell[data-level="2"] {
+  --ramp: 34%;
+}
+.an2-sw[data-level="3"],
+.an2-cell[data-level="3"] {
+  --ramp: 54%;
+}
+.an2-sw[data-level="4"],
+.an2-cell[data-level="4"] {
+  --ramp: 76%;
+}
+
+/* A view switch row inside a card. */
+.an2-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+}
+.an2-split > .an2-panel {
+  min-width: 0;
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--border-subtle);
+}
+@media (width < 900px) {
+  .an2-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .an2-split > .an2-panel {
+    padding-top: var(--space-4);
+    padding-left: 0;
+    border-top: 1px solid var(--border-subtle);
+    border-left: 0;
+  }
+}
+figure.an2-lanes {
+  margin: 0;
+}
+
+/* Cards on the page stack with the panel gap. */
+.an2-card + .an2-card {
+  margin-top: var(--space-4);
+}
+
+/* In a narrow side panel the switch takes the top line and the headline goes under it, so the switch keeps the
+   card's top-right corner. */
+.an2-panel > .an2-top {
+  flex-direction: column-reverse;
+  align-items: stretch;
+}
+.an2-panel > .an2-top > .an2-ro {
+  flex: none;
+}
+
+/* The app draws brand marks at 20 px. Inside these cards the mark takes the size of its box, so a smaller box
+   shrinks the mark instead of cropping it. */
+.an2-card .brand :is(svg, img) {
+  width: 100%;
+  height: 100%;
+}

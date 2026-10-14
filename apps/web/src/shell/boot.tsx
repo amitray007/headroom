@@ -9,6 +9,7 @@ import { Sk } from "../ui/skeleton.tsx";
 import { ViewSwitcher } from "../ui/view-switcher.tsx";
 import { CompareSkeleton } from "../views/compare/skeleton.tsx";
 import { DetailedSkeleton } from "../views/detailed/skeleton.tsx";
+import { AnalyticsSkeleton } from "../views/analytics/skeleton.tsx";
 import { TimelineSkeleton } from "../views/timeline/skeleton.tsx";
 import { WalletSkeleton } from "../views/wallet/skeleton.tsx";
 
@@ -24,6 +25,8 @@ function PageSkeleton(props: { readonly route: Route }) {
       return <CompareSkeleton />;
     case "timeline":
       return <TimelineSkeleton />;
+    case "analytics":
+      return <AnalyticsSkeleton />;
     case "wallet":
       return <WalletSkeleton />;
     case "overview":

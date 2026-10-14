@@ -1,0 +1,17 @@
+/* Analytics view (mockup): the page frame. The cards and charts live in common.css and one file per card. */
+.an-page {
+  display: block;
+  min-width: 0;
+}
+
+/* One quiet line above the cards when history is thin. */
+.an-note,
+.an-empty {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.an-empty {
+  margin: 0;
+  padding: 24px 4px;
+}

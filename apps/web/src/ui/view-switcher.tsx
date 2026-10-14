@@ -24,6 +24,10 @@ export function ViewSwitcher(props: { readonly active: ViewId }) {
     const place = (): void => {
       const link = nav.querySelector<HTMLElement>(`[data-view="${props.active}"]`);
       if (link === null) return;
+      // On a phone the row can scroll: keep the active view in sight.
+      const right = link.offsetLeft + link.offsetWidth;
+      if (right > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = right - nav.clientWidth;
+      else if (link.offsetLeft < nav.scrollLeft) nav.scrollLeft = link.offsetLeft;
       const next = { x: link.offsetLeft, width: link.offsetWidth };
       setPill((current) =>
         current?.x === next.x && current.width === next.width
@@ -48,7 +52,9 @@ export function ViewSwitcher(props: { readonly active: ViewId }) {
           aria-hidden="true"
         />
       )}
-      {views.map((view) => (
+      {views.map((view) => [
+        // The money and history views form their own group after the live views.
+        view.id === "wallet" ? <span key="sep" className="view-sep" aria-hidden="true" /> : null,
         <a
           key={view.id}
           data-view={view.id}
@@ -56,8 +62,8 @@ export function ViewSwitcher(props: { readonly active: ViewId }) {
           aria-current={view.id === props.active ? "page" : undefined}
         >
           {view.label}
-        </a>
-      ))}
+        </a>,
+      ])}
     </nav>
   );
 }
