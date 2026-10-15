@@ -32,7 +32,7 @@ import {
   type OverviewConnection,
 } from "@headroom/view-model/overview";
 import type { Cost, TopUp, WalletBook } from "@headroom/view-model/wallet";
-import { historySchema, type History } from "@headroom/view-model/history";
+import { historyWireSchema, type History } from "@headroom/view-model/history";
 import { z } from "zod";
 
 import { devicePrefs } from "./lib/device-prefs.ts";
@@ -361,7 +361,7 @@ export const api = {
     request(
       "GET",
       `/api/history?days=${days}&tz=${-new Date().getTimezoneOffset()}`,
-      historySchema,
+      historyWireSchema,
     ),
   // Demo accounts have no server order; the page keeps the new order itself.
   saveOrder: (order: OrderBody) =>

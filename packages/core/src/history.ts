@@ -115,29 +115,45 @@ export function historyMarker(db: Db, connectionIds: readonly string[]): string 
   return rows.map((row) => row.join(":")).join(";");
 }
 
-export function readHistory(db: Db, range: HistoryRange): HistoryConnectionResult[] {
-  const { from, to, bucketMs, connectionIds } = range;
-  if (connectionIds.length === 0) return [];
-  const ids = idList(connectionIds);
-  const shift = (range.tzOffsetMinutes ?? 0) * 60_000;
+/** A late insert can carry an observation time a little older than the newest one folded; reread this much. */
+const overlapMs = 60 * 60_000;
 
-  // One streamed scan: rows are folded as the statement yields them, so memory holds one row per bucket
-  // and window, not one per reading. Parameters are bound (never interpolated).
+/** Readings folded into hours for one bucket length and time zone shift, kept between requests. */
+interface Fold {
+  readonly bucketMs: number;
+  readonly shift: number;
+  readonly ids: ReadonlySet<string>;
+  /** Every stored reading at or after this is folded in. */
+  floor: number;
+  /** The newest observation time folded in. */
+  newest: number;
+  readonly byConnection: Map<string, Map<string, SeriesAcc>>;
+}
+
+const readingsSql = (count: number, extra = "") =>
+  `SELECT s.connection_id AS connection, m.provider_metric_key AS key, m.scope AS scope,
+    s.observed_at AS at, m.value_num AS value, m.window_start AS start,
+    COALESCE(m.window_end, m.resets_at) AS end
+  FROM snapshots s JOIN metrics m ON m.snapshot_id = s.id
+  WHERE s.connection_id IN (${Array.from({ length: count }, () => "?").join(", ")}) AND s.observed_at BETWEEN ? AND ?
+    AND m.kind = 'quota_percentage' AND m.availability = 'available' AND m.value_num IS NOT NULL${extra}`;
+
+const seriesKey = (key: string, scope: string): string => `${key}\u0000${scope}`;
+
+/**
+ * Fold the readings of `ids` observed in [from, to] into `fold`. The statement is streamed, so memory holds one
+ * entry per hour and window, not one per reading. Folding a reading twice changes nothing: an hour keeps its
+ * highest value and a window slot its latest reading, so an overlapping reread is safe.
+ */
+function foldReadings(db: Db, fold: Fold, ids: readonly string[], from: number, to: number): void {
   const rows = db.$client
-    .query<ReadingRow, (string | number)[]>(
-      `SELECT s.connection_id AS connection, m.provider_metric_key AS key, m.scope AS scope,
-        s.observed_at AS at, m.value_num AS value, m.window_start AS start,
-        COALESCE(m.window_end, m.resets_at) AS end
-      FROM snapshots s JOIN metrics m ON m.snapshot_id = s.id
-      WHERE s.connection_id IN (${connectionIds.map(() => "?").join(", ")}) AND s.observed_at BETWEEN ? AND ?
-        AND m.kind = 'quota_percentage' AND m.availability = 'available' AND m.value_num IS NOT NULL`,
-    )
-    .iterate(...connectionIds, from, to);
-  const byConnection = new Map<string, Map<string, SeriesAcc>>();
+    .query<ReadingRow, (string | number)[]>(readingsSql(ids.length))
+    .iterate(...ids, from, to);
+  const { bucketMs, shift } = fold;
   for (const { connection, key, scope, at, value, start, end } of rows) {
-    let all = byConnection.get(connection);
-    if (!all) byConnection.set(connection, (all = new Map()));
-    const mapKey = `${key}\u0000${scope}`;
+    let all = fold.byConnection.get(connection);
+    if (!all) fold.byConnection.set(connection, (all = new Map()));
+    const mapKey = seriesKey(key, scope);
     let acc = all.get(mapKey);
     if (!acc) {
       acc = { providerMetricKey: key, scope, points: new Map(), windows: new Map() };
@@ -151,8 +167,104 @@ export function readHistory(db: Db, range: HistoryRange): HistoryConnectionResul
       const held = acc.windows.get(slot);
       if (!held || at >= held.at) acc.windows.set(slot, { start, end, at });
     }
+    if (at > fold.newest) fold.newest = at;
   }
+}
 
+/** Drop hours and windows wholly before `floor`, so a long-lived fold holds at most the longest range. */
+function trimFold(fold: Fold, floor: number): void {
+  if (floor <= fold.floor) return;
+  fold.floor = floor;
+  for (const all of fold.byConnection.values()) {
+    for (const acc of all.values()) {
+      for (const bucket of acc.points.keys())
+        if (bucket + fold.bucketMs <= floor) acc.points.delete(bucket);
+      for (const [slot, held] of acc.windows) if (held.at < floor) acc.windows.delete(slot);
+    }
+  }
+}
+
+/**
+ * The highest reading of each limit in one account's first hour of the range, read again from the database:
+ * the fold's value for that hour can include readings from before the range or since pruned.
+ */
+function edgeHour(db: Db, id: string, from: number, to: number): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const row of db.$client
+    .query<ReadingRow, (string | number)[]>(readingsSql(1))
+    .iterate(id, from, to)) {
+    const mapKey = seriesKey(row.key, row.scope);
+    const seen = out.get(mapKey);
+    if (seen === undefined || row.value > seen) out.set(mapKey, row.value);
+  }
+  return out;
+}
+
+export interface HistoryReader {
+  read: (db: Db, range: HistoryRange) => HistoryConnectionResult[];
+}
+
+/**
+ * A history reader that keeps its hourly fold between calls. The first call for a time zone scans the range; each
+ * later call scans only the readings since the newest one it folded (with an hour of overlap for late inserts),
+ * so a request after a sync reads a few rows instead of the whole range. The result equals a fresh read:
+ *
+ * - The first hour of each account is read again from the database, since the fold may hold older readings.
+ * - Readings are deleted only by the retention prune, oldest first, and an account's first stored reading in the
+ *   range bounds what is shown, so a pruned reading never shows.
+ * - A new account, a range that starts before the fold, or a new time zone scans in full.
+ *
+ * `keepMs` is the longest range callers ask for; the fold drops anything older. It keeps `keep` time zones.
+ */
+export function createHistoryReader(options: { keepMs: number; keep?: number }): HistoryReader {
+  const folds = new Map<string, Fold>();
+  const keep = options.keep ?? 4;
+  return {
+    read(db, range) {
+      const { from, to, bucketMs, connectionIds } = range;
+      if (connectionIds.length === 0) return [];
+      const shift = (range.tzOffsetMinutes ?? 0) * 60_000;
+      const key = `${bucketMs}|${shift}`;
+      let fold = folds.get(key);
+      const stale =
+        fold === undefined ||
+        fold.floor > from ||
+        connectionIds.some((id) => !fold!.ids.has(id)) ||
+        fold.ids.size !== connectionIds.length;
+      let fresh = false;
+      if (fold === undefined || stale) {
+        fold = {
+          bucketMs,
+          shift,
+          ids: new Set(connectionIds),
+          floor: from,
+          newest: Number.NEGATIVE_INFINITY,
+          byConnection: new Map(),
+        };
+        foldReadings(db, fold, connectionIds, from, to);
+        fresh = true;
+      } else {
+        foldReadings(db, fold, connectionIds, Math.max(fold.floor, fold.newest - overlapMs), to);
+        trimFold(fold, to - options.keepMs);
+      }
+      folds.delete(key);
+      folds.set(key, fold);
+      if (folds.size > keep) folds.delete(folds.keys().next().value!);
+      return assemble(db, fold, range, fresh);
+    },
+  };
+}
+
+/** Coverage, failures and events are small queries; the series come from the fold. */
+function assemble(
+  db: Db,
+  fold: Fold,
+  range: HistoryRange,
+  fresh: boolean,
+): HistoryConnectionResult[] {
+  const { from, to, bucketMs, connectionIds } = range;
+  const ids = idList(connectionIds);
+  const { shift } = fold;
   const coverage = new Map(
     db
       .all<CoverageRow>(
@@ -181,6 +293,31 @@ export function readHistory(db: Db, range: HistoryRange): HistoryConnectionResul
 
   return connectionIds.map((id) => {
     const seen = coverage.get(id);
+    const series: HistorySeriesResult[] = [];
+    if (seen !== undefined) {
+      // Nothing before the account's first stored reading in the range counts: not an older reading the fold
+      // still holds, and not one the retention prune has since deleted.
+      const first = seen.first_at;
+      const edge = Math.floor((first + shift) / bucketMs) * bucketMs - shift;
+      const edgeValues = fresh ? null : edgeHour(db, id, first, Math.min(to, edge + bucketMs - 1));
+      for (const acc of fold.byConnection.get(id)?.values() ?? []) {
+        const points: [number, number][] = [];
+        for (const [bucket, value] of acc.points) {
+          if (bucket < edge) continue;
+          if (bucket === edge && edgeValues !== null) {
+            const exact = edgeValues.get(seriesKey(acc.providerMetricKey, acc.scope));
+            if (exact !== undefined) points.push([bucket, exact]);
+          } else points.push([bucket, value]);
+        }
+        if (points.length === 0) continue;
+        series.push({
+          providerMetricKey: acc.providerMetricKey,
+          scope: acc.scope,
+          points: points.toSorted((a, b) => a[0] - b[0]),
+          windows: dedupeWindows([...acc.windows.values()].filter((held) => held.at >= first)),
+        });
+      }
+    }
     return {
       id,
       coverage: {
@@ -188,14 +325,17 @@ export function readHistory(db: Db, range: HistoryRange): HistoryConnectionResul
         lastAt: seen?.last_at ?? null,
         readings: seen?.readings ?? 0,
       },
-      series: [...(byConnection.get(id)?.values() ?? [])].map((acc) => ({
-        providerMetricKey: acc.providerMetricKey,
-        scope: acc.scope,
-        points: [...acc.points].toSorted((a, b) => a[0] - b[0]),
-        windows: dedupeWindows(acc.windows.values()),
-      })),
+      series: series.toSorted(
+        (a, b) =>
+          a.providerMetricKey.localeCompare(b.providerMetricKey) || a.scope.localeCompare(b.scope),
+      ),
       failures: failuresBy.get(id) ?? [],
       events: eventsBy.get(id) ?? [],
     };
   });
+}
+
+/** One full read of the range, with nothing kept. */
+export function readHistory(db: Db, range: HistoryRange): HistoryConnectionResult[] {
+  return createHistoryReader({ keepMs: range.to - range.from }).read(db, range);
 }
