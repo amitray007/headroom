@@ -130,7 +130,8 @@ div.d-head:active {
   display: grid;
   min-width: 0;
 }
-/* A long name or email wraps; no ellipsis hides its end. */
+/* A long name or email wraps; no ellipsis hides its end. An email breaks at "@" or "." first (Breakable); "anywhere"
+   is the fallback for a part longer than the line. */
 .d-name {
   font-size: var(--text-md);
   font-weight: 500;

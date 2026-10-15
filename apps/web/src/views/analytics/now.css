@@ -552,6 +552,37 @@
   background: var(--danger);
 }
 
+/* On a phone the table fits instead of scrolling: Account, Used and Runs out stay; Pace, Resets and the bars drop
+   (the selected account's panel and each row's headline still give them). The view measures its own width and sets
+   data-narrow, so the table also stops sorting by a column it hides. */
+.now-view[data-narrow] .now-table {
+  min-width: 0;
+}
+.now-view[data-narrow] .now-table :is(th, td):is(:nth-child(3), :nth-child(5)),
+.now-view[data-narrow] .now-table td .now-meter,
+.now-view[data-narrow] .now-wide {
+  display: none;
+}
+/* The name column takes the room that is left and its name ends with an ellipsis. */
+.now-view[data-narrow] .now-table td:first-child {
+  width: 100%;
+  max-width: 0;
+}
+.now-view[data-narrow] :is(.now-pick, .now-pick .an2-who) {
+  max-width: 100%;
+}
+/* A long note such as "Reconnect to forecast" wraps instead of taking the names' room; a run-out time stays on one
+   line and sets the column's width. */
+.now-view[data-narrow] .now-table :is(th, td):nth-child(4) {
+  white-space: normal;
+}
+.now-view[data-narrow] .now-table .now-risk {
+  white-space: nowrap;
+}
+.now-view[data-narrow] .now-table td:nth-child(4) {
+  padding-block: 6px;
+}
+
 /* Detail strip under the table */
 .now-detail {
   display: grid;

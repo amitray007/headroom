@@ -195,10 +195,12 @@
   color: var(--text-muted);
   font-size: var(--text-xs);
 }
+/* An entry wraps between its words and swatches before it breaks a phrase such as "under 25, 50, 75, 100%". */
 .an2-legend > span {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 4px 6px;
 }
 .an2-sw {
   display: inline-block;

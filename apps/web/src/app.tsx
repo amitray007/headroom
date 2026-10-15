@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuthSkeleton, SignedOutPage, Unreachable } from "./auth-pages.tsx";
 import { isDemoId } from "./api.ts";
@@ -23,6 +23,7 @@ import { DetailedSkeleton } from "./views/detailed/skeleton.tsx";
 import { AnalyticsSkeleton } from "./views/analytics/skeleton.tsx";
 import { TimelineSkeleton } from "./views/timeline/skeleton.tsx";
 import { WalletSkeleton } from "./views/wallet/skeleton.tsx";
+import { historyStore, prefetchHistory } from "./lib/history-store.ts";
 import { lazyNamed } from "./lib/lazy-named.ts";
 import { demoReadyEvent, isDemoSite } from "./lib/site.ts";
 import { SettingsProvider } from "./lib/settings.tsx";
@@ -101,6 +102,10 @@ function SignedIn(props: { readonly name: string }) {
     if (strandedInDemo) window.location.replace(href({ page: "connect" }));
   }, [strandedInDemo]);
   const view = viewOf(route);
+  // Opening Analytics starts its history read now, alongside the page's code, not after it.
+  useEffect(() => {
+    if (route.page === "analytics" && !prefs.demo) prefetchHistory();
+  }, [route.page, prefs.demo]);
   // Settings are real, so the provider list comes from the real overview even in Demo Mode.
   const providers = groupByProvider(realOverview.connections ?? [], realOverview.providerOrder).map(
     (group) => group.provider,
@@ -180,6 +185,13 @@ export function App() {
   const [hinted] = useState(wasSignedIn);
   const [retrying, setRetrying] = useState(false);
   const signedIn = session.isPending ? null : session.data !== null && !session.error;
+  const sessionId = session.data?.session.id ?? null;
+  // The kept Analytics history belongs to one session: forget it when that session ends or changes.
+  const heldSession = useRef(sessionId);
+  useEffect(() => {
+    if (heldSession.current !== null && heldSession.current !== sessionId) historyStore.clear();
+    heldSession.current = sessionId;
+  }, [sessionId]);
   useEffect(() => {
     if (signedIn === null || session.error) return;
     const storage = browserStorage();

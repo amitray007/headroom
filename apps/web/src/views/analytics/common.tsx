@@ -430,12 +430,23 @@ export function useStoredView<T extends string>(
 /** The card's view switch, handed to whichever view is showing so it can sit beside that view's headline. */
 const CardSwitch = createContext<ReactNode>(null);
 
+/** The card's view switch, for a view that places it outside its CardTop. */
+export function useCardSwitch(): ReactNode {
+  return useContext(CardSwitch);
+}
+
 /**
  * A view's first row: its headline on the left, then its own tools and the card's view switch on the right. Every
- * view starts with one, so the switch always lines up with the headline.
+ * view starts with one, so the switch always lines up with the headline. `withSwitch={false}` leaves the switch
+ * out, for a view that places it elsewhere.
  */
-export function CardTop(props: { readonly headline: ReactNode; readonly tools?: ReactNode }) {
-  const switcher = useContext(CardSwitch);
+export function CardTop(props: {
+  readonly headline: ReactNode;
+  readonly tools?: ReactNode;
+  readonly withSwitch?: boolean;
+}) {
+  const card = useContext(CardSwitch);
+  const switcher = props.withSwitch === false ? null : card;
   return (
     <div className="an2-top">
       {props.headline}

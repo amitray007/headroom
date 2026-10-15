@@ -1,11 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo } from "react";
 
 import type { History } from "@headroom/view-model/history";
 
-import { api } from "../../api.ts";
-
-/** History moves slowly: ask again no more often than this. */
-const pollEveryMs = 5 * 60_000;
+import { historyStore, useHistoryStore } from "../../lib/history-store.ts";
 
 export type HistoryState =
   | { readonly kind: "loading" }
@@ -24,9 +21,9 @@ export interface DemoHistory {
 }
 
 /**
- * The stored usage history for Analytics. Real: one request for the longest range, repeated every five minutes
- * and again when the set of connections (`idsKey`) changes; a later failure keeps the last good history. Demo
- * Mode builds its own, with no request.
+ * The stored usage history for Analytics. Real: the history store keeps the last one across visits, reads it again
+ * when it is older than five minutes or does not cover the connections in `idsKey`, and keeps the last good one
+ * when a later read fails. Demo Mode builds its own, with no request.
  */
 export function useHistory(
   demo: DemoHistory | null,
@@ -39,45 +36,11 @@ export function useHistory(
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- the made-up history follows the seed and anchor in `demoKey`, not the identity of `make`
     [demoKey],
   );
-  const [real, setReal] = useState<{
-    history: History | null;
-    fetchedAt: number;
-    failed: boolean;
-  }>({ history: null, fetchedAt: 0, failed: false });
   const live = demoHistory === null;
-  // Only the newest request may write: an older response that lands late is dropped.
-  const sequence = useRef(0);
-  const lastTry = useRef(0);
-  const load = useCallback(async (): Promise<void> => {
-    sequence.current += 1;
-    const mine = sequence.current;
-    lastTry.current = Date.now();
-    try {
-      const history = await api.history(90);
-      if (mine === sequence.current) setReal({ history, fetchedAt: Date.now(), failed: false });
-    } catch {
-      if (mine === sequence.current) setReal((previous) => ({ ...previous, failed: true }));
-    }
-  }, []);
+  const real = useHistoryStore(live);
   useEffect(() => {
-    if (!live) return;
-    void load();
-    // A hidden tab does not poll; showing it again refetches when the last try is older than the poll interval.
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible") void load();
-    }, pollEveryMs);
-    const onVisible = (): void => {
-      if (document.visibilityState === "visible" && Date.now() - lastTry.current > pollEveryMs) {
-        void load();
-      }
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-    // A different set of connections is a different history.
-  }, [live, idsKey, load]);
+    if (live) historyStore.ensure(idsKey);
+  }, [live, idsKey]);
   const state: HistoryState =
     demoHistory !== null
       ? { kind: "ready", history: demoHistory, refreshFailedAfter: null }
@@ -90,5 +53,5 @@ export function useHistory(
         : real.failed
           ? { kind: "failed" }
           : { kind: "loading" };
-  return { state, reload: load };
+  return { state, reload: historyStore.reload };
 }

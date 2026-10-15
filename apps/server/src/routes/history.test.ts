@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { historySchema } from "@headroom/view-model/history";
+import { historyWireSchema } from "@headroom/view-model/history";
 import { credentialFixture, FakeConnector } from "@headroom/core/testing";
 
 import { createApp } from "../app.ts";
@@ -47,7 +47,7 @@ describe("GET /api/history", () => {
     await h.ctx.collection.run(row.id, "test");
     const response = await h.get("/api/history?days=30");
     expect(response.status).toBe(200);
-    const body = historySchema.parse(await response.json());
+    const body = historyWireSchema.parse(await response.json());
     expect(body).toMatchObject({
       from: now - 30 * day,
       to: now,
@@ -70,7 +70,7 @@ describe("GET /api/history", () => {
 
   test("defaults to 90 days and rejects other ranges", async () => {
     const h = await harness();
-    expect(historySchema.parse(await (await h.get("/api/history")).json()).from).toBe(
+    expect(historyWireSchema.parse(await (await h.get("/api/history")).json()).from).toBe(
       now - 90 * day,
     );
     const bad = ["1", "0", "abc", "-7", "7.5", ""];
@@ -98,8 +98,8 @@ describe("GET /api/history", () => {
     const row = h.add("a1");
     await h.ctx.collection.run(row.id, "test");
     const at = async (path: string) => await (await h.get(path)).json();
-    const utc = historySchema.parse(await at("/api/history"));
-    const ist = historySchema.parse(await at("/api/history?tz=330"));
+    const utc = historyWireSchema.parse(await at("/api/history"));
+    const ist = historyWireSchema.parse(await at("/api/history?tz=330"));
     const hour = 3_600_000;
     const utcBucket = utc.connections[0]?.series[0]?.points[0]?.[0] ?? 0;
     const istBucket = ist.connections[0]?.series[0]?.points[0]?.[0] ?? 0;
@@ -120,7 +120,7 @@ describe("GET /api/history", () => {
       "INSERT INTO sync_runs (id, connection_id, started_at, finished_at, outcome) VALUES ('failed-run', ?, ?, ?, 'rate_limited')",
       [row.id, now + 1_000, now + 1_100],
     );
-    const after = historySchema.parse(await (await h.get("/api/history")).json());
+    const after = historyWireSchema.parse(await (await h.get("/api/history")).json());
     expect(after.connections[0]?.failures).toEqual([{ at: now + 1_000, outcome: "rate_limited" }]);
   });
 
@@ -135,6 +135,6 @@ describe("GET /api/history", () => {
     expect(raw[0]).toBe(0x1f);
     expect(raw[1]).toBe(0x8b);
     const text = new TextDecoder().decode(Bun.gunzipSync(raw));
-    expect(historySchema.parse(JSON.parse(text)).connections).toHaveLength(40);
+    expect(historyWireSchema.parse(JSON.parse(text)).connections).toHaveLength(40);
   });
 });

@@ -1,7 +1,10 @@
-import { Hono } from "hono";
-import { compress } from "hono/compress";
+import { gunzipSync, gzipSync } from "node:zlib";
 
-import { historyMarker, readHistory } from "@headroom/core";
+import { Hono } from "hono";
+import { accepts } from "hono/accepts";
+
+import { createHistoryReader, historyMarker } from "@headroom/core";
+import { encodeHistory } from "@headroom/view-model/history";
 
 import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
@@ -9,6 +12,7 @@ import { type Env, requireSession } from "../middleware/session.ts";
 const day = 86_400_000;
 const bucketMs = 3_600_000;
 const ranges = new Set(["7", "30", "90"]);
+const longest = 90 * day;
 const cacheLimit = 8;
 
 /** Minutes east of UTC as a plain integer in the real-world range, or null. */
@@ -22,13 +26,14 @@ function parseTz(raw: string | undefined): number | null {
 /**
  * Usage history for the Analytics view: hourly maxima of each percent-of-limit reading, per
  * account, in hours that start on the owner's local boundaries (`tz`). A read blocks the single
- * thread, so the serialized body is cached until a snapshot, sync run or event changes.
+ * thread, so the reader keeps its hourly fold and reads only new readings after a sync, and the
+ * body is cached gzipped until a snapshot, sync run or event changes.
  */
 export function historyRoutes(ctx: AppContext): Hono<Env> {
   const app = new Hono<Env>();
   app.use(requireSession(ctx));
-  app.use(compress());
-  const cache = new Map<string, string>();
+  const reader = createHistoryReader({ keepMs: longest });
+  const cache = new Map<string, Uint8Array<ArrayBuffer>>();
 
   app.get("/", (c) => {
     const param = c.req.query("days") ?? "90";
@@ -49,23 +54,38 @@ export function historyRoutes(ctx: AppContext): Hono<Env> {
     ].join("|");
     let body = cache.get(key);
     if (body === undefined) {
-      body = JSON.stringify({
-        from,
-        to,
-        bucketMs,
-        retentionDays,
-        connections: readHistory(ctx.db, {
+      const json = JSON.stringify(
+        encodeHistory({
           from,
           to,
           bucketMs,
-          tzOffsetMinutes: tz,
-          connectionIds,
+          retentionDays,
+          connections: reader.read(ctx.db, {
+            from,
+            to,
+            bucketMs,
+            tzOffsetMinutes: tz,
+            connectionIds,
+          }),
         }),
-      });
+      );
+      body = gzipSync(json);
       if (cache.size >= cacheLimit) cache.delete(cache.keys().next().value!);
       cache.set(key, body);
     }
-    return c.body(body, 200, { "content-type": "application/json" });
+    // Only the gzip is kept: every browser accepts it, and a client that does not gets it unzipped.
+    const gzip =
+      accepts(c, { header: "Accept-Encoding", supports: ["gzip"], default: "" }) === "gzip";
+    return gzip
+      ? c.body(body, 200, {
+          "content-type": "application/json",
+          "content-encoding": "gzip",
+          vary: "Accept-Encoding",
+        })
+      : c.body(gunzipSync(body), 200, {
+          "content-type": "application/json",
+          vary: "Accept-Encoding",
+        });
   });
 
   return app;

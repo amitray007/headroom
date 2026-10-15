@@ -60,3 +60,70 @@ export type History = z.infer<typeof historySchema>;
 
 /** The ranges Analytics asks for. */
 export const historyDays = [7, 30, 90] as const;
+
+/**
+ * The wire form of one series: `points` as runs of bucket steps and values, which halves the response. `start` is
+ * the first point's hour; each step counts buckets from the point before (the first is 0). The two arrays have the
+ * same length.
+ */
+const historyWireSeriesSchema = historySeriesSchema
+  .omit({ points: true })
+  .extend({
+    start: z.number(),
+    steps: z.array(z.number().int().nonnegative()),
+    values: z.array(z.number()),
+  })
+  .refine((series) => series.steps.length === series.values.length, {
+    message: "steps and values differ in length",
+  });
+
+type HistoryWireSeries = z.infer<typeof historyWireSeriesSchema>;
+
+/** What `GET /api/history` sends. It parses to a `History`. */
+export const historyWireSchema = historySchema
+  .omit({ connections: true })
+  .extend({
+    connections: z.array(
+      historyConnectionSchema.omit({ series: true }).extend({
+        series: z.array(historyWireSeriesSchema),
+      }),
+    ),
+  })
+  .transform((wire): History => ({
+    ...wire,
+    connections: wire.connections.map((connection) => ({
+      ...connection,
+      series: connection.series.map(({ start, steps, values, ...series }) => {
+        let at = start;
+        return {
+          ...series,
+          points: values.map((value, i): HistoryPoint => {
+            at += (steps[i] ?? 0) * wire.bucketMs;
+            return [at, value];
+          }),
+        };
+      }),
+    })),
+  }));
+
+/** A history in its wire form; `historyWireSchema` turns it back. */
+export function encodeHistory(history: History): z.input<typeof historyWireSchema> {
+  return {
+    ...history,
+    connections: history.connections.map((connection) => ({
+      ...connection,
+      series: connection.series.map(({ points, ...series }): HistoryWireSeries => {
+        const start = points[0]?.[0] ?? 0;
+        let previous = start;
+        const steps: number[] = [];
+        const values: number[] = [];
+        for (const [at, value] of points) {
+          steps.push(Math.round((at - previous) / history.bucketMs));
+          values.push(value);
+          previous = at;
+        }
+        return { ...series, start, steps, values };
+      }),
+    })),
+  };
+}

@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { meterWindows } from "./accounts.ts";
 import { demoOverview } from "./demo.ts";
 import { demoHistory } from "./history-demo.ts";
-import { historySchema } from "./history.ts";
+import { encodeHistory, historySchema, historyWireSchema } from "./history.ts";
 
 const anchor = Date.UTC(2026, 9, 3, 12, 0, 0);
 const hour = 3_600_000;
@@ -17,6 +17,14 @@ describe("demoHistory", () => {
       expect(a).toEqual(demoHistory(seed, connections, anchor, 90));
       expect(historySchema.safeParse(a).success).toBe(true);
       expect(a.connections.map((entry) => entry.id)).toEqual(connections.map((c) => c.id));
+    }
+  });
+
+  test("the wire form parses back to the same history", () => {
+    for (const seed of seeds) {
+      const history = demoHistory(seed, demoOverview(seed, anchor).connections, anchor, 90);
+      const wire: unknown = JSON.parse(JSON.stringify(encodeHistory(history)));
+      expect(historyWireSchema.parse(wire)).toEqual(history);
     }
   });
 

@@ -4,7 +4,13 @@ import { AccountEventStore } from "./account-events.ts";
 import type { CollectResult } from "./connector.ts";
 import { openDatabase } from "./db/index.ts";
 import type { SyncRunOutcome } from "./enums.ts";
-import { historyMarker, readHistory } from "./history.ts";
+import {
+  createHistoryReader,
+  historyMarker,
+  readHistory,
+  type HistoryRange,
+  type HistoryReader,
+} from "./history.ts";
 import { ConnectionStore } from "./lifecycle.ts";
 import { SnapshotStore } from "./snapshots.ts";
 
@@ -219,5 +225,107 @@ describe("readHistory", () => {
     const before = historyMarker(h.db, [a.id]);
     h.snapshots.finishRun(run.id, "provider_unavailable");
     expect(historyMarker(h.db, [a.id])).not.toBe(before);
+  });
+});
+
+/** A kept reader and a fresh read of the same range must agree. */
+function same(h: ReturnType<typeof setup>, reader: HistoryReader, range: HistoryRange) {
+  expect(reader.read(h.db, range)).toEqual(readHistory(h.db, range));
+}
+
+describe("createHistoryReader", () => {
+  const day = 24 * hour;
+
+  test("folds only new readings and still matches a fresh read", () => {
+    const h = setup();
+    const a = h.connect("a");
+    const b = h.connect("b");
+    const reader = createHistoryReader({ keepMs: 2 * day });
+    for (let i = 0; i < 30; i++) {
+      h.read(a.id, t0 + i * 20 * minute, { value: String(i), resetsAt: t0 + 5 * hour });
+      h.read(b.id, t0 + i * 20 * minute + minute, {
+        providerMetricKey: "weekly",
+        value: String(30 - i),
+      });
+    }
+    const range = (to: number): HistoryRange => ({
+      from: to - day,
+      to,
+      bucketMs,
+      connectionIds: [a.id, b.id],
+    });
+    same(h, reader, range(t0 + 10 * hour));
+    h.read(a.id, t0 + 10 * hour + 5 * minute, { value: "99", resetsAt: t0 + 5 * hour + 3_000 });
+    // A late insert, observed a little before the newest reading already folded.
+    h.read(b.id, t0 + 9 * hour + 30 * minute, { providerMetricKey: "weekly", value: "77" });
+    same(h, reader, range(t0 + 11 * hour));
+    // A provider-cached reading stored late, observed hours before the newest one folded.
+    h.read(a.id, t0 + 2 * hour, { value: "95", resetsAt: t0 + 5 * hour });
+    same(h, reader, range(t0 + 11 * hour));
+  });
+
+  test("a reading observed after the range end is folded once the range reaches it", () => {
+    const h = setup();
+    const a = h.connect("a");
+    const reader = createHistoryReader({ keepMs: 2 * day });
+    h.read(a.id, t0 + hour, { value: "10" });
+    const range = (to: number): HistoryRange => ({
+      from: to - day,
+      to,
+      bucketMs,
+      connectionIds: [a.id],
+    });
+    same(h, reader, range(t0 + 2 * hour));
+    h.read(a.id, t0 + 3 * hour, { value: "60" });
+    h.read(a.id, t0 + 2 * hour - minute, { value: "30" });
+    same(h, reader, range(t0 + 2 * hour));
+    same(h, reader, range(t0 + 4 * hour));
+    expect(reader.read(h.db, range(t0 + 4 * hour))[0]?.series[0]?.points.at(-1)).toEqual([
+      t0 + 3 * hour,
+      60,
+    ]);
+  });
+
+  test("the first hour of a moved range counts only readings inside it", () => {
+    const h = setup();
+    const a = h.connect("a");
+    const reader = createHistoryReader({ keepMs: 3 * day });
+    h.read(a.id, t0 + 5 * minute, { value: "90", resetsAt: t0 + hour });
+    h.read(a.id, t0 + 40 * minute, { value: "20", resetsAt: t0 + 6 * hour });
+    h.read(a.id, t0 + 3 * hour, { value: "30", resetsAt: t0 + 6 * hour });
+    const ids = [a.id];
+    same(h, reader, { from: t0 - hour, to: t0 + 4 * hour, bucketMs, connectionIds: ids });
+    // The range now starts at xx:30: the 90 at xx:05 and its window are out, the 20 at xx:40 is in.
+    const moved = { from: t0 + 30 * minute, to: t0 + 4 * hour, bucketMs, connectionIds: ids };
+    same(h, reader, moved);
+    expect(reader.read(h.db, moved)[0]?.series[0]?.points[0]).toEqual([t0, 20]);
+  });
+
+  test("a pruned reading does not show", () => {
+    const h = setup();
+    const a = h.connect("a");
+    const reader = createHistoryReader({ keepMs: 3 * day });
+    h.read(a.id, t0 + 10 * minute, { value: "80" });
+    h.read(a.id, t0 + 50 * minute, { value: "10" });
+    h.read(a.id, t0 + 5 * hour, { value: "40" });
+    const range = { from: t0 - day, to: t0 + 6 * hour, bucketMs, connectionIds: [a.id] };
+    same(h, reader, range);
+    h.snapshots.prune(new Date(t0 + 30 * minute));
+    same(h, reader, range);
+    expect(reader.read(h.db, range)[0]?.series[0]?.points[0]).toEqual([t0, 10]);
+  });
+
+  test("a new account or time zone reads in full", () => {
+    const h = setup();
+    const a = h.connect("a");
+    const reader = createHistoryReader({ keepMs: 3 * day });
+    h.read(a.id, t0 + 10 * minute, { value: "15" });
+    const range = { from: t0 - day, to: t0 + 6 * hour, bucketMs, connectionIds: [a.id] };
+    same(h, reader, range);
+    const b = h.connect("b");
+    h.read(b.id, t0 + 20 * minute, { value: "25" });
+    same(h, reader, { ...range, connectionIds: [a.id, b.id] });
+    same(h, reader, { ...range, connectionIds: [b.id] });
+    same(h, reader, { ...range, tzOffsetMinutes: 330 });
   });
 });
