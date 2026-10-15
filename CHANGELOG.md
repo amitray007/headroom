@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.7](https://github.com/amitray007/headroom/compare/v0.1.6...v0.1.7) (2026-10-15)
+
+
+### Bug Fixes
+
+* address review findings on the Analytics history and phone layouts ([8dcba68](https://github.com/amitray007/headroom/commit/8dcba68a029b0265554833209ca2679a6056f7a4))
+* **web:** faster Analytics and phone layouts ([624fc8e](https://github.com/amitray007/headroom/commit/624fc8e94edced1b291862ae6c1667549007c4e3))
+* **web:** fit the Analytics views and Detailed emails on phones ([9491d98](https://github.com/amitray007/headroom/commit/9491d9850ed85c3ff732464e813654ee8435c6f8))
+
+
+### Performance Improvements
+
+* show Analytics history at once and read only new readings ([0bec98f](https://github.com/amitray007/headroom/commit/0bec98f862358dccfca7e3096b8f2d97b9e4cd3e))
+
 ## [0.1.6](https://github.com/amitray007/headroom/compare/v0.1.5...v0.1.6) (2026-10-14)
 
 
