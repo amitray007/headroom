@@ -37,12 +37,15 @@ type Every = (run: () => void, ms: number) => () => void;
 export interface HistoryStore {
   getState: () => HistoryStoreState;
   /**
-   * Read the history unless one is in flight, or the one held is fresh and covers `idsKey` (sorted connection ids,
-   * comma-joined). Null skips the ids check, for a read that starts before the overview is known.
+   * Read the history unless the one held is fresh and covers `idsKey` (sorted connection ids, comma-joined). Null
+   * skips the ids check, for a read that starts before the overview is known. While a read is in flight, its
+   * result is checked against `idsKey` when it lands, and read again once if it does not cover it.
    */
   ensure: (idsKey: string | null) => void;
-  /** Read it again now. Never rejects: a failure lands in `failed`. */
+  /** Read it again now, even while an older read is in flight, whose result is then dropped. Never rejects. */
   reload: () => Promise<void>;
+  /** Forget the history, for a session that ends. A read in flight is dropped; a page still listening reads again. */
+  clear: () => void;
   /** While anyone listens, a visible page reads it again every five minutes. */
   subscribe: (listener: () => void) => () => void;
 }
@@ -79,6 +82,10 @@ export function createHistoryStore(
   const listeners = new Set<() => void>();
   let state: HistoryStoreState = { history: null, fetchedAt: 0, failed: false };
   let reading: Promise<void> | null = null;
+  /** Bumped by each new read and by clear(); a response from an older generation is dropped. */
+  let generation = 0;
+  /** The ids an ensure() asked for while a read was in flight. */
+  let wanted: string | null = null;
   let lastTry = 0;
   let stopPolling: (() => void) | null = null;
 
@@ -87,18 +94,30 @@ export function createHistoryStore(
     for (const listener of listeners) listener();
   };
 
+  /** One request; its result lands only if no newer read or clear() came after it. */
+  const load = async (mine: number): Promise<void> => {
+    let history: History;
+    try {
+      history = await client.history(90);
+    } catch {
+      if (mine !== generation) return;
+      reading = null;
+      wanted = null;
+      set({ failed: true });
+      return;
+    }
+    if (mine !== generation) return;
+    reading = null;
+    set({ history, fetchedAt: now(), failed: false });
+    const want = wanted;
+    wanted = null;
+    if (want !== null && idsOf(history) !== want) void read();
+  };
+
   const read = (): Promise<void> => {
-    if (reading !== null) return reading;
+    generation += 1;
     lastTry = now();
-    reading = client
-      .history(90)
-      .then(
-        (history) => set({ history, fetchedAt: now(), failed: false }),
-        () => set({ failed: true }),
-      )
-      .finally(() => {
-        reading = null;
-      });
+    reading = load(generation);
     return reading;
   };
 
@@ -106,24 +125,36 @@ export function createHistoryStore(
 
   // A hidden tab does not read; showing it again reads when the last try is older than the poll interval.
   const onVisible = (): void => {
-    if (visible() && now() - lastTry > staleAfterMs) void read();
+    if (visible() && reading === null && now() - lastTry > staleAfterMs) void read();
   };
 
   return {
     getState: () => state,
     ensure(idsKey) {
-      if (reading !== null) return;
+      if (reading !== null) {
+        if (idsKey !== null) wanted = idsKey;
+        return;
+      }
       const held = state.history;
       const covers = held !== null && (idsKey === null || idsOf(held) === idsKey);
       if (!covers || now() - lastTry > staleAfterMs) void read();
     },
     reload: read,
+    clear() {
+      generation += 1;
+      reading = null;
+      wanted = null;
+      lastTry = 0;
+      set({ history: null, fetchedAt: 0, failed: false });
+      // A page that shows the history reads it again for the new session.
+      if (listeners.size > 0) void read();
+    },
     subscribe(listener) {
       listeners.add(listener);
       if (listeners.size === 1) {
         visibility?.addEventListener("visibilitychange", onVisible);
         stopPolling = every(() => {
-          if (visible()) void read();
+          if (visible() && reading === null) void read();
         }, staleAfterMs);
       }
       return () => {

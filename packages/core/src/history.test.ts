@@ -259,6 +259,31 @@ describe("createHistoryReader", () => {
     // A late insert, observed a little before the newest reading already folded.
     h.read(b.id, t0 + 9 * hour + 30 * minute, { providerMetricKey: "weekly", value: "77" });
     same(h, reader, range(t0 + 11 * hour));
+    // A provider-cached reading stored late, observed hours before the newest one folded.
+    h.read(a.id, t0 + 2 * hour, { value: "95", resetsAt: t0 + 5 * hour });
+    same(h, reader, range(t0 + 11 * hour));
+  });
+
+  test("a reading observed after the range end is folded once the range reaches it", () => {
+    const h = setup();
+    const a = h.connect("a");
+    const reader = createHistoryReader({ keepMs: 2 * day });
+    h.read(a.id, t0 + hour, { value: "10" });
+    const range = (to: number): HistoryRange => ({
+      from: to - day,
+      to,
+      bucketMs,
+      connectionIds: [a.id],
+    });
+    same(h, reader, range(t0 + 2 * hour));
+    h.read(a.id, t0 + 3 * hour, { value: "60" });
+    h.read(a.id, t0 + 2 * hour - minute, { value: "30" });
+    same(h, reader, range(t0 + 2 * hour));
+    same(h, reader, range(t0 + 4 * hour));
+    expect(reader.read(h.db, range(t0 + 4 * hour))[0]?.series[0]?.points.at(-1)).toEqual([
+      t0 + 3 * hour,
+      60,
+    ]);
   });
 
   test("the first hour of a moved range counts only readings inside it", () => {

@@ -1220,6 +1220,10 @@ function RangeView(props: { readonly series: Series }) {
   const panelBox = useRef<HTMLDivElement>(null);
   const wl = useWidth(leftBox);
   const wr = useWidth(panelBox);
+  // Once the panel stacks under the lanes, the lanes take the full width and the card's switch moves up to their
+  // top row, so it stays at the top of the card.
+  const ws = useWidth(split);
+  const stacked = wl > 0 && wl >= ws - 1;
   const stats = useMemo(() => rangeStats(series, selected, range), [series, selected, range]);
   const list = useMemo(
     () => series.accounts.toSorted((p, q) => averagePeak(q) - averagePeak(p)),
@@ -1363,8 +1367,7 @@ function RangeView(props: { readonly series: Series }) {
                 All Accounts
               </button>
             </fieldset>
-            {/* When the panel stacks under the lanes, the card's switch moves up here; CSS shows one copy. */}
-            <div className="rh-stacked-switch">{switcher}</div>
+            {stacked ? switcher : null}
           </div>
         </div>
         {wl > 0 ? (
@@ -1450,7 +1453,7 @@ function RangeView(props: { readonly series: Series }) {
         </Legend>
       </div>
       <div className="an2-panel" ref={panelBox}>
-        <CardTop headline={readout.headline} />
+        <CardTop headline={readout.headline} withSwitch={!stacked} />
         {wr > 0 ? (
           <svg width={wr} height={heatHeight} aria-label={aria}>
             {[0, 6, 12, 18].map((h) => (

@@ -1,8 +1,7 @@
-import { gzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 
 import { Hono } from "hono";
 import { accepts } from "hono/accepts";
-import { compress } from "hono/compress";
 
 import { createHistoryReader, historyMarker } from "@headroom/core";
 import { encodeHistory } from "@headroom/view-model/history";
@@ -28,14 +27,13 @@ function parseTz(raw: string | undefined): number | null {
  * Usage history for the Analytics view: hourly maxima of each percent-of-limit reading, per
  * account, in hours that start on the owner's local boundaries (`tz`). A read blocks the single
  * thread, so the reader keeps its hourly fold and reads only new readings after a sync, and the
- * serialized body, gzipped once, is cached until a snapshot, sync run or event changes.
+ * body is cached gzipped until a snapshot, sync run or event changes.
  */
 export function historyRoutes(ctx: AppContext): Hono<Env> {
   const app = new Hono<Env>();
   app.use(requireSession(ctx));
-  app.use(compress());
   const reader = createHistoryReader({ keepMs: longest });
-  const cache = new Map<string, { json: string; gzip: Uint8Array<ArrayBuffer> }>();
+  const cache = new Map<string, Uint8Array<ArrayBuffer>>();
 
   app.get("/", (c) => {
     const param = c.req.query("days") ?? "90";
@@ -71,20 +69,23 @@ export function historyRoutes(ctx: AppContext): Hono<Env> {
           }),
         }),
       );
-      body = { json, gzip: gzipSync(json) };
+      body = gzipSync(json);
       if (cache.size >= cacheLimit) cache.delete(cache.keys().next().value!);
       cache.set(key, body);
     }
-    // The gzip is made once per body; compress() leaves a response that already has an encoding alone.
+    // Only the gzip is kept: every browser accepts it, and a client that does not gets it unzipped.
     const gzip =
       accepts(c, { header: "Accept-Encoding", supports: ["gzip"], default: "" }) === "gzip";
     return gzip
-      ? c.body(body.gzip, 200, {
+      ? c.body(body, 200, {
           "content-type": "application/json",
           "content-encoding": "gzip",
           vary: "Accept-Encoding",
         })
-      : c.body(body.json, 200, { "content-type": "application/json", vary: "Accept-Encoding" });
+      : c.body(gunzipSync(body), 200, {
+          "content-type": "application/json",
+          vary: "Accept-Encoding",
+        });
   });
 
   return app;

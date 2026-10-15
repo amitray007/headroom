@@ -119,4 +119,49 @@ describe("history store", () => {
     expect(t.runs).toHaveLength(0);
     expect(store.getState().history).not.toBeNull();
   });
+
+  test("an ensure for other accounts during a read reads again once that read lands", async () => {
+    const c = client([
+      () => Promise.resolve(historyOf(["a"])),
+      () => Promise.resolve(historyOf(["a", "b"])),
+    ]);
+    const store = createHistoryStore(c, { visibility: null, every: timers().every });
+    store.ensure(null);
+    store.ensure("a,b");
+    expect(c.calls()).toBe(1);
+    await settle();
+    await settle();
+    expect(c.calls()).toBe(2);
+    expect(idsOf(store.getState().history!)).toBe("a,b");
+  });
+
+  test("reload during a read starts a new one and drops the older result", async () => {
+    const old: { finish?: (history: History) => void } = {};
+    const c = client([
+      () => new Promise<History>((resolve) => (old.finish = resolve)),
+      () => Promise.resolve(historyOf(["new"])),
+    ]);
+    const store = createHistoryStore(c, { visibility: null, every: timers().every });
+    store.ensure(null);
+    await store.reload();
+    expect(c.calls()).toBe(2);
+    old.finish?.(historyOf(["old"]));
+    await settle();
+    expect(store.getState().history?.connections[0]?.id).toBe("new");
+  });
+
+  test("clear forgets the history and drops a read in flight", async () => {
+    const pending: { finish?: (history: History) => void } = {};
+    const c = client([
+      () => Promise.resolve(historyOf(["a"])),
+      () => new Promise<History>((resolve) => (pending.finish = resolve)),
+    ]);
+    const store = createHistoryStore(c, { visibility: null, every: timers().every });
+    await store.reload();
+    void store.reload();
+    store.clear();
+    pending.finish?.(historyOf(["a"]));
+    await settle();
+    expect(store.getState()).toEqual({ history: null, fetchedAt: 0, failed: false });
+  });
 });

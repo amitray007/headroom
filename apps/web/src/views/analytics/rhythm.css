@@ -336,17 +336,3 @@
     display: none;
   }
 }
-
-/* Range keeps the card's switch with the headline beside the panel; once the panel stacks under the lanes, the
-   copy in the lanes' top row takes over, so the switch stays at the top of the card. */
-.rh-stacked-switch {
-  display: none;
-}
-@media (width < 900px) {
-  .rh-stacked-switch {
-    display: contents;
-  }
-  .rh-split > .an2-panel > .an2-top > .an2-tools {
-    display: none;
-  }
-}

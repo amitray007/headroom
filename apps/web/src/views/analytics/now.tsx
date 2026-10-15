@@ -39,8 +39,14 @@ import "./now.css";
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const blocks = 28;
 const block = 6 * hour;
-/** Blocks a short word such as "Thu" or "reset" needs before the next one on a phone. */
-const minLabelBlocks = 3;
+/** Room, in pixels, the widest day name ("Wed", 23px at 11px) and the "reset" word (3px in, 23px at 10px) take. */
+const dayNamePx = 24;
+const resetWordPx = 27;
+
+/** Blocks a label of `px` needs on a row of cells `cellsPx` wide. Before the grid is measured, one. */
+function blocksFor(px: number, cellsPx: number): number {
+  return cellsPx > 0 ? Math.ceil(px / (cellsPx / blocks)) : 1;
+}
 
 const pad = (value: number): string => String(value).padStart(2, "0");
 
@@ -669,11 +675,14 @@ function ForecastView(props: {
     if (j === 0 || at.getHours() === 0)
       starts.push({ index: j, name: dayNames[at.getDay()] ?? "" });
   }
-  // A day name needs three blocks of width on a phone; the part day at either end of the grid gets none, so its
-  // name does not run into the next one or past the edge.
+  // A part day at either end of the grid too narrow for its name gets none, so the name does not run into the
+  // next one or past the edge. On a wide grid one block is enough; on a phone it takes about three.
+  const axis = useRef<HTMLSpanElement>(null);
+  const cellsPx = useWidth(axis);
   const headers = starts.filter(
-    (h, i) => (starts[i + 1]?.index ?? blocks) - h.index >= minLabelBlocks,
+    (h, i) => (starts[i + 1]?.index ?? blocks) - h.index >= blocksFor(dayNamePx, cellsPx),
   );
+  const resetBlocks = blocksFor(resetWordPx, cellsPx);
 
   return (
     <div className="an2-split now-split">
@@ -684,7 +693,7 @@ function ForecastView(props: {
               <div className="now-grid">
                 <div className="now-rowline now-axis" aria-hidden="true">
                   <span />
-                  <span className="now-axis-days">
+                  <span className="now-axis-days" ref={axis}>
                     <span className="now-now-label" style={{ left: `${nowAt * 100}%` }}>
                       Now
                     </span>
@@ -717,6 +726,7 @@ function ForecastView(props: {
                       base={base}
                       horizon={horizon}
                       fraction={fraction}
+                      resetBlocks={resetBlocks}
                       onSelect={props.onSelect}
                       lit={props.lit}
                       clear={() => {
@@ -782,6 +792,8 @@ function ForecastRow(props: {
   readonly base: number;
   readonly horizon: number;
   readonly fraction: (at: number) => number;
+  /** Blocks from a reset to the grid's end that its word needs. */
+  readonly resetBlocks: number;
   readonly onSelect: (id: string) => void;
   readonly lit: (line: Line) => void;
   readonly clear: () => void;
@@ -868,7 +880,7 @@ function ForecastRow(props: {
             usable &&
             from >= f.end &&
             (j === 0 || from - block < f.end) &&
-            blocks - j >= minLabelBlocks + 1;
+            blocks - j >= props.resetBlocks;
           let kind: string | undefined;
           let level: number | undefined;
           if (after) kind = "new";
@@ -911,6 +923,10 @@ function ForecastRow(props: {
 /* ---------------- Table ---------------- */
 
 type SortKey = "account" | "used" | "pace" | "risk" | "resets";
+/** Below this width the table drops the Pace and Resets columns (now.css, `data-narrow`). */
+const narrowPx = 560;
+const wideOnly: ReadonlySet<SortKey> = new Set(["pace", "resets"]);
+const defaultSort: Sort = { key: "risk", dir: 1 };
 interface Sort {
   readonly key: SortKey;
   readonly dir: 1 | -1;
@@ -964,7 +980,12 @@ function TableView(props: {
 }) {
   const { series } = props;
   const now = series.now;
-  const [sort, setSort] = useState<Sort>({ key: "risk", dir: 1 });
+  const view = useRef<HTMLDivElement>(null);
+  const width = useWidth(view);
+  const narrow = width > 0 && width < narrowPx;
+  const [chosen, setSort] = useState<Sort>(defaultSort);
+  // A sort by a column the narrow table hides would look random; it comes back when the table widens.
+  const sort = narrow && wideOnly.has(chosen.key) ? defaultSort : chosen;
   const column = columns.find((c) => c.key === sort.key) ?? columns[3];
   const usable = props.rows
     .filter(ready)
@@ -977,7 +998,7 @@ function TableView(props: {
     }
   };
   return (
-    <div className="now-view">
+    <div className="now-view" ref={view} data-narrow={narrow || undefined}>
       <div className="now-tablewrap">
         <table className="now-table">
           <thead>
