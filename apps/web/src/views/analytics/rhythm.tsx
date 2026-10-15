@@ -12,6 +12,7 @@ import {
   ViewCard,
   day,
   hour,
+  useCardSwitch,
   useHeadline,
   useTipLayer,
   useStoredView,
@@ -75,6 +76,8 @@ const shareFill = (share: number): string => fgMix(share < 0.06 ? 6 : 14 + share
 const dayFormat = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
 const fmtDay = (at: number): string => dayFormat.format(at);
 const hh = (hourValue: number): string => `${String(hourValue).padStart(2, "0")}:00`;
+/** "08:00-18:00". A word joiner on each side of the hyphen keeps the range on one line when the text wraps. */
+const hourSpan = (from: number, to: number): string => `${hh(from)}\u2060-\u2060${hh(to)}`;
 const weekdayOf = (at: number): number => (new Date(at).getDay() + 6) % 7;
 const hourOf = (at: number): number => new Date(at).getHours();
 const fmtTime = (at: number): string =>
@@ -238,8 +241,8 @@ function summary(series: Series, account: AccountSeries | null) {
       ? `${who}no run-outs in 30 days`
       : `${who}${plural(runs.length, "run-out")} in 30 days, ${
           weekdayRuns === runs.length ? "all on weekdays" : `${weekdayRuns} on weekdays`
-        }, ${hh(Math.min(...hours))}-${hh(Math.max(...hours) + 1)}`;
-  const band = `${hh(best)}-${hh(best + 3)}`;
+        }, ${hourSpan(Math.min(...hours), Math.max(...hours) + 1)}`;
+  const band = hourSpan(best, best + 3);
   return { band, cap, big: `Busiest ${band} on weekdays` };
 }
 
@@ -1234,6 +1237,7 @@ function RangeView(props: { readonly series: Series }) {
   const base: Line = { big: baseBig, cap: baseCap };
   const readout = useReadout(base);
   const { bind } = readout;
+  const switcher = useCardSwitch();
 
   // Lanes and brush.
   const gutter = wl < 520 ? 110 : 150;
@@ -1353,11 +1357,15 @@ function RangeView(props: { readonly series: Series }) {
             <p className="an2-ro-big">{rangeText}</p>
             <p className="an2-ro-cap">{who} · drag across the lanes to change the range</p>
           </div>
-          <fieldset className="seg" aria-label="Accounts in range">
-            <button type="button" aria-pressed={allOn} onClick={() => setExcluded(new Set())}>
-              All Accounts
-            </button>
-          </fieldset>
+          <div className="an2-tools">
+            <fieldset className="seg" aria-label="Accounts in range">
+              <button type="button" aria-pressed={allOn} onClick={() => setExcluded(new Set())}>
+                All Accounts
+              </button>
+            </fieldset>
+            {/* When the panel stacks under the lanes, the card's switch moves up here; CSS shows one copy. */}
+            <div className="rh-stacked-switch">{switcher}</div>
+          </div>
         </div>
         {wl > 0 ? (
           <div className="rh-lanes">
@@ -1626,6 +1634,8 @@ function ByAccount(props: { readonly series: Series }) {
   const right = narrow ? 68 : 104;
   const cols = Math.max(0, width - left - right);
   const cw = cols / 24;
+  // "00:00" needs about 32 px; on a phone six hours of columns are narrower, so the axis marks every twelve.
+  const axisHours = cw * 6 >= 34 ? [0, 6, 12, 18] : [0, 12];
 
   const model = useMemo(() => {
     const keep = (at: number): boolean => mode === "all" || weekdayOf(at) >= 5 === (mode === "we");
@@ -1694,7 +1704,7 @@ function ByAccount(props: { readonly series: Series }) {
       const on = h < 24 && hoursList.includes(h);
       if (on && begin === null) begin = h;
       if (!on && begin !== null) {
-        parts.push(`${hh(begin)}-${hh(h)}`);
+        parts.push(hourSpan(begin, h));
         begin = null;
       }
     }
@@ -1709,7 +1719,7 @@ function ByAccount(props: { readonly series: Series }) {
       : [];
   const first =
     worst !== undefined && worst.n > 0
-      ? `${worst.row.account.label} runs out around ${hh(Math.min(...outHours))}-${hh(Math.max(...outHours) + 1)}`
+      ? `${worst.row.account.label} runs out around ${hourSpan(Math.min(...outHours), Math.max(...outHours) + 1)}`
       : `No account ran out on ${modeText[mode]}`;
   const counts = Array.from(
     { length: 24 },
@@ -1789,7 +1799,7 @@ function ByAccount(props: { readonly series: Series }) {
                 )}
               />
             ))}
-            {[0, 6, 12, 18].map((h) => (
+            {axisHours.map((h) => (
               <text key={h} className="rh-t" x={left + h * cw + 1} y={hy - 8}>
                 {hh(h)}
               </text>

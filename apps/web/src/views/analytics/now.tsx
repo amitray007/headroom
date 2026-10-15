@@ -39,6 +39,8 @@ import "./now.css";
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const blocks = 28;
 const block = 6 * hour;
+/** Blocks a short word such as "Thu" or "reset" needs before the next one on a phone. */
+const minLabelBlocks = 3;
 
 const pad = (value: number): string => String(value).padStart(2, "0");
 
@@ -661,12 +663,17 @@ function ForecastView(props: {
   const fraction = (at: number): number => (at - base) / (blocks * block);
   const nowAt = fraction(now);
 
-  const headers: { readonly index: number; readonly name: string }[] = [];
+  const starts: { readonly index: number; readonly name: string }[] = [];
   for (let j = 0; j < blocks; j += 1) {
     const at = new Date(base + j * block);
     if (j === 0 || at.getHours() === 0)
-      headers.push({ index: j, name: dayNames[at.getDay()] ?? "" });
+      starts.push({ index: j, name: dayNames[at.getDay()] ?? "" });
   }
+  // A day name needs three blocks of width on a phone; the part day at either end of the grid gets none, so its
+  // name does not run into the next one or past the edge.
+  const headers = starts.filter(
+    (h, i) => (starts[i + 1]?.index ?? blocks) - h.index >= minLabelBlocks,
+  );
 
   return (
     <div className="an2-split now-split">
@@ -856,7 +863,12 @@ function ForecastRow(props: {
           const from = base + j * block;
           const to = from + block;
           const after = !usable || from >= f.end;
-          const firstAfter = usable && from >= f.end && (j === 0 || from - block < f.end);
+          // The word needs room to its right; near the edge the tick alone marks the reset.
+          const firstAfter =
+            usable &&
+            from >= f.end &&
+            (j === 0 || from - block < f.end) &&
+            blocks - j >= minLabelBlocks + 1;
           let kind: string | undefined;
           let level: number | undefined;
           if (after) kind = "new";
@@ -1067,13 +1079,13 @@ function TableView(props: {
           <Swatch kind="dot" />
           Runs out before reset
         </span>
-        <span>
+        <span className="now-wide">
           <span className="now-meter" data-mini aria-hidden="true">
             <b style={{ left: "50%" }} />
           </span>
           Tick: even pace
         </span>
-        <span>
+        <span className="now-wide">
           <b className="now-warn-text">1.2x</b>Faster than even pace
         </span>
         <span>Select a header to sort, a row for detail.</span>

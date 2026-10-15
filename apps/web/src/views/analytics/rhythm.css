@@ -15,10 +15,6 @@
 .rh-top > .an2-ro {
   flex: 1 1 280px;
 }
-.rh-top > .seg,
-.rh-top > .an2-filter {
-  flex: 0 1 auto;
-}
 
 /* The chart's own box: the tooltip is placed in its coordinates, and a wide chart scrolls inside it. */
 .rh-box {
@@ -314,12 +310,6 @@
   gap: var(--space-3);
 }
 
-@media (width < 700px) {
-  .rh-top > .an2-filter {
-    max-width: 100%;
-  }
-}
-
 /* The legend and the lanes toggle share one row; the toggle sits at the right edge. */
 .rh-foot {
   display: flex;
@@ -343,6 +333,20 @@
 
 @media (width < 700px) {
   .rh-disclose-hint {
+    display: none;
+  }
+}
+
+/* Range keeps the card's switch with the headline beside the panel; once the panel stacks under the lanes, the
+   copy in the lanes' top row takes over, so the switch stays at the top of the card. */
+.rh-stacked-switch {
+  display: none;
+}
+@media (width < 900px) {
+  .rh-stacked-switch {
+    display: contents;
+  }
+  .rh-split > .an2-panel > .an2-top > .an2-tools {
     display: none;
   }
 }

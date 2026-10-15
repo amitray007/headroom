@@ -13,6 +13,7 @@ import {
 import { useNow } from "../../lib/now.ts";
 import { presentPanel } from "@headroom/view-model/present";
 import { When } from "../../lib/when.tsx";
+import { Breakable } from "../../ui/breakable.tsx";
 import { cx } from "../../ui/cx.ts";
 import { Fold } from "../../ui/fold.tsx";
 import { HealthyStatus, StatusPill, statusKindOf } from "../../ui/pill.tsx";
@@ -78,7 +79,9 @@ export function AccountRow(props: {
                   {props.showProvider ? providerName(connection.provider) : null}
                   {props.showProvider && connection.identity !== null ? " · " : null}
                   {connection.identity === null ? null : (
-                    <span className="who">{connection.identity}</span>
+                    <span className="who">
+                      <Breakable text={connection.identity} />
+                    </span>
                   )}
                 </span>
               ) : null}
