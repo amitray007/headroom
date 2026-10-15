@@ -153,6 +153,9 @@ describe("embed messages", () => {
       type: "navigate",
       page: "wallet",
     });
+    expect(parseSiteMessage({ source: from, type: "navigate", page: "analytics" })?.type).toBe(
+      "navigate",
+    );
     expect(parseSiteMessage({ source: from, type: "scheme", scheme: "dark" })?.type).toBe("scheme");
     expect(parseSiteMessage({ source: "other", type: "navigate", page: "wallet" })).toBeNull();
     expect(parseSiteMessage({ source: from, type: "navigate", page: "reconnect" })).toBeNull();

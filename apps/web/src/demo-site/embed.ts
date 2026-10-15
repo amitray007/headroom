@@ -6,7 +6,15 @@ import { href, parseRoute } from "../router.ts";
 
 /** The landing page embeds the demo in an iframe and talks to it by `postMessage`, on the same origin only. */
 
-const pageSchema = z.enum(["overview", "detailed", "compare", "timeline", "wallet", "connect"]);
+const pageSchema = z.enum([
+  "overview",
+  "detailed",
+  "compare",
+  "timeline",
+  "wallet",
+  "analytics",
+  "connect",
+]);
 const messageSchema = z.discriminatedUnion("type", [
   z.object({ source: z.literal("headroom-site"), type: z.literal("navigate"), page: pageSchema }),
   z.object({

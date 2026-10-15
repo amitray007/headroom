@@ -65,7 +65,7 @@ Completion: a non-admin and an admin account each validate separately. Pool name
 
 ## M5: Dashboard and history
 
-Status: built. The web app has account cards, quota buckets, balances, reset countdowns, stale and partial states, interface labels, manual refresh, and compare, detailed, timeline and Wallet views, on a Vite app served from the binary. Desktop, mobile and keyboard checks continue with each change.
+Status: built. Analytics charts are drawn only from stored observations (D38). The web app has account cards, quota buckets, balances, reset countdowns, stale and partial states, interface labels, manual refresh, and compare, detailed, timeline, Wallet and Analytics views, on a Vite app served from the binary. Desktop, mobile and keyboard checks continue with each change.
 
 Account cards, independent quota buckets, balance and spend views, reset countdowns and reset inventories, stale and partial states, private-interface labels, manual refresh. Historical charts only from stored observations. Choose the UI stack then: a small embedded Vite app or server-rendered templates. Validate desktop, mobile and keyboard use.
 

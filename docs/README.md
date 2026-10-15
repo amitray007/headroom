@@ -29,7 +29,7 @@ Each dossier describes metrics, connection steps, tools, limitations and sources
 
 ## Shared references
 
-- [HTTP API](architecture/api.md): overview, display name, settings, the Wallet, and the account-actions gate.
+- [HTTP API](architecture/api.md): overview, display name, settings, the Wallet, usage history for Analytics, and the account-actions gate.
 - [Notifications](architecture/notifications.md): what raises a notification, the event schema, and server-side delivery to Telegram and webhooks.
 - [Connector contract](architecture/connector-contract.md): the TypeScript interface every provider package implements, in `packages/core/src/connector.ts`.
 - [Deployment and credential storage](architecture/deployment.md): single binary, SQLite, master key and backups.
