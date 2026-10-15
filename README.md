@@ -43,6 +43,7 @@ Headroom holds the sign-in tokens for every AI account you connect. A hosted cop
 - **Every limit in one place.** 5-hour sessions, weekly pools, per-model limits, credit balances, banked resets and on-demand spend, side by side.
 - **Know which account to use next.** Compare ranks accounts of a provider by the room they have left and names the one to use.
 - **See resets coming.** Timeline lays every window on a calendar, so you know when headroom comes back.
+- **See how you use your limits.** Analytics shows when you work, when you run out, and whether each plan fits, from the readings Headroom stores.
 - **Track what you pay.** Wallet totals subscriptions, usage spend and top-ups in one currency, with upcoming renewals.
 - **Get warned in time.** In-app notices, Telegram and signed webhooks for limits running low, new and expiring resets, early resets, your own spend budgets and broken sign-ins.
 - **Automations you switch on.** Use a banked Codex reset when a limit runs out, and record credit top-ups in the Wallet as soon as a balance rises.
@@ -57,6 +58,8 @@ Headroom holds the sign-in tokens for every AI account you connect. A hosted cop
 | <img src="docs/assets/screenshots/overview.png" alt="Overview: one panel per account with its limits, credits and resets" width="420"> | <img src="docs/assets/screenshots/compare.png" alt="Compare: accounts of one provider ranked by room left, with a recommendation" width="420"> |
 | **Timeline** | **Wallet** |
 | <img src="docs/assets/screenshots/timeline.png" alt="Timeline: limit windows on a two-week calendar" width="420"> | <img src="docs/assets/screenshots/wallet.png" alt="Wallet: monthly spend by provider, top-ups and renewals" width="420"> |
+| **Analytics** | **Detailed** |
+| <img src="docs/assets/screenshots/analytics.png" alt="Analytics: when each account is busy, hour by hour, and which plans fit" width="420"> | <img src="docs/assets/screenshots/detailed.png" alt="Detailed: every account in one list, closest to its limit first" width="420"> |
 | **Connect** | **Light theme** |
 | <img src="docs/assets/screenshots/connect.png" alt="Connect: pick a provider and manage connected accounts" width="420"> | <img src="docs/assets/screenshots/overview-light.png" alt="Overview in the light theme" width="420"> |
 
