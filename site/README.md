@@ -27,7 +27,7 @@ The page shows the demo (`demo/?embed=1`) in an iframe at a fixed logical size a
 
 | From | Message | Effect |
 | --- | --- | --- |
-| Site | `{ source: "headroom-site", type: "navigate", page }` | The demo opens `overview`, `detailed`, `compare`, `timeline`, `wallet` or `connect` |
+| Site | `{ source: "headroom-site", type: "navigate", page }` | The demo opens `overview`, `detailed`, `compare`, `timeline`, `wallet`, `analytics` or `connect` |
 | Site | `{ source: "headroom-site", type: "scheme", scheme }` | The demo uses `light`, `dark` or `system` |
 | Demo | `{ source: "headroom-demo", type: "ready" }` | The demo has rendered. The page fades it in over the skeleton |
 | Demo | `{ source: "headroom-demo", type: "route", page }` | The visitor changed view inside the demo. The page scrolls to that step of the tour |
