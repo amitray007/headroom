@@ -26,6 +26,7 @@ Tone is `bad`, `warn` or `info`. "Left" is the percent of the limit still free. 
 | --- | --- | --- | --- | --- |
 | `running_low` | A percent meter has less than the threshold left. Again at each further 10 points used, until Almost Out | `warn` | `running_low` | `running_low:<metricKey>:<resetsAt>`, then `:<step>` |
 | `almost_out` | A percent meter has under 10% left. Again under 5% | `bad` | `almost_out` | `almost_out:<metricKey>:<resetsAt>`, then `:5` |
+| `pacing` | A weekly limit at or above the threshold left runs out at least one day before it resets at its recent burn rate. See [Pacing](#pacing) | `warn` | `pacing` | `pacing:<metricKey>:<resetsAt>:<level>` |
 | `reset_expiring` | A usable banked reset expires within `resetLeadDays`. One notice, for the soonest | `info` | `reset_expiring` | `reset_expiring:<creditId>:<expiresAt>` |
 | `balance_low` | Vercel balance is under the threshold of balance plus total used. Under 10% is `bad`. Only when both are reported and the total is above 0. Claude: `prepaid.balance` is 0 while extra usage is on, `bad`, at most once a calendar month; or `cloud_credits.remaining` is 0 with an allowance above 0 and the expiry not passed, `bad`, once per grant | `warn`, `bad` | `balance_low` | `balance_low:credits.balance:<total>:<tone>` (a top-up changes the total); Claude `balance_low:prepaid.balance:<YYYY-MM>` and `balance_low:cloud_credits.remaining:<expiresAt>` |
 | `spend_near_cap` | Spend is at least (100 - threshold)% of its cap | `warn` | `spend_near_cap` | `spend_near_cap:<spendKey>:<periodEnd>` |
@@ -48,6 +49,23 @@ A rejected key or sign-in on an account that worked before is re-checked about 2
 `<resetsAt>`, `<expiresAt>` and `<lastSuccessAt>` are epoch milliseconds. `<eventId>` is the id of the account event, so one event is one notice. `<expiresOn>` is the top-up's expiry day, `YYYY-MM-DD`. `<amount>` is the owner's budget amount, so a changed budget starts a new notice. `<periodEnd>` is the period's end when the metric or its anchor reports one (Cursor cycle end, Grok weekly reset, Copilot monthly reset). Without one it is the UTC month of the reading, `YYYY-MM`, as for Claude extra usage. An id stays the same while the situation lasts and changes for the next period, so a repeat appears again as unread.
 
 An id stays the same only if the times in it are steady. Some providers send a slightly different reset time on each read: Claude within about a second, Codex alternating between two seconds. When Headroom stores a reading, a reset or window-end time within 2 minutes of the metric's last known time keeps the last known value. The last known time is the newest one in the account's last 6 readings, so a reading that left the metric out or had no time does not reset it. A real new period moves the time by much more. The Vercel `<total>` is rounded to a millionth before it is formatted, as top-up detection does, so float noise from adding two figures cannot move it across a cent. Ids made before this rounding can differ at such a total (three or more decimals ending in 5), so an active Vercel Balance Low there sends once after the update.
+
+## Pacing
+
+Running Low looks only at what is left. Pacing also looks at time: 20% left with 3 hours to the reset is fine, 20% left with 3 days to go is not. Pacing measures how fast a weekly limit is being used and warns when that rate uses it up at least one day before it resets. It reads stored readings only, so it makes no model request.
+
+**Burn rate.** The server measures a rate for each percent limit from the account's stored readings and adds it to the overview as `pace` (see [the API](api.md#overview)). The trail is the last 24 hours of readings before the newest one. It keeps one period: readings whose reset time differs from the newest one by more than 10 minutes are dropped, and so are readings before a drop of more than 1 point (a reset or an early reset). The rate is the use gained from the first to the last reading of the trail, per hour. A limit has no rate, which means unknown, unless the trail has at least 4 readings over at least 18 hours, gained at least 2 points, and gained at least 1 point in its last 6 hours. So an idle account, a window whose reset time still slides before first use, and an account with little history raise nothing.
+
+**Trigger.** Only weekly limits are covered. Sessions reset too soon, and running out of a billing cycle's included use rolls into on-demand spend, which the spend and budget notices already cover. With `used` the percent used now and `rate` in points per hour:
+
+```
+runsOutAt = observedAt + (100 - used) / rate hours
+earlyBy   = resetsAt - runsOutAt
+```
+
+Pacing raises a notice when `earlyBy` is at least one day and the limit still has at least the threshold left. The reading must be at most an hour old, and the rate must end at that reading. `<level>` is `1 + floor((earlyBy - 1 day) / 1 day)`, up to 7: the notice sends when the run-out is first a day early, and again only if it moves a further day earlier. A better pace returns to a level already sent, so nothing repeats. For Claude, when the all-models weekly limit and model-scoped weekly limits all raise pacing, only the one that runs out first is raised.
+
+**Hand-off.** Once the limit falls under the threshold, pacing stops and Running Low takes over. When the pace still counts, the Running Low or Almost Out message adds the same sentence, and its id does not change, so one situation sends one message.
 
 Rules that apply to every kind:
 
@@ -73,7 +91,7 @@ Every kind has its own switch. An older stored document with the group switches 
 
 Every notice that is on goes to the in-app bell and to every enabled channel (Telegram, webhooks). There is no per-channel choice of kind.
 
-Settings, Notifications tab: "Limits" (Running Low, Almost Out, Include 5-Hour Sessions), "Resets" (Expiring Reset, the reset lead, New Banked Reset, Early Reset, Auto-Reset Result), "Balances and Credits", "Spend" (On-Demand Started, Near Spending Cap, Spending Cap Reached, Near Your Budget, Over Your Budget), "Sign-In" (Refresh Failed, Disconnected), and "Providers" with one switch per connected provider in the saved order.
+Settings, Notifications tab: "Limits" (Running Low, Almost Out, Running Out Early, Include 5-Hour Sessions), "Resets" (Expiring Reset, the reset lead, New Banked Reset, Early Reset, Auto-Reset Result), "Balances and Credits", "Spend" (On-Demand Started, Near Spending Cap, Spending Cap Reached, Near Your Budget, Over Your Budget), "Sign-In" (Refresh Failed, Disconnected), and "Providers" with one switch per connected provider in the saved order.
 
 ## Event schema
 
@@ -90,7 +108,7 @@ Settings, Notifications tab: "Limits" (Running Low, Almost Out, Include 5-Hour S
 | `provider` | provider name | |
 | `connection` | `{ id, name, plan, identity? }` | Internal id, the owner's name for the account or its scope word, plan or null. `identity` is the account's email or login. It is present only for a destination whose owner chose to include it, see [Identity](#identity) |
 | `subject` | `{ metricKey, label, window }` | Each a string or null |
-| `figures` | object, all optional | `percentUsed`, `percentLeft`, `resetsAt`, `amount { value, unit }`, `cap { value, unit }`, `expiresAt`. `amount` is spend, a balance or a count. `cap` is what it counts against: the spending cap, or the total granted for a balance. `unit` is `notification.amount.unit` |
+| `figures` | object, all optional | `percentUsed`, `percentLeft`, `resetsAt`, `amount { value, unit }`, `cap { value, unit }`, `expiresAt`, `runsOutAt` (pacing: when the limit runs out at its recent rate). `amount` is spend, a balance or a count. `cap` is what it counts against: the spending cap, or the total granted for a balance. `unit` is `notification.amount.unit` |
 | `title` | string | Title Case headline |
 | `message` | string | One short plain sentence or two |
 | `links` | `{ dashboard? }` | Absolute URL of the dashboard, when the server knows it |
@@ -135,6 +153,31 @@ Almost Out (Claude model-scoped):
   "figures": { "percentUsed": 91, "percentLeft": 9, "resetsAt": 1790000000000 },
   "title": "Claude Is Almost Out of Its Weekly Fable Limit",
   "message": "91% used. Resets in 52 min.",
+  "links": {}
+}
+```
+
+Pacing (Claude weekly, about 2 days early):
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "c1:pacing:seven_day:1790292400000:2",
+  "kind": "pacing",
+  "tone": "warn",
+  "occurredAt": 1789990000000,
+  "observedAt": 1789990000000,
+  "provider": "claude",
+  "connection": { "id": "c1", "name": "Personal", "plan": "max_5x" },
+  "subject": { "metricKey": "seven_day", "label": "Weekly", "window": "all models" },
+  "figures": {
+    "percentUsed": 62,
+    "percentLeft": 38,
+    "resetsAt": 1790292400000,
+    "runsOutAt": 1790098000000
+  },
+  "title": "Claude Weekly Limit Will Run Out Early",
+  "message": "62% used. At this rate it runs out in about 30 hours, 2 days before it resets.",
   "links": {}
 }
 ```
@@ -407,7 +450,7 @@ Headers follow [Standard Webhooks](https://www.standardwebhooks.com/):
 | `webhook-id` | `msg_` plus a hash of channel id and event id. The same across retries, so a receiver can drop a repeat |
 | `webhook-timestamp` | Unix seconds when the attempt was sent |
 | `webhook-signature` | `v1,` plus base64 HMAC-SHA256 of `{webhook-id}.{webhook-timestamp}.{raw body}`, keyed with the base64-decoded part of the secret after `whsec_` |
-| `x-headroom-event` | The event `kind`, or `test` |
+| `x-headroom-event` | The event `kind`, or `test`. New kinds can appear in a later release, so a receiver must ignore a kind it does not know |
 | `user-agent` | `Headroom/<version>` |
 
 Verify a request on the receiver. Use the raw body text, not a parsed copy:

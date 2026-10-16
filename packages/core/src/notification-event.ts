@@ -54,6 +54,8 @@ export const notificationEventSchema = z.strictObject({
     /** What the amount counts against: a spending cap, or the total granted for a balance. */
     cap: amountSchema.optional(),
     expiresAt: instant.optional(),
+    /** When the limit runs out at its recent burn rate, epoch milliseconds. Pacing only. */
+    runsOutAt: instant.optional(),
   }),
   title: z.string().min(1),
   message: z.string().min(1),

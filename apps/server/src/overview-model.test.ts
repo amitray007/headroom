@@ -2,11 +2,43 @@ import { describe, expect, test } from "bun:test";
 
 import { type CollectResult, splitLabel } from "@headroom/core";
 import { credentialFixture, FakeConnector } from "@headroom/core/testing";
+import { paceOf } from "@headroom/view-model/pace";
+import { z } from "zod";
 
 import type { AppContext } from "./bootstrap.ts";
 import { overviewConnections } from "./overview-model.ts";
 import { metricJson, ms, resetCreditJson } from "./routes/serialize.ts";
 import { testContext } from "./test-helpers.ts";
+
+/** Pace the slow way: one query per connection and metric through the same pure estimator. */
+function legacyPace(source: AppContext, connectionId: string, now: number) {
+  const keys = z.array(z.object({ k: z.string() })).parse(
+    source.sqlite
+      .query(
+        `SELECT DISTINCT m.provider_metric_key AS k FROM snapshots s JOIN metrics m ON m.snapshot_id = s.id
+       WHERE s.connection_id = ?`,
+      )
+      .all(connectionId),
+  );
+  const out: { metricKey: string; ratePerHour: number; from: number; to: number }[] = [];
+  for (const { k } of keys.toSorted((a, b) => a.k.localeCompare(b.k))) {
+    const rows = z
+      .array(z.object({ at: z.number(), used: z.number(), resetsAt: z.number().nullable() }))
+      .parse(
+        source.sqlite
+          .query(
+            `SELECT s.observed_at AS at, m.value_num AS used, m.resets_at AS resetsAt
+         FROM snapshots s JOIN metrics m ON m.snapshot_id = s.id
+         WHERE s.connection_id = ? AND m.provider_metric_key = ? AND s.observed_at >= ?
+           AND m.kind = 'quota_percentage' AND m.availability = 'available' AND m.value_num IS NOT NULL`,
+          )
+          .all(connectionId, k, now - 25 * 3_600_000),
+      );
+    const pace = paceOf(rows);
+    if (pace) out.push({ metricKey: k, ...pace });
+  }
+  return out;
+}
 
 /** The per-connection implementation the batched one replaced, kept as the reference for byte-identical output. */
 function legacyOverview(source: AppContext, now: number) {
@@ -53,6 +85,7 @@ function legacyOverview(source: AppContext, now: number) {
       events: source.accountEvents
         .recent(new Date(now - 7 * 86_400_000))
         .filter((event) => event.connectionId === connection.id),
+      pace: legacyPace(source, connection.id, now),
       automation: {
         autoReset: source.automation.autoReset(connection.id),
         budgets: source.automation.budgets(connection.id),
@@ -61,7 +94,18 @@ function legacyOverview(source: AppContext, now: number) {
   });
 }
 
+const base = 1_700_000_000_000 - 22 * 3_600_000;
+
 type Outcome = "succeeded" | "partial" | "provider_unavailable" | null;
+
+const hourMs = 3_600_000;
+
+/** A weekly reading whose reset time stays fixed, so a trail of them has a pace. */
+function paced(observedAt: number, percent: number, resetsAt: number): CollectResult {
+  const result = collect(observedAt, String(percent));
+  for (const metric of result.metrics) Object.assign(metric, { resetsAt });
+  return result;
+}
 
 function collect(observedAt: number, percent: string, extra = false): CollectResult {
   return {
@@ -178,10 +222,13 @@ describe("overviewConnections", () => {
     run(tied.id, "succeeded", collect(1_700_000_005_000, "20", true));
     run(tied.id, "succeeded", collect(1_700_000_005_000, "21"));
     add("claude", "late", "late@example.com");
+    const burning = add("claude", "burn", "burn@example.com (max)");
+    for (let h = 0; h <= 20; h++)
+      run(burning.id, "succeeded", paced(base + h * hourMs, 10 + h, base + 100 * hourMs));
 
     const at = now() + 10_000;
     const batched = overviewConnections(ctx, at);
-    expect(batched).toHaveLength(8);
+    expect(batched).toHaveLength(9);
     expect(JSON.stringify(batched)).toBe(JSON.stringify(legacyOverview(ctx, at)));
     // The fixture exercises what the comparison is for.
     const byName = (id: string) => batched.find((entry) => entry.id === id);
@@ -189,6 +236,50 @@ describe("overviewConnections", () => {
     expect(byName(failing.id)?.latestRun?.failureStreak).toBe(3);
     expect(byName(tied.id)?.snapshot?.metrics).toHaveLength(1);
     expect(byName(withSnapshot.id)?.snapshot?.resetCredits).toHaveLength(2);
+    expect(byName(burning.id)?.pace).toHaveLength(1);
+    expect(byName(withSnapshot.id)?.pace).toEqual([]);
+  });
+
+  test("attaches the burn rate of stored readings and leaves a thin trail unknown", () => {
+    const { ctx, add, run } = fixture();
+    const burning = add("codex", "burn", "burn@example.com");
+    const thin = add("codex", "thin", "thin@example.com");
+    for (let h = 0; h <= 20; h++)
+      run(burning.id, "succeeded", paced(base + h * hourMs, 10 + h, base + 100 * hourMs));
+    for (let h = 18; h <= 20; h++)
+      run(thin.id, "succeeded", paced(base + h * hourMs, 10 + h, base + 100 * hourMs));
+    const at = base + 21 * hourMs;
+    const rows = overviewConnections(ctx, at);
+    expect(rows.find((row) => row.id === burning.id)?.pace).toEqual([
+      { metricKey: "weekly", ratePerHour: 1, from: base, to: base + 20 * hourMs },
+    ]);
+    expect(rows.find((row) => row.id === thin.id)?.pace).toEqual([]);
+  });
+
+  test("reuses the pace until a new snapshot is stored", () => {
+    const { ctx, add, run } = fixture();
+    const burning = add("codex", "burn", "burn@example.com");
+    for (let h = 0; h <= 20; h++)
+      run(burning.id, "succeeded", paced(base + h * hourMs, 10 + h, base + 100 * hourMs));
+    const at = base + 21 * hourMs;
+    const statements = () => {
+      let count = 0;
+      const original = ctx.sqlite.query.bind(ctx.sqlite);
+      ctx.sqlite.query = (sql: string) => {
+        if (sql.includes("m.resets_at")) count += 1;
+        return original(sql);
+      };
+      return { count: () => count, restore: () => (ctx.sqlite.query = original) };
+    };
+    const probe = statements();
+    overviewConnections(ctx, at);
+    overviewConnections(ctx, at);
+    expect(probe.count()).toBe(1);
+    run(burning.id, "succeeded", paced(base + 21 * hourMs, 31, base + 100 * hourMs));
+    const after = overviewConnections(ctx, at);
+    probe.restore();
+    expect(probe.count()).toBe(2);
+    expect(after[0]?.pace[0]?.to).toBe(base + 21 * hourMs);
   });
 
   test("carries each account's recent events, rule and budgets", () => {

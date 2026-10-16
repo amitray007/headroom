@@ -1362,3 +1362,198 @@ describe("extra_usage_started for spend", () => {
     expect(spendIdAt(now)).not.toBe(spendIdAt(now + 40 * 86_400_000));
   });
 });
+
+// ---------- pacing ----------
+
+const hourMs = 3_600_000;
+const dayMs = 86_400_000;
+const paceReset = now + 4 * dayMs;
+
+/** A weekly limit at `used`% that runs out `early` ms before its reset, measured at the reading. */
+function pacedClaude(used: number, early: number, over: Parameters<typeof connection>[1] = {}) {
+  const observedAt = now - 5 * 60_000;
+  const toRunOut = paceReset - early - observedAt;
+  return connection("claude", {
+    id: "p1",
+    observedAt,
+    metrics: [percent("seven_day", used, { resetsAt: paceReset })],
+    pace: [
+      {
+        metricKey: "seven_day",
+        ratePerHour: (100 - used) / (toRunOut / hourMs),
+        from: observedAt - 6 * hourMs,
+        to: observedAt,
+      },
+    ],
+    ...over,
+  });
+}
+
+const pacing = (conn: ReturnType<typeof connection>, settings = defaultSettings) =>
+  deriveNotifications([conn], settings, now).filter((item) => item.kind === "pacing");
+
+const idAt = (early: number) => pacing(pacedClaude(40, early))[0]?.id;
+
+describe("pacing notices", () => {
+  test("raised a day or more before the reset, and not under that", () => {
+    expect(pacing(pacedClaude(40, dayMs + 60_000))).toHaveLength(1);
+    expect(pacing(pacedClaude(40, dayMs - 60_000))).toEqual([]);
+    expect(pacing(pacedClaude(40, 0))).toEqual([]);
+  });
+
+  test("wording, figures and id", () => {
+    const [item] = pacing(pacedClaude(40, 2 * dayMs));
+    expect(item?.tone).toBe("warn");
+    expect(item?.title).toBe("Claude Weekly Limit Will Run Out Early");
+    expect(item?.message).toBe(
+      "40% used. At this rate it runs out in about 2 days, 2 days before it resets.",
+    );
+    expect(item?.id).toBe(`p1:pacing:seven_day:${paceReset}:2`);
+    expect(item?.figures.percentLeft).toBe(60);
+    expect(item?.figures.resetsAt).toBe(paceReset);
+    expect(item?.figures.runsOutAt).toBe(paceReset - 2 * dayMs);
+  });
+
+  test("short spans are in hours", () => {
+    const observedAt = now - 5 * 60_000;
+    const soon = connection("claude", {
+      id: "p2",
+      observedAt,
+      metrics: [percent("seven_day", 10, { resetsAt: observedAt + 3 * dayMs })],
+      pace: [
+        { metricKey: "seven_day", ratePerHour: 90 / 6, from: observedAt - hourMs, to: observedAt },
+      ],
+    });
+    expect(pacing(soon)[0]?.message).toBe(
+      "10% used. At this rate it runs out in about 6 hours, 3 days before it resets.",
+    );
+  });
+
+  test("the margin before the reset is in whole days, never hours", () => {
+    expect(pacing(pacedClaude(40, 30 * hourMs))[0]?.message).toMatch(/, 1 day before it resets\.$/);
+    expect(pacing(pacedClaude(40, 42 * hourMs))[0]?.message).toMatch(
+      /, 2 days before it resets\.$/,
+    );
+  });
+
+  test("a level step: same id within a step, a new id one full day deeper", () => {
+    expect(idAt(dayMs + 3_600_000)).toBe(idAt(2 * dayMs - 3_600_000));
+    expect(idAt(dayMs + 3_600_000)).toBe(`p1:pacing:seven_day:${paceReset}:1`);
+    expect(idAt(2 * dayMs + 3_600_000)).toBe(`p1:pacing:seven_day:${paceReset}:2`);
+    expect(idAt(3 * dayMs)).not.toBe(idAt(2 * dayMs));
+  });
+
+  test("the level stops at 7", () => {
+    const far = connection("claude", {
+      id: "p3",
+      observedAt: now,
+      metrics: [percent("seven_day", 5, { resetsAt: now + 30 * dayMs })],
+      pace: [{ metricKey: "seven_day", ratePerHour: 10, from: now - hourMs, to: now }],
+    });
+    expect(pacing(far)[0]?.id.endsWith(":7")).toBe(true);
+  });
+
+  test("below the Running Low line there is no pacing notice, and Running Low carries the pace", () => {
+    const low = pacedClaude(75, 2 * dayMs);
+    expect(pacing(low)).toEqual([]);
+    const [item] = deriveNotifications([low], defaultSettings, now);
+    expect(item?.kind).toBe("running_low");
+    expect(item?.id).toBe(`p1:running_low:seven_day:${paceReset}`);
+    expect(item?.message).toContain("At this rate it runs out in about");
+    expect(item?.message.endsWith("2 days before it resets.")).toBe(true);
+    const plain = pacedClaude(75, 0);
+    expect(deriveNotifications([plain], defaultSettings, now)[0]?.message).not.toContain(
+      "At this rate",
+    );
+    expect(deriveNotifications([plain], defaultSettings, now)[0]?.id).toBe(item?.id);
+  });
+
+  test("Almost Out carries the pace too, and a full limit does not", () => {
+    const [out] = deriveNotifications([pacedClaude(95, 2 * dayMs)], defaultSettings, now);
+    expect(out?.kind).toBe("almost_out");
+    expect(out?.message).toContain("At this rate it runs out in about");
+    const [full] = deriveNotifications([pacedClaude(100, 2 * dayMs)], defaultSettings, now);
+    expect(full?.message).not.toContain("At this rate");
+  });
+
+  test("a stale reading or a rate measured elsewhere says nothing", () => {
+    const fresh = pacedClaude(40, 2 * dayMs);
+    expect(pacing(pacedClaude(40, 2 * dayMs, { observedAt: now - hourMs - 1 }))).toEqual([]);
+    const shifted = {
+      ...fresh,
+      pace: fresh.pace.map((p) => Object.assign({}, p, { to: p.to - 2 * 60_000 })),
+    };
+    expect(pacing(shifted)).toEqual([]);
+    const other = {
+      ...fresh,
+      pace: fresh.pace.map((p) => Object.assign({}, p, { metricKey: "five_hour" })),
+    };
+    expect(pacing(other)).toEqual([]);
+  });
+
+  test("an unknown pace says nothing", () => {
+    expect(pacing(pacedClaude(40, 2 * dayMs, { pace: [] }))).toEqual([]);
+  });
+
+  test("sessions and billing cycles are left out", () => {
+    const observedAt = now - 60_000;
+    const rate = { ratePerHour: 50, from: observedAt - hourMs, to: observedAt };
+    const session = connection("claude", {
+      id: "s1",
+      observedAt,
+      metrics: [percent("five_hour", 10, { scope: "window:18000s", resetsAt: now + 4 * hourMs })],
+      pace: [{ metricKey: "five_hour", ...rate }],
+    });
+    const cycle = connection("cursor", {
+      id: "s2",
+      observedAt,
+      metrics: [
+        percent("included.total_percent", 10, {
+          scope: "billing_cycle",
+          windowStart: now - 5 * dayMs,
+          windowEnd: now + 25 * dayMs,
+          resetsAt: now + 25 * dayMs,
+        }),
+      ],
+      pace: [{ metricKey: "included.total_percent", ...rate }],
+    });
+    expect(pacing(session)).toEqual([]);
+    expect(pacing(cycle)).toEqual([]);
+  });
+
+  test("a muted provider and a switched-off kind say nothing", () => {
+    const conn = pacedClaude(40, 2 * dayMs);
+    expect(pacing(conn, withNotifications({ mutedProviders: ["claude"] }))).toEqual([]);
+    expect(
+      pacing(conn, withNotifications({ kinds: { ...kindSwitches(true), pacing: false } })),
+    ).toEqual([]);
+  });
+
+  test("Claude keeps the earliest of the overlapping weekly limits", () => {
+    const base = pacedClaude(40, 2 * dayMs);
+    const observedAt = base.snapshot?.observedAt ?? 0;
+    const conn = {
+      ...base,
+      snapshot: {
+        observedAt,
+        resetCredits: [],
+        metrics: [
+          percent("seven_day", 40, { resetsAt: paceReset }),
+          percent("limits.Fable", 30, { resetsAt: paceReset }),
+        ],
+      },
+      pace: [
+        ...base.pace,
+        {
+          metricKey: "limits.Fable",
+          ratePerHour: 70 / ((paceReset - 3 * dayMs - observedAt) / hourMs),
+          from: observedAt - hourMs,
+          to: observedAt,
+        },
+      ],
+    };
+    const found = pacing(conn);
+    expect(found).toHaveLength(1);
+    expect(found[0]?.subject.metricKey).toBe("limits.Fable");
+  });
+});

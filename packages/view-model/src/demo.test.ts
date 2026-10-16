@@ -309,15 +309,15 @@ describe("demoOverview", () => {
     }
   });
 
-  test("the default settings give 6 to 9 notifications for any seed", () => {
+  test("the default settings give 7 to 10 notifications for any seed", () => {
     for (const seed of seeds) {
       const found = deriveNotifications(
         demoOverview(seed, anchor).connections,
         defaultSettings,
         anchor,
       );
-      expect(found.length).toBeGreaterThanOrEqual(6);
-      expect(found.length).toBeLessThanOrEqual(9);
+      expect(found.length).toBeGreaterThanOrEqual(7);
+      expect(found.length).toBeLessThanOrEqual(10);
     }
   });
 
@@ -329,6 +329,7 @@ describe("demoOverview", () => {
       "extra_usage_started",
       "extra_usage_started",
       "extra_usage_started",
+      "pacing",
       "reset_expiring",
       "reset_granted",
       "running_low",
@@ -337,6 +338,21 @@ describe("demoOverview", () => {
     const disconnected = connections.find((c) => c.state === "reconnect_required");
     expect(disconnected?.reconnectReason).toBe("refresh_rejected");
     expect(disconnected?.provider).toBe("antigravity");
+  });
+
+  test("exactly one pacing notice, for any seed", () => {
+    for (const seed of seeds) {
+      const found = deriveNotifications(
+        demoOverview(seed, anchor).connections,
+        defaultSettings,
+        anchor,
+      ).filter((item) => item.kind === "pacing");
+      expect(found).toHaveLength(1);
+      const runsOutAt = found[0]?.figures.runsOutAt ?? 0;
+      const resetsAt = found[0]?.figures.resetsAt ?? 0;
+      expect(resetsAt - runsOutAt).toBeGreaterThanOrEqual(day);
+      expect(resetsAt - runsOutAt).toBeLessThanOrEqual(3 * day);
+    }
   });
 
   const at = (provider: string, n: number) =>

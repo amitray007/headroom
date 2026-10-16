@@ -212,6 +212,7 @@ export const errorCategoryClass: Readonly<Record<ErrorCategory, FailureClass>> =
 export const notificationKinds = [
   "almost_out",
   "running_low",
+  "pacing",
   "reset_expiring",
   "balance_low",
   "spend_near_cap",

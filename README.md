@@ -45,7 +45,7 @@ Headroom holds the sign-in tokens for every AI account you connect. A hosted cop
 - **See resets coming.** Timeline lays every window on a calendar, so you know when headroom comes back.
 - **See how you use your limits.** Analytics shows when you work, when you run out, and whether each plan fits, from the readings Headroom stores.
 - **Track what you pay.** Wallet totals subscriptions, usage spend and top-ups in one currency, with upcoming renewals.
-- **Get warned in time.** In-app notices, Telegram and signed webhooks for limits running low, new and expiring resets, early resets, your own spend budgets and broken sign-ins.
+- **Get warned in time.** In-app notices, Telegram and signed webhooks for limits running low or on pace to run out before they reset, new and expiring resets, early resets, your own spend budgets and broken sign-ins.
 - **Automations you switch on.** Use a banked Codex reset when a limit runs out, and record credit top-ups in the Wallet as soon as a balance rises.
 - **Many accounts per provider.** Personal, work and side-project accounts stay separate, each with its own credentials.
 - **Private by design.** One owner, passkeys, encrypted credentials, and a Privacy Mode that blurs emails on screen.

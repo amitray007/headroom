@@ -74,6 +74,7 @@ export function connection(
     },
     actions: { enabled: false, supported: [] },
     events: [],
+    pace: [],
     automation: { autoReset: null, budgets: [] },
     ...rest,
   };
