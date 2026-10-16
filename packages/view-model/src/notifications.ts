@@ -14,7 +14,7 @@ import { accountName, providerName, refreshFailed } from "./labels.ts";
 import { formatNumber, formatUsd } from "./present.ts";
 import { resolveWhen, shortDate } from "./time.ts";
 import { dayLabel, isoDate } from "./wallet-dates.ts";
-import { toneOf } from "./tone.ts";
+import { almostOutBelow, toneOf } from "./tone.ts";
 
 /**
  * Notifications are derived from the latest overview and the owner's settings. Nothing is stored
@@ -103,6 +103,22 @@ function withoutOverlap(connection: OverviewConnection, found: Candidate[]): Can
   return found.filter((item) => !dropped.has(item.window.key));
 }
 
+/** Almost Out's second, final step, in percent left. */
+const almostOutLastStep = 5;
+/** Running Low repeats once per this many more points used, until Almost Out. */
+const runningLowStep = 10;
+
+/**
+ * The step a low limit is in, as the percent left it fell below: Running Low at the threshold and
+ * every 10 points under it, Almost Out under 10 and under 5. The first step adds nothing to the id,
+ * so a notice already sent before steps existed is not sent again.
+ */
+function stepSuffix(left: number, threshold: number): string {
+  if (left < almostOutBelow) return left < almostOutLastStep ? `:${almostOutLastStep}` : "";
+  const below = threshold - runningLowStep * (Math.ceil((threshold - left) / runningLowStep) - 1);
+  return below === threshold ? "" : `:${below}`;
+}
+
 function limitNotifications(
   connection: OverviewConnection,
   settings: NotificationSettings,
@@ -131,7 +147,7 @@ function limitNotifications(
       tone: out ? "bad" : "warn",
       event: {
         ...base(connection, snapshot.observedAt),
-        id: `${connection.id}:${kind}:${window.key}:${window.resetsAt ?? ""}`,
+        id: `${connection.id}:${kind}:${window.key}:${window.resetsAt ?? ""}${stepSuffix(Math.max(0, 100 - used), settings.lowThresholdPercent)}`,
         kind,
         tone: out ? "bad" : "warn",
         occurredAt: snapshot.observedAt,
@@ -334,8 +350,9 @@ function balanceNotifications(
   return [
     {
       ...base(connection, snapshot.observedAt),
-      // The total granted changes with a top-up, which starts a new notice.
-      id: `${connection.id}:balance_low:credits.balance:${total.toFixed(2)}:${tone}`,
+      // The total granted changes with a top-up, which starts a new notice. Rounded first, as top-up
+      // detection does, so float noise from summing two figures cannot change the id at a cent boundary.
+      id: `${connection.id}:balance_low:credits.balance:${(Math.round(total * 1e6) / 1e6).toFixed(2)}:${tone}`,
       kind: "balance_low",
       tone: out ? "bad" : "warn",
       occurredAt: snapshot.observedAt,

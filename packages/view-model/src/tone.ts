@@ -3,7 +3,7 @@ export type LimitsView = "used" | "left";
 export type Caption = "Over the Limit" | "Almost Out" | "Running Low";
 
 /** Percent left under which a limit is "almost out", whatever the owner's threshold. */
-const almostOutBelow = 10;
+export const almostOutBelow = 10;
 
 function left(used: number): number {
   return Math.max(0, 100 - used);

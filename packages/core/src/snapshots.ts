@@ -18,6 +18,13 @@ export type CapabilityRow = typeof schema.connectionCapabilities.$inferSelect;
 
 export const schemaVersion = 1;
 
+/**
+ * How far a reset or window-end time may move between two readings and still be the same instant.
+ * Claude sends a slightly different `resets_at` on almost every read (within about a second), and
+ * Codex flips between two seconds. Notice ids carry these times, so an unsteady one sends again.
+ */
+const steadyTimeToleranceMs = 2 * 60_000;
+
 export class SnapshotStore {
   constructor(
     private readonly db: Db,
@@ -93,7 +100,11 @@ export class SnapshotStore {
     return streak;
   }
 
-  /** Persist one collection result. Metrics and reset credits are written in the same transaction. */
+  /**
+   * Persist one collection result. Metrics and reset credits are written in the same transaction.
+   * A metric's reset or window-end time within `steadyTimeToleranceMs` of the previous reading's
+   * keeps the previous value, so one period keeps one instant.
+   */
   record(
     connectionId: string,
     runId: string,
@@ -102,6 +113,9 @@ export class SnapshotStore {
   ): SnapshotRow {
     const snapshotId = Bun.randomUUIDv7();
     const receivedAt = this.now();
+    const before = new Map(
+      (this.latest(connectionId)?.metrics ?? []).map((m) => [m.providerMetricKey, m]),
+    );
     this.db.transaction((tx) => {
       tx.insert(schema.snapshots)
         .values({
@@ -116,6 +130,7 @@ export class SnapshotStore {
         .run();
       for (const metric of result.metrics) {
         const valueNum = metric.valueText === null ? null : Number(metric.valueText);
+        const previous = before.get(metric.providerMetricKey);
         tx.insert(schema.metrics)
           .values({
             id: Bun.randomUUIDv7(),
@@ -128,8 +143,8 @@ export class SnapshotStore {
             unit: metric.unit,
             unlimited: metric.unlimited ?? false,
             windowStart: toDate(metric.windowStart),
-            windowEnd: toDate(metric.windowEnd),
-            resetsAt: toDate(metric.resetsAt),
+            windowEnd: steady(metric.windowEnd, previous?.windowEnd),
+            resetsAt: steady(metric.resetsAt, previous?.resetsAt),
             availability: metric.availability,
             interface: metric.interface,
           })
@@ -292,6 +307,13 @@ export class SnapshotStore {
       .where(eq(schema.connectionCapabilities.connectionId, connectionId))
       .all();
   }
+}
+
+/** The previous instant when the new one is within the tolerance of it, else the new one. */
+function steady(value: number | null | undefined, previous: Date | null | undefined): Date | null {
+  if (value === null || value === undefined) return null;
+  if (previous && Math.abs(previous.getTime() - value) <= steadyTimeToleranceMs) return previous;
+  return new Date(value);
 }
 
 function toDate(value: number | null | undefined): Date | null {

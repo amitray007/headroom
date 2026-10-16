@@ -86,6 +86,30 @@ describe("limit notifications", () => {
     );
     expect(next[0]?.id).not.toBe(found[1]?.id);
   });
+  test("each further step sends a new notice, the first keeps the plain id", () => {
+    const at = (used: number, threshold: 15 | 20 | 30 = 30) =>
+      deriveNotifications(
+        [
+          connection("claude", {
+            id: "c1",
+            metrics: [percent("seven_day", used, { resetsAt: reset })],
+          }),
+        ],
+        { ...defaultSettings, lowThresholdPercent: threshold },
+        now,
+      ).map((n) => n.id);
+    const plain = `c1:running_low:seven_day:${reset}`;
+    expect(at(70)).toEqual([]);
+    expect(at(71)).toEqual([plain]);
+    expect(at(79)).toEqual([plain]);
+    expect(at(80)).toEqual([plain]);
+    expect(at(81)).toEqual([`${plain}:20`]);
+    expect(at(90)).toEqual([`${plain}:20`]);
+    expect(at(91)).toEqual([`c1:almost_out:seven_day:${reset}`]);
+    expect(at(96)).toEqual([`c1:almost_out:seven_day:${reset}:5`]);
+    expect(at(81, 20)).toEqual([plain]);
+    expect(at(88, 15)).toEqual([plain]);
+  });
   test("a lower threshold hides the amber one", () => {
     const strict = { ...defaultSettings, lowThresholdPercent: 15 } as const;
     expect(deriveNotifications([claude], strict, now).map((n) => n.kind)).toEqual(["almost_out"]);
@@ -345,6 +369,14 @@ const gateway = (balance: number, used: number | null, id = "v1") =>
   });
 
 describe("balance_low", () => {
+  test("spending does not change the id while the total stays the same", () => {
+    // 0.068 + 0.937 and 0.001 + 1.004 both total 1.005; unrounded floats fall either side of the cent.
+    const ids = [gateway(0.068, 0.937), gateway(0.001, 1.004)].map(
+      (account) => deriveNotifications([account], defaultSettings, now)[0]?.id,
+    );
+    expect(ids[0]).toBeDefined();
+    expect(ids[1]).toBe(ids[0]);
+  });
   test("warns under the threshold and goes bad under 10% left, in credits not dollars", () => {
     const [warn] = deriveNotifications([gateway(2, 8)], defaultSettings, now);
     expect(warn).toEqual(

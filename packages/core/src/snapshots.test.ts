@@ -145,3 +145,50 @@ describe("SnapshotStore.prune", () => {
     h.sqlite.close();
   });
 });
+
+const weeklyReset = 1_700_604_800_000;
+
+/** Record a reading whose weekly metric resets at `resetsAt`, and return the stored instant. */
+function recordReset(
+  ctx: ReturnType<typeof setup>,
+  connectionId: string,
+  resetsAt: number,
+  observedAt: number,
+) {
+  const result = okCollect();
+  const [weekly] = result.metrics;
+  if (weekly === undefined) throw new Error("okCollect has a weekly metric");
+  const run = ctx.snapshots.startRun(connectionId);
+  ctx.snapshots.record(
+    connectionId,
+    run.id,
+    { ...result, observedAt, metrics: [{ ...weekly, resetsAt }] },
+    "fake-1",
+  );
+  return ctx.snapshots.latest(connectionId)?.metrics[0]?.resetsAt?.getTime();
+}
+
+describe("SnapshotStore.record reset times", () => {
+  test("keeps the previous reset time when the new one moved by under a second", () => {
+    const ctx = setup();
+    const id = ctx.connect("acct-1").id;
+    expect(recordReset(ctx, id, weeklyReset - 488, base)).toBe(weeklyReset - 488);
+    expect(recordReset(ctx, id, weeklyReset + 564, base + 600_000)).toBe(weeklyReset - 488);
+    expect(recordReset(ctx, id, weeklyReset + 121, base + 1_200_000)).toBe(weeklyReset - 488);
+  });
+
+  test("takes a new reset time that moved by more than two minutes", () => {
+    const ctx = setup();
+    const id = ctx.connect("acct-1").id;
+    recordReset(ctx, id, weeklyReset, base);
+    expect(recordReset(ctx, id, weeklyReset + 7 * day, base + 600_000)).toBe(weeklyReset + 7 * day);
+  });
+
+  test("does not carry a reset time to another connection", () => {
+    const ctx = setup();
+    recordReset(ctx, ctx.connect("acct-1").id, weeklyReset, base);
+    expect(recordReset(ctx, ctx.connect("acct-2").id, weeklyReset + 500, base)).toBe(
+      weeklyReset + 500,
+    );
+  });
+});

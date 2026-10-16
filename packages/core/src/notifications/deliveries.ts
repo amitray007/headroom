@@ -1,4 +1,4 @@
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, isNotNull, lt, sql } from "drizzle-orm";
 
 import { type Db, schema } from "../db/index.ts";
 import type { NotificationDeliveryFailure, NotificationDeliveryStatus } from "../enums.ts";
@@ -94,6 +94,26 @@ export class DeliveryStore {
       .limit(1)
       .get();
     return row ? { status: row.status, at: row.lastAttemptAt, failure: row.failure } : null;
+  }
+
+  /** When an event of this kind whose id starts with `eventIdPrefix` was last delivered on the channel. */
+  lastDeliveredAt(channelId: string, kind: string, eventIdPrefix: string): Date | null {
+    const t = schema.notificationDeliveries;
+    const row = this.db
+      .select({ at: t.deliveredAt })
+      .from(t)
+      .where(
+        and(
+          eq(t.channelId, channelId),
+          eq(t.kind, kind),
+          isNotNull(t.deliveredAt),
+          sql`substr(${t.eventId}, 1, ${eventIdPrefix.length}) = ${eventIdPrefix}`,
+        ),
+      )
+      .orderBy(desc(t.deliveredAt))
+      .limit(1)
+      .get();
+    return row?.at ?? null;
   }
 
   /** Delete records whose last attempt is older than the cutoff. Returns the count. */
