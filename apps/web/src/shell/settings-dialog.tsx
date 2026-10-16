@@ -312,6 +312,11 @@ function Notifications(props: {
           title: "Almost Out",
           note: "When a limit has under 10% left.",
         })}
+        {kindRow({
+          kind: "pacing",
+          title: "Running Out Early",
+          note: "When a weekly limit's pace would use it up at least a day before it resets.",
+        })}
         <SwitchRow
           title="Include 5-Hour Sessions"
           note="Off keeps weekly and monthly limits only."

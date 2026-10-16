@@ -8,6 +8,8 @@ import {
   syncRunOutcomeSchema,
 } from "@headroom/core";
 
+import { type PaceReading, paceOf } from "@headroom/view-model/pace";
+
 import type { AppContext } from "./bootstrap.ts";
 import { metricJson, ms, resetCreditJson } from "./routes/serialize.ts";
 
@@ -123,6 +125,80 @@ const resetCreditRows = z.array(
     })),
 );
 
+/** How far back the pace query reads: the 24-hour trail plus an hour of slack. */
+const paceWindowMs = 25 * 60 * 60 * 1000;
+
+type PaceEntry = { metricKey: string; ratePerHour: number; from: number; to: number };
+
+const paceRows = z.array(
+  z.object({
+    connection_id: z.string(),
+    provider_metric_key: z.string(),
+    observed_at: z.number(),
+    value_num: z.number(),
+    resets_at: z.number().nullable(),
+  }),
+);
+
+/** Per connection, the pace computed for its latest snapshot id. A new snapshot replaces the entry. */
+const paceCaches = new WeakMap<object, Map<string, { snapshotId: string; pace: PaceEntry[] }>>();
+
+/**
+ * The pace of each percent limit for the given connections, from the last 25 hours of readings, in one
+ * statement. Same usable-reading filter as `history.ts`. Connections whose latest snapshot is unchanged
+ * since the last call come from the cache and are not queried.
+ */
+function loadPace(
+  sqlite: OverviewSource["sqlite"],
+  latest: ReadonlyMap<string, { id: string }>,
+  now: number,
+): Map<string, PaceEntry[]> {
+  let cache = paceCaches.get(sqlite);
+  if (!cache) {
+    cache = new Map();
+    paceCaches.set(sqlite, cache);
+  }
+  for (const id of cache.keys()) if (!latest.has(id)) cache.delete(id);
+
+  const result = new Map<string, PaceEntry[]>();
+  const missing: string[] = [];
+  for (const [id, snapshot] of latest) {
+    const hit = cache.get(id);
+    if (hit?.snapshotId === snapshot.id) result.set(id, hit.pace);
+    else missing.push(id);
+  }
+  if (missing.length === 0) return result;
+
+  const rows = paceRows.parse(
+    sqlite
+      .query(
+        `SELECT s.connection_id, m.provider_metric_key, s.observed_at, m.value_num, m.resets_at
+         FROM snapshots s JOIN metrics m ON m.snapshot_id = s.id
+         WHERE s.connection_id IN (${missing.map(() => "?").join(",")}) AND s.observed_at >= ?
+           AND m.kind = 'quota_percentage' AND m.availability = 'available' AND m.value_num IS NOT NULL`,
+      )
+      .all(...missing, now - paceWindowMs),
+  );
+  const byConnection = grouped(rows, (row) => row.connection_id);
+  for (const id of missing) {
+    const byMetric = grouped(byConnection.get(id) ?? [], (row) => row.provider_metric_key);
+    const pace: PaceEntry[] = [];
+    for (const [metricKey, group] of byMetric) {
+      const readings: PaceReading[] = group.map((row) => ({
+        at: row.observed_at,
+        used: row.value_num,
+        resetsAt: row.resets_at,
+      }));
+      const found = paceOf(readings);
+      if (found) pace.push({ metricKey, ...found });
+    }
+    pace.sort((a, b) => (a.metricKey < b.metricKey ? -1 : a.metricKey > b.metricKey ? 1 : 0));
+    cache.set(id, { snapshotId: latest.get(id)!.id, pace });
+    result.set(id, pace);
+  }
+  return result;
+}
+
 function grouped<Row>(rows: readonly Row[], key: (row: Row) => string): Map<string, Row[]> {
   const groups = new Map<string, Row[]>();
   for (const row of rows) {
@@ -213,6 +289,7 @@ export function overviewConnections(source: OverviewSource, now: number) {
     source.accountEvents.recent(new Date(now - eventWindowMs)),
     (event) => event.connectionId,
   );
+  const paces = loadPace(source.sqlite, snapshots, now);
   const rules = source.automation.autoResetRules();
   const budgets = source.automation.allBudgets();
   return connections.map((connection) => {
@@ -256,6 +333,7 @@ export function overviewConnections(source: OverviewSource, now: number) {
         supported: [...source.actions.supported(connection.provider)],
       },
       events: events.get(connection.id) ?? [],
+      pace: paces.get(connection.id) ?? [],
       automation: {
         autoReset: rules.get(connection.id) ?? null,
         budgets: budgets.get(connection.id) ?? [],

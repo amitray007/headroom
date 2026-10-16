@@ -26,6 +26,7 @@ export type AppNotification = NotificationEvent;
 type NotificationTone = AppNotification["tone"];
 
 const day = 86_400_000;
+const hour = 3_600_000;
 
 const everything: NotificationPreferences = {
   kinds: kindSwitches(true),
@@ -71,6 +72,48 @@ function base(
 function shareText(used: number, view: NotificationSettings["limitsView"]): string {
   const shown = Math.round(view === "left" ? Math.max(0, 100 - used) : used);
   return `${shown}${view === "left" ? "% left" : "% used"}.`;
+}
+
+// ---------- pace ----------
+
+/** A reading older than this says nothing about the pace now. */
+const paceFreshness = hour;
+/** The rate must be measured up to the reading it is applied to, give or take this much. */
+const paceReadingGap = 60_000;
+
+interface RunOut {
+  readonly runsOutAt: number;
+  /** How long before the reset the limit runs out. At least one day. */
+  readonly earlyBy: number;
+}
+
+/**
+ * When a weekly limit runs out at its recent burn rate, if that is at least a day before it resets.
+ * Null when the pace is unknown or stale, or the limit would last until the reset.
+ */
+function runOutOf(connection: OverviewConnection, window: MeterWindow, now: number): RunOut | null {
+  const snapshot = connection.snapshot;
+  const used = window.used;
+  if (snapshot === null || used === null || window.resetsAt === null) return null;
+  if (window.kind !== "weekly" || window.unlimited || used >= 100) return null;
+  if (now - snapshot.observedAt > paceFreshness) return null;
+  const pace = connection.pace.find((item) => item.metricKey === window.key);
+  if (pace === undefined || Math.abs(pace.to - snapshot.observedAt) > paceReadingGap) return null;
+  const runsOutAt = snapshot.observedAt + ((100 - used) / pace.ratePerHour) * hour;
+  const earlyBy = window.resetsAt - runsOutAt;
+  return earlyBy >= day ? { runsOutAt, earlyBy } : null;
+}
+
+/** "1 hour", "30 hours" under 48 hours, otherwise "3 days". */
+function spanText(ms: number): string {
+  const hours = Math.max(1, Math.round(ms / hour));
+  if (ms < 2 * day) return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  const days = Math.round(ms / day);
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}
+
+function paceSentence(observedAt: number, found: RunOut): string {
+  return ` At this rate it runs out in about ${spanText(found.runsOutAt - observedAt)}, ${spanText(found.earlyBy)} before it resets.`;
 }
 
 // ---------- limits ----------
@@ -141,6 +184,9 @@ function limitNotifications(
       const { lead, text } = resolveWhen("until", window.resetsAt, now, settings);
       reset = ` Resets ${lead === "" ? "" : `${lead} `}${text}.`;
     }
+    // Once a limit is low, the pace joins the Running Low or Almost Out message; the id stays the same.
+    const early = runOutOf(connection, window, now);
+    if (early !== null) reset += paceSentence(snapshot.observedAt, early);
     found.push({
       window,
       used,
@@ -165,6 +211,58 @@ function limitNotifications(
     });
   }
   return withoutOverlap(connection, found).map((item) => item.event);
+}
+
+/** A weekly limit with plenty left that would run out a day or more before it resets. */
+function pacingNotifications(
+  connection: OverviewConnection,
+  settings: NotificationSettings,
+  now: number,
+): AppNotification[] {
+  const snapshot = connection.snapshot;
+  if (snapshot === null) return [];
+  const name = providerName(connection.provider);
+  const found: (RunOut & { readonly window: MeterWindow; readonly event: AppNotification })[] = [];
+  for (const window of meterWindows(connection)) {
+    const used = window.used;
+    const resetsAt = window.resetsAt;
+    if (used === null || resetsAt === null) continue;
+    // Below the Running Low line the pace is part of that message instead.
+    if (100 - used < settings.lowThresholdPercent) continue;
+    const early = runOutOf(connection, window, now);
+    if (early === null) continue;
+    const level = Math.min(7, 1 + Math.floor((early.earlyBy - day) / day));
+    found.push({
+      ...early,
+      window,
+      event: {
+        ...base(connection, snapshot.observedAt),
+        id: `${connection.id}:pacing:${window.key}:${resetsAt}:${level}`,
+        kind: "pacing",
+        tone: "warn",
+        occurredAt: snapshot.observedAt,
+        subject: { metricKey: window.key, label: window.label, window: window.window },
+        figures: {
+          percentUsed: used,
+          percentLeft: Math.max(0, 100 - used),
+          resetsAt,
+          runsOutAt: early.runsOutAt,
+        },
+        title: `${name} ${window.short} Limit Will Run Out Early`,
+        message: `${shareText(used, settings.limitsView)}${paceSentence(snapshot.observedAt, early)}`,
+      },
+    });
+  }
+  if (connection.provider !== "claude") return found.map((item) => item.event);
+  // The all-models weekly limit and the model limits inside it run out for the same reason: keep the earliest.
+  const claudeWeekly = found.filter(
+    (item) =>
+      item.window.key === "seven_day" || isScopedWeekly(connection.provider, item.window.key),
+  );
+  const first = claudeWeekly.toSorted((a, b) => a.runsOutAt - b.runsOutAt)[0];
+  return found
+    .filter((item) => !claudeWeekly.includes(item) || item === first)
+    .map((item) => item.event);
 }
 
 // ---------- banked resets ----------
@@ -830,6 +928,7 @@ export function deriveNotifications(
     if (live && !muted) {
       found.push(
         ...limitNotifications(connection, settings, now),
+        ...pacingNotifications(connection, settings, now),
         ...expiryNotifications(connection, settings, now),
         ...balanceNotifications(connection, settings, now),
         ...spendNotifications(connection, settings),

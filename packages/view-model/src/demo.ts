@@ -1054,6 +1054,37 @@ const accounts: readonly Account[] = [
   },
 ];
 
+/**
+ * The first Codex account's weekly limit is on course to run out one to three days before it resets, which gives
+ * Demo Mode one pacing notice. Every other account has no pace. The rate follows from the reading, so the limit
+ * runs out exactly that early.
+ */
+function paceOf(
+  account: Account,
+  id: string,
+  parts: Parts,
+  observedAt: number,
+  seed: number,
+): OverviewConnection["pace"] {
+  if (account.provider !== "codex" || account.n !== 1) return [];
+  const key = "rate_limit.secondary_window";
+  const weekly = parts.metrics.find((item) => item.providerMetricKey === key);
+  const used = weekly?.valueNum ?? null;
+  const resetsAt = weekly?.resetsAt ?? null;
+  if (used === null || resetsAt === null) return [];
+  const early = new Stream(seed, `${id}:pace`).int(Math.round(1.2 * day), Math.round(2.8 * day));
+  const hoursLeft = (resetsAt - early - observedAt) / hour;
+  if (hoursLeft <= 0) return [];
+  return [
+    {
+      metricKey: key,
+      ratePerHour: (100 - used) / hoursLeft,
+      from: observedAt - 6 * hour,
+      to: observedAt,
+    },
+  ];
+}
+
 function connectionOf(
   account: Account,
   owner: Owner,
@@ -1106,6 +1137,7 @@ function connectionOf(
     // Mirrors what the provider supports. Switched off, as it is until the owner allows account actions.
     actions: { enabled: false, supported: account.supported ?? [] },
     events: extras.events,
+    pace: paceOf(account, id, parts, observedAt, seed),
     automation: extras.automation,
   };
 }

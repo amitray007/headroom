@@ -50,6 +50,7 @@ The route keeps the last eight serialized bodies in process memory. The key is `
 - `snapshot`: `{ observedAt, metrics, resetCredits }` or null. Metrics and reset credits have the same fields as in the detail route.
 - `actions`: `{ enabled, supported }`, where `enabled` is the effective gate.
 - `events`: the account's events from the last 7 days, newest first, at most 20. Each is `{ id, connectionId, occurredAt, metricKey, detail }` and `detail` is one of the `accountEventDetailSchema` shapes (`reset_granted`, `early_reset`, `top_up_detected`, `auto_reset`). They carry numbers and ids only. One query reads the events of every account.
+- `pace`: the recent burn rate of each percent limit, as `{ metricKey, ratePerHour, from, to }`: percentage points used per hour over the readings from `from` to `to`. A limit with no entry has an unknown pace, never zero. The server measures it from the last 24 hours of stored readings and keeps it until the account gets a new reading. See [Pacing](notifications.md#pacing).
 - `automation`: `{ autoReset, budgets }`. `autoReset` is the owner's rule `{ enabled, window, thresholdPercent, minHoursLeft }` or null. `budgets` lists `{ metricKey, amount, unit }`, one per spend metric the owner set a budget for.
 
 The response carries no provider account id or workspace id. The detail route is built field by field for the same reason.

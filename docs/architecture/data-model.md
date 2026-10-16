@@ -53,7 +53,7 @@ This is the logical schema behind the SQLite database. Migrations live in `packa
 | `notification_channels.type` | `telegram`, `webhook` |
 | `notification_deliveries.status` | `delivered`, `retrying`, `failed` (gave up) |
 | `notification_deliveries.failure` | `timeout`, `network`, `unauthorized`, `not_found`, `rate_limited`, `rejected`, `server_error`, none |
-| `notification.kind` | `almost_out`, `running_low`, `reset_expiring`, `balance_low`, `spend_near_cap`, `spend_cap_reached`, `extra_usage_started`, `refresh_failed`, `disconnected`, `reset_granted`, `early_reset`, `auto_reset`, `top_up_detected`, `budget_near`, `budget_exceeded`, `credits_expiring` |
+| `notification.kind` | `almost_out`, `running_low`, `pacing`, `reset_expiring`, `balance_low`, `spend_near_cap`, `spend_cap_reached`, `extra_usage_started`, `refresh_failed`, `disconnected`, `reset_granted`, `early_reset`, `auto_reset`, `top_up_detected`, `budget_near`, `budget_exceeded`, `credits_expiring` |
 | `notification.tone` | `bad`, `warn`, `info` |
 | `wallet_costs.kind` | `paid`, `free`, `included`; no row is Not set |
 | `wallet_costs.cycle` | `monthly`, `annual` |

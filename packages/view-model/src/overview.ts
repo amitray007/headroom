@@ -39,6 +39,14 @@ export const resetCreditSchema = z.object({
   cooldownUntil: z.number().nullable(),
   rawLabel: z.string().nullable(),
 });
+export const paceSchema = z.object({
+  metricKey: z.string(),
+  /** Percentage points used per hour, from the first to the last reading of the trail. */
+  ratePerHour: z.number().positive(),
+  /** The first and last reading the rate is measured over, epoch milliseconds. */
+  from: z.number(),
+  to: z.number(),
+});
 export const overviewConnectionSchema = z.object({
   id: z.string(),
   provider: providerSchema,
@@ -72,6 +80,11 @@ export const overviewConnectionSchema = z.object({
   actions: z.object({ enabled: z.boolean(), supported: z.array(accountActionKindSchema) }),
   /** Account events from the last 7 days, newest first, at most 20 (ADR 0003). */
   events: z.array(accountEventSchema).default([]),
+  /**
+   * The recent burn rate of each percent limit, where Headroom can tell it from stored readings. A
+   * limit without an entry has an unknown pace, never zero. See docs/architecture/notifications.md.
+   */
+  pace: z.array(paceSchema).default([]),
   /** The owner's auto-reset rule (null when none) and spend budgets for this account. */
   automation: z
     .object({
@@ -84,3 +97,4 @@ export const overviewConnectionSchema = z.object({
 export type Metric = z.infer<typeof metricSchema>;
 export type ResetCredit = z.infer<typeof resetCreditSchema>;
 export type OverviewConnection = z.infer<typeof overviewConnectionSchema>;
+export type Pace = z.infer<typeof paceSchema>;
