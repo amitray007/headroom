@@ -104,16 +104,23 @@ function runOutOf(connection: OverviewConnection, window: MeterWindow, now: numb
   return earlyBy >= day ? { runsOutAt, earlyBy } : null;
 }
 
-/** "1 hour", "30 hours" under 48 hours, otherwise "3 days". */
-function spanText(ms: number): string {
-  const hours = Math.max(1, Math.round(ms / hour));
-  if (ms < 2 * day) return `${hours} ${hours === 1 ? "hour" : "hours"}`;
-  const days = Math.round(ms / day);
+function daysText(ms: number): string {
+  const days = Math.max(1, Math.round(ms / day));
   return `${days} ${days === 1 ? "day" : "days"}`;
 }
 
+/** "1 hour", "30 hours" under 48 hours, otherwise "3 days". */
+function spanText(ms: number): string {
+  const hours = Math.max(1, Math.round(ms / hour));
+  return ms < 2 * day ? `${hours} ${hours === 1 ? "hour" : "hours"}` : daysText(ms);
+}
+
+/**
+ * The time to run out reads in hours under 48 hours, else in days. The margin before the reset is at
+ * least a day, so it always reads in days: "in about 5 days, 2 days before it resets", never "42 hours".
+ */
 function paceSentence(observedAt: number, found: RunOut): string {
-  return ` At this rate it runs out in about ${spanText(found.runsOutAt - observedAt)}, ${spanText(found.earlyBy)} before it resets.`;
+  return ` At this rate it runs out in about ${spanText(found.runsOutAt - observedAt)}, ${daysText(found.earlyBy)} before it resets.`;
 }
 
 // ---------- limits ----------

@@ -1429,10 +1429,11 @@ describe("pacing notices", () => {
     );
   });
 
-  test("a span under 48 hours is in hours", () => {
-    const [item] = pacing(pacedClaude(40, 30 * hourMs));
-    expect(item?.message).toMatch(/before it resets\.$/);
-    expect(item?.message).toContain("30 hours before");
+  test("the margin before the reset is in whole days, never hours", () => {
+    expect(pacing(pacedClaude(40, 30 * hourMs))[0]?.message).toMatch(/, 1 day before it resets\.$/);
+    expect(pacing(pacedClaude(40, 42 * hourMs))[0]?.message).toMatch(
+      /, 2 days before it resets\.$/,
+    );
   });
 
   test("a level step: same id within a step, a new id one full day deeper", () => {
