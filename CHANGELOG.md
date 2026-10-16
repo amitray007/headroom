@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.8](https://github.com/amitray007/headroom/compare/v0.1.7...v0.1.8) (2026-10-16)
+
+
+### Features
+
+* warn when a weekly limit is on pace to run out early ([41b88e4](https://github.com/amitray007/headroom/commit/41b88e44edc1bd6c762933eeef0edf628e141018))
+* warn when a weekly limit is on pace to run out early ([578bff2](https://github.com/amitray007/headroom/commit/578bff2f54d574c93274c856dd7585a452e7c14e))
+
+
+### Bug Fixes
+
+* **review:** retry Telegram timeouts once and keep reset times across gaps ([f189bd2](https://github.com/amitray007/headroom/commit/f189bd26659989bc69f991e8a14ce3df311c0d6c))
+* say the pacing margin in days, not hours ([8401d9d](https://github.com/amitray007/headroom/commit/8401d9de62124762db63d1e316856bc9be3b5a60))
+* stop repeated Telegram and webhook notifications ([70c52da](https://github.com/amitray007/headroom/commit/70c52da282ee9db2a62840d107240e94a02f8378))
+* stop repeated Telegram and webhook notifications ([e882d31](https://github.com/amitray007/headroom/commit/e882d3152dc77c602fa355a1e17a8dcbb8cb68d8))
+
 ## [0.1.7](https://github.com/amitray007/headroom/compare/v0.1.6...v0.1.7) (2026-10-15)
 
 
