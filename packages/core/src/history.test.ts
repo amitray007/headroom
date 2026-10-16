@@ -119,11 +119,12 @@ describe("readHistory", () => {
     const a = h.connect("a");
     const end = t0 + 5 * hour;
     h.read(a.id, t0, { resetsAt: end });
-    h.read(a.id, t0 + hour, { resetsAt: end + 4_000 });
+    // Past the store's 2-minute steadying, so the stored ends differ and history merges them.
+    h.read(a.id, t0 + hour, { resetsAt: end + 4 * minute });
     h.read(a.id, t0 + 2 * hour, { resetsAt: end + 5 * hour });
     h.read(a.id, t0 + 3 * hour, { windowStart: end + hour, windowEnd: end + 11 * hour });
     expect(h.query([a.id])[0]?.series[0]?.windows).toEqual([
-      { start: null, end: end + 4_000 },
+      { start: null, end: end + 4 * minute },
       { start: null, end: end + 5 * hour },
       { start: end + hour, end: end + 11 * hour },
     ]);
@@ -198,14 +199,12 @@ describe("readHistory", () => {
     expect(windows.length).toBeGreaterThan(1);
   });
 
-  test("jittered ends within one window collapse to the latest reading's", () => {
+  test("second-level jitter in one window is stored as one steady end", () => {
     const h = setup();
     const a = h.connect("a");
     for (let i = 0; i < 50; i++)
       h.read(a.id, t0 + i * minute, { resetsAt: t0 + 20 * hour + i * 1_000 });
-    expect(h.query([a.id])[0]?.series[0]?.windows).toEqual([
-      { start: null, end: t0 + 20 * hour + 49_000 },
-    ]);
+    expect(h.query([a.id])[0]?.series[0]?.windows).toEqual([{ start: null, end: t0 + 20 * hour }]);
   });
 
   test("marks a change when a snapshot, run or event is added", () => {

@@ -31,6 +31,7 @@ Each dossier describes metrics, connection steps, tools, limitations and sources
 
 - [HTTP API](architecture/api.md): overview, display name, settings, the Wallet, usage history for Analytics, and the account-actions gate.
 - [Notifications](architecture/notifications.md): what raises a notification, the event schema, and server-side delivery to Telegram and webhooks.
+- [Pacing alerts (plan)](architecture/pacing-alerts.md): a proposal to warn when a limit's burn rate runs it out before its reset. Not implemented.
 - [Connector contract](architecture/connector-contract.md): the TypeScript interface every provider package implements, in `packages/core/src/connector.ts`.
 - [Deployment and credential storage](architecture/deployment.md): single binary, SQLite, master key and backups.
 - [Self-hosting on a tailnet](operations/tailscale.md): Docker Compose or Dokploy with a private Tailscale address, the environment, moving data, backups.

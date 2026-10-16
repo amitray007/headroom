@@ -24,8 +24,8 @@ Tone is `bad`, `warn` or `info`. "Left" is the percent of the limit still free. 
 
 | Kind | Trigger | Tone | Switch (`notifications.kinds.<key>`) | Dedupe id (after the connection id) |
 | --- | --- | --- | --- | --- |
-| `running_low` | A percent meter has less than the threshold left | `warn` | `running_low` | `running_low:<metricKey>:<resetsAt>` |
-| `almost_out` | A percent meter has under 10% left | `bad` | `almost_out` | `almost_out:<metricKey>:<resetsAt>` |
+| `running_low` | A percent meter has less than the threshold left. Again at each further 10 points used, until Almost Out | `warn` | `running_low` | `running_low:<metricKey>:<resetsAt>`, then `:<step>` |
+| `almost_out` | A percent meter has under 10% left. Again under 5% | `bad` | `almost_out` | `almost_out:<metricKey>:<resetsAt>`, then `:5` |
 | `reset_expiring` | A usable banked reset expires within `resetLeadDays`. One notice, for the soonest | `info` | `reset_expiring` | `reset_expiring:<creditId>:<expiresAt>` |
 | `balance_low` | Vercel balance is under the threshold of balance plus total used. Under 10% is `bad`. Only when both are reported and the total is above 0. Claude: `prepaid.balance` is 0 while extra usage is on, `bad`, at most once a calendar month; or `cloud_credits.remaining` is 0 with an allowance above 0 and the expiry not passed, `bad`, once per grant | `warn`, `bad` | `balance_low` | `balance_low:credits.balance:<total>:<tone>` (a top-up changes the total); Claude `balance_low:prepaid.balance:<YYYY-MM>` and `balance_low:cloud_credits.remaining:<expiresAt>` |
 | `spend_near_cap` | Spend is at least (100 - threshold)% of its cap | `warn` | `spend_near_cap` | `spend_near_cap:<spendKey>:<periodEnd>` |
@@ -43,7 +43,11 @@ Tone is `bad`, `warn` or `info`. "Left" is the percent of the limit still free. 
 
 A rejected key or sign-in on an account that worked before is re-checked about 2 minutes later before it counts as disconnected. A revoked refresh token stays immediate.
 
+`<step>` is the percent left the meter fell below. With the threshold at 30, Running Low sends at under 30% left and again at under 20% (`:20`). Almost Out sends at under 10% and again at under 5% (`:5`). The first step adds nothing to the id. So one limit sends at most four times in one period, and each send reports more use than the one before. Each step sends once, also when usage moves back and forth across a step.
+
 `<resetsAt>`, `<expiresAt>` and `<lastSuccessAt>` are epoch milliseconds. `<eventId>` is the id of the account event, so one event is one notice. `<expiresOn>` is the top-up's expiry day, `YYYY-MM-DD`. `<amount>` is the owner's budget amount, so a changed budget starts a new notice. `<periodEnd>` is the period's end when the metric or its anchor reports one (Cursor cycle end, Grok weekly reset, Copilot monthly reset). Without one it is the UTC month of the reading, `YYYY-MM`, as for Claude extra usage. An id stays the same while the situation lasts and changes for the next period, so a repeat appears again as unread.
+
+An id stays the same only if the times in it are steady. Some providers send a slightly different reset time on each read: Claude within about a second, Codex alternating between two seconds. When Headroom stores a reading, a reset or window-end time within 2 minutes of the metric's last known time keeps the last known value. The last known time is the newest one in the account's last 6 readings, so a reading that left the metric out or had no time does not reset it. A real new period moves the time by much more. The Vercel `<total>` is rounded to a millionth before it is formatted, as top-up detection does, so float noise from adding two figures cannot move it across a cent. Ids made before this rounding can differ at such a total (three or more decimals ending in 5), so an active Vercel Balance Low there sends once after the update.
 
 Rules that apply to every kind:
 
@@ -354,6 +358,7 @@ After every scheduler tick the dispatcher reads the overview, derives the events
 - Sends are sequential, at most 20 per pass. The rest wait for the next pass.
 - Each event is validated against `notificationEventSchema` before it is sent. An invalid event is dropped and logged at warn level.
 - An event that is no longer derived is never sent again, so a notice that cleared stops retrying.
+- Refresh Failed sends at most once in 6 hours for each account and channel. A send that timed out counts, because it may have arrived. A success between failures gives the next failure a new id, so a provider that fails on and off would otherwise send each time. A held-back notice sends at a later pass if it is still current after the 6 hours.
 - The server does not send a read or cleared message. A repeat in the next period has a new id and sends again.
 
 ### Retries and the delivery record
@@ -368,7 +373,7 @@ After every scheduler tick the dispatcher reads the overview, derives the events
 | 4 | 60 minutes |
 | 5 | Stop: status `failed` |
 
-A Telegram 429 uses `retry_after` when it is longer than the wait above. Rows older than 60 days are deleted once per pass. Deleting a channel deletes its rows. Test sends are not recorded.
+A Telegram 429 uses `retry_after` when it is longer than the wait above. A Telegram timeout is retried once, after 60 minutes, and a second timeout ends it with status `failed`. Telegram can post the message after Headroom stopped waiting, and the chat cannot drop a repeat, so a retry risks a rare duplicate. The timeout can also come from a connection that hung before anything was sent, and then no retry would lose the notice. A webhook timeout follows the table above, because the receiver can drop a repeat by its `webhook-id`.
 
 Failure classes (`notification.delivery.failure`): `timeout` (10 seconds), `network`, `unauthorized` (401, 403), `not_found` (404; for Telegram also chat not found and bot blocked), `rate_limited` (429), `rejected` (other 4xx and every 3xx), `server_error` (5xx). Requests never follow a redirect.
 

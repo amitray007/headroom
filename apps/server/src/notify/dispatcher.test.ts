@@ -16,8 +16,10 @@ function setup(options: { events?: NotificationEvent[]; env?: Record<string, str
   const sent: { url: string; body: string }[] = [];
   let status = 200;
   let respondBody: unknown = { ok: true, result: {} };
+  let timeOut = false;
   const fetchFn: Fetch = async (url, init) => {
     sent.push({ url, body: bodyText(init) });
+    if (timeOut) throw Object.assign(new Error("timed out"), { name: "TimeoutError" });
     return new Response(JSON.stringify(respondBody), { status });
   };
   let events = options.events ?? [syntheticEvent()];
@@ -52,8 +54,19 @@ function setup(options: { events?: NotificationEvent[]; env?: Record<string, str
     setEvents: (next: NotificationEvent[]) => {
       events = next;
     },
+    setTimeOut: (next: boolean) => {
+      timeOut = next;
+    },
   };
 }
+
+/** A Refresh Failed event for an account whose last success was at `since`. */
+const failed = (connectionId: string, since: number) =>
+  syntheticEvent({
+    id: `${connectionId}:refresh_failed::${since}`,
+    kind: "refresh_failed",
+    connection: { id: connectionId, name: "Personal", plan: null },
+  });
 
 describe("NotificationDispatcher", () => {
   test("passes the Wallet's top-ups to the derivation", async () => {
@@ -152,6 +165,108 @@ describe("NotificationDispatcher", () => {
       attempts: 2,
       failure: null,
     });
+  });
+
+  test("a Telegram timeout is retried once after an hour, and a second timeout ends it", async () => {
+    const { ctx, channel, sent, setTimeOut } = setup();
+    const id = syntheticEvent().id;
+    setTimeOut(true);
+    expect(await ctx.dispatcher.dispatch(t0)).toEqual({ sent: 1, delivered: 0, failed: 0 });
+    expect(ctx.deliveries.get(channel.id, id)).toMatchObject({
+      status: "retrying",
+      attempts: 1,
+      failure: "timeout",
+    });
+    // Not on the 1-minute step: a timeout waits the full hour.
+    await ctx.dispatcher.dispatch(t0 + 59 * minute);
+    expect(sent).toHaveLength(1);
+    expect(await ctx.dispatcher.dispatch(t0 + 60 * minute)).toEqual({
+      sent: 1,
+      delivered: 0,
+      failed: 1,
+    });
+    expect(ctx.deliveries.get(channel.id, id)).toMatchObject({ status: "failed", attempts: 2 });
+    await ctx.dispatcher.dispatch(t0 + 24 * 60 * minute);
+    expect(sent).toHaveLength(2);
+  });
+
+  test("a Telegram timeout whose retry succeeds is delivered", async () => {
+    const { ctx, channel, setTimeOut } = setup();
+    setTimeOut(true);
+    await ctx.dispatcher.dispatch(t0);
+    setTimeOut(false);
+    await ctx.dispatcher.dispatch(t0 + 60 * minute);
+    expect(ctx.deliveries.get(channel.id, syntheticEvent().id)).toMatchObject({
+      status: "delivered",
+      attempts: 2,
+    });
+  });
+
+  test("a Telegram timeout after a server error still gets its one retry", async () => {
+    const { ctx, channel, setStatus, setTimeOut } = setup();
+    setStatus(500);
+    await ctx.dispatcher.dispatch(t0);
+    setTimeOut(true);
+    await ctx.dispatcher.dispatch(t0 + minute);
+    expect(ctx.deliveries.get(channel.id, syntheticEvent().id)).toMatchObject({
+      status: "retrying",
+      attempts: 2,
+      failure: "timeout",
+    });
+  });
+
+  test("a webhook timeout is retried: its stable webhook-id lets the receiver drop a repeat", async () => {
+    const { ctx, channel, sent, setTimeOut } = setup();
+    ctx.channels.update(channel.id, { enabled: false });
+    const hook = ctx.channels.create(
+      "webhook",
+      {
+        url: "https://hooks.example/headroom",
+        secret: `whsec_${btoa("synthetic-secret-32-bytes-long!!")}`,
+      },
+      { includeIdentity: false, label: "hooks.example" },
+    );
+    setTimeOut(true);
+    await ctx.dispatcher.dispatch(t0);
+    expect(ctx.deliveries.get(hook.id, syntheticEvent().id)?.status).toBe("retrying");
+    setTimeOut(false);
+    await ctx.dispatcher.dispatch(t0 + minute);
+    expect(ctx.deliveries.get(hook.id, syntheticEvent().id)?.status).toBe("delivered");
+    expect(sent).toHaveLength(2);
+  });
+
+  test("Refresh Failed sends at most once in 6 hours per account, whatever its id", async () => {
+    const { ctx, sent, setEvents } = setup();
+    setEvents([failed("c1", 100)]);
+    await ctx.dispatcher.dispatch(t0);
+    // A success in between gave the next failure a new id: held back, while another account still sends.
+    setEvents([failed("c1", 200), failed("c2", 200)]);
+    await ctx.dispatcher.dispatch(t0 + 60 * minute);
+    expect(sent).toHaveLength(2);
+    await ctx.dispatcher.dispatch(t0 + 6 * 60 * minute);
+    expect(sent).toHaveLength(3);
+  });
+
+  test("a Refresh Failed send that timed out also starts the cooldown, since it may have arrived", async () => {
+    const { ctx, sent, setEvents, setTimeOut } = setup();
+    setTimeOut(true);
+    setEvents([failed("c1", 100)]);
+    await ctx.dispatcher.dispatch(t0);
+    setTimeOut(false);
+    setEvents([failed("c1", 200)]);
+    await ctx.dispatcher.dispatch(t0 + 2 * 60 * minute);
+    expect(sent).toHaveLength(1);
+    await ctx.dispatcher.dispatch(t0 + 6 * 60 * minute);
+    expect(sent).toHaveLength(2);
+  });
+
+  test("the cooldown leaves other kinds alone", async () => {
+    const { ctx, sent, setEvents } = setup();
+    setEvents([syntheticEvent({ id: "c1:running_low:seven_day:1" })]);
+    await ctx.dispatcher.dispatch(t0);
+    setEvents([syntheticEvent({ id: "c1:running_low:seven_day:1:20" })]);
+    await ctx.dispatcher.dispatch(t0 + minute);
+    expect(sent).toHaveLength(2);
   });
 
   test("Telegram retry_after wins over a shorter backoff", () => {

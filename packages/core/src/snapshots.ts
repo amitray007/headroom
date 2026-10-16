@@ -18,6 +18,15 @@ export type CapabilityRow = typeof schema.connectionCapabilities.$inferSelect;
 
 export const schemaVersion = 1;
 
+/**
+ * How far a reset or window-end time may move between two readings and still be the same instant.
+ * Claude sends a slightly different `resets_at` on almost every read (within about a second), and
+ * Codex flips between two seconds. Notice ids carry these times, so an unsteady one sends again.
+ */
+const steadyTimeToleranceMs = 2 * 60_000;
+/** How many recent snapshots to search for a metric's last known times, so a gap of a few readings does not reset them. */
+const steadyLookback = 6;
+
 export class SnapshotStore {
   constructor(
     private readonly db: Db,
@@ -93,7 +102,12 @@ export class SnapshotStore {
     return streak;
   }
 
-  /** Persist one collection result. Metrics and reset credits are written in the same transaction. */
+  /**
+   * Persist one collection result. Metrics and reset credits are written in the same transaction.
+   * A metric's reset or window-end time within `steadyTimeToleranceMs` of its last known value keeps
+   * that value, so one period keeps one instant. The last known value is the newest non-null one in
+   * the last few snapshots, so a reading that left the metric out or had no time does not reset it.
+   */
   record(
     connectionId: string,
     runId: string,
@@ -102,6 +116,7 @@ export class SnapshotStore {
   ): SnapshotRow {
     const snapshotId = Bun.randomUUIDv7();
     const receivedAt = this.now();
+    const before = this.lastKnownTimes(connectionId);
     this.db.transaction((tx) => {
       tx.insert(schema.snapshots)
         .values({
@@ -116,6 +131,7 @@ export class SnapshotStore {
         .run();
       for (const metric of result.metrics) {
         const valueNum = metric.valueText === null ? null : Number(metric.valueText);
+        const known = before.get(metric.providerMetricKey);
         tx.insert(schema.metrics)
           .values({
             id: Bun.randomUUIDv7(),
@@ -128,8 +144,8 @@ export class SnapshotStore {
             unit: metric.unit,
             unlimited: metric.unlimited ?? false,
             windowStart: toDate(metric.windowStart),
-            windowEnd: toDate(metric.windowEnd),
-            resetsAt: toDate(metric.resetsAt),
+            windowEnd: steady(metric.windowEnd, known?.windowEnd),
+            resetsAt: steady(metric.resetsAt, known?.resetsAt),
             availability: metric.availability,
             interface: metric.interface,
           })
@@ -155,6 +171,44 @@ export class SnapshotStore {
       .from(schema.snapshots)
       .where(eq(schema.snapshots.id, snapshotId))
       .get()!;
+  }
+
+  /** Each metric key's newest non-null reset and window-end time in the connection's recent snapshots. */
+  private lastKnownTimes(
+    connectionId: string,
+  ): Map<string, { resetsAt: Date | null; windowEnd: Date | null }> {
+    const recent = this.db
+      .select({ id: schema.snapshots.id })
+      .from(schema.snapshots)
+      .where(eq(schema.snapshots.connectionId, connectionId))
+      .orderBy(desc(schema.snapshots.observedAt), desc(schema.snapshots.receivedAt))
+      .limit(steadyLookback)
+      .all()
+      .map((row) => row.id);
+    const known = new Map<string, { resetsAt: Date | null; windowEnd: Date | null }>();
+    if (recent.length === 0) return known;
+    const rows = this.db
+      .select({
+        snapshotId: schema.metrics.snapshotId,
+        key: schema.metrics.providerMetricKey,
+        resetsAt: schema.metrics.resetsAt,
+        windowEnd: schema.metrics.windowEnd,
+      })
+      .from(schema.metrics)
+      .where(inArray(schema.metrics.snapshotId, recent))
+      .all();
+    const order = new Map(recent.map((id, index) => [id, index]));
+    // Newest snapshot first, so the first non-null value seen for a key is its newest.
+    const newestFirst = rows.toSorted(
+      (a, b) => (order.get(a.snapshotId) ?? 0) - (order.get(b.snapshotId) ?? 0),
+    );
+    for (const row of newestFirst) {
+      const entry = known.get(row.key) ?? { resetsAt: null, windowEnd: null };
+      entry.resetsAt ??= row.resetsAt;
+      entry.windowEnd ??= row.windowEnd;
+      known.set(row.key, entry);
+    }
+    return known;
   }
 
   latest(
@@ -292,6 +346,13 @@ export class SnapshotStore {
       .where(eq(schema.connectionCapabilities.connectionId, connectionId))
       .all();
   }
+}
+
+/** The previous instant when the new one is within the tolerance of it, else the new one. */
+function steady(value: number | null | undefined, previous: Date | null | undefined): Date | null {
+  if (value === null || value === undefined) return null;
+  if (previous && Math.abs(previous.getTime() - value) <= steadyTimeToleranceMs) return previous;
+  return new Date(value);
 }
 
 function toDate(value: number | null | undefined): Date | null {
