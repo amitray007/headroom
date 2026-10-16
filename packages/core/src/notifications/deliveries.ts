@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, lt, or, sql } from "drizzle-orm";
 
 import { type Db, schema } from "../db/index.ts";
 import type { NotificationDeliveryFailure, NotificationDeliveryStatus } from "../enums.ts";
@@ -96,24 +96,28 @@ export class DeliveryStore {
     return row ? { status: row.status, at: row.lastAttemptAt, failure: row.failure } : null;
   }
 
-  /** When an event of this kind whose id starts with `eventIdPrefix` was last delivered on the channel. */
-  lastDeliveredAt(channelId: string, kind: string, eventIdPrefix: string): Date | null {
+  /**
+   * When an event of this kind whose id starts with `eventIdPrefix` last reached, or may have reached,
+   * the channel: a delivery, or an attempt that timed out after the request was sent.
+   */
+  lastSentAt(channelId: string, kind: string, eventIdPrefix: string): Date | null {
     const t = schema.notificationDeliveries;
+    const sentAt = sql<number>`coalesce(${t.deliveredAt}, ${t.lastAttemptAt})`;
     const row = this.db
-      .select({ at: t.deliveredAt })
+      .select({ at: sentAt })
       .from(t)
       .where(
         and(
           eq(t.channelId, channelId),
           eq(t.kind, kind),
-          isNotNull(t.deliveredAt),
+          or(isNotNull(t.deliveredAt), eq(t.failure, "timeout")),
           sql`substr(${t.eventId}, 1, ${eventIdPrefix.length}) = ${eventIdPrefix}`,
         ),
       )
-      .orderBy(desc(t.deliveredAt))
+      .orderBy(desc(sentAt))
       .limit(1)
       .get();
-    return row?.at ?? null;
+    return row ? new Date(row.at) : null;
   }
 
   /** Delete records whose last attempt is older than the cutoff. Returns the count. */

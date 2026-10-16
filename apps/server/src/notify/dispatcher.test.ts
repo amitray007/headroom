@@ -167,17 +167,52 @@ describe("NotificationDispatcher", () => {
     });
   });
 
-  test("a Telegram timeout is not retried, since the message may have arrived", async () => {
+  test("a Telegram timeout is retried once after an hour, and a second timeout ends it", async () => {
     const { ctx, channel, sent, setTimeOut } = setup();
+    const id = syntheticEvent().id;
     setTimeOut(true);
-    expect(await ctx.dispatcher.dispatch(t0)).toEqual({ sent: 1, delivered: 0, failed: 1 });
-    expect(ctx.deliveries.get(channel.id, syntheticEvent().id)).toMatchObject({
-      status: "failed",
+    expect(await ctx.dispatcher.dispatch(t0)).toEqual({ sent: 1, delivered: 0, failed: 0 });
+    expect(ctx.deliveries.get(channel.id, id)).toMatchObject({
+      status: "retrying",
       attempts: 1,
       failure: "timeout",
     });
-    await ctx.dispatcher.dispatch(t0 + 60 * minute);
+    // Not on the 1-minute step: a timeout waits the full hour.
+    await ctx.dispatcher.dispatch(t0 + 59 * minute);
     expect(sent).toHaveLength(1);
+    expect(await ctx.dispatcher.dispatch(t0 + 60 * minute)).toEqual({
+      sent: 1,
+      delivered: 0,
+      failed: 1,
+    });
+    expect(ctx.deliveries.get(channel.id, id)).toMatchObject({ status: "failed", attempts: 2 });
+    await ctx.dispatcher.dispatch(t0 + 24 * 60 * minute);
+    expect(sent).toHaveLength(2);
+  });
+
+  test("a Telegram timeout whose retry succeeds is delivered", async () => {
+    const { ctx, channel, setTimeOut } = setup();
+    setTimeOut(true);
+    await ctx.dispatcher.dispatch(t0);
+    setTimeOut(false);
+    await ctx.dispatcher.dispatch(t0 + 60 * minute);
+    expect(ctx.deliveries.get(channel.id, syntheticEvent().id)).toMatchObject({
+      status: "delivered",
+      attempts: 2,
+    });
+  });
+
+  test("a Telegram timeout after a server error still gets its one retry", async () => {
+    const { ctx, channel, setStatus, setTimeOut } = setup();
+    setStatus(500);
+    await ctx.dispatcher.dispatch(t0);
+    setTimeOut(true);
+    await ctx.dispatcher.dispatch(t0 + minute);
+    expect(ctx.deliveries.get(channel.id, syntheticEvent().id)).toMatchObject({
+      status: "retrying",
+      attempts: 2,
+      failure: "timeout",
+    });
   });
 
   test("a webhook timeout is retried: its stable webhook-id lets the receiver drop a repeat", async () => {
@@ -210,6 +245,19 @@ describe("NotificationDispatcher", () => {
     expect(sent).toHaveLength(2);
     await ctx.dispatcher.dispatch(t0 + 6 * 60 * minute);
     expect(sent).toHaveLength(3);
+  });
+
+  test("a Refresh Failed send that timed out also starts the cooldown, since it may have arrived", async () => {
+    const { ctx, sent, setEvents, setTimeOut } = setup();
+    setTimeOut(true);
+    setEvents([failed("c1", 100)]);
+    await ctx.dispatcher.dispatch(t0);
+    setTimeOut(false);
+    setEvents([failed("c1", 200)]);
+    await ctx.dispatcher.dispatch(t0 + 2 * 60 * minute);
+    expect(sent).toHaveLength(1);
+    await ctx.dispatcher.dispatch(t0 + 6 * 60 * minute);
+    expect(sent).toHaveLength(2);
   });
 
   test("the cooldown leaves other kinds alone", async () => {

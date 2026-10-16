@@ -47,7 +47,7 @@ A rejected key or sign-in on an account that worked before is re-checked about 2
 
 `<resetsAt>`, `<expiresAt>` and `<lastSuccessAt>` are epoch milliseconds. `<eventId>` is the id of the account event, so one event is one notice. `<expiresOn>` is the top-up's expiry day, `YYYY-MM-DD`. `<amount>` is the owner's budget amount, so a changed budget starts a new notice. `<periodEnd>` is the period's end when the metric or its anchor reports one (Cursor cycle end, Grok weekly reset, Copilot monthly reset). Without one it is the UTC month of the reading, `YYYY-MM`, as for Claude extra usage. An id stays the same while the situation lasts and changes for the next period, so a repeat appears again as unread.
 
-An id stays the same only if the times in it are steady. Some providers send a slightly different reset time on each read: Claude within about a second, Codex alternating between two seconds. When Headroom stores a reading, a reset or window-end time within 2 minutes of the previous reading's time keeps the previous value. A real new period moves the time by much more. The Vercel `<total>` is rounded to a millionth before it is formatted, as top-up detection does, so float noise from adding two figures cannot move it across a cent.
+An id stays the same only if the times in it are steady. Some providers send a slightly different reset time on each read: Claude within about a second, Codex alternating between two seconds. When Headroom stores a reading, a reset or window-end time within 2 minutes of the metric's last known time keeps the last known value. The last known time is the newest one in the account's last 6 readings, so a reading that left the metric out or had no time does not reset it. A real new period moves the time by much more. The Vercel `<total>` is rounded to a millionth before it is formatted, as top-up detection does, so float noise from adding two figures cannot move it across a cent. Ids made before this rounding can differ at such a total (three or more decimals ending in 5), so an active Vercel Balance Low there sends once after the update.
 
 Rules that apply to every kind:
 
@@ -358,7 +358,7 @@ After every scheduler tick the dispatcher reads the overview, derives the events
 - Sends are sequential, at most 20 per pass. The rest wait for the next pass.
 - Each event is validated against `notificationEventSchema` before it is sent. An invalid event is dropped and logged at warn level.
 - An event that is no longer derived is never sent again, so a notice that cleared stops retrying.
-- Refresh Failed sends at most once in 6 hours for each account and channel. A success between failures gives the next failure a new id, so a provider that fails on and off would otherwise send each time. A held-back notice sends at a later pass if it is still current after the 6 hours.
+- Refresh Failed sends at most once in 6 hours for each account and channel. A send that timed out counts, because it may have arrived. A success between failures gives the next failure a new id, so a provider that fails on and off would otherwise send each time. A held-back notice sends at a later pass if it is still current after the 6 hours.
 - The server does not send a read or cleared message. A repeat in the next period has a new id and sends again.
 
 ### Retries and the delivery record
@@ -373,7 +373,7 @@ After every scheduler tick the dispatcher reads the overview, derives the events
 | 4 | 60 minutes |
 | 5 | Stop: status `failed` |
 
-A Telegram 429 uses `retry_after` when it is longer than the wait above. A Telegram timeout is not retried: its status is `failed` with failure `timeout`. Telegram can post the message after Headroom stopped waiting, and the chat cannot drop a repeat. A webhook timeout is retried, because the receiver can drop a repeat by its `webhook-id`. Rows older than 60 days are deleted once per pass. Deleting a channel deletes its rows. Test sends are not recorded.
+A Telegram 429 uses `retry_after` when it is longer than the wait above. A Telegram timeout is retried once, after 60 minutes, and a second timeout ends it with status `failed`. Telegram can post the message after Headroom stopped waiting, and the chat cannot drop a repeat, so a retry risks a rare duplicate. The timeout can also come from a connection that hung before anything was sent, and then no retry would lose the notice. A webhook timeout follows the table above, because the receiver can drop a repeat by its `webhook-id`.
 
 Failure classes (`notification.delivery.failure`): `timeout` (10 seconds), `network`, `unauthorized` (401, 403), `not_found` (404; for Telegram also chat not found and bot blocked), `rate_limited` (429), `rejected` (other 4xx and every 3xx), `server_error` (5xx). Requests never follow a redirect.
 

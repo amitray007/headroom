@@ -49,6 +49,8 @@ const maxAttempts = 5;
 /** Wait after failed attempt 1, 2, 3 and 4. */
 const backoffMinutes = [1, 5, 15, 60] as const;
 const retentionMs = 60 * 24 * 60 * 60 * 1000;
+/** Wait before retrying a Telegram timeout, the longest backoff step. */
+const timeoutRetryMs = 60 * 60_000;
 /**
  * Kinds sent at most once per cooldown for each account and channel, whatever their id. A provider that
  * fails on and off gets a new Refresh Failed id after each success, so the id alone would repeat it.
@@ -107,9 +109,10 @@ export class NotificationDispatcher {
           // eslint-disable-next-line no-await-in-loop -- sends must not run concurrently
           const result = await this.send(channel.id, config, parsed.data, now);
           const attempts = (record?.attempts ?? 0) + 1;
+          const arrivedMaybe = !result.ok && mayHaveArrived(config, result.failure);
           const status = result.ok
             ? "delivered"
-            : attempts >= maxAttempts || mayHaveArrived(config, result.failure)
+            : attempts >= maxAttempts || (arrivedMaybe && record?.failure === "timeout")
               ? "failed"
               : "retrying";
           if (status === "delivered") delivered += 1;
@@ -124,7 +127,9 @@ export class NotificationDispatcher {
             failure,
             at: new Date(now),
             nextAttemptAt:
-              status === "retrying" ? new Date(now + retryDelayMs(attempts, result)) : null,
+              status === "retrying"
+                ? new Date(now + (arrivedMaybe ? timeoutRetryMs : retryDelayMs(attempts, result)))
+                : null,
           });
           this.deps.log(
             status === "delivered" ? "info" : "warn",
@@ -141,7 +146,7 @@ export class NotificationDispatcher {
   private coolingDown(channelId: string, event: NotificationEvent, now: number): boolean {
     const wait = cooldownMs[event.kind];
     if (wait === undefined) return false;
-    const last = this.deps.deliveries.lastDeliveredAt(
+    const last = this.deps.deliveries.lastSentAt(
       channelId,
       event.kind,
       `${event.connection.id}:${event.kind}:`,
@@ -189,8 +194,10 @@ function withIdentity(
 
 /**
  * A Telegram timeout can come after Telegram posted the message, and Telegram cannot drop a repeat.
- * Retrying it would risk a duplicate in the chat, so it is not retried. A webhook carries a stable
- * `webhook-id`, so its receiver can drop a repeat and a webhook timeout is retried.
+ * It can also come from a connection that hung before anything was sent. So a Telegram timeout is
+ * retried once, after `timeoutRetryMs`, and a second timeout ends it: a rare duplicate instead of a
+ * lost notice. A webhook carries a stable `webhook-id`, so its receiver can drop a repeat and a webhook
+ * timeout follows the normal backoff.
  */
 function mayHaveArrived(config: ChannelConfig, failure: NotificationDeliveryFailure): boolean {
   return config.type === "telegram" && failure === "timeout";
