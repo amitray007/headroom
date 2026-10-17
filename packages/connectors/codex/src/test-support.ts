@@ -12,12 +12,18 @@ function unsignedJwt(payload: Record<string, unknown>): string {
 }
 
 export const accountId = "acct_synthetic_123";
+export const userId = "user-synthetic-a";
 
 export function idToken(overrides: Record<string, unknown> = {}): string {
   return unsignedJwt({
     exp: 1_700_003_600,
     email: "owner@example.com",
-    "https://api.openai.com/auth": { chatgpt_account_id: accountId, chatgpt_plan_type: "pro" },
+    sub: "auth0|synthetic-a",
+    "https://api.openai.com/auth": {
+      chatgpt_account_id: accountId,
+      chatgpt_plan_type: "pro",
+      chatgpt_user_id: userId,
+    },
     ...overrides,
   });
 }

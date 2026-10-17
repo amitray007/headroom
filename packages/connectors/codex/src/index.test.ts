@@ -17,6 +17,7 @@ import {
   FakeRunner,
   idToken,
   json,
+  userId,
 } from "./test-support.ts";
 
 async function rejection(promise: Promise<unknown>): Promise<unknown> {
@@ -43,8 +44,8 @@ function tokenConnector(response: () => Response | Promise<Response>) {
 }
 
 const identity = {
-  providerAccountId: accountId,
-  workspaceId: null,
+  providerAccountId: userId,
+  workspaceId: accountId,
   label: "x",
   assurance: "strong" as const,
 };
@@ -170,6 +171,17 @@ describe("cli_login flow", () => {
 
 describe("identity and collection", () => {
   const credential = credentialFromAuthFile(authFile());
+  /** A credential for one member of the synthetic Team workspace. */
+  const member = (auth: Record<string, unknown>, sub?: string) => ({
+    secret: {
+      ...credential.secret,
+      idToken: idToken({
+        sub,
+        "https://api.openai.com/auth": { chatgpt_account_id: accountId, ...auth },
+      }),
+    },
+    expiresAt: null,
+  });
 
   test("identity comes from the id token claims", async () => {
     const connector = createCodexConnector({
@@ -177,8 +189,8 @@ describe("identity and collection", () => {
       fetch: fakeFetch({}).fetch,
     });
     expect(await connector.identity(credential)).toEqual({
-      providerAccountId: accountId,
-      workspaceId: null,
+      providerAccountId: userId,
+      workspaceId: accountId,
       label: "owner@example.com (pro)",
       assurance: "strong",
     });
@@ -191,6 +203,46 @@ describe("identity and collection", () => {
       expiresAt: null,
     };
     expect(String(await rejection(connector.identity(noAccount)))).toMatch(/account id/);
+  });
+
+  test("two members of one Team workspace get separate identities", async () => {
+    const connector = createCodexConnector({
+      runner: new FakeRunner(),
+      fetch: fakeFetch({}).fetch,
+    });
+    const a = await connector.identity(member({ chatgpt_user_id: "user-a" }));
+    const b = await connector.identity(member({ chatgpt_user_id: "user-b" }));
+    expect([a.providerAccountId, a.workspaceId]).toEqual(["user-a", accountId]);
+    expect([b.providerAccountId, b.workspaceId]).toEqual(["user-b", accountId]);
+    // `chatgpt_user_id` wins, as in the official CLI; then `user_id`, then `sub`.
+    expect(
+      (await connector.identity(member({ chatgpt_user_id: "user-a", user_id: "other" }, "auth0|x")))
+        .providerAccountId,
+    ).toBe("user-a");
+    expect(
+      (await connector.identity(member({ user_id: "user-c" }, "auth0|x"))).providerAccountId,
+    ).toBe("user-c");
+    expect((await connector.identity(member({}, "auth0|d"))).providerAccountId).toBe("auth0|d");
+    expect(String(await rejection(connector.identity(member({}))))).toMatch(/user id/);
+  });
+
+  test("upgradeIdentity moves a 0.1.8 workspace-only key to member and workspace", () => {
+    const connector = createCodexConnector({
+      runner: new FakeRunner(),
+      fetch: fakeFetch({}).fetch,
+    });
+    const legacy = { ...identity, providerAccountId: accountId, workspaceId: null };
+    expect(connector.upgradeIdentity?.(credential, legacy)).toEqual({
+      providerAccountId: userId,
+      workspaceId: accountId,
+      label: "owner@example.com (pro)",
+      assurance: "strong",
+    });
+    // Already current, or a stored key this credential does not belong to: no change.
+    expect(connector.upgradeIdentity?.(credential, identity)).toBeNull();
+    expect(
+      connector.upgradeIdentity?.(credential, { ...legacy, providerAccountId: "acct_other" }),
+    ).toBeNull();
   });
 
   test("collect maps windows, additional limits, credits and reset credits; sends the account header", async () => {

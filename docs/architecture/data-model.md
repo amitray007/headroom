@@ -68,6 +68,8 @@ Use immutable internal ids. Provider names, email addresses and display labels a
 
 Take identity from token claims where the provider issues an id token, otherwise from a documented identity endpoint. Record the weaker assurance when neither exists and block actions that need strong confirmation.
 
+When a connector changes its identity key, its `upgradeIdentity` re-keys each stored connection in place at startup, offline from that connection's own credential. The connection keeps its id, credential and history; a key that another connection already holds is left alone and logged. A connection the startup pass skipped is re-keyed by its next Reconnect when `upgradeIdentity` accepts the new credential; a plain Connect never takes it over.
+
 ## Metric kinds and units
 
 | Kind | Example | Storage rule |

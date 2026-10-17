@@ -3,11 +3,26 @@ import { mkdtempSync, readFileSync, rmSync, statSync, unlinkSync } from "node:fs
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { createCodexConnector, credentialFromAuthFile } from "@headroom/connector-codex";
 import { loadConfig, ownerExists } from "@headroom/core";
 import { credentialFixture } from "@headroom/core/testing";
 
 import { describeDatabase } from "./app.ts";
 import { bootstrap, loadOrCreateSecretFile } from "./bootstrap.ts";
+
+function base64Json(value: unknown): string {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+/** An unsigned JWT; Headroom only decodes the claims. */
+function unsignedJwt(payload: Record<string, unknown>): string {
+  return `${base64Json({ alg: "none" })}.${base64Json(payload)}.sig`;
+}
+
+/** Only the Codex connector, as the server builds it. */
+function codexOnly(runner: Parameters<typeof createCodexConnector>[0]["runner"]) {
+  return [createCodexConnector({ runner })];
+}
 
 describe("bootstrap", () => {
   test("creates a 0600 secret file once and reuses it", () => {
@@ -117,6 +132,55 @@ describe("bootstrap", () => {
       expect(closed?.id).toBe(run.id);
       expect(closed?.outcome).toBe("interrupted");
       expect(closed?.finishedAt).not.toBeNull();
+      second.sqlite.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("re-keys a 0.1.8 Codex connection at startup, before anything else reads it", () => {
+    const dir = mkdtempSync(join(tmpdir(), "headroom-"));
+    try {
+      const config = loadConfig({
+        HEADROOM_DATA_DIR: join(dir, "data"),
+        HEADROOM_MASTER_KEY_FILE: join(dir, "key"),
+        HEADROOM_AUTH_SECRET_FILE: join(dir, "auth"),
+      });
+      const first = bootstrap({ config, connectors: codexOnly });
+      // As 0.1.8 stored it: the ChatGPT account id, which is the workspace, was the whole key.
+      const old = first.connections.create({
+        provider: "codex",
+        identity: { providerAccountId: "ws-1", workspaceId: null, label: "A", assurance: "strong" },
+        scope: "individual",
+        authMethod: "import",
+        interface: "private",
+        connectorVersion: "0.1.0",
+      });
+      first.credentials.put(
+        old.id,
+        credentialFromAuthFile(
+          JSON.stringify({
+            tokens: {
+              id_token: unsignedJwt({
+                exp: 1_700_003_600,
+                "https://api.openai.com/auth": {
+                  chatgpt_account_id: "ws-1",
+                  chatgpt_user_id: "user-a",
+                },
+              }),
+              access_token: unsignedJwt({ exp: 1_700_003_600 }),
+              refresh_token: "refresh-synthetic",
+              account_id: "ws-1",
+            },
+          }),
+        ),
+      );
+      first.sqlite.close();
+
+      const second = bootstrap({ config, connectors: codexOnly });
+      const row = second.connections.get(old.id)!;
+      expect([row.id, row.providerAccountId, row.workspaceId]).toEqual([old.id, "user-a", "ws-1"]);
+      expect(second.connections.list()).toHaveLength(1);
       second.sqlite.close();
     } finally {
       rmSync(dir, { recursive: true, force: true });

@@ -211,6 +211,12 @@ export interface Connector {
   performAction?(credential: StoredCredential, request: ActionRequest): Promise<ActionResult>;
 
   identity(credential: StoredCredential): Promise<Identity>;
+  /**
+   * The current identity of a connection an older version stored under a different key, read
+   * offline from its credential. Null when `stored` is already current. Startup calls it once per
+   * connection, so the connection keeps its id and history.
+   */
+  upgradeIdentity?(credential: StoredCredential, stored: Identity): Identity | null;
   capabilities(credential: StoredCredential, identity: Identity): Promise<readonly Capability[]>;
   collect(credential: StoredCredential, identity: Identity): Promise<CollectResult>;
   refresh(credential: StoredCredential): Promise<RefreshResult>;

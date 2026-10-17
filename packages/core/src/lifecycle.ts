@@ -323,6 +323,19 @@ export class ConnectionStore {
     return this.get(id)!;
   }
 
+  /** Move a connection to a new identity key in place; only the startup identity upgrade calls it. */
+  rekey(id: string, identity: Identity): void {
+    this.db
+      .update(schema.connections)
+      .set({
+        providerAccountId: identity.providerAccountId,
+        workspaceId: identity.workspaceId,
+        updatedAt: this.now(),
+      })
+      .where(eq(schema.connections.id, id))
+      .run();
+  }
+
   markSuccess(
     id: string,
     observedAt: Date,
