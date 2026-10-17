@@ -190,21 +190,14 @@ export function createCodexConnector(options: CodexConnectorOptions): Connector 
     },
 
     async identity(credential: StoredCredential): Promise<Identity> {
-      const secret = codexCredentialSchema.parse(credential.secret);
-      const claims = idTokenClaimsSchema.safeParse(decodeJwt(secret.idToken));
-      const auth = claims.success ? claims.data["https://api.openai.com/auth"] : undefined;
-      const accountId = secret.accountId ?? auth?.chatgpt_account_id ?? null;
-      if (!accountId) {
-        throw new ConnectorError("invalid_response", "the id token carries no ChatGPT account id");
-      }
-      const email = claims.success ? claims.data.email : undefined;
-      const plan = auth?.chatgpt_plan_type;
-      return {
-        providerAccountId: accountId,
-        workspaceId: null,
-        label: [email ?? "Codex", plan ? `(${plan})` : ""].filter(Boolean).join(" "),
-        assurance: "strong",
-      };
+      return identityOf(credential);
+    },
+
+    upgradeIdentity(credential: StoredCredential, stored: Identity): Identity | null {
+      // Up to 0.1.8 the ChatGPT account id, which is the workspace, was the whole key.
+      if (stored.workspaceId !== null) return null;
+      const current = identityOf(credential);
+      return current.workspaceId === stored.providerAccountId ? current : null;
     },
 
     capabilities(): Promise<readonly Capability[]> {
@@ -520,6 +513,33 @@ function resetInventoryMetric(count: number): MetricObservation {
     unit: "resets",
     availability: "available",
     interface: "private",
+  };
+}
+
+/**
+ * The member is the account and the ChatGPT account id is the workspace: Team members share a
+ * ChatGPT account id. The member id falls back as the official CLI does, then to `sub`.
+ */
+function identityOf(credential: StoredCredential): Identity {
+  const secret = codexCredentialSchema.parse(credential.secret);
+  const claims = idTokenClaimsSchema.safeParse(decodeJwt(secret.idToken));
+  const auth = claims.success ? claims.data["https://api.openai.com/auth"] : undefined;
+  const workspaceId = secret.accountId ?? auth?.chatgpt_account_id ?? null;
+  if (!workspaceId) {
+    throw new ConnectorError("invalid_response", "the id token carries no ChatGPT account id");
+  }
+  const userId =
+    auth?.chatgpt_user_id ?? auth?.user_id ?? (claims.success ? claims.data.sub : undefined);
+  if (!userId) {
+    throw new ConnectorError("invalid_response", "the id token carries no ChatGPT user id");
+  }
+  const email = claims.success ? claims.data.email : undefined;
+  const plan = auth?.chatgpt_plan_type;
+  return {
+    providerAccountId: userId,
+    workspaceId,
+    label: [email ?? "Codex", plan ? `(${plan})` : ""].filter(Boolean).join(" "),
+    assurance: "strong",
   };
 }
 

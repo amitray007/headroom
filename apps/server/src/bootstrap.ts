@@ -30,6 +30,7 @@ import {
   OrderStore,
   SettingsStore,
   SnapshotStore,
+  upgradeIdentities,
   WalletStore,
 } from "@headroom/core";
 
@@ -151,6 +152,7 @@ export function bootstrap(options: BootstrapOptions): AppContext {
       ? options.connectors(runner)
       : (options.connectors ?? []);
   const registry = createRegistry(available, config.enabledProviders);
+  upgradeIdentities({ registry, connections, credentials, log });
   const actionStore = new ActionStore(db, now);
   const accountEvents = new AccountEventStore(db, now);
   const automation = new AutomationStore(db, now);

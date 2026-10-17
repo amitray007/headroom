@@ -25,6 +25,7 @@ export type CodexCredential = z.infer<typeof codexCredentialSchema>;
 /** Claims in the OpenAI id token. Only the fields Headroom reads. */
 export const idTokenClaimsSchema = z.object({
   exp: z.number().int(),
+  sub: z.string().optional(),
   email: z.string().optional(),
   "https://api.openai.com/auth": z
     .object({
