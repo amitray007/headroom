@@ -214,10 +214,14 @@ describe("identity and collection", () => {
     const b = await connector.identity(member({ chatgpt_user_id: "user-b" }));
     expect([a.providerAccountId, a.workspaceId]).toEqual(["user-a", accountId]);
     expect([b.providerAccountId, b.workspaceId]).toEqual(["user-b", accountId]);
-    // The member id falls back to `user_id`, then to `sub`.
-    expect((await connector.identity(member({ user_id: "user-c" }))).providerAccountId).toBe(
-      "user-c",
-    );
+    // `chatgpt_user_id` wins, as in the official CLI; then `user_id`, then `sub`.
+    expect(
+      (await connector.identity(member({ chatgpt_user_id: "user-a", user_id: "other" }, "auth0|x")))
+        .providerAccountId,
+    ).toBe("user-a");
+    expect(
+      (await connector.identity(member({ user_id: "user-c" }, "auth0|x"))).providerAccountId,
+    ).toBe("user-c");
     expect((await connector.identity(member({}, "auth0|d"))).providerAccountId).toBe("auth0|d");
     expect(String(await rejection(connector.identity(member({}))))).toMatch(/user id/);
   });
