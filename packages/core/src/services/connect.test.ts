@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { ConnectorError } from "../connector.ts";
+import { ConnectorError, type Identity } from "../connector.ts";
 import { CredentialStore } from "../credentials.ts";
 import { createKeyring, generateKeyHex, parseKeyHex } from "../crypto/index.ts";
 import { openDatabase } from "../db/index.ts";
@@ -372,5 +372,109 @@ describe("ConnectService", () => {
     const attempt = await service.begin({ provider: "codex", method: "import" });
     expect(connector.calls.filter((c) => c === "refresh")).toHaveLength(1);
     expect(attempt.state).toBe("succeeded");
+  });
+});
+
+const legacy: Identity = {
+  providerAccountId: "ws-1",
+  workspaceId: null,
+  label: "Old",
+  assurance: "strong",
+};
+const member = (id: string, workspaceId = "ws-1"): Identity => ({
+  providerAccountId: id,
+  workspaceId,
+  label: `${id} (team)`,
+  assurance: "strong",
+});
+
+/** A legacy row with no credential: the startup upgrade had nothing to re-key it from. */
+function legacySetup() {
+  const ctx = setup();
+  Object.assign(ctx.connector, {
+    // Same rule as Codex: a workspace-only key moves to the identity this credential reads.
+    upgradeIdentity: (_credential: unknown, stored: Identity) => {
+      const current = ctx.connector.identityResult;
+      if (stored.workspaceId !== null || current instanceof Error) return null;
+      return current.workspaceId === stored.providerAccountId ? current : null;
+    },
+  });
+  const row = ctx.connections.create({
+    provider: "codex",
+    identity: legacy,
+    scope: "individual",
+    authMethod: "import",
+    interface: "private",
+    connectorVersion: "fake-1",
+  });
+  ctx.connections.requireReconnect(row.id, "token_rejected");
+  return { ...ctx, row };
+}
+
+describe("Reconnect of a connection under an older identity key", () => {
+  test("re-keys the connection in place and succeeds, keeping its id", async () => {
+    const { service, connector, connections, credentials, row } = legacySetup();
+    connector.identityResult = member("user-a");
+    connector.beginQueue.push({ status: "credentials", credential: credentialFixture("new") });
+    const attempt = await service.begin({
+      provider: "codex",
+      method: "import",
+      connectionId: row.id,
+    });
+    expect(attempt.state).toBe("succeeded");
+    expect(attempt.connectionId).toBe(row.id);
+    const after = connections.get(row.id)!;
+    expect([after.providerAccountId, after.workspaceId, after.state]).toEqual([
+      "user-a",
+      "ws-1",
+      "ready",
+    ]);
+    expect(credentials.get(row.id)?.secret).toEqual(credentialFixture("new").secret);
+    expect(connections.list()).toHaveLength(1);
+  });
+
+  test("fails as identity_mismatch when another connection already holds the new key", async () => {
+    const { service, connector, connections, row } = legacySetup();
+    connector.identityResult = member("user-a");
+    connector.beginQueue.push({ status: "credentials", credential: credentialFixture("a") });
+    const own = await service.begin({ provider: "codex", method: "import" });
+    expect(own.connectionId).not.toBe(row.id);
+    connector.beginQueue.push({ status: "credentials", credential: credentialFixture("again") });
+    const attempt = await service.begin({
+      provider: "codex",
+      method: "import",
+      connectionId: row.id,
+    });
+    expect(attempt.state).toBe("failed");
+    expect(attempt.error).toContain("identity_mismatch");
+    expect([
+      connections.get(row.id)!.providerAccountId,
+      connections.get(row.id)!.workspaceId,
+    ]).toEqual(["ws-1", null]);
+  });
+
+  test("fails as identity_mismatch when the new sign-in belongs to another workspace", async () => {
+    const { service, connector, connections, row } = legacySetup();
+    connector.identityResult = member("user-a", "ws-2");
+    connector.beginQueue.push({ status: "credentials", credential: credentialFixture("other") });
+    const attempt = await service.begin({
+      provider: "codex",
+      method: "import",
+      connectionId: row.id,
+    });
+    expect(attempt.state).toBe("failed");
+    expect(attempt.error).toContain("identity_mismatch");
+    expect(connections.get(row.id)!.workspaceId).toBeNull();
+  });
+
+  test("a plain Connect never takes over the legacy connection", async () => {
+    const { service, connector, connections, row } = legacySetup();
+    connector.identityResult = member("user-b");
+    connector.beginQueue.push({ status: "credentials", credential: credentialFixture("b") });
+    const attempt = await service.begin({ provider: "codex", method: "import" });
+    expect(attempt.state).toBe("succeeded");
+    expect(attempt.connectionId).not.toBe(row.id);
+    expect(connections.get(row.id)!.providerAccountId).toBe("ws-1");
+    expect(connections.list()).toHaveLength(2);
   });
 });

@@ -25,6 +25,7 @@ import {
   IdentityMismatchError,
 } from "../lifecycle.ts";
 import type { SnapshotStore } from "../snapshots.ts";
+import { upgradeConnection } from "./identity-upgrade.ts";
 
 /**
  * Drives a connector through an attempt: begin, submit input, poll, cancel, and the
@@ -250,6 +251,32 @@ export class ConnectService {
     }
   }
 
+  /**
+   * A connection the startup upgrade skipped still has its older key, so the strict identity
+   * check would refuse every Reconnect. Re-key it first when the new credential upgrades it to
+   * the identity just read. Only the connection the owner chose to reconnect is considered.
+   */
+  private upgradeBeforeReconnect(
+    connectionId: string,
+    connector: Connector,
+    credential: StoredCredential,
+    identity: Identity,
+  ): void {
+    const row = this.deps.connections.get(connectionId);
+    if (
+      !row ||
+      (row.providerAccountId === identity.providerAccountId &&
+        row.workspaceId === identity.workspaceId)
+    ) {
+      return;
+    }
+    try {
+      upgradeConnection(this.deps.connections, connector, row, credential);
+    } catch {
+      // Left unchanged: the identity check below then fails as identity_mismatch.
+    }
+  }
+
   /** Identity, capabilities and one read-only collection; then the connection exists or the attempt fails. */
   private async validate(
     attemptId: string,
@@ -271,6 +298,7 @@ export class ConnectService {
     let created = false;
     try {
       if (attempt.connectionId) {
+        this.upgradeBeforeReconnect(attempt.connectionId, connector, credential, identity);
         connectionId = this.deps.connections.reconnected(
           attempt.connectionId,
           identity,
