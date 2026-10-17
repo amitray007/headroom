@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.9](https://github.com/amitray007/headroom/compare/v0.1.8...v0.1.9) (2026-10-17)
+
+
+### Bug Fixes
+
+* key Codex connections by member and workspace ([3add4f2](https://github.com/amitray007/headroom/commit/3add4f2518638bd5f55a5981d34a2939dfa15fb8))
+* key Codex connections by member and workspace ([3c6ae9e](https://github.com/amitray007/headroom/commit/3c6ae9ef0580448357bf73ac8c3dad247f9d5a7b)), closes [#24](https://github.com/amitray007/headroom/issues/24)
+* let Reconnect re-key a Codex connection the startup upgrade skipped ([78fe1e2](https://github.com/amitray007/headroom/commit/78fe1e236ace6c194b11b43a6b8f209f3b276b69))
+
 ## [0.1.8](https://github.com/amitray007/headroom/compare/v0.1.7...v0.1.8) (2026-10-16)
 
 
