@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.10](https://github.com/amitray007/headroom/compare/v0.1.9...v0.1.10) (2026-10-18)
+
+
+### Bug Fixes
+
+* report why a sign-in CLI stopped and find vite-plus shims ([e510d3e](https://github.com/amitray007/headroom/commit/e510d3e33dc3730fdf2aefeea4e78f77128946dc))
+* report why a sign-in CLI stopped and find vite-plus shims ([962d7bb](https://github.com/amitray007/headroom/commit/962d7bb323bca53cee58615386c26f4de92a78c2))
+
 ## [0.1.9](https://github.com/amitray007/headroom/compare/v0.1.8...v0.1.9) (2026-10-17)
 
 
