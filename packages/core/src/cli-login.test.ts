@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { awaitCliStep, finishCliLogin } from "./cli-login.ts";
 import type { CliLoginStatus, LoginRunner } from "./cli-runner.ts";
-import { ConnectorError } from "./connector.ts";
+import { ConnectorError, classified } from "./connector.ts";
 import type { StoredCredential } from "./credentials.ts";
 
 /** A runner whose status comes from a script; records cleanups. */
@@ -126,12 +126,18 @@ describe("finishCliLogin", () => {
 });
 
 const parse = (output: string): string | null => /CODE-\d+/.exec(output)?.[0] ?? null;
+const missing = "cli did not print a code";
 
 describe("awaitCliStep", () => {
   test("returns a step already in the output without waiting", async () => {
     const { runner, cleaned } = fakeRunner([running("hello CODE-1")]);
-    const step = await awaitCliStep(runner, "a1", { parse, now: () => 0, timeoutMs: 1000 });
-    expect(step).toBe("CODE-1");
+    const step = await awaitCliStep(runner, "a1", {
+      parse,
+      now: () => 0,
+      timeoutMs: 1000,
+      missing,
+    });
+    expect(step).toEqual({ step: "CODE-1" });
     expect(cleaned).toEqual([]);
   });
 
@@ -141,9 +147,10 @@ describe("awaitCliStep", () => {
       parse,
       now: () => 0,
       timeoutMs: 1000,
+      missing,
       pollMs: 1,
     });
-    expect(step).toBe("CODE-2");
+    expect(step).toEqual({ step: "CODE-2" });
     expect(cleaned).toEqual([]);
   });
 
@@ -154,24 +161,35 @@ describe("awaitCliStep", () => {
       parse,
       now: () => (clock += 600),
       timeoutMs: 1000,
+      missing,
       pollMs: 1,
     });
-    expect(step).toBeNull();
+    expect(step).toEqual({ error: classified("provider_unavailable", missing) });
     expect(cleaned).toEqual(["a1"]);
   });
 
   test.each([
-    ["vanishes", null],
-    ["exits", { state: "exited", exitCode: 1, output: "", credentialsPresent: false } as const],
-  ])("stops early when the CLI %s, and removes the attempt", async (_name, gone) => {
+    ["vanishes", null, `${missing}; the CLI exited`],
+    [
+      "exits",
+      {
+        state: "exited",
+        exitCode: 2,
+        output: "\nerror: Command 'login' not found\n\n",
+        credentialsPresent: false,
+      } as const,
+      `${missing}; the CLI exited: error: Command 'login' not found`,
+    ],
+  ])("stops early when the CLI %s, and removes the attempt", async (_name, gone, message) => {
     const { runner, cleaned } = fakeRunner([running(""), gone]);
     const step = await awaitCliStep(runner, "a1", {
       parse,
       now: () => 0,
       timeoutMs: 1000,
+      missing,
       pollMs: 1,
     });
-    expect(step).toBeNull();
+    expect(step).toEqual({ error: classified("internal_error", message) });
     expect(cleaned).toEqual(["a1"]);
   });
 });

@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { CliLoginRunner, redactOutput, stripAnsi } from "./cli-runner.ts";
+import { CliLoginRunner, redactOutput, shimHomes, stripAnsi } from "./cli-runner.ts";
 
 /** A stand-in CLI: prints a URL and code with ANSI colour, then writes auth.json when it reads "ok" on stdin. */
 const fakeCli = `
@@ -125,6 +125,22 @@ process.stdout.write(\`open=\${open.exitCode} xdg=\${xdg.exitCode} find=\${find.
     const runner = new CliLoginRunner({ attemptsDir: "/tmp/never-used" });
     expect(() => runner.attemptDir("../etc")).toThrow();
     expect(stripAnsi("\u001B[94mhttps://x\u001B[0m \u001B[1;32mok\u001B[0m")).toBe("https://x ok");
+  });
+});
+
+const exists = (path: string): boolean => path === "/home/me/.vite-plus";
+
+describe("shimHomes", () => {
+  test("points vite-plus shims at the real home's install, if it exists", () => {
+    expect(shimHomes({ HOME: "/home/me" }, exists)).toEqual({ VP_HOME: "/home/me/.vite-plus" });
+    expect(shimHomes({ HOME: "/home/other" }, exists)).toEqual({});
+    expect(shimHomes({}, exists)).toEqual({});
+  });
+
+  test("keeps an explicit VP_HOME", () => {
+    expect(shimHomes({ HOME: "/home/me", VP_HOME: "/opt/vp" }, () => true)).toEqual({
+      VP_HOME: "/opt/vp",
+    });
   });
 });
 

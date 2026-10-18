@@ -196,7 +196,7 @@ headroom service uninstall
 | `HEADROOM_DATA_DIR` | macOS `~/Library/Application Support/Headroom/data`, Linux `~/.local/share/headroom/data` | Where the database lives |
 | `HEADROOM_MASTER_KEY_FILE` | next to the data on macOS, `~/.config/headroom/headroom.key` on Linux | The key that seals credentials. Keep it out of the data folder |
 | `HEADROOM_AUTH_SECRET_FILE` | same folder as the key, `headroom.auth-secret` | Session signing secret |
-| `HEADROOM_CODEX_BIN`, `HEADROOM_CLAUDE_BIN`, `HEADROOM_GROK_BIN` | resolved on `PATH` | Absolute path of a sign-in CLI |
+| `HEADROOM_CODEX_BIN`, `HEADROOM_CLAUDE_BIN`, `HEADROOM_GROK_BIN` | resolved on `PATH` | Absolute path of a sign-in CLI. Sign-in runs it with a private `HOME`, so a version-manager shim that finds the CLI through `HOME` fails; point this at the real binary |
 
 Every variable is listed in [Deployment and credential storage](docs/architecture/deployment.md).
 

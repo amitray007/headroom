@@ -80,6 +80,7 @@ export class CliLoginRunner implements LoginRunner {
     const env: Record<string, string> = {
       PATH: `${shims}:${this.options.path ?? process.env["PATH"] ?? "/usr/bin:/bin"}`,
       HOME: dir,
+      ...shimHomes(process.env),
       [spec.homeVariable]: dir,
       TERM: "dumb",
       NO_COLOR: "1",
@@ -193,6 +194,19 @@ export class CliLoginRunner implements LoginRunner {
     }
     return removed;
   }
+}
+
+/**
+ * Homes of version managers whose shims find the real CLI under the user's home. With HOME
+ * redirected, a vite-plus `codex` shim cannot find Codex and runs `vp` itself, which rejects
+ * `login`. These directories hold installed tools, not credentials.
+ */
+export function shimHomes(
+  env: Readonly<Record<string, string | undefined>>,
+  exists: (path: string) => boolean = existsSync,
+): Record<string, string> {
+  const vpHome = env["VP_HOME"] ?? (env["HOME"] ? join(env["HOME"], ".vite-plus") : undefined);
+  return vpHome && exists(vpHome) ? { VP_HOME: vpHome } : {};
 }
 
 /**
