@@ -129,17 +129,14 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
         credentialFile: cli.credentialFile,
         timeoutMs: Math.min(cli.timeoutMs, Math.max(1000, begin.expiresAt - now())),
       });
-      const step = await awaitCliStep(runner, begin.attemptId, {
+      const result = await awaitCliStep(runner, begin.attemptId, {
         parse: parseDeviceStep,
         now,
         timeoutMs: 20_000,
+        missing: "grok did not print a device code",
       });
-      if (!step) {
-        return {
-          status: "error",
-          error: classified("provider_unavailable", "grok did not print a device code"),
-        };
-      }
+      if ("error" in result) return { status: "error", error: result.error };
+      const step = result.step;
       return {
         status: "next_step",
         nextStep: {

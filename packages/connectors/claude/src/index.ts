@@ -143,17 +143,14 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
         credentialFile: cli.credentialFile,
         timeoutMs: Math.min(cli.timeoutMs, Math.max(1000, begin.expiresAt - now())),
       });
-      const url = await awaitCliStep(runner, begin.attemptId, {
+      const result = await awaitCliStep(runner, begin.attemptId, {
         parse: parseAuthorizeUrl,
         now,
         timeoutMs: 30_000,
+        missing: "claude did not print an authorization URL",
       });
-      if (!url) {
-        return {
-          status: "error",
-          error: classified("provider_unavailable", "claude did not print an authorization URL"),
-        };
-      }
+      if ("error" in result) return { status: "error", error: result.error };
+      const url = result.step;
       // The CLI also runs a loopback callback listener. It cannot receive a browser on another
       // device, and the runner's browser shim stops it opening one on the server, but if the
       // CLI ever completes on its own the next poll must notice the credentials file.
