@@ -96,6 +96,8 @@ export const usageSummarySchema = z
       })
       .loose()
       .optional(),
+    /** A team-wide allowance some team seats draw from instead of a personal plan. */
+    teamUsage: z.object({ pooled: summaryBucketSchema.optional() }).loose().optional(),
   })
   .loose();
 export type UsageSummary = z.infer<typeof usageSummarySchema>;

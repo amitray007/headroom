@@ -182,15 +182,25 @@ const totalKeys: Partial<Record<OverviewConnection["provider"], string>> = {
   grok: "weekly_pool.used_percent",
 };
 
+/** Stands in for the total when it is unknown: a Cursor team seat on a shared pool has no included total. */
+const fallbackTotalKeys: Partial<Record<OverviewConnection["provider"], string>> = {
+  cursor: "team_pool.used_percent",
+};
+
 /**
  * The room left, for comparing accounts of one provider. Claude and Codex take the tightest of session, weekly
- * and model windows; Cursor and Grok take their total; Antigravity and Copilot the tightest of all windows;
+ * and model windows; Cursor and Grok take their total (a Cursor team seat its shared pool when the total is unknown); Antigravity and Copilot the tightest of all windows;
  * Vercel AI Gateway the balance as a percent of everything granted, or the balance itself when the total is unknown.
  */
 export function roomOf(connection: OverviewConnection): Room {
   if (connection.provider === "vercel_ai_gateway") return balanceRoom(connection);
-  const total = totalKeys[connection.provider];
-  const meters = metersOf(connection).filter((cell) => total === undefined || cell.key === total);
+  const all = metersOf(connection);
+  const withKey = (key: string | undefined) =>
+    all.filter((cell) => key === undefined || cell.key === key);
+  let meters = withKey(totalKeys[connection.provider]);
+  const fallback = fallbackTotalKeys[connection.provider];
+  if (fallback !== undefined && !meters.some((cell) => cell.used !== null))
+    meters = withKey(fallback);
   return tightestRoom(meters.map(refOf));
 }
 

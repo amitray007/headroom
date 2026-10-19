@@ -418,6 +418,29 @@ describe("cursor", () => {
       resetWords: "cycle_end",
     });
   });
+  test("a team seat's shared pool is its own meter after the included pools", () => {
+    const pooled = presentPanel(
+      connection("cursor", {
+        metrics: [
+          metric("included.total_percent", { ...cycle, availability: "unknown" }),
+          percent("team_pool.used_percent", 25, cycle),
+          metric("team_pool.limit", {
+            kind: "spending_cap",
+            unit: "USD",
+            scope: "billing_cycle",
+            valueText: "800.00",
+            valueNum: 800,
+          }),
+        ],
+      }),
+    );
+    expect(meters(pooled.cells)).toEqual([
+      ["Included", "billing cycle", null],
+      ["Team Pool", "$800 shared", 25],
+    ]);
+    expect(pooled.cells.some((cell) => cell.key === "team_pool.limit")).toBe(false);
+    expect(pooled.tightest).toMatchObject({ label: "Team Pool", used: 25, resetsAt: cycleEnd });
+  });
   test("Grok Bot is its own weekly meter after the pools, and never the account's headline", () => {
     const weekEnd = cycleStart + 5 * 24 * 3_600_000;
     const withBot = presentPanel(

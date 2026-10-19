@@ -8,6 +8,7 @@ import periodUsageEnterprise from "./fixtures/period-usage-enterprise.json";
 import periodUsageLiveShape from "./fixtures/period-usage-live-shape.json";
 import periodUsage from "./fixtures/period-usage.json";
 import usageSummaryEnterprise from "./fixtures/usage-summary-enterprise.json";
+import usageSummaryTeamPool from "./fixtures/usage-summary-team-pool.json";
 import { buildLoginUrl, createCursorConnector, grokBotMetric, pkce } from "./index.ts";
 
 function b64(value: unknown): string {
@@ -162,7 +163,29 @@ describe("Cursor connector", () => {
     expect(byKey["included.limit"]).toMatchObject({ valueText: "40.00" });
     expect(byKey["on_demand.used"]).toMatchObject({ valueText: "0.00", scope: "on_demand:team" });
     expect(byKey["on_demand.limit"]).toBeUndefined();
+    expect(byKey["team_pool.used_percent"]).toBeUndefined();
     expect(result.failures).toEqual([]);
+  });
+
+  test("a team seat on a shared pool gets its own meter, apart from the included pools", async () => {
+    const result = await createCursorConnector({
+      fetch: fakeFetch({
+        [usageUrl]: () => json(periodUsageEnterprise),
+        [usageSummaryUrl]: () => json(usageSummaryTeamPool),
+      }).fetch,
+    }).collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    // Used reads as zero, so it comes from the limit less what remains: 800 - 600 of 800.
+    expect(byKey["team_pool.used_percent"]).toMatchObject({
+      valueText: "25",
+      availability: "available",
+      resetsAt: 1793491200000,
+    });
+    expect(byKey["team_pool.limit"]).toMatchObject({ valueText: "800.00", kind: "spending_cap" });
+    expect(byKey["included.total_percent"]).toMatchObject({ availability: "unknown" });
+    expect(byKey["included.limit"]).toBeUndefined();
+    expect(byKey["on_demand.used"]).toMatchObject({ valueText: "2.50", scope: "on_demand:team" });
+    expect(byKey["on_demand.limit"]).toMatchObject({ valueText: "100.00" });
   });
 
   test("a failed usage summary keeps the RPC figures and records the failure", async () => {

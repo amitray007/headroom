@@ -461,6 +461,10 @@ function cursor(context: Context): Built {
   const limit = take(context, "included.limit");
   const cap = limit === null ? null : numberOf(limit);
   const planWindow = cap === null ? "billing cycle" : `${formatUsd(cap).replace(/\.00$/, "")} plan`;
+  const poolLimit = take(context, "team_pool.limit");
+  const poolCap = poolLimit === null ? null : numberOf(poolLimit);
+  const poolWindow =
+    poolCap === null ? "billing cycle" : `${formatUsd(poolCap).replace(/\.00$/, "")} shared`;
   const meters = [
     ...meterFor(context, "included.total_percent", {
       label: "Included",
@@ -477,6 +481,12 @@ function cursor(context: Context): Built {
       label: "API Pool",
       window: "billing cycle",
       resetWords: "with_cycle",
+    }),
+    // A team seat on a shared allowance: the team's pool, never the member's own included usage.
+    ...meterFor(context, "team_pool.used_percent", {
+      label: "Team Pool",
+      window: poolWindow,
+      resetWords: "cycle_end",
     }),
     // Grok Bot has its own allowance with its own reset, apart from the billing-cycle pools above.
     ...meterFor(context, "grok_bot.used_percent", { label: "Grok Bot", window: "weekly" }),
