@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.11](https://github.com/amitray007/headroom/compare/v0.1.10...v0.1.11) (2026-10-19)
+
+
+### Features
+
+* show a Cursor team seat's shared pool as its own meter ([4e6a47b](https://github.com/amitray007/headroom/commit/4e6a47bd636a6212408d696f77352e576b1abfe0))
+
+
+### Bug Fixes
+
+* keep RPC figures over the Cursor usage summary and align the pool headline ([84615ed](https://github.com/amitray007/headroom/commit/84615edb81fa8cca98510522d7846f454893f194))
+* read Cursor enterprise and team-pool usage from usage-summary ([3eb09a4](https://github.com/amitray007/headroom/commit/3eb09a4a836af5a0330209a9e5fc98db805123cb))
+* read Cursor plan usage from usage-summary for enterprise seats ([0d35a77](https://github.com/amitray007/headroom/commit/0d35a77cca79591d1ed506b3488d9760684b158b))
+
 ## [0.1.10](https://github.com/amitray007/headroom/compare/v0.1.9...v0.1.10) (2026-10-18)
 
 
