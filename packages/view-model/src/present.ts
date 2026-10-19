@@ -524,6 +524,13 @@ function cursor(context: Context): Built {
       ),
     );
   }
+  // The next billing date, where it is not already the cycle end above: a weekly plan still bills monthly.
+  const renews = take(context, "billing.renews_at")?.resetsAt ?? null;
+  if (
+    renews !== null &&
+    (total === undefined || shortDate(renews) !== shortDate(total.windowEnd ?? 0))
+  )
+    facts.push(factOf("billing.renews_at", "Renews", shortDate(renews)));
   return { meters, others: [], facts };
 }
 

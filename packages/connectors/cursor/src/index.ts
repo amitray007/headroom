@@ -180,6 +180,7 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
         { metricOrAction: "included.auto_percent", availability: "available", ...validated },
         { metricOrAction: "included.api_percent", availability: "available", ...validated },
         { metricOrAction: "on_demand", availability: "available", ...validated },
+        { metricOrAction: "billing.renews_at", availability: "available", ...validated },
         // Only team seats that draw from a shared allowance report it; the rest show no meter.
         { metricOrAction: "team_pool.used_percent", availability: "available", ...sourceInspected },
         // Only accounts with a personal Grok Bot allowance report it; the rest show no meter.
@@ -252,6 +253,8 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
       }
       // A seat that draws only from the team pool has no included pools of its own: unsupported, not unknown.
       const metrics = [...metricsFrom(period, personalPlan, weekly), ...teamPool];
+      const renewal = renewalMetric(planInfo);
+      if (renewal !== null) metrics.push(renewal);
       // Grok Bot is optional: a failure here is recorded but never stops the Cursor usage above.
       try {
         const grokBot = await http(grokBotUsageUrl, {
@@ -358,6 +361,24 @@ function isWeekly(planInfo: PlanInfo | null, usage: PeriodUsage): boolean {
   const start = cycleDate(usage.billingCycleStart);
   const end = cycleDate(usage.billingCycleEnd);
   return start !== null && end !== null && end - start >= 6 * day && end - start <= 8 * day;
+}
+
+/** When the subscription next bills, from plan info. A date, not a count; on a weekly plan it is not the usage reset. */
+function renewalMetric(planInfo: PlanInfo | null): MetricObservation | null {
+  const end = planInfo?.planInfo?.billingCycleEnd;
+  const at = end === undefined ? null : cycleDate(String(end));
+  if (at === null) return null;
+  return {
+    providerMetricKey: "billing.renews_at",
+    kind: "reset_timestamp",
+    scope: "billing_cycle",
+    valueText: null,
+    unit: "timestamp",
+    windowEnd: at,
+    resetsAt: at,
+    availability: "available",
+    interface: "private",
+  };
 }
 
 function hasPlanPercent(usage: PeriodUsage): boolean {

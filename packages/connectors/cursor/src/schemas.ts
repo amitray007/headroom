@@ -64,6 +64,8 @@ export const planInfoSchema = z
     planInfo: z
       .object({
         planName: z.string().optional(),
+        /** The subscription's next billing date; on a weekly plan it is not the usage reset. */
+        billingCycleEnd: z.union([z.string(), z.number()]).optional(),
         includedUsagePeriod: z.union([z.string(), z.number()]).optional(),
         includedUsageResetsAt: z.union([z.string(), z.number()]).optional(),
       })

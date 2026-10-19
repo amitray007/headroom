@@ -284,6 +284,12 @@ describe("Cursor connector", () => {
       resetsAt: 1792475469536,
     });
     expect(byKey["included.auto_percent"]).toMatchObject({ scope: "window:604800s" });
+    // The subscription still bills monthly: Nov 1, apart from the weekly reset.
+    expect(byKey["billing.renews_at"]).toMatchObject({
+      kind: "reset_timestamp",
+      valueText: null,
+      resetsAt: 1793491200000,
+    });
     expect(byKey["grok_bot.used_percent"]).toBeUndefined();
     expect(http.calls.some((call) => call.url === usageSummaryUrl)).toBe(false);
     expect(result.failures).toEqual([]);
