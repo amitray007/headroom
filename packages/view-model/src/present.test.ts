@@ -424,6 +424,7 @@ describe("cursor", () => {
         metrics: [
           metric("included.total_percent", { ...cycle, availability: "unknown" }),
           percent("team_pool.used_percent", 25, cycle),
+          percent("grok_bot.used_percent", 88, { scope: "window:604800s" }),
           metric("team_pool.limit", {
             kind: "spending_cap",
             unit: "USD",
@@ -437,6 +438,7 @@ describe("cursor", () => {
     expect(meters(pooled.cells)).toEqual([
       ["Included", "billing cycle", null],
       ["Team Pool", "$800 shared", 25],
+      ["Grok Bot", "weekly", 88],
     ]);
     expect(pooled.cells.some((cell) => cell.key === "team_pool.limit")).toBe(false);
     expect(pooled.tightest).toMatchObject({ label: "Team Pool", used: 25, resetsAt: cycleEnd });

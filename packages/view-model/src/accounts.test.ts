@@ -135,6 +135,12 @@ describe("roomOf", () => {
       }),
     );
     expect(personal.limiting?.key).toBe("included.total_percent");
+    const noPool = roomOf(
+      connection("cursor", {
+        metrics: [metric("included.total_percent", { availability: "unknown" })],
+      }),
+    );
+    expect(noPool.windows.map((w) => w.key)).toEqual(["included.total_percent"]);
   });
   test("Claude: the tightest of session, weekly and model windows", () => {
     const room = roomOf(

@@ -1,5 +1,5 @@
 import type { Metric, OverviewConnection } from "./overview.ts";
-import { presentPanel, type Cell } from "./present.ts";
+import { fallbackPrimaryKeys, presentPanel, type Cell } from "./present.ts";
 import { toneOf, type Tone } from "./tone.ts";
 
 /**
@@ -182,11 +182,6 @@ const totalKeys: Partial<Record<OverviewConnection["provider"], string>> = {
   grok: "weekly_pool.used_percent",
 };
 
-/** Stands in for the total when it is unknown: a Cursor team seat on a shared pool has no included total. */
-const fallbackTotalKeys: Partial<Record<OverviewConnection["provider"], string>> = {
-  cursor: "team_pool.used_percent",
-};
-
 /**
  * The room left, for comparing accounts of one provider. Claude and Codex take the tightest of session, weekly
  * and model windows; Cursor and Grok take their total (a Cursor team seat its shared pool when the total is unknown); Antigravity and Copilot the tightest of all windows;
@@ -198,9 +193,9 @@ export function roomOf(connection: OverviewConnection): Room {
   const withKey = (key: string | undefined) =>
     all.filter((cell) => key === undefined || cell.key === key);
   let meters = withKey(totalKeys[connection.provider]);
-  const fallback = fallbackTotalKeys[connection.provider];
-  if (fallback !== undefined && !meters.some((cell) => cell.used !== null))
-    meters = withKey(fallback);
+  const fallback = fallbackPrimaryKeys[connection.provider];
+  const stand = fallback === undefined ? [] : withKey(fallback);
+  if (stand.length > 0 && !meters.some((cell) => cell.used !== null)) meters = stand;
   return tightestRoom(meters.map(refOf));
 }
 

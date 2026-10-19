@@ -12,7 +12,7 @@ export const usageUrl = "https://api2.cursor.sh/aiserver.v1.DashboardService/Get
 export const grokBotUsageUrl =
   "https://api2.cursor.sh/aiserver.v1.DashboardService/GetSandUsageStatus";
 
-/** Enterprise and team seats get no `planUsage` from the RPC above; this web route carries their plan. Route from OpenUsage (source-inspected). */
+/** Enterprise and team seats get no `planUsage` from the RPC above; this web route carries their plan. Route from OpenUsage; validated 2026-10-19. */
 export const usageSummaryUrl = "https://cursor.com/api/usage-summary";
 
 export function rpcHeaders(accessToken: string): Record<string, string> {

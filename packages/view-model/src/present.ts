@@ -688,6 +688,11 @@ const primaryKeys: Partial<Record<OverviewConnection["provider"], string>> = {
   grok: "weekly_pool.used_percent",
 };
 
+/** Stands in for the primary meter when it is unknown: a Cursor team seat on a shared pool has no included total. */
+export const fallbackPrimaryKeys: Partial<Record<OverviewConnection["provider"], string>> = {
+  cursor: "team_pool.used_percent",
+};
+
 function holdOf(
   connection: OverviewConnection,
   credits: readonly ResetCredit[],
@@ -714,7 +719,9 @@ function tightestOf(
   meters: readonly MeterCell[],
 ): PanelModel["tightest"] {
   const candidates = meters.filter((cell) => cell.used !== null && !cell.unlimited);
-  const primary = candidates.find((cell) => cell.key === primaryKeys[provider]);
+  const primary =
+    candidates.find((cell) => cell.key === primaryKeys[provider]) ??
+    candidates.find((cell) => cell.key === fallbackPrimaryKeys[provider]);
   let best = primary;
   if (best === undefined) {
     for (const cell of candidates) {

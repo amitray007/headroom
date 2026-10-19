@@ -204,8 +204,9 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
       const failures: ClassifiedError[] = [];
       let period = usage.data;
       let teamPool: MetricObservation[] = [];
+      let personalPlan = true;
       // Enterprise and team seats answer the RPC without `planUsage` (observed 2026-10-19); their plan is on the web route.
-      if (!hasPlanPercent(period)) {
+      if (period.enabled !== false && !hasPlanPercent(period)) {
         try {
           const subject = jwtClaimsSchema.safeParse(decodeJwt(secret.accessToken));
           if (!subject.success || !subject.data.sub)
@@ -221,11 +222,13 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
             throw new ConnectorError("invalid_response", "usage summary response shape changed");
           period = periodFromSummary(summary.data, period);
           teamPool = teamPoolMetrics(summary.data, period);
+          personalPlan = summary.data.individualUsage?.plan !== undefined || teamPool.length === 0;
         } catch (error) {
           failures.push(classifyUnknown(error));
         }
       }
-      const metrics = [...metricsFrom(period), ...teamPool];
+      // A seat that draws only from the team pool has no included pools of its own: unsupported, not unknown.
+      const metrics = [...metricsFrom(period, personalPlan), ...teamPool];
       // Grok Bot is optional: a failure here is recorded but never stops the Cursor usage above.
       try {
         const grokBot = await http(grokBotUsageUrl, {
@@ -325,22 +328,28 @@ function hasPlanPercent(usage: PeriodUsage): boolean {
   );
 }
 
-/** The web summary in the RPC's shape, so one mapping serves both. The RPC's own cycle bounds win when present. */
+/**
+ * The web summary in the RPC's shape, so one mapping serves both. What the RPC itself reported wins: its cycle bounds,
+ * its on-demand spend, and its plan when the summary has none. The summary's on-demand fills in only when the RPC has
+ * none and the bucket is enabled.
+ */
 function periodFromSummary(summary: UsageSummary, rpc: PeriodUsage): PeriodUsage {
   const plan = summary.individualUsage?.plan;
   const onDemand = summary.individualUsage?.onDemand;
-  const limitType = summary.limitType ?? rpc.spendLimitUsage?.limitType;
   const enabled = plan?.enabled ?? rpc.enabled;
   const isUnlimited = summary.isUnlimited ?? rpc.isUnlimited;
   const start = rpc.billingCycleStart ?? summary.billingCycleStart;
   const end = rpc.billingCycleEnd ?? summary.billingCycleEnd;
-  const spendLimitUsage = onDemand
-    ? {
-        ...(limitType === undefined ? {} : { limitType }),
-        individualUsed: onDemand.used ?? null,
-        individualLimit: onDemand.limit ?? null,
-      }
-    : rpc.spendLimitUsage;
+  const spendLimitUsage =
+    rpc.spendLimitUsage ??
+    (onDemand && onDemand.enabled !== false
+      ? {
+          // The member's own bucket, whatever limit type the seat has.
+          limitType: "user",
+          individualUsed: onDemand.used ?? null,
+          individualLimit: onDemand.limit ?? null,
+        }
+      : undefined);
   return {
     ...(start === undefined ? {} : { billingCycleStart: start }),
     ...(end === undefined ? {} : { billingCycleEnd: end }),
@@ -349,13 +358,15 @@ function periodFromSummary(summary: UsageSummary, rpc: PeriodUsage): PeriodUsage
     ...(plan
       ? {
           planUsage: {
-            limit: plan.limit ?? null,
+            limit: plan.limit ?? rpc.planUsage?.limit ?? null,
             totalPercentUsed: plan.totalPercentUsed ?? null,
             autoPercentUsed: plan.autoPercentUsed ?? null,
             apiPercentUsed: plan.apiPercentUsed ?? null,
           },
         }
-      : {}),
+      : rpc.planUsage === undefined
+        ? {}
+        : { planUsage: rpc.planUsage }),
     ...(spendLimitUsage === undefined ? {} : { spendLimitUsage }),
   };
 }
@@ -406,7 +417,7 @@ function teamPoolMetrics(summary: UsageSummary, period: PeriodUsage): MetricObse
   ];
 }
 
-function metricsFrom(usage: PeriodUsage): MetricObservation[] {
+function metricsFrom(usage: PeriodUsage, personalPlan = true): MetricObservation[] {
   const windowStart = cycleDate(usage.billingCycleStart);
   const windowEnd = cycleDate(usage.billingCycleEnd);
   const plan = usage.planUsage;
@@ -422,7 +433,7 @@ function metricsFrom(usage: PeriodUsage): MetricObservation[] {
     windowEnd,
     resetsAt: windowEnd,
     availability:
-      usage.enabled === false
+      usage.enabled === false || !personalPlan
         ? "unsupported"
         : value === null || value === undefined
           ? "unknown"

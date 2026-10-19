@@ -182,10 +182,54 @@ describe("Cursor connector", () => {
       resetsAt: 1793491200000,
     });
     expect(byKey["team_pool.limit"]).toMatchObject({ valueText: "800.00", kind: "spending_cap" });
-    expect(byKey["included.total_percent"]).toMatchObject({ availability: "unknown" });
+    // No personal plan: the included pools are unsupported, so a complete read is not partial.
+    expect(byKey["included.total_percent"]).toMatchObject({ availability: "unsupported" });
     expect(byKey["included.limit"]).toBeUndefined();
-    expect(byKey["on_demand.used"]).toMatchObject({ valueText: "2.50", scope: "on_demand:team" });
-    expect(byKey["on_demand.limit"]).toMatchObject({ valueText: "100.00" });
+    // The RPC's own on-demand figure wins over the summary's.
+    expect(byKey["on_demand.used"]).toMatchObject({ valueText: "0.00", scope: "on_demand:team" });
+    expect(result.failures).toEqual([]);
+  });
+
+  test("the summary never overrides what the RPC reported: pooled on-demand and the plan limit stay", async () => {
+    const rpc = {
+      ...periodUsageEnterprise,
+      planUsage: { limit: 2000 },
+      spendLimitUsage: { limitType: "team", pooledUsed: 50000, pooledLimit: 100000 },
+    };
+    const result = await createCursorConnector({
+      fetch: fakeFetch({
+        [usageUrl]: () => json(rpc),
+        [usageSummaryUrl]: () => json(usageSummaryTeamPool),
+      }).fetch,
+    }).collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["on_demand.used"]).toMatchObject({ valueText: "500.00", scope: "on_demand:team" });
+    expect(byKey["on_demand.limit"]).toMatchObject({ valueText: "1000.00" });
+    expect(byKey["included.limit"]).toMatchObject({ valueText: "20.00" });
+  });
+
+  test("the summary's own on-demand fills in only when the RPC has none and it is enabled", async () => {
+    const { spendLimitUsage: _omitted, ...rpc } = periodUsageEnterprise;
+    const collect = (summary: unknown) =>
+      createCursorConnector({
+        fetch: fakeFetch({
+          [usageUrl]: () => json(rpc),
+          [usageSummaryUrl]: () => json(summary),
+        }).fetch,
+      }).collect(credential, identity);
+    const enabled = await collect(usageSummaryTeamPool);
+    const used = enabled.metrics.find((m) => m.providerMetricKey === "on_demand.used");
+    expect(used).toMatchObject({ valueText: "2.50", scope: "on_demand:user" });
+    const disabled = await collect(usageSummaryEnterprise);
+    expect(disabled.metrics.find((m) => m.providerMetricKey === "on_demand.used")).toMatchObject({
+      availability: "unknown",
+    });
+  });
+
+  test("a disabled account never reads the usage summary", async () => {
+    const http = fakeFetch({ [usageUrl]: () => json({ enabled: false }) });
+    await createCursorConnector({ fetch: http.fetch }).collect(credential, identity);
+    expect(http.calls.some((call) => call.url === usageSummaryUrl)).toBe(false);
   });
 
   test("a failed usage summary keeps the RPC figures and records the failure", async () => {
