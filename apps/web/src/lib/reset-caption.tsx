@@ -9,15 +9,14 @@ export function resetVerb(words: ResetWords): "Resets" | "Cycle ends" {
 }
 
 /**
- * The reset of one meter in words: "Resets in 2 h", "Cycle ends in 12 days", "Resets with the cycle" for a pool
- * that follows the billing cycle, "Not Started" for a session that has not opened, or "No reset time".
+ * The reset of one meter in words: "Resets in 2 h", "Cycle ends in 12 days", "Not Started" for a session that has not
+ * opened, or "No reset time".
  */
 export function ResetCaption(props: {
   readonly resetWords: ResetWords;
   readonly resetsAt: number | null;
 }) {
   const { resetWords, resetsAt } = props;
-  if (resetWords === "with_cycle") return "Resets with the cycle";
   if (resetWords === "not_started") return "Not Started";
   if (resetsAt === null) return "No reset time";
   return <When at={resetsAt} kind="until" prefix={resetVerb(resetWords)} />;

@@ -400,9 +400,11 @@ describe("cursor", () => {
       ["API Pool", "billing cycle", 6.48],
     ]);
   });
-  test("captions: the cycle end on Included, no time on the pools", () => {
+  test("captions: every included pool counts down to the cycle end", () => {
     const words = panel.cells.flatMap((cell) => (cell.kind === "meter" ? [cell.resetWords] : []));
-    expect(words).toEqual(["cycle_end", "with_cycle", "with_cycle"]);
+    expect(words).toEqual(["cycle_end", "cycle_end", "cycle_end"]);
+    const resets = panel.cells.flatMap((cell) => (cell.kind === "meter" ? [cell.resetsAt] : []));
+    expect(resets).toEqual([cycleEnd, cycleEnd, cycleEnd]);
   });
   test("facts show spend, its cap and the cycle", () => {
     expect(panel.facts).toEqual([
@@ -435,7 +437,7 @@ describe("cursor", () => {
       ["API Pool", "weekly", 0],
     ]);
     const words = weekly.cells.flatMap((cell) => (cell.kind === "meter" ? [cell.resetWords] : []));
-    expect(words).toEqual(["resets", "with_cycle", "with_cycle"]);
+    expect(words).toEqual(["resets", "resets", "resets"]);
     expect(weekly.facts).toEqual([{ key: "cycle", label: "Week", value: "Oct 19 to Oct 26" }]);
   });
   test("a team seat's shared pool is its own meter after the included pools", () => {

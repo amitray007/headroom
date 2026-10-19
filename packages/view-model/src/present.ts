@@ -20,8 +20,8 @@ export type Cell =
       readonly used: number | null;
       readonly unlimited: boolean;
       readonly resetsAt: number | null;
-      /** How the caption words the reset: "Resets in", "Cycle ends in", or "Resets with the cycle" with no time. */
-      readonly resetWords: "resets" | "cycle_end" | "with_cycle" | "not_started";
+      /** How the caption words the reset: "Resets in" or "Cycle ends in". */
+      readonly resetWords: "resets" | "cycle_end" | "not_started";
       readonly decimals: number;
     }
   | {
@@ -469,22 +469,24 @@ function cursor(context: Context): Built {
   const poolCap = poolLimit === null ? null : numberOf(poolLimit);
   const poolWindow =
     poolCap === null ? "billing cycle" : `${formatUsd(poolCap).replace(/\.00$/, "")} shared`;
+  // Every included pool resets at the same moment, and each one says when.
+  const includedReset = weekly ? "resets" : "cycle_end";
   const meters = [
     ...meterFor(context, "included.total_percent", {
       label: "Included",
       window: planWindow,
       short: "Included Usage",
-      resetWords: weekly ? "resets" : "cycle_end",
+      resetWords: includedReset,
     }),
     ...meterFor(context, "included.auto_percent", {
       label: "Auto Pool",
       window: includedWindow,
-      resetWords: "with_cycle",
+      resetWords: includedReset,
     }),
     ...meterFor(context, "included.api_percent", {
       label: "API Pool",
       window: includedWindow,
-      resetWords: "with_cycle",
+      resetWords: includedReset,
     }),
     // A team seat on a shared allowance: the team's pool, never the member's own included usage.
     ...meterFor(context, "team_pool.used_percent", {

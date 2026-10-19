@@ -14,14 +14,6 @@ describe("ResetCaption", () => {
       "Cycle ends in ",
     );
   });
-  test("a pool that follows the cycle shows no time", () => {
-    expect(renderToString(<ResetCaption resetWords="with_cycle" resetsAt={null} />)).toBe(
-      "Resets with the cycle",
-    );
-    expect(renderToString(<ResetCaption resetWords="with_cycle" resetsAt={soon} />)).toBe(
-      "Resets with the cycle",
-    );
-  });
   test("a session that has not started, and a missing time", () => {
     expect(renderToString(<ResetCaption resetWords="not_started" resetsAt={null} />)).toBe(
       "Not Started",
@@ -32,6 +24,6 @@ describe("ResetCaption", () => {
   });
   test("verb", () => {
     expect(resetVerb("resets")).toBe("Resets");
-    expect(resetVerb("with_cycle")).toBe("Cycle ends");
+    expect(resetVerb("cycle_end")).toBe("Cycle ends");
   });
 });
