@@ -1,28 +1,28 @@
 class Headroom < Formula
   desc "Self-hosted dashboard for all your AI plans"
   homepage "https://headroom.theblank.club"
-  version "0.1.11"
+  version "0.1.12"
   license "MIT"
 
   on_macos do
     on_arm do
-      url "https://github.com/amitray007/headroom/releases/download/v0.1.11/headroom-darwin-arm64.tar.gz"
-      sha256 "2e42da19e50f2bd4d5b9422eb6bca1e088fd6ceeb018b15095737d5123c33439"
+      url "https://github.com/amitray007/headroom/releases/download/v0.1.12/headroom-darwin-arm64.tar.gz"
+      sha256 "9b2c4065ab9900bee54bfcb4e9c9859e40acc5a1a7a1975559ba1dafecc78552"
     end
     on_intel do
-      url "https://github.com/amitray007/headroom/releases/download/v0.1.11/headroom-darwin-x64.tar.gz"
-      sha256 "2345a9d0d7d167564601c67c6b782e357c28f7b1f9b8311c106c4ab7532d2786"
+      url "https://github.com/amitray007/headroom/releases/download/v0.1.12/headroom-darwin-x64.tar.gz"
+      sha256 "1d35404c55eb38e6cdfb6a7667aca9202abe9a55f948b6f8d2666b9ea8797764"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/amitray007/headroom/releases/download/v0.1.11/headroom-linux-arm64.tar.gz"
-      sha256 "619f961e06627a46eb0b6c1418ccff51edd218572c10fd2aba9b39b9b7540a5c"
+      url "https://github.com/amitray007/headroom/releases/download/v0.1.12/headroom-linux-arm64.tar.gz"
+      sha256 "3bb73da521b2ed9f7c2efb9cb3c34783a219738bc7835cc00520119eef461678"
     end
     on_intel do
-      url "https://github.com/amitray007/headroom/releases/download/v0.1.11/headroom-linux-x64.tar.gz"
-      sha256 "8e2b19c2e2dbff0755a24200c4a90a94cbac6b135b71d45f4ceb2c5db04b3bac"
+      url "https://github.com/amitray007/headroom/releases/download/v0.1.12/headroom-linux-x64.tar.gz"
+      sha256 "d5f5ead083d7d270e1a219c715ba38d839c43438839fe94909d491adff91bf0b"
     end
   end
 
