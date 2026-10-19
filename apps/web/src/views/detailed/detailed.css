@@ -85,7 +85,7 @@
 }
 .d-head {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.5fr) 150px var(--d-state, 88px) 20px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.5fr) 190px var(--d-state, 88px) 20px;
   align-items: center;
   gap: var(--space-5);
   width: 100%;
@@ -189,6 +189,10 @@ div.d-head:active {
   color: var(--text-secondary);
   line-height: 1.35;
   text-align: right;
+}
+/* A longer caption may wrap, but only before the time: "10 h 29 min" never splits. */
+.d-reset .when {
+  white-space: nowrap;
 }
 .d-state {
   display: flex;
