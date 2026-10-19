@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.12](https://github.com/amitray007/headroom/compare/v0.1.11...v0.1.12) (2026-10-19)
+
+
+### Bug Fixes
+
+* keep the account row reset caption on one line ([13f959c](https://github.com/amitray007/headroom/commit/13f959ce12b2634324edfcc6e16ad852e2415411))
+* keep the account row reset caption on one line ([db7a5cf](https://github.com/amitray007/headroom/commit/db7a5cf2efdc57951071a000c23feef46e91b161))
+* read Cursor's weekly merged plans and guard against misleading figures ([0d8d962](https://github.com/amitray007/headroom/commit/0d8d9624afbd43bdc947dfccb87c424f43a01dc8))
+* read Cursor's weekly merged plans and guard against misleading figures ([54d67c6](https://github.com/amitray007/headroom/commit/54d67c66c195d8b212c00396d3f1a20ce73dc2cd))
+
 ## [0.1.11](https://github.com/amitray007/headroom/compare/v0.1.10...v0.1.11) (2026-10-19)
 
 
