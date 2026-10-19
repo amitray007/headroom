@@ -12,6 +12,8 @@ export const usageUrl = "https://api2.cursor.sh/aiserver.v1.DashboardService/Get
 export const grokBotUsageUrl =
   "https://api2.cursor.sh/aiserver.v1.DashboardService/GetSandUsageStatus";
 
+/** The plan and how often its included usage resets: weekly on The X Subscription plans (validated 2026-10-20). */
+export const planInfoUrl = "https://api2.cursor.sh/aiserver.v1.DashboardService/GetPlanInfo";
 /** Enterprise and team seats get no `planUsage` from the RPC above; this web route carries their plan. Route from OpenUsage; validated 2026-10-19. */
 export const usageSummaryUrl = "https://cursor.com/api/usage-summary";
 

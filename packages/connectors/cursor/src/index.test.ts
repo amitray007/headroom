@@ -2,11 +2,20 @@ import { describe, expect, test } from "bun:test";
 
 import { z } from "zod";
 
-import { grokBotUsageUrl, pollUrl, refreshUrl, usageSummaryUrl, usageUrl } from "./endpoints.ts";
+import {
+  grokBotUsageUrl,
+  planInfoUrl,
+  pollUrl,
+  refreshUrl,
+  usageSummaryUrl,
+  usageUrl,
+} from "./endpoints.ts";
 import grokBotUsage from "./fixtures/grok-bot-usage.json";
 import periodUsageEnterprise from "./fixtures/period-usage-enterprise.json";
 import periodUsageLiveShape from "./fixtures/period-usage-live-shape.json";
+import periodUsageWeekly from "./fixtures/period-usage-weekly.json";
 import periodUsage from "./fixtures/period-usage.json";
+import planInfoWeekly from "./fixtures/plan-info-weekly.json";
 import usageSummaryEnterprise from "./fixtures/usage-summary-enterprise.json";
 import usageSummaryTeamPool from "./fixtures/usage-summary-team-pool.json";
 import { buildLoginUrl, createCursorConnector, grokBotMetric, pkce } from "./index.ts";
@@ -47,6 +56,13 @@ async function rejection(promise: Promise<unknown>): Promise<unknown> {
   } catch (error) {
     return error;
   }
+}
+
+/** One collection whose usage response carries the given on-demand block. */
+function collectWithSpend(spendLimitUsage: unknown) {
+  return createCursorConnector({
+    fetch: fakeFetch({ [usageUrl]: () => json({ ...periodUsage, spendLimitUsage }) }).fetch,
+  }).collect(credential, identity);
 }
 
 describe("Cursor connector", () => {
@@ -160,7 +176,8 @@ describe("Cursor connector", () => {
     });
     expect(byKey["included.auto_percent"]).toMatchObject({ valueText: "25" });
     expect(byKey["included.api_percent"]).toMatchObject({ valueText: "5.5" });
-    expect(byKey["included.limit"]).toMatchObject({ valueText: "40.00" });
+    // A team seat with model pools: the summary's dollar limit is the stale allowance, not shown.
+    expect(byKey["included.limit"]).toBeUndefined();
     expect(byKey["on_demand.used"]).toMatchObject({ valueText: "0.00", scope: "on_demand:team" });
     expect(byKey["on_demand.limit"]).toBeUndefined();
     expect(byKey["team_pool.used_percent"]).toBeUndefined();
@@ -251,6 +268,105 @@ describe("Cursor connector", () => {
     expect(http.calls.some((call) => call.url === usageSummaryUrl)).toBe(false);
   });
 
+  test("a weekly merged plan: weekly pools from the RPC, no summary, no second Grok Bot meter", async () => {
+    const http = fakeFetch({
+      [usageUrl]: () => json(periodUsageWeekly),
+      [planInfoUrl]: () => json(planInfoWeekly),
+      [grokBotUsageUrl]: () => json({ ...grokBotUsage, isUnified: true }),
+      [usageSummaryUrl]: () => json(usageSummaryEnterprise),
+    });
+    const result = await createCursorConnector({ fetch: http.fetch }).collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["included.total_percent"]).toMatchObject({
+      valueText: "12.35",
+      scope: "window:604800s",
+      windowStart: 1791870669536,
+      resetsAt: 1792475469536,
+    });
+    expect(byKey["included.auto_percent"]).toMatchObject({ scope: "window:604800s" });
+    expect(byKey["grok_bot.used_percent"]).toBeUndefined();
+    expect(http.calls.some((call) => call.url === usageSummaryUrl)).toBe(false);
+    expect(result.failures).toEqual([]);
+  });
+
+  test("a week-long cycle is weekly even without plan info, so the monthly summary is never read", async () => {
+    const { planUsage: _omitted, ...rpc } = periodUsageWeekly;
+    const http = fakeFetch({
+      [usageUrl]: () => json(rpc),
+      [usageSummaryUrl]: () => json(usageSummaryEnterprise),
+    });
+    const result = await createCursorConnector({ fetch: http.fetch }).collect(credential, identity);
+    expect(http.calls.some((call) => call.url === usageSummaryUrl)).toBe(false);
+    expect(
+      result.metrics.find((m) => m.providerMetricKey === "included.total_percent"),
+    ).toMatchObject({ availability: "unknown", scope: "window:604800s" });
+  });
+
+  test("a monthly plan keeps the billing cycle and its separate Grok Bot meter", async () => {
+    const monthly = {
+      planInfo: { planName: "Pro", includedUsagePeriod: "INCLUDED_USAGE_PERIOD_MONTHLY" },
+    };
+    const result = await createCursorConnector({
+      fetch: fakeFetch({
+        [usageUrl]: () => json(periodUsage),
+        [planInfoUrl]: () => json(monthly),
+        [grokBotUsageUrl]: () => json(grokBotUsage),
+      }).fetch,
+    }).collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["included.total_percent"]).toMatchObject({ scope: "billing_cycle" });
+    expect(byKey["grok_bot.used_percent"]).toMatchObject({ valueText: "41.67" });
+  });
+
+  test("zero percentages beside real spend are placeholders: the share comes from the spend", async () => {
+    const rpc = {
+      ...periodUsage,
+      planUsage: {
+        limit: 500000,
+        totalSpend: 234500,
+        totalPercentUsed: 0,
+        autoPercentUsed: 0,
+        apiPercentUsed: 0,
+      },
+      spendLimitUsage: { limitType: "team", pooledLimit: 500000, pooledUsed: 0 },
+    };
+    const result = await createCursorConnector({
+      fetch: fakeFetch({ [usageUrl]: () => json(rpc) }).fetch,
+    }).collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["included.total_percent"]).toMatchObject({ valueText: "46.9" });
+    expect(byKey["included.auto_percent"]).toMatchObject({ availability: "unknown" });
+    expect(byKey["included.limit"]).toMatchObject({ valueText: "5000.00" });
+  });
+
+  test("on-demand takes the first positive figure, so a reported 0 never hides real spend", async () => {
+    const masked = await collectWithSpend({
+      limitType: "user",
+      individualUsed: 0,
+      totalSpend: 1200,
+    });
+    expect(masked.metrics.find((m) => m.providerMetricKey === "on_demand.used")).toMatchObject({
+      valueText: "12.00",
+    });
+    const zero = await collectWithSpend({ limitType: "user", individualUsed: 0 });
+    expect(zero.metrics.find((m) => m.providerMetricKey === "on_demand.used")).toMatchObject({
+      valueText: "0.00",
+      availability: "available",
+    });
+  });
+
+  test("a team seat with model pools drops the stale included limit", async () => {
+    const rpc = {
+      ...periodUsage,
+      planUsage: { limit: 2000, totalPercentUsed: 4.1, autoPercentUsed: 6, apiPercentUsed: 1 },
+      spendLimitUsage: { limitType: "team", pooledUsed: 0 },
+    };
+    const result = await createCursorConnector({
+      fetch: fakeFetch({ [usageUrl]: () => json(rpc) }).fetch,
+    }).collect(credential, identity);
+    expect(result.metrics.some((m) => m.providerMetricKey === "included.limit")).toBe(false);
+  });
+
   test("missing percentages are unknown; 401 is definitive", async () => {
     const connector = createCursorConnector({
       fetch: fakeFetch({ [usageUrl]: () => json({ enabled: true }) }).fetch,
@@ -274,8 +390,8 @@ describe("Cursor connector", () => {
     });
     const connector = createCursorConnector({ fetch: http.fetch });
     const result = await connector.collect(credential, identity);
-    expect(http.calls.map((call) => call.url)).toEqual([usageUrl, grokBotUsageUrl]);
-    const headers = z.record(z.string(), z.string()).parse(http.calls[1]?.init?.headers);
+    expect(http.calls.map((call) => call.url)).toEqual([usageUrl, planInfoUrl, grokBotUsageUrl]);
+    const headers = z.record(z.string(), z.string()).parse(http.calls[2]?.init?.headers);
     expect(headers["authorization"]).toBe(`Bearer ${access}`);
     expect(result.failures).toEqual([]);
     expect(result.metrics.find((m) => m.providerMetricKey === "grok_bot.used_percent")).toEqual({

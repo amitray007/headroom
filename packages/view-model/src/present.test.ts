@@ -418,6 +418,26 @@ describe("cursor", () => {
       resetWords: "cycle_end",
     });
   });
+  test("a weekly plan names its pools weekly, counts down on Included and shows the week", () => {
+    const week = { ...cycle, scope: "window:604800s", windowStart: cycleEnd - 7 * 24 * 3_600_000 };
+    const weekly = presentPanel(
+      connection("cursor", {
+        metrics: [
+          percent("included.total_percent", 5.4, week),
+          percent("included.auto_percent", 5.4, week),
+          percent("included.api_percent", 0, week),
+        ],
+      }),
+    );
+    expect(meters(weekly.cells)).toEqual([
+      ["Included", "weekly", 5.4],
+      ["Auto Pool", "weekly", 5.4],
+      ["API Pool", "weekly", 0],
+    ]);
+    const words = weekly.cells.flatMap((cell) => (cell.kind === "meter" ? [cell.resetWords] : []));
+    expect(words).toEqual(["resets", "with_cycle", "with_cycle"]);
+    expect(weekly.facts).toEqual([{ key: "cycle", label: "Week", value: "Oct 19 to Oct 26" }]);
+  });
   test("a team seat's shared pool is its own meter after the included pools", () => {
     const pooled = presentPanel(
       connection("cursor", {
