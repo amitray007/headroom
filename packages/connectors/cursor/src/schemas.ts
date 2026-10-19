@@ -33,6 +33,7 @@ const spendLimitSchema = z
     individualUsed: z.number().nullable().optional(),
     pooledLimit: z.number().nullable().optional(),
     pooledUsed: z.number().nullable().optional(),
+    totalSpend: z.number().nullable().optional(),
   })
   .loose();
 
@@ -48,9 +49,30 @@ export const grokBotUsageSchema = z
     usesPooledEnterpriseAllowance: z.boolean().optional(),
     hasNonZeroIncludedLimit: z.boolean().optional(),
     includedLimitZero: z.boolean().optional(),
+    /** Set on a plan whose included usage is one pool shared with Grok. */
+    isUnified: z.boolean().optional(),
   })
   .loose();
 export type GrokBotUsage = z.infer<typeof grokBotUsageSchema>;
+
+/**
+ * `DashboardService/GetPlanInfo`. `includedUsagePeriod` is an enum name or its number (`2` is weekly); reset times are
+ * epoch-millisecond strings. `isMerged` sits beside `planInfo`, not in it.
+ */
+export const planInfoSchema = z
+  .object({
+    planInfo: z
+      .object({
+        planName: z.string().optional(),
+        includedUsagePeriod: z.union([z.string(), z.number()]).optional(),
+        includedUsageResetsAt: z.union([z.string(), z.number()]).optional(),
+      })
+      .loose()
+      .optional(),
+    isMerged: z.boolean().optional(),
+  })
+  .loose();
+export type PlanInfo = z.infer<typeof planInfoSchema>;
 
 /** `DashboardService/GetCurrentPeriodUsage`. Money fields are cents. */
 export const periodUsageSchema = z

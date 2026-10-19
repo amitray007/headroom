@@ -28,6 +28,7 @@ import {
 import {
   grokBotUsageUrl,
   loginUrl,
+  planInfoUrl,
   pollUrl,
   refreshUrl,
   rpcHeaders,
@@ -40,11 +41,13 @@ import {
   grokBotUsageSchema,
   jwtClaimsSchema,
   periodUsageSchema,
+  planInfoSchema,
   tokenResponseSchema,
   usageSummarySchema,
   type CursorCredential,
   type GrokBotUsage,
   type PeriodUsage,
+  type PlanInfo,
   type UsageSummary,
 } from "./schemas.ts";
 
@@ -205,8 +208,28 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
       let period = usage.data;
       let teamPool: MetricObservation[] = [];
       let personalPlan = true;
+      // The plan says whether included usage resets weekly. It only shapes the reading, so a failure is recorded.
+      let planInfo: PlanInfo | null = null;
+      try {
+        const planResponse = await http(planInfoUrl, {
+          method: "POST",
+          headers: rpcHeaders(secret.accessToken),
+          body: "{}",
+        });
+        if (planResponse.status !== 403 && planResponse.status !== 404) {
+          throwForStatus(planResponse, "plan info");
+          const parsed = planInfoSchema.safeParse(await planResponse.json().catch(() => null));
+          if (!parsed.success)
+            throw new ConnectorError("invalid_response", "plan info response shape changed");
+          planInfo = parsed.data;
+        }
+      } catch (error) {
+        failures.push(classifyUnknown(error));
+      }
+      const weekly = isWeekly(planInfo, period);
       // Enterprise and team seats answer the RPC without `planUsage` (observed 2026-10-19); their plan is on the web route.
-      if (period.enabled !== false && !hasPlanPercent(period)) {
+      // Not for a weekly plan: the web summary still reports the old monthly pools, at 0% while the week is in use.
+      if (period.enabled !== false && !weekly && !hasPlanPercent(period)) {
         try {
           const subject = jwtClaimsSchema.safeParse(decodeJwt(secret.accessToken));
           if (!subject.success || !subject.data.sub)
@@ -228,7 +251,7 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
         }
       }
       // A seat that draws only from the team pool has no included pools of its own: unsupported, not unknown.
-      const metrics = [...metricsFrom(period, personalPlan), ...teamPool];
+      const metrics = [...metricsFrom(period, personalPlan, weekly), ...teamPool];
       // Grok Bot is optional: a failure here is recorded but never stops the Cursor usage above.
       try {
         const grokBot = await http(grokBotUsageUrl, {
@@ -243,7 +266,9 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
         const parsed = grokBotUsageSchema.safeParse(await grokBot.json().catch(() => null));
         if (!parsed.success)
           throw new ConnectorError("invalid_response", "grok bot usage response shape changed");
-        const meter = grokBotMetric(parsed.data);
+        // On a merged plan Grok Bot draws from the included pool, which the meters above already show.
+        const merged = planInfo?.isMerged === true || parsed.data.isUnified === true;
+        const meter = merged ? null : grokBotMetric(parsed.data);
         if (meter !== null) metrics.push(meter);
       } catch (error) {
         failures.push(classifyUnknown(error));
@@ -319,6 +344,20 @@ function cycleDate(value: string | undefined): number | null {
     return value.length === 10 ? n * 1000 : n;
   }
   return parseDate(value);
+}
+
+const day = 24 * 60 * 60_000;
+
+/**
+ * Whether included usage resets weekly: The X Subscription plans (announced 2026-10-12). The plan says so where it
+ * names a period; without one, a cycle about a week long is weekly, as every weekly plan's cycle is exactly 7 days.
+ */
+function isWeekly(planInfo: PlanInfo | null, usage: PeriodUsage): boolean {
+  const period = planInfo?.planInfo?.includedUsagePeriod;
+  if (period !== undefined) return period === 2 || String(period).toUpperCase().endsWith("WEEKLY");
+  const start = cycleDate(usage.billingCycleStart);
+  const end = cycleDate(usage.billingCycleEnd);
+  return start !== null && end !== null && end - start >= 6 * day && end - start <= 8 * day;
 }
 
 function hasPlanPercent(usage: PeriodUsage): boolean {
@@ -417,14 +456,36 @@ function teamPoolMetrics(summary: UsageSummary, period: PeriodUsage): MetricObse
   ];
 }
 
-function metricsFrom(usage: PeriodUsage, personalPlan = true): MetricObservation[] {
+function metricsFrom(usage: PeriodUsage, personalPlan = true, weekly = false): MetricObservation[] {
   const windowStart = cycleDate(usage.billingCycleStart);
   const windowEnd = cycleDate(usage.billingCycleEnd);
   const plan = usage.planUsage;
+  // A weekly plan's pools are a rolling window, named by its length like every other window.
+  const seconds =
+    windowStart !== null && windowEnd !== null && windowEnd > windowStart
+      ? Math.round((windowEnd - windowStart) / 1000)
+      : week / 1000;
+  const scope = weekly ? `window:${seconds}s` : "billing_cycle";
+  const spent = plan?.totalSpend;
+  const limitCents = plan?.limit;
+  // Some legacy team seats send 0 for every percentage beside real spend (OpenUsage #966): the share comes from the
+  // spend, and the pool split is unknown.
+  const share =
+    [plan?.totalPercentUsed, plan?.autoPercentUsed, plan?.apiPercentUsed].every((v) => v === 0) &&
+    typeof spent === "number" &&
+    spent > 0 &&
+    typeof limitCents === "number" &&
+    limitCents > 0
+      ? (spent / limitCents) * 100
+      : null;
+  const placeholders = share !== null;
+  const total = share ?? plan?.totalPercentUsed;
+  const auto = placeholders ? null : plan?.autoPercentUsed;
+  const api = placeholders ? null : plan?.apiPercentUsed;
   const percent = (key: string, value: number | null | undefined): MetricObservation => ({
     providerMetricKey: key,
     kind: "quota_percentage",
-    scope: "billing_cycle",
+    scope,
     // The dashboard sends float noise such as 6.4750000000000005; two decimals is what Cursor shows.
     valueText: value === null || value === undefined ? null : String(Math.round(value * 100) / 100),
     unit: "percent",
@@ -441,11 +502,17 @@ function metricsFrom(usage: PeriodUsage, personalPlan = true): MetricObservation
     interface: "private",
   });
   const metrics: MetricObservation[] = [
-    percent("included.total_percent", plan?.totalPercentUsed),
-    percent("included.auto_percent", plan?.autoPercentUsed),
-    percent("included.api_percent", plan?.apiPercentUsed),
+    percent("included.total_percent", total),
+    percent("included.auto_percent", auto),
+    percent("included.api_percent", api),
   ];
-  if (plan?.limit !== null && plan?.limit !== undefined) {
+  // A team seat with model pools still reports the old $20 allowance (OpenUsage #1080); the pools replace it.
+  const teamPools =
+    usage.spendLimitUsage?.limitType === "team" &&
+    !placeholders &&
+    typeof auto === "number" &&
+    typeof api === "number";
+  if (plan?.limit !== null && plan?.limit !== undefined && !teamPools) {
     metrics.push({
       providerMetricKey: "included.limit",
       kind: "spending_cap",
@@ -459,17 +526,22 @@ function metricsFrom(usage: PeriodUsage, personalPlan = true): MetricObservation
     });
   }
   const spend = usage.spendLimitUsage;
-  const used = spend?.individualUsed ?? spend?.pooledUsed;
+  // The first positive figure wins: a seat can report 0 used beside real spend (OpenUsage fixture). Otherwise the first
+  // reported zero.
+  const candidates = [spend?.individualUsed, spend?.pooledUsed, spend?.totalSpend];
+  const used =
+    candidates.find((value) => typeof value === "number" && value > 0) ??
+    candidates.find((value) => typeof value === "number");
   const limit = spend?.individualLimit ?? spend?.pooledLimit;
   metrics.push({
     providerMetricKey: "on_demand.used",
     kind: "spend",
     scope: spend?.limitType ? `on_demand:${spend.limitType}` : "on_demand",
-    valueText: used === null || used === undefined ? null : cents(used),
+    valueText: used === undefined ? null : cents(used),
     unit: "USD",
     windowStart,
     windowEnd,
-    availability: used === null || used === undefined ? "unknown" : "available",
+    availability: used === undefined ? "unknown" : "available",
     interface: "private",
   });
   if (limit !== null && limit !== undefined) {

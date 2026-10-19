@@ -460,7 +460,11 @@ function codex(context: Context): Built {
 function cursor(context: Context): Built {
   const limit = take(context, "included.limit");
   const cap = limit === null ? null : numberOf(limit);
-  const planWindow = cap === null ? "billing cycle" : `${formatUsd(cap).replace(/\.00$/, "")} plan`;
+  // A weekly plan (The X Subscription) names its pools by a window scope; a monthly plan's follow the billing cycle.
+  const total = context.metrics.get("included.total_percent");
+  const weekly = total !== undefined && windowSeconds(total.scope) !== null;
+  const includedWindow = weekly ? "weekly" : "billing cycle";
+  const planWindow = cap === null ? includedWindow : `${formatUsd(cap).replace(/\.00$/, "")} plan`;
   const poolLimit = take(context, "team_pool.limit");
   const poolCap = poolLimit === null ? null : numberOf(poolLimit);
   const poolWindow =
@@ -470,16 +474,16 @@ function cursor(context: Context): Built {
       label: "Included",
       window: planWindow,
       short: "Included Usage",
-      resetWords: "cycle_end",
+      resetWords: weekly ? "resets" : "cycle_end",
     }),
     ...meterFor(context, "included.auto_percent", {
       label: "Auto Pool",
-      window: "billing cycle",
+      window: includedWindow,
       resetWords: "with_cycle",
     }),
     ...meterFor(context, "included.api_percent", {
       label: "API Pool",
-      window: "billing cycle",
+      window: includedWindow,
       resetWords: "with_cycle",
     }),
     // A team seat on a shared allowance: the team's pool, never the member's own included usage.
@@ -509,10 +513,13 @@ function cursor(context: Context): Built {
       ),
     );
   }
-  const cycle = context.metrics.get("included.total_percent");
-  if (cycle?.windowStart !== null && cycle?.windowStart !== undefined && cycle.windowEnd !== null) {
+  if (total?.windowStart !== null && total?.windowStart !== undefined && total.windowEnd !== null) {
     facts.push(
-      factOf("cycle", "Cycle", `${shortDate(cycle.windowStart)} to ${shortDate(cycle.windowEnd)}`),
+      factOf(
+        "cycle",
+        weekly ? "Week" : "Cycle",
+        `${shortDate(total.windowStart)} to ${shortDate(total.windowEnd)}`,
+      ),
     );
   }
   return { meters, others: [], facts };

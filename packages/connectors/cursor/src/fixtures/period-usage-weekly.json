@@ -1,0 +1,16 @@
+{
+  "billingCycleStart": "1791870669536",
+  "billingCycleEnd": "1792475469536",
+  "planUsage": {
+    "remainingBonus": false,
+    "bonusTooltip": "Synthetic tooltip.",
+    "autoPercentUsed": 12.345678901234567,
+    "apiPercentUsed": 0,
+    "totalPercentUsed": 12.345678901234567
+  },
+  "spendLimitUsage": { "pooledUsed": 0, "limitType": "team" },
+  "displayThreshold": 200,
+  "enabled": true,
+  "displayMessage": "Synthetic message.",
+  "autoBucketModels": ["model-a"]
+}
