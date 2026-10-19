@@ -1,5 +1,5 @@
 import type { Metric, OverviewConnection } from "./overview.ts";
-import { presentPanel, type Cell } from "./present.ts";
+import { fallbackPrimaryKeys, presentPanel, type Cell } from "./present.ts";
 import { toneOf, type Tone } from "./tone.ts";
 
 /**
@@ -184,13 +184,18 @@ const totalKeys: Partial<Record<OverviewConnection["provider"], string>> = {
 
 /**
  * The room left, for comparing accounts of one provider. Claude and Codex take the tightest of session, weekly
- * and model windows; Cursor and Grok take their total; Antigravity and Copilot the tightest of all windows;
+ * and model windows; Cursor and Grok take their total (a Cursor team seat its shared pool when the total is unknown); Antigravity and Copilot the tightest of all windows;
  * Vercel AI Gateway the balance as a percent of everything granted, or the balance itself when the total is unknown.
  */
 export function roomOf(connection: OverviewConnection): Room {
   if (connection.provider === "vercel_ai_gateway") return balanceRoom(connection);
-  const total = totalKeys[connection.provider];
-  const meters = metersOf(connection).filter((cell) => total === undefined || cell.key === total);
+  const all = metersOf(connection);
+  const withKey = (key: string | undefined) =>
+    all.filter((cell) => key === undefined || cell.key === key);
+  let meters = withKey(totalKeys[connection.provider]);
+  const fallback = fallbackPrimaryKeys[connection.provider];
+  const stand = fallback === undefined ? [] : withKey(fallback);
+  if (stand.length > 0 && !meters.some((cell) => cell.used !== null)) meters = stand;
   return tightestRoom(meters.map(refOf));
 }
 

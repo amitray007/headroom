@@ -31,7 +31,9 @@ import {
   pollUrl,
   refreshUrl,
   rpcHeaders,
+  usageSummaryUrl,
   usageUrl,
+  webSessionHeaders,
 } from "./endpoints.ts";
 import {
   cursorCredentialSchema,
@@ -39,9 +41,11 @@ import {
   jwtClaimsSchema,
   periodUsageSchema,
   tokenResponseSchema,
+  usageSummarySchema,
   type CursorCredential,
   type GrokBotUsage,
   type PeriodUsage,
+  type UsageSummary,
 } from "./schemas.ts";
 
 export const cursorConnectorVersion = "0.1.0";
@@ -173,6 +177,8 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
         { metricOrAction: "included.auto_percent", availability: "available", ...validated },
         { metricOrAction: "included.api_percent", availability: "available", ...validated },
         { metricOrAction: "on_demand", availability: "available", ...validated },
+        // Only team seats that draw from a shared allowance report it; the rest show no meter.
+        { metricOrAction: "team_pool.used_percent", availability: "available", ...sourceInspected },
         // Only accounts with a personal Grok Bot allowance report it; the rest show no meter.
         { metricOrAction: "grok_bot.used_percent", availability: "available", ...sourceInspected },
         {
@@ -195,8 +201,34 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
       const usage = periodUsageSchema.safeParse(await response.json().catch(() => null));
       if (!usage.success)
         throw new ConnectorError("invalid_response", "usage response shape changed");
-      const metrics = metricsFrom(usage.data);
       const failures: ClassifiedError[] = [];
+      let period = usage.data;
+      let teamPool: MetricObservation[] = [];
+      let personalPlan = true;
+      // Enterprise and team seats answer the RPC without `planUsage` (observed 2026-10-19); their plan is on the web route.
+      if (period.enabled !== false && !hasPlanPercent(period)) {
+        try {
+          const subject = jwtClaimsSchema.safeParse(decodeJwt(secret.accessToken));
+          if (!subject.success || !subject.data.sub)
+            throw new ConnectorError("invalid_response", "the access token carries no subject");
+          const summaryResponse = await http(usageSummaryUrl, {
+            headers: webSessionHeaders(subject.data.sub, secret.accessToken),
+          });
+          throwForStatus(summaryResponse, "usage summary");
+          const summary = usageSummarySchema.safeParse(
+            await summaryResponse.json().catch(() => null),
+          );
+          if (!summary.success)
+            throw new ConnectorError("invalid_response", "usage summary response shape changed");
+          period = periodFromSummary(summary.data, period);
+          teamPool = teamPoolMetrics(summary.data, period);
+          personalPlan = summary.data.individualUsage?.plan !== undefined || teamPool.length === 0;
+        } catch (error) {
+          failures.push(classifyUnknown(error));
+        }
+      }
+      // A seat that draws only from the team pool has no included pools of its own: unsupported, not unknown.
+      const metrics = [...metricsFrom(period, personalPlan), ...teamPool];
       // Grok Bot is optional: a failure here is recorded but never stops the Cursor usage above.
       try {
         const grokBot = await http(grokBotUsageUrl, {
@@ -289,7 +321,103 @@ function cycleDate(value: string | undefined): number | null {
   return parseDate(value);
 }
 
-function metricsFrom(usage: PeriodUsage): MetricObservation[] {
+function hasPlanPercent(usage: PeriodUsage): boolean {
+  const plan = usage.planUsage;
+  return [plan?.totalPercentUsed, plan?.autoPercentUsed, plan?.apiPercentUsed].some(
+    (value) => value !== null && value !== undefined,
+  );
+}
+
+/**
+ * The web summary in the RPC's shape, so one mapping serves both. What the RPC itself reported wins: its cycle bounds,
+ * its on-demand spend, and its plan when the summary has none. The summary's on-demand fills in only when the RPC has
+ * none and the bucket is enabled.
+ */
+function periodFromSummary(summary: UsageSummary, rpc: PeriodUsage): PeriodUsage {
+  const plan = summary.individualUsage?.plan;
+  const onDemand = summary.individualUsage?.onDemand;
+  const enabled = plan?.enabled ?? rpc.enabled;
+  const isUnlimited = summary.isUnlimited ?? rpc.isUnlimited;
+  const start = rpc.billingCycleStart ?? summary.billingCycleStart;
+  const end = rpc.billingCycleEnd ?? summary.billingCycleEnd;
+  const spendLimitUsage =
+    rpc.spendLimitUsage ??
+    (onDemand && onDemand.enabled !== false
+      ? {
+          // The member's own bucket, whatever limit type the seat has.
+          limitType: "user",
+          individualUsed: onDemand.used ?? null,
+          individualLimit: onDemand.limit ?? null,
+        }
+      : undefined);
+  return {
+    ...(start === undefined ? {} : { billingCycleStart: start }),
+    ...(end === undefined ? {} : { billingCycleEnd: end }),
+    ...(enabled === undefined ? {} : { enabled }),
+    ...(isUnlimited === undefined ? {} : { isUnlimited }),
+    ...(plan
+      ? {
+          planUsage: {
+            limit: plan.limit ?? rpc.planUsage?.limit ?? null,
+            totalPercentUsed: plan.totalPercentUsed ?? null,
+            autoPercentUsed: plan.autoPercentUsed ?? null,
+            apiPercentUsed: plan.apiPercentUsed ?? null,
+          },
+        }
+      : rpc.planUsage === undefined
+        ? {}
+        : { planUsage: rpc.planUsage }),
+    ...(spendLimitUsage === undefined ? {} : { spendLimitUsage }),
+  };
+}
+
+/**
+ * A team-wide pool as its own meter, never as the member's included allowance. Used is the reported figure, or the
+ * limit less what remains when Cursor reports used as zero (OpenUsage does the same). No usable limit, no meter.
+ */
+function teamPoolMetrics(summary: UsageSummary, period: PeriodUsage): MetricObservation[] {
+  const pool = summary.teamUsage?.pooled;
+  const limit = pool?.limit;
+  if (!pool || pool.enabled === false || limit === null || limit === undefined || limit <= 0)
+    return [];
+  const fromRemaining =
+    pool.remaining === null || pool.remaining === undefined
+      ? null
+      : Math.max(0, limit - pool.remaining);
+  const used =
+    pool.used !== null && pool.used !== undefined && pool.used > 0
+      ? pool.used
+      : (fromRemaining ?? pool.used ?? null);
+  const windowStart = cycleDate(period.billingCycleStart);
+  const windowEnd = cycleDate(period.billingCycleEnd);
+  return [
+    {
+      providerMetricKey: "team_pool.used_percent",
+      kind: "quota_percentage",
+      scope: "billing_cycle",
+      valueText: used === null ? null : String(Math.round((used / limit) * 10_000) / 100),
+      unit: "percent",
+      windowStart,
+      windowEnd,
+      resetsAt: windowEnd,
+      availability: used === null ? "unknown" : "available",
+      interface: "private",
+    },
+    {
+      providerMetricKey: "team_pool.limit",
+      kind: "spending_cap",
+      scope: "billing_cycle",
+      valueText: cents(limit),
+      unit: "USD",
+      windowStart,
+      windowEnd,
+      availability: "available",
+      interface: "private",
+    },
+  ];
+}
+
+function metricsFrom(usage: PeriodUsage, personalPlan = true): MetricObservation[] {
   const windowStart = cycleDate(usage.billingCycleStart);
   const windowEnd = cycleDate(usage.billingCycleEnd);
   const plan = usage.planUsage;
@@ -305,7 +433,7 @@ function metricsFrom(usage: PeriodUsage): MetricObservation[] {
     windowEnd,
     resetsAt: windowEnd,
     availability:
-      usage.enabled === false
+      usage.enabled === false || !personalPlan
         ? "unsupported"
         : value === null || value === undefined
           ? "unknown"

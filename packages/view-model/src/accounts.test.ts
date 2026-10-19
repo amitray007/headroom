@@ -117,6 +117,31 @@ describe("meterWindows", () => {
 });
 
 describe("roomOf", () => {
+  test("Cursor: the included total, or a team seat's shared pool when the total is unknown", () => {
+    const pooled = roomOf(
+      connection("cursor", {
+        metrics: [
+          metric("included.total_percent", { availability: "unknown" }),
+          percent("included.auto_percent", 90),
+          percent("team_pool.used_percent", 25),
+        ],
+      }),
+    );
+    expect(pooled.left).toBe(75);
+    expect(pooled.limiting?.key).toBe("team_pool.used_percent");
+    const personal = roomOf(
+      connection("cursor", {
+        metrics: [percent("included.total_percent", 40), percent("team_pool.used_percent", 25)],
+      }),
+    );
+    expect(personal.limiting?.key).toBe("included.total_percent");
+    const noPool = roomOf(
+      connection("cursor", {
+        metrics: [metric("included.total_percent", { availability: "unknown" })],
+      }),
+    );
+    expect(noPool.windows.map((w) => w.key)).toEqual(["included.total_percent"]);
+  });
   test("Claude: the tightest of session, weekly and model windows", () => {
     const room = roomOf(
       connection("claude", {

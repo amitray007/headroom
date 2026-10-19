@@ -1,0 +1,10 @@
+{
+  "billingCycleStart": "1790812800000",
+  "billingCycleEnd": "1793491200000",
+  "spendLimitUsage": {
+    "pooledUsed": 0,
+    "limitType": "team"
+  },
+  "displayThreshold": 200,
+  "autoBucketModels": ["model-a"]
+}
