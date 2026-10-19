@@ -400,9 +400,11 @@ describe("cursor", () => {
       ["API Pool", "billing cycle", 6.48],
     ]);
   });
-  test("captions: the cycle end on Included, no time on the pools", () => {
+  test("captions: every included pool counts down to the cycle end", () => {
     const words = panel.cells.flatMap((cell) => (cell.kind === "meter" ? [cell.resetWords] : []));
-    expect(words).toEqual(["cycle_end", "with_cycle", "with_cycle"]);
+    expect(words).toEqual(["cycle_end", "cycle_end", "cycle_end"]);
+    const resets = panel.cells.flatMap((cell) => (cell.kind === "meter" ? [cell.resetsAt] : []));
+    expect(resets).toEqual([cycleEnd, cycleEnd, cycleEnd]);
   });
   test("facts show spend, its cap and the cycle", () => {
     expect(panel.facts).toEqual([
@@ -426,6 +428,15 @@ describe("cursor", () => {
           percent("included.total_percent", 5.4, week),
           percent("included.auto_percent", 5.4, week),
           percent("included.api_percent", 0, week),
+          metric("billing.renews_at", {
+            kind: "reset_timestamp",
+            unit: "timestamp",
+            scope: "billing_cycle",
+            valueText: null,
+            valueNum: null,
+            windowEnd: cycleEnd + 6 * 24 * 3_600_000,
+            resetsAt: cycleEnd + 6 * 24 * 3_600_000,
+          }),
         ],
       }),
     );
@@ -435,8 +446,28 @@ describe("cursor", () => {
       ["API Pool", "weekly", 0],
     ]);
     const words = weekly.cells.flatMap((cell) => (cell.kind === "meter" ? [cell.resetWords] : []));
-    expect(words).toEqual(["resets", "with_cycle", "with_cycle"]);
-    expect(weekly.facts).toEqual([{ key: "cycle", label: "Week", value: "Oct 19 to Oct 26" }]);
+    expect(words).toEqual(["resets", "resets", "resets"]);
+    expect(weekly.facts).toEqual([
+      { key: "cycle", label: "Week", value: "Oct 19 to Oct 26" },
+      { key: "billing.renews_at", label: "Renews", value: "Nov 1" },
+    ]);
+    // On a monthly plan the renewal is the cycle end, which the Cycle fact already shows.
+    const monthly = presentPanel(
+      connection("cursor", {
+        metrics: [
+          percent("included.total_percent", 17, cycle),
+          metric("billing.renews_at", {
+            kind: "reset_timestamp",
+            unit: "timestamp",
+            scope: "billing_cycle",
+            valueText: null,
+            valueNum: null,
+            resetsAt: cycleEnd,
+          }),
+        ],
+      }),
+    );
+    expect(monthly.facts.map((fact) => fact.label)).toEqual(["Cycle"]);
   });
   test("a team seat's shared pool is its own meter after the included pools", () => {
     const pooled = presentPanel(
