@@ -65,3 +65,37 @@ export const periodUsageSchema = z
   })
   .loose();
 export type PeriodUsage = z.infer<typeof periodUsageSchema>;
+
+const summaryBucketSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    used: z.number().nullable().optional(),
+    limit: z.number().nullable().optional(),
+    remaining: z.number().nullable().optional(),
+  })
+  .loose();
+
+/** `GET cursor.com/api/usage-summary`, read for enterprise and team seats. Money fields are cents; cycle bounds are ISO. */
+export const usageSummarySchema = z
+  .object({
+    billingCycleStart: z.string().optional(),
+    billingCycleEnd: z.string().optional(),
+    membershipType: z.string().optional(),
+    limitType: z.string().optional(),
+    isUnlimited: z.boolean().optional(),
+    individualUsage: z
+      .object({
+        plan: summaryBucketSchema
+          .extend({
+            totalPercentUsed: z.number().nullable().optional(),
+            autoPercentUsed: z.number().nullable().optional(),
+            apiPercentUsed: z.number().nullable().optional(),
+          })
+          .optional(),
+        onDemand: summaryBucketSchema.optional(),
+      })
+      .loose()
+      .optional(),
+  })
+  .loose();
+export type UsageSummary = z.infer<typeof usageSummarySchema>;

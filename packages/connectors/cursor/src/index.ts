@@ -31,7 +31,9 @@ import {
   pollUrl,
   refreshUrl,
   rpcHeaders,
+  usageSummaryUrl,
   usageUrl,
+  webSessionHeaders,
 } from "./endpoints.ts";
 import {
   cursorCredentialSchema,
@@ -39,9 +41,11 @@ import {
   jwtClaimsSchema,
   periodUsageSchema,
   tokenResponseSchema,
+  usageSummarySchema,
   type CursorCredential,
   type GrokBotUsage,
   type PeriodUsage,
+  type UsageSummary,
 } from "./schemas.ts";
 
 export const cursorConnectorVersion = "0.1.0";
@@ -195,8 +199,29 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
       const usage = periodUsageSchema.safeParse(await response.json().catch(() => null));
       if (!usage.success)
         throw new ConnectorError("invalid_response", "usage response shape changed");
-      const metrics = metricsFrom(usage.data);
       const failures: ClassifiedError[] = [];
+      let period = usage.data;
+      // Enterprise and team seats answer the RPC without `planUsage` (observed 2026-10-19); their plan is on the web route.
+      if (!hasPlanPercent(period)) {
+        try {
+          const subject = jwtClaimsSchema.safeParse(decodeJwt(secret.accessToken));
+          if (!subject.success || !subject.data.sub)
+            throw new ConnectorError("invalid_response", "the access token carries no subject");
+          const summaryResponse = await http(usageSummaryUrl, {
+            headers: webSessionHeaders(subject.data.sub, secret.accessToken),
+          });
+          throwForStatus(summaryResponse, "usage summary");
+          const summary = usageSummarySchema.safeParse(
+            await summaryResponse.json().catch(() => null),
+          );
+          if (!summary.success)
+            throw new ConnectorError("invalid_response", "usage summary response shape changed");
+          period = periodFromSummary(summary.data, period);
+        } catch (error) {
+          failures.push(classifyUnknown(error));
+        }
+      }
+      const metrics = metricsFrom(period);
       // Grok Bot is optional: a failure here is recorded but never stops the Cursor usage above.
       try {
         const grokBot = await http(grokBotUsageUrl, {
@@ -287,6 +312,48 @@ function cycleDate(value: string | undefined): number | null {
     return value.length === 10 ? n * 1000 : n;
   }
   return parseDate(value);
+}
+
+function hasPlanPercent(usage: PeriodUsage): boolean {
+  const plan = usage.planUsage;
+  return [plan?.totalPercentUsed, plan?.autoPercentUsed, plan?.apiPercentUsed].some(
+    (value) => value !== null && value !== undefined,
+  );
+}
+
+/** The web summary in the RPC's shape, so one mapping serves both. The RPC's own cycle bounds win when present. */
+function periodFromSummary(summary: UsageSummary, rpc: PeriodUsage): PeriodUsage {
+  const plan = summary.individualUsage?.plan;
+  const onDemand = summary.individualUsage?.onDemand;
+  const limitType = summary.limitType ?? rpc.spendLimitUsage?.limitType;
+  const enabled = plan?.enabled ?? rpc.enabled;
+  const isUnlimited = summary.isUnlimited ?? rpc.isUnlimited;
+  const start = rpc.billingCycleStart ?? summary.billingCycleStart;
+  const end = rpc.billingCycleEnd ?? summary.billingCycleEnd;
+  const spendLimitUsage = onDemand
+    ? {
+        ...(limitType === undefined ? {} : { limitType }),
+        individualUsed: onDemand.used ?? null,
+        individualLimit: onDemand.limit ?? null,
+      }
+    : rpc.spendLimitUsage;
+  return {
+    ...(start === undefined ? {} : { billingCycleStart: start }),
+    ...(end === undefined ? {} : { billingCycleEnd: end }),
+    ...(enabled === undefined ? {} : { enabled }),
+    ...(isUnlimited === undefined ? {} : { isUnlimited }),
+    ...(plan
+      ? {
+          planUsage: {
+            limit: plan.limit ?? null,
+            totalPercentUsed: plan.totalPercentUsed ?? null,
+            autoPercentUsed: plan.autoPercentUsed ?? null,
+            apiPercentUsed: plan.apiPercentUsed ?? null,
+          },
+        }
+      : {}),
+    ...(spendLimitUsage === undefined ? {} : { spendLimitUsage }),
+  };
 }
 
 function metricsFrom(usage: PeriodUsage): MetricObservation[] {
