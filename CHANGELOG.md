@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.14](https://github.com/amitray007/headroom/compare/v0.1.13...v0.1.14) (2026-10-22)
+
+
+### Bug Fixes
+
+* correct Codex reset redemption request ([#36](https://github.com/amitray007/headroom/issues/36)) ([94ffd32](https://github.com/amitray007/headroom/commit/94ffd32b045ab7c9c997c6e59962d32206c71ed7))
+* refresh dashboard immediately after resetting limits ([42eea44](https://github.com/amitray007/headroom/commit/42eea441e7e7656bea6f8ace797995b659b8d686))
+* refresh dashboard immediately after resetting limits ([0453ce0](https://github.com/amitray007/headroom/commit/0453ce03c01a98035755a5d63d61c2b07248fce2))
+
 ## [0.1.13](https://github.com/amitray007/headroom/compare/v0.1.12...v0.1.13) (2026-10-19)
 
 
