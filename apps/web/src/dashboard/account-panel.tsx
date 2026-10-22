@@ -30,8 +30,6 @@ import { AccountTitle } from "./account-title.tsx";
 import { CellView, cellColumns } from "./cells.tsx";
 import { SkeletonCells } from "./skeletons.tsx";
 
-const resetReloadMs = 2400;
-
 const reconnectWords: Record<NonNullable<OverviewConnection["reconnectReason"]>, string> = {
   refresh_rejected: "The sign-in for this account has expired. Reconnect to keep tracking it.",
   token_rejected: "The sign-in for this account has expired. Reconnect to keep tracking it.",
@@ -207,7 +205,8 @@ export function AccountPanel(props: {
                     onConfirm={async () => {
                       try {
                         const outcome = await api.consumeResetCredit(connection.id, hold.creditId);
-                        setTimeout(() => void onChanged(), resetReloadMs);
+                        // A failed dashboard read must not change the reset's confirmed outcome.
+                        void onChanged().catch(() => undefined);
                         return resetOutcome(outcome.action.state);
                       } catch (error) {
                         return resetOutcomeOfError(error instanceof ApiError ? error.status : null);
