@@ -10,17 +10,16 @@ export const tokenUrl = "https://auth.openai.com/oauth/token";
 export const usageUrl = "https://chatgpt.com/backend-api/wham/usage";
 export const resetCreditsUrl = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits";
 /**
- * Consumes one earned reset credit. Source-inspected in CLI 0.159.3 next to the read
- * route; the app-server call that fronts it takes creditId, creditType and idempotencyKey. Body
- * field names below are the serde names found in the binary (`credit_type` with the variants
- * `usage_limit` and `credits`). Unvalidated: the owner runs the first real consume from the dashboard.
+ * Consumes the selected earned reset credit. Source-inspected in the official Codex
+ * backend client's rate_limit_resets.rs and contract test on 2026-10-23 (dossier S8/S9).
+ * The action row id is sent as redeem_request_id. Live redemption remains unvalidated;
+ * only the owner may validate it from the dashboard.
  */
 export const consumeResetCreditUrl = `${resetCreditsUrl}/consume`;
 export function consumeResetCreditBody(creditId: string, idempotencyKey: string): string {
   return JSON.stringify({
     credit_id: creditId,
-    credit_type: "usage_limit",
-    idempotency_key: idempotencyKey,
+    redeem_request_id: idempotencyKey,
   });
 }
 
