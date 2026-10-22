@@ -457,13 +457,25 @@ describe("refresh", () => {
     expect(limited).toMatchObject({ status: "transient", error: { retryAfterMs: 120_000 } });
   });
 
-  test("consume sends the credit id and idempotency key with the desktop headers; 5xx and network loss are uncertain", async () => {
+  test("consume follows the official request contract with desktop headers; 5xx and network loss are uncertain", async () => {
     let captured: { url: string; init: RequestInit | undefined } | null = null;
+    let calls = 0;
+    // Selected-credit wire contract: OpenAI codex-rs/backend-client/src/client/rate_limit_resets_tests.rs.
+    const consumeRequest = z.strictObject({
+      redeem_request_id: z.literal("action-row-id"),
+      credit_id: z.literal("credit-synthetic"),
+    });
     const connector = createCodexConnector({
       runner: new FakeRunner(),
       fetch: (url, init) => {
+        calls += 1;
         captured = { url, init };
-        return Promise.resolve(json({ windows_reset: ["primary"] }));
+        const body: unknown = typeof init?.body === "string" ? JSON.parse(init.body) : null;
+        return Promise.resolve(
+          consumeRequest.safeParse(body).success
+            ? json({ code: "reset", windows_reset: 2 })
+            : json({ error: "invalid consume request" }, 400),
+        );
       },
     });
     const request = {
@@ -472,6 +484,7 @@ describe("refresh", () => {
       idempotencyKey: "action-row-id",
     };
     const ok = await connector.performAction!(credential, request);
+    expect(calls).toBe(1);
     expect(ok).toEqual({
       status: "succeeded",
       providerReference: "credit-synthetic",
@@ -489,8 +502,7 @@ describe("refresh", () => {
       .parse(captured);
     expect(JSON.parse(sent.init.body)).toEqual({
       credit_id: "credit-synthetic",
-      credit_type: "usage_limit",
-      idempotency_key: "action-row-id",
+      redeem_request_id: "action-row-id",
     });
     expect(sent.init.headers["originator"]).toBe("Codex Desktop");
     expect(sent.init.headers["chatgpt-account-id"]).toBe(accountId);

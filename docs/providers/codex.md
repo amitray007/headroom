@@ -28,7 +28,7 @@ Use the same design for Go, Plus, Pro, Business, Enterprise and future ChatGPT p
 | `GET https://chatgpt.com/backend-api/wham/usage` returns quota, credits and plan | source-inspected | CLIProxyAPI `internal/runtime/executor/helps/codex_quota.go` [S4]; ai-usagebar [S5] |
 | Usage fields: `plan_type`, `rate_limits` (primary and secondary windows), `additional_rate_limits`, `code_review_rate_limits`, `credits`, `metered_limit_name` | source-inspected | CLIProxyAPI `codex_quota.go` [S4] |
 | A reset-credit inventory read route exists under `wham/rate-limit-reset-credits` | validated | Observed by this project on 2026-10-01 with a Headroom CLI-login credential: 200 with `credits[]` carrying a status and expiry per credit; the count matched `rate_limit_reset_credits.available_count` in the usage body |
-| A direct HTTP route to consume a reset credit: `POST /wham/rate-limit-reset-credits/consume` | source-inspected | Found in CLI 0.159.3 next to the read route on 2026-10-02, with the serde names `credit_type` (`usage_limit`, `credits`) and a response naming `windows_reset`; the app-server call that fronts it takes creditId, creditType and idempotencyKey. Body field names are inferred and unvalidated until a consume is observed from the dashboard |
+| A direct HTTP route to consume a reset credit: `POST /wham/rate-limit-reset-credits/consume` | source-inspected | Official Codex backend client [S8] and contract test [S9], inspected 2026-10-23: selected-credit requests contain `redeem_request_id` and `credit_id`. Headroom sends the action row UUID as `redeem_request_id`; it omits `credit_type` and `idempotency_key`. Successful live redemption remains unvalidated |
 | App-server exposes rate limits, reset-credit inventory, redemption and token history | documented | [S1] |
 | OpenAI's terms on using the ChatGPT OAuth client outside OpenAI's apps | documented | [S1] says app-server authentication "has never been permitted for commercial or hosted services". Headroom is not a hosted service; the owner should check the terms |
 | A server-hosted device flow works for every workspace | unvalidated | Device-code access can be restricted by account or workspace policy |
@@ -48,7 +48,7 @@ Every metric below comes from direct HTTP collection unless noted. A completed l
 | Credits | `available` when returned | `credits`: `has_credits`, `unlimited`, `balance` | `private`. Provider credit unit, not dollars. `unlimited` is an explicit flag, not a number. |
 | Next reset | `available` when returned | `resets_at`, Unix seconds | `private`. Retain the raw timestamp. |
 | Banked reset count | `unknown` | `…/wham/rate-limit-reset-credits` read route | `private`. Validated 2026-10-01 (see the evidence table above). The app-server count is `official` but not the primary route. |
-| Reset redemption | `available` behind the "Allow Account Actions" setting | `POST …/rate-limit-reset-credits/consume` with the action row id as idempotency key | `private`. Explicit owner action with a confirmation naming the credit and its expiry. The owner can also set an auto-reset rule (ADR 0003) that calls the same route when a watched `rate_limit.*` window is used up, behind the same setting; it is the only background caller. Unvalidated until the owner runs the first one. |
+| Reset redemption | `available` behind the "Allow Account Actions" setting | `POST …/rate-limit-reset-credits/consume` with the selected `credit_id` and the action row id as `redeem_request_id` [S8, S9] | `private`. Explicit owner action with a confirmation naming the credit and its expiry. The owner can also set an auto-reset rule (ADR 0003) that calls the same route when a watched `rate_limit.*` window is used up, behind the same setting; it is the only background caller. Successful live redemption remains unvalidated. |
 | Usage history | `unknown` on the direct route | App-server `dailyUsageBuckets` | `official` by fallback only. `null` means unavailable, not zero. |
 | Admin versus non-admin | Provider-enforced | Account or workspace policy | Do not infer privileges from a plan name. |
 
@@ -95,7 +95,7 @@ A further fallback runs the official Codex app-server per connection with its ow
 | Device user code request | ChatGPT device authorization endpoint, per CLIProxyAPI `codex_device.go` | `private` | Begin sign-in. Exact URL pinned during validation. |
 | Device token poll | ChatGPT device token endpoint, per CLIProxyAPI `codex_device.go` | `private` | Poll at the returned interval. |
 
-The direct HTTP consume route is implemented as the `consume_reset_credit` action and stays unvalidated until the owner triggers it from the dashboard; agents never run it with live credentials.
+The direct HTTP consume route is implemented as the `consume_reset_credit` action. Its request format is source-inspected [S8, S9] and tested with a synthetic transport. Successful live redemption remains unvalidated; only the owner may validate it from the dashboard. Agents never run it with live credentials.
 
 ### App-server reference
 
@@ -155,7 +155,7 @@ Earlier account research observed a response with a weekly-style quota, workspac
 - [ ] Test two Codex connections without credential or snapshot leakage.
 - [ ] Preserve `null`, absent and empty-list distinctions in the normalized schema.
 - [ ] Validate the reset-credit inventory read route before showing a count.
-- [x] Redemption is built behind the "Allow Account Actions" setting (D23): a confirmation screen names the credit, and quotas refresh after the action. The route stays unvalidated until the owner runs one.
+- [x] Redemption is built behind the "Allow Account Actions" setting (D23): a confirmation screen names the credit, and quotas refresh after a successful action. Successful live redemption remains unvalidated.
 - [ ] Add capability flags rather than treating unavailable fields as failures.
 
 ## Sources
@@ -167,3 +167,5 @@ Earlier account research observed a response with a weekly-style quota, workspac
 5. [S5: ai-usagebar endpoint reference](https://github.com/akitaonrails/ai-usagebar/blob/main/docs/vendor-endpoints.md) - `wham/usage` and the reset-credit read route. Reviewed 2026-10-01.
 6. [S6: OpenUsage Codex provider](https://github.com/robinebers/openusage/blob/main/docs/providers/codex.md) - `auth.json` location, `$CODEX_HOME` and token refresh. Reviewed 2026-10-01.
 7. [S7: Codex CLI token data](https://github.com/openai/codex/blob/main/codex-rs/login/src/token_data.rs) - id-token claims: `chatgpt_user_id` with a `user_id` fallback, and `chatgpt_account_id` as the workspace. Reviewed 2026-10-17.
+8. [S8: Codex backend reset-credit client](https://github.com/openai/codex/blob/main/codex-rs/backend-client/src/client/rate_limit_resets.rs) - direct HTTP consume path and request fields. Source-inspected 2026-10-23.
+9. [S9: Codex reset-credit contract tests](https://github.com/openai/codex/blob/main/codex-rs/backend-client/src/client/rate_limit_resets_tests.rs) - exact selected-credit request body and success response. Source-inspected 2026-10-23.
