@@ -1126,6 +1126,13 @@ function Weeks(props: { readonly series: Series; readonly account: AccountSeries
 /** A label cut to `max` characters, for a narrow column. */
 const shorten = (text: string, max: number): string =>
   text.length > max ? `${text.slice(0, max - 1)}…` : text;
+// Keeps a trailing "(personal)" style suffix, since twin accounts differ only there.
+const fitLabel = (text: string, max: number): string => {
+  const tail = / \([^)]*\)$/.exec(text)?.[0] ?? "";
+  return text.length > max && tail !== "" && tail.length < max - 4
+    ? `${text.slice(0, max - tail.length - 1).trimEnd()}…${tail}`
+    : shorten(text, max);
+};
 const typicalKey = (i: number): string => `t${weekdays[Math.floor(i / 24)] ?? ""}${i % 24}`;
 const rangeDays = slotCount / 24;
 const fixed = (value: number | null): string => (value === null ? "none" : value.toFixed(1));
@@ -1631,6 +1638,8 @@ function ByAccount(props: { readonly series: Series }) {
   const narrow = width < 520;
   const left = narrow ? 108 : 160;
   const right = narrow ? 68 : 104;
+  // 11 px labels average about 6 px a character; the mark and a gap take 26 px.
+  const labelChars = Math.floor((left - 26) / 6);
   const cols = Math.max(0, width - left - right);
   const cw = cols / 24;
   // "00:00" needs about 32 px; on a phone six hours of columns are narrower, so the axis marks every twelve.
@@ -1817,7 +1826,7 @@ function ByAccount(props: { readonly series: Series }) {
                 <g key={row.account.id}>
                   <Mark account={row.account} x={0} y={y + ch / 2 - 7} />
                   <text className="rh-t rh-t2" x={20} y={y + ch / 2 + 4}>
-                    {narrow ? shorten(row.account.label, 12) : row.account.label}
+                    {fitLabel(row.account.label, labelChars)}
                   </text>
                   <text
                     className="rh-t rh-t2"
