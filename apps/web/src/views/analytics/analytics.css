@@ -31,7 +31,7 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
-/* One quiet line under the header when history is thin or a load failed. */
+/* One quiet line under the header when history is short-kept or a load failed. */
 .an-note {
   margin: calc(-1 * var(--space-2)) 0 var(--space-4);
 }
