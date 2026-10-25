@@ -109,14 +109,9 @@ function statusLine(coverageDays: number | null, accounts: number): string {
   return covered === null ? counted : `${covered} · ${counted}`;
 }
 
-/** One quiet line when history is thin or the server keeps less than the longest range. */
-function historyNote(coverageDays: number | null, retentionDays: number): string | null {
-  const parts: string[] = [];
-  if (retentionDays < 90) parts.push(`History keeps ${retentionDays} days.`);
-  if (coverageDays !== null && coverageDays < 30 && coverageDays < retentionDays) {
-    parts.push("Charts fill in as Headroom keeps reading your limits.");
-  }
-  return parts.length === 0 ? null : parts.join(" ");
+/** One quiet line when the server keeps less than the longest range. */
+function historyNote(retentionDays: number): string | null {
+  return retentionDays < 90 ? `History keeps ${retentionDays} days.` : null;
 }
 
 const clock = (at: number): string =>
@@ -235,7 +230,7 @@ function AnalyticsBoard(props: { readonly connections: Connections }) {
     return <AnalyticsSkeleton />;
   }
   const note = [
-    historyNote(analytics.history.coverageDays, analytics.history.retentionDays),
+    historyNote(analytics.history.retentionDays),
     state.kind === "ready" && state.refreshFailedAfter !== null
       ? `Showing history from ${clock(state.refreshFailedAfter)}. Refresh failed.`
       : null,
