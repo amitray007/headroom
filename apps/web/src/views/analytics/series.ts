@@ -205,23 +205,12 @@ function lockedOf(curves: readonly Curve[], from: number): boolean[] {
   return locked;
 }
 
-/** Build the hourly series for the last 30 days from the Analytics model. */
-export function buildSeries(analytics: Analytics, now: number): Series {
-  const from = localHour(now - 30 * day);
-  const labels = labelsOf(analytics.accounts);
-  const accounts: AccountSeries[] = analytics.accounts.map((story) => {
-    const curves = curvesOf(story, now);
-    const length = story.primary.end - story.primary.start;
-    return {
-      id: story.id,
-      story,
-      label: labels.get(story.id) ?? providerName(story.provider),
-      curves,
-      hourly: hourlyOf(curves, from),
-      locked: lockedOf(curves, from),
-      evenHour: 100 / Math.max(1, length / hour),
-    };
-  });
+/** Accounts active and locked in each slot, and the run-outs inside the 30 days, for a set of accounts. */
+function totalsOf(
+  accounts: readonly AccountSeries[],
+  from: number,
+  now: number,
+): Pick<Series, "active" | "locked" | "runouts"> {
   const active = Array.from(
     { length: slotCount },
     (_, slot) => accounts.filter((account) => isActive(account, slot)).length,
@@ -241,6 +230,27 @@ export function buildSeries(analytics: Analytics, now: number): Series {
         })),
     )
     .toSorted((a, b) => a.at - b.at);
+  return { active, locked, runouts };
+}
+
+/** Build the hourly series for the last 30 days from the Analytics model. */
+export function buildSeries(analytics: Analytics, now: number): Series {
+  const from = localHour(now - 30 * day);
+  const labels = labelsOf(analytics.accounts);
+  const accounts: AccountSeries[] = analytics.accounts.map((story) => {
+    const curves = curvesOf(story, now);
+    const length = story.primary.end - story.primary.start;
+    return {
+      id: story.id,
+      story,
+      label: labels.get(story.id) ?? providerName(story.provider),
+      curves,
+      hourly: hourlyOf(curves, from),
+      locked: lockedOf(curves, from),
+      evenHour: 100 / Math.max(1, length / hour),
+    };
+  });
+  const { active, locked, runouts } = totalsOf(accounts, from, now);
 
   // Usual working hours: an hour of the week is working when, in at least half of the weeks that have data
   // for it, about a third of the accounts were active. Slots with no data for any account do not count.
@@ -261,4 +271,14 @@ export function buildSeries(analytics: Analytics, now: number): Series {
   const working = hasPattern ? usual : defaultWorking;
 
   return { from, now, accounts, active, locked, runouts, working, hasPattern };
+}
+
+/**
+ * The series for one account, or every account when `id` is null or names no account in it. The counts and
+ * run-outs cover that account alone; the usual working hours stay the owner's, found from every account.
+ */
+export function narrowSeries(series: Series, id: string | null): Series {
+  if (id === null || !series.accounts.some((account) => account.id === id)) return series;
+  const accounts = series.accounts.filter((account) => account.id === id);
+  return { ...series, accounts, ...totalsOf(accounts, series.from, series.now) };
 }

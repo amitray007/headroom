@@ -13,10 +13,10 @@ import {
   Swatch,
   useHeadline,
   useTipLayer,
-  useStoredView,
   useWidth,
   ViewCard,
 } from "./common.tsx";
+import { useStoredView } from "./stored-view.ts";
 import { dollars } from "./format.ts";
 import { hourOfWeek, usedAt, type AccountSeries, type Series } from "./series.ts";
 import "./fit.css";
@@ -561,23 +561,7 @@ function HistoryView(props: {
   const match = props.rows.find((row) => row.account.id === picked);
   // A picked id with no row must not highlight another account: show the first row, unpicked.
   const selected = match ?? first;
-  const small = props.rows.filter((row) => row.verdict === 0).length;
-  const room = props.rows.filter((row) => row.verdict === 2).length;
-  const worst = first;
-  const judged = props.rows.some((row) => row.verdict !== 3);
-  const base = !judged
-    ? {
-        big: "Not enough history yet",
-        cap: `Plan Fit needs ${MIN_WINDOWS} complete windows of an account`,
-      }
-    : {
-        big: `${plural(small, "plan")} ${small === 1 ? "is" : "are"} too small, ${room} ${room === 1 ? "has" : "have"} room to spare`,
-        cap:
-          worst === undefined || worst.hits === 0
-            ? "No account hit its limit in 90 days"
-            : `${worst.account.label} hit the limit in ${worst.hits} of ${worst.cells.length} ${worst.unit}s`,
-      };
-  const headline = useHeadline(base);
+  const headline = useHeadline(historyLine(props.rows));
   if (selected === undefined) return <p className="fit-empty">No closed windows in 90 days.</p>;
   return (
     <div className="fit-history">
@@ -1169,13 +1153,9 @@ function KeepSection(props: {
 export function PlanFitCard(props: { readonly series: Series }) {
   const [view, setView] = useStoredView<View>("fit", ["history", "actions"], "history");
   const [picked, setPicked] = useState<string | null>(null);
-  const rows = props.series.accounts
-    .filter((account) => !account.story.inactive)
-    .map((account) => historyOf(account, props.series.now))
-    .filter((history): history is History => history !== null)
-    .toSorted(compareHistory);
+  const rows = historiesOf(props.series);
   return (
-    <ViewCard title="Plan Fit" views={views} view={view} onView={setView}>
+    <ViewCard title="Plan fit" views={views} view={view} onView={setView}>
       {view === "actions" ? (
         <ActionsView
           series={props.series}
@@ -1190,4 +1170,37 @@ export function PlanFitCard(props: { readonly series: Series }) {
       )}
     </ViewCard>
   );
+}
+
+/** The History view's headline, worst plan first: how many plans are too small and how many have room. */
+function historyLine(rows: readonly History[]): { readonly big: string; readonly cap: string } {
+  if (!rows.some((row) => row.verdict !== 3)) {
+    return {
+      big: "Not enough history yet",
+      cap: `Plan Fit needs ${MIN_WINDOWS} complete windows of an account`,
+    };
+  }
+  const small = rows.filter((row) => row.verdict === 0).length;
+  const room = rows.filter((row) => row.verdict === 2).length;
+  const worst = rows[0];
+  return {
+    big: `${plural(small, "plan")} ${small === 1 ? "is" : "are"} too small, ${room} ${room === 1 ? "has" : "have"} room to spare`,
+    cap:
+      worst === undefined || worst.hits === 0
+        ? "No account hit its limit in 90 days"
+        : `${worst.account.label} hit the limit in ${worst.hits} of ${worst.cells.length} ${worst.unit}s`,
+  };
+}
+
+function historiesOf(series: Series): History[] {
+  return series.accounts
+    .filter((account) => !account.story.inactive)
+    .map((account) => historyOf(account, series.now))
+    .filter((history): history is History => history !== null)
+    .toSorted(compareHistory);
+}
+
+/** The answer the Plan fit tab states: the History view's headline. */
+export function fitLine(series: Series): { readonly big: string; readonly cap: string } {
+  return historyLine(historiesOf(series));
 }

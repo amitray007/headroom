@@ -3,7 +3,6 @@ import { useCallback, useMemo, useRef, useState, type PointerEvent, type ReactNo
 import { BrandMark } from "../../icons.tsx";
 import { Segmented } from "../../ui/segmented.tsx";
 import {
-  AccountFilter,
   CardTop,
   FullName,
   Legend,
@@ -15,11 +14,11 @@ import {
   useCardSwitch,
   useHeadline,
   useTipLayer,
-  useStoredView,
   useWidth,
   weekdays,
   type Line,
 } from "./common.tsx";
+import { useStoredView } from "./stored-view.ts";
 import { hourOfWeek, slotCount, type AccountSeries, type Series } from "./series.ts";
 import "./rhythm.css";
 
@@ -37,14 +36,23 @@ const views = [
 ] as const satisfies readonly { readonly value: View; readonly label: string }[];
 const viewKeys: readonly View[] = views.map((entry) => entry.value);
 
-export function RhythmCard(props: { readonly series: Series }) {
+export function RhythmCard(props: {
+  readonly series: Series;
+  /** The series narrowed to the account in view; the same as `series` when every account is in view. */
+  readonly focused: Series;
+  /** The account in view, or null for every account. */
+  readonly account: AccountSeries | null;
+}) {
   const [view, setView] = useStoredView<View>("rhythm", viewKeys, "matrix");
+  const { series, focused, account } = props;
+  // Matrix and Weeks draw one account in their own mode, against the owner's whole series; Range and By Account
+  // draw only the accounts in view.
   return (
     <ViewCard title="Rhythm" views={views} view={view} onView={setView}>
-      {view === "matrix" ? <Matrix series={props.series} /> : null}
-      {view === "weeks" ? <Weeks series={props.series} /> : null}
-      {view === "range" ? <RangeView series={props.series} /> : null}
-      {view === "accounts" ? <ByAccount series={props.series} /> : null}
+      {view === "matrix" ? <Matrix series={series} account={account} /> : null}
+      {view === "weeks" ? <Weeks series={series} account={account} /> : null}
+      {view === "range" ? <RangeView series={focused} /> : null}
+      {view === "accounts" ? <ByAccount series={focused} /> : null}
     </ViewCard>
   );
 }
@@ -218,7 +226,7 @@ function dayProfile(series: Series, account: AccountSeries | null) {
   return { wd: mean(0), we: mean(1) };
 }
 
-function summary(series: Series, account: AccountSeries | null) {
+export function summary(series: Series, account: AccountSeries | null) {
   const { wd } = dayProfile(series, account);
   let best = 0;
   let bestSum = -1;
@@ -324,13 +332,11 @@ const Dot = (props: { readonly cx: number; readonly cy: number; readonly r: numb
 
 /* ----------------------------------------------------------------- Matrix */
 
-function Matrix(props: { readonly series: Series }) {
-  const { series } = props;
-  const [selected, setSelected] = useState<string | null>(null);
+function Matrix(props: { readonly series: Series; readonly account: AccountSeries | null }) {
+  const { series, account } = props;
   const [lanes, setLanes] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const width = useWidth(box);
-  const account = series.accounts.find((entry) => entry.id === selected) ?? null;
   const sm = useMemo(() => summary(series, account), [series, account]);
   const readout = useReadout({ big: sm.big, cap: sm.cap });
   const { bind, bindLazy } = readout;
@@ -602,10 +608,7 @@ function Matrix(props: { readonly series: Series }) {
 
   return (
     <div className="rh-view">
-      <CardTop
-        headline={readout.headline}
-        tools={<AccountFilter accounts={series.accounts} value={selected} onChange={setSelected} />}
-      />
+      <CardTop headline={readout.headline} />
       <div className="rh-box" ref={box}>
         {width > 0 ? (
           <svg width={width} height={height} aria-label={aria}>
@@ -788,12 +791,10 @@ function WindowStrips(props: {
 
 /* ------------------------------------------------------------------ Weeks */
 
-function Weeks(props: { readonly series: Series }) {
-  const { series } = props;
-  const [selected, setSelected] = useState<string | null>(null);
+function Weeks(props: { readonly series: Series; readonly account: AccountSeries | null }) {
+  const { series, account } = props;
   const box = useRef<HTMLDivElement>(null);
   const width = useWidth(box);
-  const account = series.accounts.find((entry) => entry.id === selected) ?? null;
   const sm = useMemo(() => summary(series, account), [series, account]);
   const { day0 } = useMemo(() => calendarOf(series), [series]);
 
@@ -1037,10 +1038,7 @@ function Weeks(props: { readonly series: Series }) {
   const aria = `Typical week, then one row per week of ${account === null ? "accounts active" : `${account.label} usage`}. ${base.big}. ${sm.cap}.`;
   return (
     <div className="rh-view">
-      <CardTop
-        headline={readout.headline}
-        tools={<AccountFilter accounts={series.accounts} value={selected} onChange={setSelected} />}
-      />
+      <CardTop headline={readout.headline} />
       <div className="rh-box" ref={box}>
         {width > 0 ? (
           <svg width={width} height={y} aria-label={aria}>

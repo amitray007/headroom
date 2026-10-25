@@ -402,31 +402,6 @@ export function Swatch(props: {
   );
 }
 
-/** The view a card shows, remembered on this device. */
-export function useStoredView<T extends string>(
-  key: string,
-  views: readonly T[],
-  fallback: T,
-): [T, (view: T) => void] {
-  const storageKey = `headroom.analytics.${key}`;
-  const [view, setView] = useState<T>(() => {
-    const saved = typeof localStorage === "undefined" ? null : localStorage.getItem(storageKey);
-    return views.find((entry) => entry === saved) ?? fallback;
-  });
-  const choose = useCallback(
-    (next: T) => {
-      setView(next);
-      try {
-        localStorage.setItem(storageKey, next);
-      } catch {
-        // Private browsing can refuse storage; the choice still holds for this visit.
-      }
-    },
-    [storageKey],
-  );
-  return [view, choose];
-}
-
 /** The card's view switch, handed to whichever view is showing so it can sit beside that view's headline. */
 const CardSwitch = createContext<ReactNode>(null);
 

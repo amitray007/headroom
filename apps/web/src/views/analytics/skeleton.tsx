@@ -5,6 +5,8 @@ import { LoadingNote, Sk } from "../../ui/skeleton.tsx";
 // The skeleton is the Suspense fallback while this view's code loads, so its styles ship with the first screen.
 import "./analytics.css";
 import "./common.css";
+import { Head as PageHead, TabFace } from "./head.tsx";
+import { reports, storedReport, type Report } from "./reports.ts";
 import "./skeleton.css";
 
 const count = (length: number): number[] => Array.from({ length }, (_, index) => index);
@@ -40,12 +42,11 @@ function Filter() {
   );
 }
 
-/** A card's first row: the headline in two lines, then the tools and the view switch. */
+/** A card's first row: the headline in two lines, then the view switch. */
 function Top(props: {
   readonly big: number;
   readonly cap: number;
   readonly labels: readonly string[];
-  readonly filter?: boolean;
 }) {
   return (
     <div className="an2-top">
@@ -58,7 +59,6 @@ function Top(props: {
         </p>
       </div>
       <div className="an2-tools">
-        {props.filter === true ? <Filter /> : null}
         <Switch labels={props.labels} />
       </div>
     </div>
@@ -108,7 +108,7 @@ const hourLabels = [0, 6, 12, 18] as const;
 function RhythmBody() {
   return (
     <div className="rh-view ans-view">
-      <Top big={300} cap={360} labels={["Matrix", "Weeks", "Range", "By Account"]} filter />
+      <Top big={300} cap={360} labels={["Matrix", "Weeks", "Range", "By Account"]} />
       <div className="ans-mx">
         <div className="ans-mx-body">
           <div className="ans-mx-dates">
@@ -457,20 +457,44 @@ function Card(props: { readonly children: ReactNode }) {
   );
 }
 
-/** The page's first-load placeholder: the three cards, with their real frames, labels and cell sizes. */
+/** The page header and the report tabs, with their real names and the open tab pressed. */
+function Head(props: { readonly open: Report }) {
+  return (
+    <>
+      <PageHead status={<Sk kind="text" width={180} />}>
+        <Filter />
+      </PageHead>
+      <div className="an-tabs" inert>
+        {reports.map((entry) => (
+          <div key={entry.value} className="an-tab" data-open={entry.value === props.open}>
+            <TabFace
+              {...entry}
+              big={<Sk kind="text" width="80%" />}
+              cap={<Sk kind="text" width="92%" />}
+            />
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/** The page's first-load placeholder: the header, the tabs and the report opened last, with real frames. */
 export function AnalyticsSkeleton() {
+  const open = storedReport();
   return (
     <div className="an-page ans" aria-busy="true">
       <LoadingNote>Loading analytics</LoadingNote>
+      <Head open={open} />
       <Card>
-        <RhythmBody />
-      </Card>
-      <Card>
-        <Top big={300} cap={360} labels={["Forecast", "Table"]} />
-        <ForecastBody />
-      </Card>
-      <Card>
-        <FitBody />
+        {open === "rhythm" ? <RhythmBody /> : null}
+        {open === "now" ? (
+          <>
+            <Top big={300} cap={360} labels={["Forecast", "Table"]} />
+            <ForecastBody />
+          </>
+        ) : null}
+        {open === "fit" ? <FitBody /> : null}
       </Card>
     </div>
   );

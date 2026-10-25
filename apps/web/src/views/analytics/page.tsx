@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo, useState, type ReactNode } from "react";
 
 import { convert } from "@headroom/view-model/wallet-money";
 import { demoHistory } from "@headroom/view-model/history-demo";
@@ -12,21 +12,28 @@ import { useNow } from "../../lib/now.ts";
 import { useSettings } from "../../lib/settings.tsx";
 import { useWallet } from "../../lib/wallet-store.ts";
 import { ErrorNotice } from "../../ui/error-notice.tsx";
+import { Tabs } from "../../ui/tabs.tsx";
 import type { ViewProps } from "../props.ts";
-import { PlanFitCard } from "./fit.tsx";
+import { AccountFilter } from "./common.tsx";
+import { fitLine, PlanFitCard } from "./fit.tsx";
+import { Head, TabFace } from "./head.tsx";
 import { buildAnalytics } from "./model.ts";
-import { RightNowCard } from "./now.tsx";
-import { RhythmCard } from "./rhythm.tsx";
-import { buildSeries } from "./series.ts";
+import { nowLine, RightNowCard } from "./now.tsx";
+import { reportKeys, reports, reportStore, type Report } from "./reports.ts";
+import { RhythmCard, summary } from "./rhythm.tsx";
+import { buildSeries, narrowSeries } from "./series.ts";
 import { AnalyticsSkeleton } from "./skeleton.tsx";
+import { useStoredView } from "./stored-view.ts";
 import { useHistory } from "./use-history.ts";
 import "./analytics.css";
 import "./common.css";
 
 /**
- * Analytics: three questions, one card each. Rhythm: when limits are used and where they ran out. Right
- * now: what runs out before its reset. Plan fit: the changes worth making. Each card switches between views of
- * the same answer. Percentages from different accounts are never added, and a missing reading is a gap, not zero.
+ * Analytics: three questions, one report each, shown one at a time. Rhythm: when limits are used and where they
+ * ran out. Forecast: what runs out before its reset. Plan fit: the changes worth making. The header holds what
+ * every report shares, and each tab states its report's answer, so all three read without opening one. Each
+ * report switches between views of the same answer. Percentages from different accounts are never added, and a
+ * missing reading is a gap, not zero.
  */
 export function AnalyticsPage(props: ViewProps) {
   const { connections, failed, stale, reload } = props.overview;
@@ -92,30 +99,53 @@ const wholeDays = (days: number): string => {
   return `${count} ${count === 1 ? "day" : "days"}`;
 };
 
+/** The header's status line: how much history there is and how many accounts it covers. */
+function statusLine(coverageDays: number | null, accounts: number): string {
+  const covered =
+    coverageDays === null
+      ? null
+      : `${coverageDays < 1 ? "Less than a day" : wholeDays(coverageDays)} of history`;
+  const counted = `${accounts} ${accounts === 1 ? "account" : "accounts"}`;
+  return covered === null ? counted : `${covered} · ${counted}`;
+}
+
 /** One quiet line when history is thin or the server keeps less than the longest range. */
 function historyNote(coverageDays: number | null, retentionDays: number): string | null {
-  const thin = coverageDays !== null && coverageDays < 30;
-  const short = retentionDays < 90;
-  if (!thin && !short) return null;
   const parts: string[] = [];
-  if (thin) {
-    parts.push(
-      coverageDays < 1
-        ? "Less than a day of history so far."
-        : `${wholeDays(coverageDays)} of history so far.`,
-    );
-  }
-  if (short) parts.push(`History keeps ${retentionDays} days.`);
-  if (thin && coverageDays < retentionDays) {
+  if (retentionDays < 90) parts.push(`History keeps ${retentionDays} days.`);
+  if (coverageDays !== null && coverageDays < 30 && coverageDays < retentionDays) {
     parts.push("Charts fill in as Headroom keeps reading your limits.");
   }
-  return parts.join(" ");
+  return parts.length === 0 ? null : parts.join(" ");
 }
 
 const clock = (at: number): string =>
   new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-const emptyCards = ["Rhythm", "Right Now", "Plan Fit"] as const;
+type Answer = { readonly big: ReactNode; readonly cap: ReactNode };
+
+/** The report tabs: each names its report and time span and states the report's answer. */
+function ReportTabs(props: {
+  readonly open: Report;
+  readonly answers: Readonly<Record<Report, Answer>>;
+  readonly onOpen: (report: Report) => void;
+}) {
+  const tabs = reports.map((entry) => ({
+    value: entry.value,
+    label: <TabFace {...entry} {...props.answers[entry.value]} />,
+  }));
+  return (
+    <Tabs
+      label="Reports"
+      tabs={tabs}
+      value={props.open}
+      onChange={props.onOpen}
+      panelId="an-report"
+      className="an-tabs"
+      tabClassName="an-tab"
+    />
+  );
+}
 
 function AnalyticsBoard(props: { readonly connections: Connections }) {
   const { connections } = props;
@@ -167,6 +197,21 @@ function AnalyticsBoard(props: { readonly connections: Connections }) {
     () => (analytics === null ? null : buildSeries(analytics, now)),
     [analytics, now],
   );
+  // One account filter for every report, in the page header. Null is every account.
+  const [focus, setFocus] = useState<string | null>(null);
+  const [open, setOpen] = useStoredView<Report>(reportStore, reportKeys, "rhythm");
+  // A picked account that left the list (removed, or Demo Mode turned on) falls back to every account.
+  const inView = series?.accounts.find((account) => account.id === focus) ?? null;
+  const focused = useMemo(
+    () => (series === null ? null : narrowSeries(series, inView?.id ?? null)),
+    [series, inView],
+  );
+  // Each tab states the answer of its report's first view for the accounts in view: the Rhythm Matrix, the
+  // Forecast and the Plan fit History. Worked out once per rebuild, not on each clock tick.
+  const answers = useMemo((): Readonly<Record<Report, Answer>> | null => {
+    if (series === null || focused === null) return null;
+    return { rhythm: summary(series, inView), now: nowLine(focused), fit: fitLine(focused) };
+  }, [series, focused, inView]);
   if (state.kind === "failed") {
     return (
       <ErrorNotice
@@ -180,7 +225,15 @@ function AnalyticsBoard(props: { readonly connections: Connections }) {
       </ErrorNotice>
     );
   }
-  if (analytics === null || series === null || !wallet.loaded) return <AnalyticsSkeleton />;
+  if (
+    analytics === null ||
+    series === null ||
+    focused === null ||
+    answers === null ||
+    !wallet.loaded
+  ) {
+    return <AnalyticsSkeleton />;
+  }
   const note = [
     historyNote(analytics.history.coverageDays, analytics.history.retentionDays),
     state.kind === "ready" && state.refreshFailedAfter !== null
@@ -190,27 +243,44 @@ function AnalyticsBoard(props: { readonly connections: Connections }) {
   ]
     .filter((line): line is string => line !== null)
     .join(" ");
+  const status = statusLine(analytics.history.coverageDays, analytics.accounts.length);
   if (analytics.history.empty || analytics.accounts.length === 0) {
     return (
       <>
-        {emptyCards.map((title) => (
-          <section className="an2-card" aria-label={title} key={title}>
-            <p className="an-empty">
-              {analytics.history.empty
-                ? "No history yet. Headroom reads your limits every few minutes; check back in a day."
-                : "No limits to chart yet. Analytics charts usage limits. Your accounts report money only."}
-            </p>
-          </section>
-        ))}
+        <Head status={status} />
+        <section className="an2-card" aria-label="Analytics">
+          <p className="an-empty">
+            {analytics.history.empty
+              ? "No history yet. Headroom reads your limits every few minutes; check back in a day."
+              : "No limits to chart yet. Analytics charts usage limits. Your accounts report money only."}
+          </p>
+        </section>
       </>
     );
   }
   return (
     <>
+      <Head status={status}>
+        <AccountFilter accounts={series.accounts} value={inView?.id ?? null} onChange={setFocus} />
+      </Head>
       {note === "" ? null : <p className="an-note">{note}</p>}
-      <Rhythm series={series} />
-      <RightNow series={series} />
-      <PlanFit series={series} />
+      <ReportTabs open={open} answers={answers} onOpen={setOpen} />
+      {/* Hidden, not unmounted: a view, range or pick made in one report survives a visit to another. */}
+      <div
+        id="an-report"
+        role="tabpanel"
+        aria-label={reports.find((entry) => entry.value === open)?.label}
+      >
+        <div hidden={open !== "rhythm"}>
+          <Rhythm series={series} focused={focused} account={inView} />
+        </div>
+        <div hidden={open !== "now"}>
+          <RightNow series={focused} />
+        </div>
+        <div hidden={open !== "fit"}>
+          <PlanFit series={focused} />
+        </div>
+      </div>
     </>
   );
 }

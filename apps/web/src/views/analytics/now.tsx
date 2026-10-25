@@ -20,11 +20,11 @@ import {
   Swatch,
   useHeadline,
   useTipLayer,
-  useStoredView,
   useWidth,
   ViewCard,
   type Line,
 } from "./common.tsx";
+import { useStoredView } from "./stored-view.ts";
 import { hoursText } from "./format.ts";
 import type { AccountSeries, Series } from "./series.ts";
 import { slotCount } from "./series.ts";
@@ -1146,7 +1146,7 @@ export function RightNowCard(props: { readonly series: Series }) {
   };
   return (
     <ViewCard
-      title="Right Now"
+      title="Forecast"
       views={[
         { value: "forecast", label: "Forecast" },
         { value: "table", label: "Table" },
@@ -1161,5 +1161,13 @@ export function RightNowCard(props: { readonly series: Series }) {
         <TableView rows={ordered} {...shared} />
       )}
     </ViewCard>
+  );
+}
+
+/** The answer the Forecast tab states: the card's own headline. */
+export function nowLine(series: Series): Line {
+  return headlineOf(
+    series.accounts.map((account) => forecastOf(account, series.now)),
+    series.now,
   );
 }
