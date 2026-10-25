@@ -13,6 +13,6 @@
     "@better-auth/passkey": "1.7.7",
     "better-auth": "1.7.7",
     "drizzle-orm": "0.45.4",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   }
 }
