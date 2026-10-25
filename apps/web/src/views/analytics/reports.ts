@@ -25,3 +25,24 @@ export const reportStore = "report";
 export function storedReport(): Report {
   return readStoredView(reportStore, reportKeys, "rhythm");
 }
+
+/** Rhythm's views in switch order. The page opens on By Account until a device stores another pick. */
+export type RhythmView = "matrix" | "weeks" | "range" | "accounts";
+
+export const rhythmViews = [
+  { value: "matrix", label: "Matrix" },
+  { value: "weeks", label: "Weeks" },
+  { value: "range", label: "Range" },
+  { value: "accounts", label: "By Account" },
+] as const satisfies readonly { readonly value: RhythmView; readonly label: string }[];
+
+export const rhythmViewKeys: readonly RhythmView[] = rhythmViews.map((entry) => entry.value);
+
+/** The key `useStoredView` keeps Rhythm's view under, and the view a device without one opens on. */
+export const rhythmStore = "rhythm";
+export const rhythmDefault: RhythmView = "accounts";
+
+/** Rhythm's view picked last on this device, for the skeleton. */
+export function storedRhythmView(): RhythmView {
+  return readStoredView(rhythmStore, rhythmViewKeys, rhythmDefault);
+}
