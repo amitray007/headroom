@@ -4,13 +4,14 @@ import type { History } from "@headroom/view-model/history";
 import { connection, percent } from "@headroom/view-model/test-fixtures";
 
 import { buildAnalytics } from "./model.ts";
-import { buildSeries } from "./series.ts";
+import { buildSeries, narrowSeries } from "./series.ts";
 
 const hour = 3_600_000;
 const day = 24 * hour;
 
 /** One synthetic account with one percent meter and the matching stored history. */
 function setup(args: {
+  readonly id?: string;
   readonly scope: string;
   readonly key: string;
   readonly used: number;
@@ -19,7 +20,7 @@ function setup(args: {
   readonly windows: { start: number | null; end: number }[];
 }) {
   const metric = percent(args.key, args.used, { scope: args.scope, resetsAt: args.resetsAt });
-  const account = connection("claude", { metrics: [metric] });
+  const account = connection("claude", { id: args.id ?? "claude-1", metrics: [metric] });
   const history: History = {
     from: 0,
     to: 0,
@@ -296,5 +297,41 @@ describe("hourly slots and working hours", () => {
     expect(series.working.slice(5 * 24).some(Boolean)).toBe(false);
     expect(series.working[3]).toBe(false);
     expect(series.working[10]).toBe(true);
+  });
+});
+
+describe("one account in view", () => {
+  test("counts and run-outs cover that account, working hours stay the owner's", () => {
+    const now = Date.UTC(2026, 9, 20, 12);
+    const start = now - 3 * day;
+    const make = (id: string) =>
+      setup({
+        id,
+        scope: "window:604800s",
+        key: "weekly",
+        used: 100,
+        resetsAt: now + 4 * day,
+        points: [...ramp(start, now - day, 100), ...full(now - day, now)],
+        windows: [{ start, end: now + 4 * day }],
+      });
+    const one = make("one");
+    const two = make("two");
+    const history: History = {
+      ...one.history,
+      connections: [...one.history.connections, ...two.history.connections],
+    };
+    const series = buildSeries(
+      buildAnalytics([one.account, two.account], history, now, 90, new Map()),
+      now,
+    );
+    expect(Math.max(...series.locked)).toBe(2);
+    const narrow = narrowSeries(series, "one");
+    expect(narrow.accounts.map((account) => account.id)).toEqual(["one"]);
+    expect(Math.max(...narrow.active)).toBe(1);
+    expect(Math.max(...narrow.locked)).toBe(1);
+    expect(narrow.runouts.every((runout) => runout.accountId === "one")).toBe(true);
+    expect(narrow.working).toBe(series.working);
+    expect(narrowSeries(series, null)).toBe(series);
+    expect(narrowSeries(series, "gone")).toBe(series);
   });
 });

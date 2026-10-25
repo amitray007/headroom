@@ -1,17 +1,133 @@
-/* Analytics view (mockup): the page frame. The cards and charts live in common.css and one file per card. */
+/* Analytics view: the page frame. The cards and charts live in common.css and one file per card. */
 .an-page {
   display: block;
   min-width: 0;
 }
 
-/* One quiet line above the cards when history is thin. */
+/* The page header: title and status line at the left, the account filter every report shares at the right. */
+.an-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.an-titles {
+  display: grid;
+  gap: 2px;
+}
+.an-title {
+  margin: 0;
+  font-size: 22px; /* the Wallet title's size; no token between --text-md and --text-display */
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.an-status,
 .an-note,
 .an-empty {
-  margin: 0 0 12px;
+  margin: 0;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
+}
+/* One quiet line under the header when history is thin or a load failed. */
+.an-note {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
 }
 .an-empty {
-  margin: 0;
   padding: 24px 4px;
+}
+
+/* Report tabs: one per report, each naming its time span and stating its answer. */
+.an-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.an-tab {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+.an-tab:hover {
+  background: var(--surface);
+}
+.an-tab[aria-selected="true"],
+.an-tab[data-open="true"] {
+  border-color: var(--border-strong);
+  background: var(--surface);
+  color: var(--foreground);
+}
+.an-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.an-tab-name {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.an-tab-name > :first-child {
+  font-weight: 500;
+}
+.an-tab[aria-selected="true"] .an-tab-name,
+.an-tab[data-open="true"] .an-tab-name {
+  color: var(--text-secondary);
+}
+.an-tab-span::before {
+  content: "· ";
+}
+.an-tab-big {
+  font-size: var(--text-base);
+  font-weight: 500;
+  line-height: 1.3;
+}
+/* Two lines, so a long account label and its time still fit. */
+.an-tab-cap {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+/* On a phone the tabs scroll sideways, so the open report stays near the top. */
+@media (max-width: 640px) {
+  .an-tabs {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(240px, 78%);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    /* Room for the focus ring, which the scroll box would clip. */
+    margin-inline: -4px;
+    padding: 4px;
+    scroll-padding-inline: 4px;
+  }
+  .an-tab {
+    scroll-snap-align: start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .an-tab {
+    transition: none;
+  }
 }

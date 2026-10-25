@@ -9,6 +9,6 @@
   "dependencies": {
     "@ai-sdk/gateway": "4.0.110",
     "@headroom/core": "workspace:*",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   }
 }

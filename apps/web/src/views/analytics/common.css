@@ -283,11 +283,6 @@ figure.an2-lanes {
   margin: 0;
 }
 
-/* Cards on the page stack with the panel gap. */
-.an2-card + .an2-card {
-  margin-top: var(--space-4);
-}
-
 /* In a narrow side panel the switch takes the top line and the headline goes under it, so the switch keeps the
    card's top-right corner. */
 .an2-panel > .an2-top {

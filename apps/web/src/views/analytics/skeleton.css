@@ -210,7 +210,7 @@
   }
 }
 
-/* Right Now: the forecast grid and the account panel */
+/* Forecast: the forecast grid and the account panel */
 .ans-fc {
   display: grid;
   gap: var(--space-3);
