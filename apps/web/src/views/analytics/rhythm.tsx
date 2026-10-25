@@ -18,6 +18,13 @@ import {
   weekdays,
   type Line,
 } from "./common.tsx";
+import {
+  rhythmDefault,
+  rhythmStore,
+  rhythmViewKeys,
+  rhythmViews,
+  type RhythmView,
+} from "./reports.ts";
 import { useStoredView } from "./stored-view.ts";
 import { hourOfWeek, slotCount, type AccountSeries, type Series } from "./series.ts";
 import "./rhythm.css";
@@ -27,15 +34,6 @@ import "./rhythm.css";
  * accounts is a count of active accounts, never a sum of percentages. An unknown hour is an empty dotted cell.
  */
 
-type View = "matrix" | "weeks" | "range" | "accounts";
-const views = [
-  { value: "matrix", label: "Matrix" },
-  { value: "weeks", label: "Weeks" },
-  { value: "range", label: "Range" },
-  { value: "accounts", label: "By Account" },
-] as const satisfies readonly { readonly value: View; readonly label: string }[];
-const viewKeys: readonly View[] = views.map((entry) => entry.value);
-
 export function RhythmCard(props: {
   readonly series: Series;
   /** The series narrowed to the account in view; the same as `series` when every account is in view. */
@@ -43,12 +41,12 @@ export function RhythmCard(props: {
   /** The account in view, or null for every account. */
   readonly account: AccountSeries | null;
 }) {
-  const [view, setView] = useStoredView<View>("rhythm", viewKeys, "matrix");
+  const [view, setView] = useStoredView<RhythmView>(rhythmStore, rhythmViewKeys, rhythmDefault);
   const { series, focused, account } = props;
   // Matrix and Weeks draw one account in their own mode, against the owner's whole series; Range and By Account
   // draw only the accounts in view.
   return (
-    <ViewCard title="Rhythm" views={views} view={view} onView={setView}>
+    <ViewCard title="Rhythm" views={rhythmViews} view={view} onView={setView}>
       {view === "matrix" ? <Matrix series={series} account={account} /> : null}
       {view === "weeks" ? <Weeks series={series} account={account} /> : null}
       {view === "range" ? <RangeView series={focused} /> : null}

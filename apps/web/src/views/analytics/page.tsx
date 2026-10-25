@@ -201,8 +201,8 @@ function AnalyticsBoard(props: { readonly connections: Connections }) {
     () => (series === null ? null : narrowSeries(series, inView?.id ?? null)),
     [series, inView],
   );
-  // Each tab states the answer of its report's first view for the accounts in view: the Rhythm Matrix, the
-  // Forecast and the Plan fit History. Worked out once per rebuild, not on each clock tick.
+  // Each tab states its report's answer for the accounts in view: Rhythm's busiest hours, the Forecast and the
+  // Plan fit History. Worked out once per rebuild, not on each clock tick.
   const answers = useMemo((): Readonly<Record<Report, Answer>> | null => {
     if (series === null || focused === null) return null;
     return { rhythm: summary(series, inView), now: nowLine(focused), fit: fitLine(focused) };

@@ -44,6 +44,105 @@
   font-weight: 500;
 }
 
+/* Rhythm By Account: the sizes rhythm.tsx draws, 160 px of names and 104 px of totals, 68 and 108 when narrow */
+.ans-ba {
+  container-type: inline-size;
+  min-width: 0;
+  padding-bottom: 2px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.ans-ba-row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) 104px;
+  height: 26px;
+}
+.ans-ba-avg {
+  height: 70px;
+  padding-top: 6px;
+}
+.ans-ba-lead {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding-top: 12px;
+  line-height: 12px;
+}
+.ans-ba-t3 {
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 500;
+}
+.ans-ba-line {
+  border-bottom: 1px solid var(--border);
+}
+.ans-ba-line .sk {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  clip-path: polygon(
+    0 100%,
+    0 88%,
+    25% 80%,
+    38% 30%,
+    50% 8%,
+    62% 22%,
+    75% 55%,
+    100% 86%,
+    100% 100%
+  );
+}
+.ans-ba-hours {
+  height: 22px;
+}
+.ans-ba-axis {
+  position: relative;
+  grid-column: 2;
+}
+.ans-ba-axis > span {
+  position: absolute;
+  top: 4px;
+  margin-left: 1px;
+  line-height: 12px;
+}
+.ans-ba-axis > .ans-ba-end-hour {
+  right: 0;
+}
+.ans-ba-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+}
+.ans-ba-cells {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  height: 20px;
+}
+.ans-ba-cells .ans-cell {
+  margin: 0 1px;
+  border-radius: 3px;
+}
+.ans-ba-end {
+  justify-self: end;
+  margin-top: 4px;
+}
+@container (width < 520px) {
+  .ans-ba-row {
+    grid-template-columns: 108px minmax(0, 1fr) 68px;
+  }
+  .ans-ba-end-hour {
+    display: none;
+  }
+}
+/* Below 312 px six hours of columns are narrower than "00:00", so the view marks every twelve. */
+@container (width < 312px) {
+  .ans-ba-axis > [data-minor] {
+    display: none;
+  }
+}
+
 /* Rhythm matrix: 31 days by 24 hours */
 .ans-mx {
   container-type: inline-size;

@@ -6,17 +6,28 @@ import { LoadingNote, Sk } from "../../ui/skeleton.tsx";
 import "./analytics.css";
 import "./common.css";
 import { Head as PageHead, TabFace } from "./head.tsx";
-import { reports, storedReport, type Report } from "./reports.ts";
+import {
+  reports,
+  rhythmViews,
+  storedReport,
+  storedRhythmView,
+  type Report,
+  type RhythmView,
+} from "./reports.ts";
 import "./skeleton.css";
 
 const count = (length: number): number[] => Array.from({ length }, (_, index) => index);
 
-/** The view switch as the page shows it, with the first view pressed. It is not interactive. */
-function Switch(props: { readonly labels: readonly string[] }) {
+/** A switch as the page shows it, with its default pressed: the first option unless named. It is not interactive. */
+function Switch(props: {
+  readonly labels: readonly string[];
+  readonly pressed?: string | undefined;
+}) {
+  const pressed = props.pressed ?? props.labels[0];
   return (
     <fieldset className="seg" inert>
-      {props.labels.map((label, index) => (
-        <button key={label} type="button" tabIndex={-1} aria-pressed={index === 0}>
+      {props.labels.map((label) => (
+        <button key={label} type="button" tabIndex={-1} aria-pressed={label === pressed}>
           {label}
         </button>
       ))}
@@ -42,11 +53,13 @@ function Filter() {
   );
 }
 
-/** A card's first row: the headline in two lines, then the view switch. */
+/** A card's first row: the headline in two lines, then the view's own tools and the view switch. */
 function Top(props: {
   readonly big: number;
   readonly cap: number;
   readonly labels: readonly string[];
+  readonly pressed?: string | undefined;
+  readonly tools?: ReactNode;
 }) {
   return (
     <div className="an2-top">
@@ -59,7 +72,8 @@ function Top(props: {
         </p>
       </div>
       <div className="an2-tools">
-        <Switch labels={props.labels} />
+        {props.tools}
+        <Switch labels={props.labels} pressed={props.pressed} />
       </div>
     </div>
   );
@@ -101,14 +115,90 @@ function Round(props: { readonly size: number }) {
 
 /* ------------------------------------------------------------ rhythm */
 
-const weekRows = count(24);
-const dayColumns = count(31);
-const hourLabels = [0, 6, 12, 18] as const;
+const rhythmLabels = rhythmViews.map((entry) => entry.label);
 
-function RhythmBody() {
+const accountRows = count(6);
+const hourCells = count(24);
+/** The hour marks both Rhythm frames draw: every six hours. */
+const hourMarks = [0, 6, 12, 18] as const;
+const hourText = (hour: number): string => `${String(hour).padStart(2, "0")}:00`;
+
+/** Rhythm's By Account: the average over every account, then a row of 24 hours per account. */
+function AccountsBody(props: { readonly pressed: string }) {
   return (
     <div className="rh-view ans-view">
-      <Top big={300} cap={360} labels={["Matrix", "Weeks", "Range", "By Account"]} />
+      <Top
+        big={300}
+        cap={360}
+        labels={rhythmLabels}
+        pressed={props.pressed}
+        tools={<Switch labels={["Weekdays", "Weekends", "All days"]} pressed="All days" />}
+      />
+      <div className="ans-ba">
+        <div className="ans-ba-row ans-ba-avg">
+          <span className="ans-ba-lead">
+            <span className="ans-ba-t3">All accounts</span>
+            <span>Average active</span>
+          </span>
+          <div className="ans-ba-line">
+            <Sk kind="block" />
+          </div>
+        </div>
+        <div className="ans-ba-row ans-ba-hours">
+          <span className="ans-ba-axis">
+            {hourMarks.map((hour) => (
+              <span
+                key={hour}
+                data-minor={hour % 12 !== 0 || undefined}
+                style={{ left: `${(hour / 24) * 100}%` }}
+              >
+                {hourText(hour)}
+              </span>
+            ))}
+            <span className="ans-ba-end-hour">24:00</span>
+          </span>
+        </div>
+        {accountRows.map((row) => (
+          <div key={row} className="ans-ba-row">
+            <span className="ans-ba-name">
+              <Round size={14} />
+              <Sk kind="text" width={90} />
+            </span>
+            <span className="ans-ba-cells">
+              {hourCells.map((hour) => (
+                <i key={hour} className="ans-cell" />
+              ))}
+            </span>
+            <Sk kind="text" width={60} className="ans-ba-end" />
+          </div>
+        ))}
+      </div>
+      <div className="an2-legend">
+        <span>
+          Quiet
+          {[0, 1, 2, 3, 4].map((level) => (
+            <Swatch key={level} kind="ramp" level={level} />
+          ))}
+          Busiest hour
+        </span>
+        <span>Each row has its own scale.</span>
+        <Item kind="dot">Ran out</Item>
+        <Item kind="lock">Locked (darker: more often)</Item>
+        <span>Averages skip locked hours. Dotted: no known hour.</span>
+        <span>Top row counts accounts, not percentages.</span>
+      </div>
+    </div>
+  );
+}
+
+const weekRows = count(24);
+const dayColumns = count(31);
+
+/** Rhythm's Matrix: 31 days by 24 hours, the day profile beside it. */
+function MatrixBody() {
+  return (
+    <div className="rh-view ans-view">
+      <Top big={300} cap={360} labels={rhythmLabels} pressed="Matrix" />
       <div className="ans-mx">
         <div className="ans-mx-body">
           <div className="ans-mx-dates">
@@ -122,9 +212,9 @@ function RhythmBody() {
             <Sk kind="line" className="ans-mx-days" />
           </div>
           <div className="ans-mx-hours">
-            {hourLabels.map((hour) => (
+            {hourMarks.map((hour) => (
               <span key={hour} style={{ top: `calc(${hour} * var(--rh))` }}>
-                {String(hour).padStart(2, "0")}:00
+                {hourText(hour)}
               </span>
             ))}
           </div>
@@ -182,6 +272,16 @@ function RhythmBody() {
       </section>
     </div>
   );
+}
+
+/**
+ * The Rhythm view stored on this device. Matrix and By Account have their own frames; Weeks and Range, picked less
+ * often, borrow By Account's with their own switch pressed.
+ */
+function RhythmBody(props: { readonly view: RhythmView }) {
+  if (props.view === "matrix") return <MatrixBody />;
+  const pressed = rhythmViews.find((entry) => entry.value === props.view)?.label ?? "By Account";
+  return <AccountsBody pressed={pressed} />;
 }
 
 /* --------------------------------------------------------- right now */
@@ -487,7 +587,7 @@ export function AnalyticsSkeleton() {
       <LoadingNote>Loading analytics</LoadingNote>
       <Head open={open} />
       <Card>
-        {open === "rhythm" ? <RhythmBody /> : null}
+        {open === "rhythm" ? <RhythmBody view={storedRhythmView()} /> : null}
         {open === "now" ? (
           <>
             <Top big={300} cap={360} labels={["Forecast", "Table"]} />
