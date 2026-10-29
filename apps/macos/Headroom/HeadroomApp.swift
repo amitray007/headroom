@@ -4,15 +4,38 @@ import SwiftUI
 
 @main @MainActor
 struct HeadroomApp: App {
-  @State private var model: AppModel
+  @NSApplicationDelegateAdaptor(HeadroomDelegate.self) private var delegate
+  var body: some Scene {
+    Settings { SettingsView(model: delegate.model) }
+      .defaultSize(width: 700, height: 598)
+      .windowResizability(.contentSize)
+  }
+}
 
-  init() {
+@MainActor
+final class HeadroomDelegate: NSObject, NSApplicationDelegate {
+  let model = AppModel()
+  private var menuBar: MenuBarController?
+  func applicationDidFinishLaunching(_ notification: Notification) {
     HR.registerFonts()
-    let model = AppModel()
-    _model = State(initialValue: model)
+    menuBar = MenuBarController(model: model)
     Task {
       await model.start()
       #if DEBUG
+        if model.synthetic && CommandLine.arguments.contains("--open-popover") {
+          model.popoverPresented = true
+        }
+        if model.synthetic && CommandLine.arguments.contains("--open-notice"),
+          let item = model.notices.first
+        {
+          model.requestBannerNotice(sourceID: item.source.id, noticeID: item.notice.id)
+        }
+        if let index = CommandLine.arguments.firstIndex(of: "--capture-widgets"),
+          CommandLine.arguments.indices.contains(index + 1), model.synthetic
+        {
+          WidgetCapture.run(directory: URL(fileURLWithPath: CommandLine.arguments[index + 1]))
+          return
+        }
         if let index = CommandLine.arguments.firstIndex(of: "--capture"),
           CommandLine.arguments.indices.contains(index + 1), model.synthetic
         {
@@ -22,19 +45,12 @@ struct HeadroomApp: App {
       #endif
     }
   }
-
-  var body: some Scene {
-    MenuBarExtra {
-      PopoverView(model: model)
-    } label: {
-      MenuItemLabel(model: model, style: model.preferences.itemStyle)
-    }.menuBarExtraStyle(.window)
-    Settings {
-      SettingsView(model: model)
-    }
-    .defaultSize(width: 700, height: 598)
-    .windowResizability(.contentSize)
+  func application(_ application: NSApplication, open urls: [URL]) {
+    guard urls.contains(where: { $0.scheme == "headroom" && $0.host == "popover" }) else { return }
+    model.popoverPresented = true
+    application.activate()
   }
+  func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }
 
 struct MenuItemLabel: View {
@@ -97,6 +113,9 @@ struct MenuItemLabel: View {
       }
       if style != .logoAndBadge {
         Text(text).font(.system(size: 13, weight: .medium)).monospacedDigit()
+      }
+      if style == .percentage && model.unread > 0 {
+        Circle().frame(width: 5, height: 5)
       }
       if style == .pinned { Image(systemName: "pin").font(.system(size: 11)) }
     }

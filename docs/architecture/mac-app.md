@@ -1,6 +1,6 @@
 # Headroom for Mac
 
-**Status: menu bar popover, Settings, HeadroomKit, server token API and feed implemented. Widgets remain placeholders; notification banners follow in layer 5.** Decision: [ADR 0004](../decisions/0004-mac-app.md). The approved design is round 5 of the Mac mockups, kept in the private `headroom-visuals` repository.
+**Status: menu bar popover, Settings, HeadroomKit, server token API, feed, configurable widgets and notification banners implemented. Widget installation and notification permission still need owner checks.** Decision: [ADR 0004](../decisions/0004-mac-app.md). The approved design is round 5 of the Mac mockups, kept in the private `headroom-visuals` repository.
 
 Headroom for Mac is a menu bar app with desktop widgets and notifications. It reads one or more Headroom servers and never changes an account. This document covers its parts, the server routes it needs, how data moves, the setup and the build order.
 
@@ -23,9 +23,10 @@ Headroom for Mac is a menu bar app with desktop widgets and notifications. It re
 
 | Part | Owns |
 | --- | --- |
-| `apps/macos/Headroom` | App target with a 420 pt window-style `MenuBarExtra`, provider/account grids, notices list and detail, and five Settings panes. Notification banners follow in layer 5 |
-| `apps/macos/Widgets` | Sandboxed widget extension with a static placeholder that reads formatted rows from its own container. Widget configuration follows in a later layer |
+| `apps/macos/Headroom` | App target with a 420 pt SwiftUI popover presented by `NSStatusItem` and `NSPopover`, provider/account grids, notices list and detail, five Settings panes and notification banners |
+| `apps/macos/Widgets` | Sandboxed widget extension with App Intent account and limit configuration. Small offers Account or Overall, Medium shows up to three chosen accounts, Large shows eight, and Extra Large adds secondary limits. It reads its own cache only |
 | `apps/macos/HeadroomKit` | Swift 6.2 package: `HeadroomAPI` generates public types and a GET client; `HeadroomKit` owns sources, one Keychain token map, polling, feed and notice stores, formatting and widget-cache writing |
+| `apps/macos/Shared` | The app and widget views share Geist, provider marks, artwork and surface tokens |
 | `apps/macos/Contract/openapi.json` | Generated from Zod; never edited by hand |
 | `packages/view-model/src/app-feed.ts` | Feed schema (Zod) and the builder that turns the overview into the feed |
 | `apps/server` | Token verification, `/api/app/v1/*` routes, token management routes |
@@ -89,6 +90,8 @@ A source is `{ id, name, baseURL }` in the app's settings, plus its token, kept 
 ### Notices
 
 - The notice store keeps, per notice id: first seen, read, bannered. Ids missing from two feeds in a row are dropped.
+- Banner history retains id tombstones after visible records expire, so a returning id cannot banner again. A source-token failure has one local sign-out notice; repeated failures keep it in the list without another banner. Provider disconnects also banner at most once per account.
+- Authorization is requested only for the first eligible banner. Bad notices use time-sensitive interruption only when the system allows it; otherwise they are active. Warnings are active and information is passive. Banners group by source and account. Each stores its display text so a click can still show the detail after it leaves the feed. A claim is saved before submission to prevent duplicates after a crash; an OS rejection leaves the notice in the list without retrying its banner.
 - A new id that is unread, of a kind the owner left on, from a source that has been read before, gets one banner. Clicking it opens the popover on that notice; its link opens the account on the source's dashboard.
 - Mark read, mark unread and mark all read act on the store only. The menu bar icon shows a dot while unread notices exist.
 
@@ -114,6 +117,10 @@ The build plugin reads a symlink from `HeadroomAPI/openapi.json` to the committe
 The three direct OpenAPI dependencies have exact versions in `Package.swift`. Both package and Xcode lockfiles keep the same resolved graph. The transitive `swift-collections` dependency stays at 1.3.0 for Swift 6.2 compatibility; later releases can require a newer compiler. The command uses `-skipPackagePluginValidation` to run the pinned generator without Xcode's first-build trust dialog; it changes no global Xcode setting. The app is not sandboxed. The widget uses App Sandbox and reads only its cache. Geist is bundled with its SIL OFL license. The round 5 artwork SVGs are unchanged; paired vector PDF assets preserve their light and dark appearances for native rendering.
 
 ### Synthetic UI verification
+
+A Debug build with `--synthetic --capture-widgets <directory>` renders the shared widget views with `ImageRenderer` at 2x. The display-only fixture follows the approved widget scenario and contains no identities or source URLs. Captures cover five layouts, nine states, light/dark and colour/dim/tinted. `--synthetic --open-popover` and `--synthetic --open-notice` exercise presentation without posting a notification or requesting permission.
+
+Widget configuration uses WidgetKit's native editor. Account and limit entities come from the cache, limits depend on the chosen account, and Medium declares a maximum of three accounts. WidgetKit owns selection and reorder controls; an extension cannot substitute the mockup's radio, checkbox and move-button layout. Reset and run-out timeline entries update wording from saved dates. A passed reset makes its percentage unknown until a new reading arrives. Stale boundaries also get entries. In accented mode, the dim view is rendered as a full-colour image so system tinting keeps the red forecast and hatching. System placement and rendering still need an owner check. Fonts include static OFL instances of the bundled Geist for consistent widget weights; the Antigravity asset uses a lossless raster conversion because the native SVG renderer omits its mask/filter content.
 
 A Debug build accepts `--synthetic`. It uses the committed Demo Mode fixture, three synthetic sources, an in-memory token vault and temporary stores. No server or production store is used. Add `--capture <directory>` to capture the real SwiftUI views in light and dark appearance, all five Settings panes, notice detail and the illustrated source states. The capture run checks read, unread and mark-all-read behavior before exiting. Release builds exclude this mode.
 
