@@ -133,15 +133,15 @@ Settings keeps Menu Bar, List, Notifications, Sources and General from round 5. 
 | Step | Detail |
 | --- | --- |
 | Version | release-please package `apps/macos`, component `macos`, `release-type: simple`, `version.txt`; tags `macos-vX.Y.Z`; separate release pull requests; root package `exclude-paths: ["apps/macos"]` |
-| Build | `macos-26` arm64 runner, pinned Xcode, universal binary, `MARKETING_VERSION` from `version.txt` |
+| Build | `macos-26` arm64 runner, Xcode 26.2 (17C52, Swift 6.2.3), universal arm64 + x86_64 binary, `MARKETING_VERSION` from `version.txt`, `CURRENT_PROJECT_VERSION` from the run number |
 | Sign | Ad-hoc (`codesign -s -`); ADR 0004 records why a self-signed certificate does not help |
-| Package | `Headroom-<version>.zip` (`ditto -c -k --keepParent`) and `SHA256SUMS` on the `macos-v*` release |
+| Package | `Headroom-<version>.zip` (`ditto -c -k --keepParent`) and `SHA256SUMS` uploaded to a draft `macos-v*` release; publish only after both assets download and verify |
 | Latest guard | The job marks the Mac release not latest and the last `v*` release latest, so `releases/latest` keeps serving the server |
 | Cask | `scripts/render-cask.ts` writes `Casks/headroom-mac.rb` (url, sha256, `depends_on macos: ">= :sequoia"`, `postflight` xattr, `zap`), committed to `main` like the formula |
-| Smoke | Install the rendered cask on the runner, check the signature and quarantine attribute, start the app, confirm the process runs |
-| Rollback | Delete the release assets and revert the cask commit; the previous cask version stays installable from Git history |
+| Smoke | Install the rendered cask on the runner, check the signature and quarantine attribute, start the app, confirm the process runs, quit; commit the cask only after this passes |
+| Rollback | Revert the cask commit and reinstall the previous version; keep published assets and tags unchanged |
 
-Existing workflows read the root package's outputs (`release_created`, `version`). The change checks they still refer to the root package once a second package exists.
+Existing workflows read the root package's unprefixed outputs (`release_created`, `version`). Only the Mac workflow reads `apps/macos--release_created` and `apps/macos--version`. The Mac release starts as a draft with `force-tag-creation`, so the release tag exists for checkout without exposing partial assets or becoming latest. Details and retry steps are in [Releases](../operations/releases.md#headroom-for-mac).
 
 ## Build order
 

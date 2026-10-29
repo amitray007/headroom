@@ -1,6 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "bootstrap-sha": "493ea56d16b3e49d3b293543229ab9323945ecd0",
+  "separate-pull-requests": true,
   "packages": {
     ".": {
       "release-type": "node",
@@ -8,8 +9,21 @@
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "include-component-in-tag": false,
+      "exclude-paths": ["apps/macos"],
       "changelog-path": "CHANGELOG.md",
       "extra-files": [{ "type": "generic", "path": "apps/server/src/version.ts" }]
+    },
+    "apps/macos": {
+      "release-type": "simple",
+      "package-name": "headroom-mac",
+      "component": "macos",
+      "tag-separator": "-",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "changelog-path": "CHANGELOG.md",
+      "version-file": "version.txt",
+      "draft": true,
+      "force-tag-creation": true
     }
   }
 }
