@@ -24,7 +24,7 @@ Today every API route needs a Better Auth session cookie ([API](../architecture/
 | Settings | SwiftUI `Settings` scene | The standard Settings window and shortcut |
 | Widgets | WidgetKit extension with App Intent configuration | Accounts and limits are picked per widget, as in the design |
 | Notifications | `UserNotifications` | Banners and Notification Center |
-| Secrets | Keychain, one item per source | The owner's choice. See [Signing](#build-and-release) for why the signing identity matters to it |
+| Secrets | Keychain, one item that holds the tokens of every source | The owner's choice. Without a Developer ID, macOS asks for the login password once per item after each update (see [Build and release](#build-and-release)); one item keeps that to one prompt |
 | Tests | Swift Testing in a local Swift package | Logic runs under `swift test` without the app host |
 | Minimum macOS | 15 Sequoia | `MenuBarExtra`, `@Observable` and App Intent widgets all exist there; one release back from macOS 26 keeps most Macs in |
 | Font | Geist, bundled (SIL Open Font License) | Headroom content uses Geist; system chrome uses the system font |
@@ -61,7 +61,7 @@ A source is a Headroom server the app reads. The app authenticates with a read-o
 ### Build and release
 
 - Signing: no Apple Developer ID and no notarization. The Homebrew cask removes the quarantine attribute after install, so Gatekeeper does not block the app.
-- Spike, a stable self-signed identity: An ad-hoc signature changes with every build. The Keychain then asks again for the token after each update, and macOS may lose the widget's registration. The plan signs every release with one self-signed code-signing certificate held as a CI secret, so the app keeps the same designated requirement across updates. If the spike shows ad-hoc signing keeps Keychain access across an update, ad-hoc stays.
+- Ad-hoc signing. The spike (2026-10-30) built an app twice and read a Keychain item written by the first build from the second. Both an ad-hoc signature and a self-signed certificate with a stable designated requirement failed with `errSecAuthFailed` when no prompt was allowed, so a self-signed identity buys nothing and needs no CI secret. After an update the app asks for the login password once, for its one Keychain item. A Developer ID would remove the prompt.
 - Distribution: a Homebrew cask, `Casks/headroom-mac.rb`, in this repository, which is already its own tap. Its `postflight` runs `xattr -dr com.apple.quarantine` on the app. No Sparkle and no in-app updater: `brew upgrade` updates the app.
 - Versions: release-please gets a second package, `apps/macos`, with the component `macos`, its own changelog and `version.txt`, and tags `macos-vX.Y.Z`. The root package excludes `apps/macos`, so a Mac-only commit never bumps the server, and a web or server commit never bumps the Mac app. Each package gets its own release pull request.
 - CI: a `macOS` workflow builds and tests the app on GitHub's `macos-26` arm64 runner with a pinned Xcode, on pull requests and pushes that touch `apps/macos/` or the contract. A Mac release builds a universal app, zips it, writes `SHA256SUMS`, attaches both to the `macos-v*` release, renders the cask, installs it on the runner and starts the app as a smoke test.
@@ -70,8 +70,8 @@ A source is a Headroom server the app reads. The app authenticates with a read-o
 
 - The server gains its first non-browser credential. The token scope, the route allowlist and the tests that prove a token cannot reach a session route are the security boundary of this change.
 - The API key plugin adds its table through `bun run auth:generate`; the data model and enumerations record the `read` scope.
-- The widget extension must run in the App Sandbox or macOS never shows it. Without a Developer ID there is no App Group, so the widget cannot share a container with the app. Spike: the app writes the widget's cache into the widget's own container, or the widget reads the app's cache folder through a read-only sandbox exception. The first one that works on macOS 15 and 26 wins.
-- Spike: notification permission and banners for an app without a Developer ID are confirmed on a cask install, not only on a debug build.
+- The widget extension must run in the App Sandbox or macOS never shows it. Without a Developer ID there is no App Group, so the widget cannot share a container with the app. Spike: the app writes the widget's cache into the widget's own container, or the widget reads the app's cache folder through a read-only sandbox exception. On 2026-10-30 the extension registered and the app wrote both files; the widget's read waits on the owner's manual check. The app uses the widget's own container first and keeps the path behind one type, so the other way is a one-file change.
+- Spike: notification permission and banners for an app without a Developer ID are confirmed on a cask install, not only on a debug build. On 2026-10-30 an ad-hoc build asked for permission; a self-signed build sharing its bundle id was refused (`UNErrorDomain` 1). The owner's manual check is pending.
 - A Mac release must not become the repository's latest release: the installer, `headroom update` and mise read the server from `releases/latest`. The Mac release job marks its release as not latest.
 - The app depends on server routes that ship in a server release first. The feed carries `apiVersion`; an older server answers 404 and the app says the server needs an update.
 

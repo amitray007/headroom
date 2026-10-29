@@ -11,7 +11,7 @@ Headroom for Mac is a menu bar app with desktop widgets and notifications. It re
  ┌──────────────────────────────┐               ┌───────────────────────────────────────┐
  │ scheduler → snapshots        │               │ Headroom.app (menu bar, not sandboxed)│
  │ view-model → feed + notices  │  HTTPS / LAN  │  Poller ─ one per source              │
- │ GET /api/app/v1/feed  ◄──────┼── Bearer ─────┤  Keychain: one token per source       │
+ │ GET /api/app/v1/feed  ◄──────┼── Bearer ─────┤  Keychain: one item, every token      │
  │ API tokens (read scope)      │   token       │  Feed cache, notice store             │
  └──────────────────────────────┘               │  Popover · Settings · Banners         │
                                                 │        │ writes widget cache          │
@@ -68,7 +68,7 @@ Rules carried from the dashboard: unknown is null, never 0; units stay separate;
 
 ### Sources
 
-A source is `{ id, name, baseURL }` in the app's settings, plus a token in the Keychain under the source id. "This Mac" is a source with `http://127.0.0.1:8080`. The app probes `/healthz` there at first launch and offers it when a server answers.
+A source is `{ id, name, baseURL }` in the app's settings, plus its token, kept with the other tokens in one Keychain item keyed by source id. "This Mac" is a source with `http://127.0.0.1:8080`. The app probes `/healthz` there at first launch and offers it when a server answers.
 
 | Source state | When | Shown |
 | --- | --- | --- |
@@ -113,7 +113,7 @@ A source is `{ id, name, baseURL }` in the app's settings, plus a token in the K
 | --- | --- |
 | Version | release-please package `apps/macos`, component `macos`, `release-type: simple`, `version.txt`; tags `macos-vX.Y.Z`; separate release pull requests; root package `exclude-paths: ["apps/macos"]` |
 | Build | `macos-26` arm64 runner, pinned Xcode, universal binary, `MARKETING_VERSION` from `version.txt` |
-| Sign | Self-signed certificate from a CI secret, or ad-hoc if the spike allows it |
+| Sign | Ad-hoc (`codesign -s -`); ADR 0004 records why a self-signed certificate does not help |
 | Package | `Headroom-<version>.zip` (`ditto -c -k --keepParent`) and `SHA256SUMS` on the `macos-v*` release |
 | Latest guard | The job marks the Mac release not latest and the last `v*` release latest, so `releases/latest` keeps serving the server |
 | Cask | `scripts/render-cask.ts` writes `Casks/headroom-mac.rb` (url, sha256, `depends_on macos: ">= :sequoia"`, `postflight` xattr, `zap`), committed to `main` like the formula |
