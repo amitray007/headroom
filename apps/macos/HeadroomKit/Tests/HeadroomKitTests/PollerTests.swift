@@ -217,3 +217,45 @@ private func makePoller(
   await poller.refresh()
   #expect(await iterator.next()?.first?.state == .connected)
 }
+
+private actor HeldReader: FeedReading {
+  let feed: AppFeed
+  private var release: CheckedContinuation<Void, Never>?
+  private var started = false
+  private var startedWaiter: CheckedContinuation<Void, Never>?
+  init(feed: AppFeed) { self.feed = feed }
+  func read(source: Source, token: String, etag: String?) async -> FeedRead {
+    await withCheckedContinuation { continuation in
+      release = continuation
+      started = true
+      startedWaiter?.resume()
+      startedWaiter = nil
+    }
+    return .updated(feed, etag: "synthetic")
+  }
+  func waitForRead() async {
+    if started { return }
+    await withCheckedContinuation { startedWaiter = $0 }
+  }
+  func finish() {
+    release?.resume()
+    release = nil
+  }
+}
+
+@Test(.timeLimit(.minutes(1))) func stoppingDrainsReadBeforeSourceCacheCanBeRemoved() async throws {
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let source = try source()
+  let reader = HeldReader(feed: try fixture())
+  let poller = try await makePoller(directory: directory, sources: [source], reader: reader)
+  await poller.start()
+  await reader.waitForRead()
+  let stopped = Task { await poller.stop() }
+  await reader.finish()
+  await stopped.value
+  let cache = FeedCache(directory: directory)
+  #expect(try await cache.load(sourceID: source.id) != nil)
+  try await cache.remove(sourceID: source.id)
+  #expect(try await cache.load(sourceID: source.id) == nil)
+}

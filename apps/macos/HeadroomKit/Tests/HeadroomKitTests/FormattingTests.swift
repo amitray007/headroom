@@ -10,7 +10,7 @@ import Testing
   #expect(Formatting.percentLeft(nil) == "Unknown")
   #expect(Formatting.percentLeft(0) == "0% left")
   #expect(Formatting.percentLeft(37) == "37% left")
-  #expect(Formatting.percentLeft(37.5) == "37.5% left")
+  #expect(Formatting.percentLeft(37.5) == "38% left")
 }
 
 private let durationCases: [(Double, String)] = [
@@ -92,4 +92,46 @@ func durationsMatchTheMockup(_ seconds: Double, _ expected: String) {
   #expect(Formatting.charge(charge) == "Not on this plan")
   charge.unlimited = true
   #expect(Formatting.charge(charge) == "Unlimited")
+}
+
+@Test func providerCreditLabelsRemainDistinctFromMoney() throws {
+  #expect(Formatting.unitLabel("codex_credits") == "Codex credits")
+  #expect(Formatting.unitLabel("grok_credits") == "Grok credits")
+  #expect(Formatting.unitLabel("gateway_credits") == "Gateway credits")
+  #expect(Formatting.unitLabel("USD") == "USD")
+  var charge = try #require(fixture().accounts.flatMap(\.charges).first)
+  charge.unit = "codex_credits"
+  charge.value = 25
+  charge.cap = nil
+  charge.unlimited = false
+  #expect(Formatting.charge(charge) == "25 Codex credits")
+}
+
+@Test func compactPercentagesKeepSmallNonzeroReadingsAndHideFloatingPointNoise() {
+  #expect(Formatting.barePercent(nil) == "Unknown")
+  #expect(Formatting.barePercent(0) == "0%")
+  #expect(Formatting.barePercent(0.04) == "1%")
+  #expect(Formatting.barePercent(0.4) == "1%")
+  #expect(Formatting.barePercent(21.200000000000003) == "21%")
+  #expect(Formatting.percentLeft(21.200000000000003) == "21% left")
+}
+
+@Test func percentBoundariesAndUnitTotals() {
+  #expect(Formatting.barePercent(99.9) == "99%")
+  #expect(Formatting.barePercent(100) == "100%")
+  #expect(Formatting.barePercent(52.2) == "52%")
+  #expect(Formatting.barePercent(.nan) == "Unknown")
+  #expect(Formatting.unitTotal([nil, 12], unit: "USD") == "USD unknown")
+  #expect(Formatting.unitTotal([20, 28], unit: "grok_credits") == "48.00 Grok credits")
+}
+
+@Test func repeatedWeeklyLabelsUseModelWindow() throws {
+  let account = try #require(fixture().accounts.first { $0.provider == .claude })
+  let weekly = try #require(account.limits.first { $0.key == "seven_day" })
+  let model = try #require(account.limits.first { $0.key.hasPrefix("limits.") })
+  #expect(Presentation.limitLabel(weekly, in: account) == "Weekly")
+  #expect(Presentation.limitLabel(model, in: account) == model.window)
+  var single = account
+  single.limits = [model]
+  #expect(Presentation.limitLabel(model, in: single) == "Weekly")
 }
