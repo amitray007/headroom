@@ -30,6 +30,7 @@ Each dossier describes metrics, connection steps, tools, limitations and sources
 ## Shared references
 
 - [HTTP API](architecture/api.md): overview, display name, settings, the Wallet, usage history for Analytics, and the account-actions gate.
+- [Headroom for Mac](architecture/mac-app.md): the planned menu bar app and widgets, API tokens, the read-only feed, setup and build order.
 - [Notifications](architecture/notifications.md): what raises a notification, pacing alerts, the event schema, and server-side delivery to Telegram and webhooks.
 - [Connector contract](architecture/connector-contract.md): the TypeScript interface every provider package implements, in `packages/core/src/connector.ts`.
 - [Deployment and credential storage](architecture/deployment.md): single binary, SQLite, master key and backups.
@@ -39,7 +40,7 @@ Each dossier describes metrics, connection steps, tools, limitations and sources
 - [Evidence register](research/evidence.md): proof levels and earlier observations.
 - [Tools and packages](research/tools.md): what can be reused and what it does not solve.
 - [ACP assessment](research/acp.md): protocol scope and provider-specific gaps.
-- [Decisions](decisions/README.md): accepted product constraints and proposed implementation choices, with [ADR 0001](decisions/0001-direct-provider-clients.md) as the governing design record, [ADR 0002](decisions/0002-stack-and-tooling.md) for the stack and tooling, and [ADR 0003](decisions/0003-owner-automations.md) for owner automations and detected account events.
+- [Decisions](decisions/README.md): accepted product constraints and proposed implementation choices, with [ADR 0001](decisions/0001-direct-provider-clients.md) as the governing design record, [ADR 0002](decisions/0002-stack-and-tooling.md) for the stack and tooling, [ADR 0003](decisions/0003-owner-automations.md) for owner automations and detected account events, and [ADR 0004](decisions/0004-mac-app.md) for Headroom for Mac.
 - [Glossary](glossary.md): terms and units used across all dossiers.
 
 ## Maintaining these docs
