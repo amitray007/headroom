@@ -1,0 +1,181 @@
+import Foundation
+import Synchronization
+import Testing
+
+@testable import HeadroomKit
+
+private struct Stub: Sendable {
+  var status = 200
+  var headers: [String: String] = ["Content-Type": "application/json", "ETag": "\"synthetic\""]
+  var body = Data()
+  var error: URLError.Code?
+}
+
+// URLSession calls URLProtocol on its queue; all shared test state is protected by Mutex.
+private final class StubProtocol: URLProtocol, @unchecked Sendable {
+  struct State: Sendable {
+    var stubs: [String: Stub] = [:]
+    var requests: [String: [URLRequest]] = [:]
+  }
+  static let state = Mutex(State())
+  static func register(_ stub: Stub) throws -> Source {
+    let host = "stub-\(UUID().uuidString.lowercased()).example.invalid"
+    state.withLock { $0.stubs[host] = stub }
+    return try source("https://\(host)")
+  }
+  static func requests(for source: Source) -> [URLRequest] {
+    state.withLock { $0.requests[source.baseURL.host ?? ""] ?? [] }
+  }
+  override class func canInit(with request: URLRequest) -> Bool { true }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+  override func startLoading() {
+    guard let url = request.url, let host = url.host else { return }
+    let stub = Self.state.withLock { state in
+      state.requests[host, default: []].append(request)
+      return state.stubs[host]
+    }
+    guard let stub else {
+      client?.urlProtocol(self, didFailWithError: URLError(.unsupportedURL))
+      return
+    }
+    if let error = stub.error {
+      client?.urlProtocol(self, didFailWithError: URLError(error))
+      return
+    }
+    guard
+      let response = HTTPURLResponse(
+        url: url, statusCode: stub.status, httpVersion: nil, headerFields: stub.headers)
+    else { return }
+    client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+    if !stub.body.isEmpty { client?.urlProtocol(self, didLoad: stub.body) }
+    client?.urlProtocolDidFinishLoading(self)
+  }
+  override func stopLoading() {}
+}
+
+@Test func feedRequestUsesGeneratedGETBearerETagAndCurrentOffset() async throws {
+  let feed = try fixture()
+  let data = try JSONEncoder().encode(feed)
+  let source = try StubProtocol.register(Stub(body: data))
+  let zone = try #require(TimeZone(secondsFromGMT: 19800))
+  let client = FeedClient(protocolClasses: [StubProtocol.self], timeZone: { zone })
+  let result = await client.read(
+    source: source, token: "synthetic-read-token", etag: "\"previous\"")
+  guard case .updated(let actual, let etag) = result else {
+    Issue.record("Expected a decoded feed")
+    return
+  }
+  #expect(actual == feed)
+  #expect(etag == "\"synthetic\"")
+  let request = try #require(StubProtocol.requests(for: source).first)
+  #expect(request.httpMethod == "GET")
+  #expect(request.url?.path == "/api/app/v1/feed")
+  #expect(request.url?.query == "tz=330")
+  #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-read-token")
+  let validator = request.value(forHTTPHeaderField: "If-None-Match")
+  #expect(validator == "\"previous\"")
+  #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+  #expect(request.httpBody == nil)
+}
+
+@Test(arguments: [
+  (401, SourceState.signedOut), (404, .needsUpdate), (429, .offline), (500, .offline),
+  (302, .offline),
+])
+func feedStatusMapping(_ status: Int, _ expected: SourceState) async throws {
+  let source = try StubProtocol.register(
+    Stub(status: status, body: Data("{\"error\":\"synthetic\"}".utf8)))
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  guard case .failed(let state) = await client.read(source: source, token: "synthetic", etag: nil)
+  else {
+    Issue.record("Expected a source failure")
+    return
+  }
+  #expect(state == expected)
+}
+
+@Test func unchangedFeedDoesNotRequireAResponseBody() async throws {
+  let source = try StubProtocol.register(Stub(status: 304))
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  guard
+    case .notModified(let etag) = await client.read(
+      source: source, token: "synthetic", etag: "\"synthetic\"")
+  else {
+    Issue.record("Expected 304")
+    return
+  }
+  #expect(etag == "\"synthetic\"")
+}
+
+@Test(arguments: [URLError.Code.timedOut, .notConnectedToInternet, .cannotFindHost])
+func networkErrorsAreOffline(_ error: URLError.Code) async throws {
+  let source = try StubProtocol.register(Stub(error: error))
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  guard case .failed(.offline) = await client.read(source: source, token: "synthetic", etag: nil)
+  else {
+    Issue.record("Expected offline")
+    return
+  }
+}
+
+@Test func invalidJSONIsOfflineAndFutureAPIVersionNeedsUpdate() async throws {
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  let malformed = try StubProtocol.register(Stub(body: Data("{}".utf8)))
+  guard case .failed(.offline) = await client.read(source: malformed, token: "synthetic", etag: nil)
+  else {
+    Issue.record("Expected decode failure")
+    return
+  }
+  var future = try fixture()
+  future.apiVersion = 2
+  let source = try StubProtocol.register(Stub(body: JSONEncoder().encode(future)))
+  guard
+    case .failed(.needsUpdate) = await client.read(source: source, token: "synthetic", etag: nil)
+  else {
+    Issue.record("Expected API version refusal")
+    return
+  }
+}
+
+@Test func missingOrHeaderInjectedTokenNeverSendsARequest() async throws {
+  let source = try StubProtocol.register(Stub())
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  for token in ["", "synthetic\r\nCookie: invalid"] {
+    guard case .failed(.signedOut) = await client.read(source: source, token: token, etag: nil)
+    else {
+      Issue.record("Expected token refusal")
+      return
+    }
+  }
+  #expect(StubProtocol.requests(for: source).isEmpty)
+}
+
+@Test func transportHasABoundedTimeoutAndNoPersistentCookiesOrCache() {
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  let config = client.session.configuration
+  #expect(config.timeoutIntervalForRequest == 15)
+  #expect(config.timeoutIntervalForResource == 15)
+  #expect(config.urlCache == nil)
+  #expect(config.httpCookieStorage == nil)
+  #expect(!config.httpShouldSetCookies)
+  client.session.invalidateAndCancel()
+}
+
+@Test func redirectDelegateRefusesEvenSameOriginRedirects() throws {
+  let session = URLSession(configuration: .ephemeral)
+  defer { session.invalidateAndCancel() }
+  let url = try #require(URL(string: "https://example.invalid"))
+  let response = try #require(
+    HTTPURLResponse(
+      url: url, statusCode: 302, httpVersion: nil,
+      headerFields: ["Location": "https://elsewhere.invalid"]))
+  let decision = Mutex(true)
+  let request = URLRequest(url: url)
+  RefuseRedirects().urlSession(
+    session, task: session.dataTask(with: request), willPerformHTTPRedirection: response,
+    newRequest: request
+  ) { redirected in
+    decision.withLock { $0 = redirected != nil }
+  }
+  #expect(!decision.withLock { $0 })
+}
