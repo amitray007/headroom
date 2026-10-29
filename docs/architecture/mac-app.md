@@ -1,6 +1,6 @@
 # Headroom for Mac
 
-**Status: menu bar popover, Settings, HeadroomKit, server token API, feed, configurable widgets and notification banners implemented. Widget installation and notification permission still need owner checks.** Decision: [ADR 0004](../decisions/0004-mac-app.md). The approved design is round 5 of the Mac mockups, kept in the private `headroom-visuals` repository.
+**Status: menu bar popover, Settings, HeadroomKit, server token API, feed, configurable widgets and notification banners implemented. Widget installation and notification permission still need owner checks.** Decision: [ADR 0004](../decisions/0004-mac-app.md). The approved popover design is round 6 of the Mac mockups. Settings, widgets and artwork retain round 5. The designs are kept in the private `headroom-visuals` repository.
 
 Headroom for Mac is a menu bar app with desktop widgets and notifications. It reads one or more Headroom servers and never changes an account. This document covers its parts, the server routes it needs, how data moves, the setup and the build order.
 
@@ -23,7 +23,7 @@ Headroom for Mac is a menu bar app with desktop widgets and notifications. It re
 
 | Part | Owns |
 | --- | --- |
-| `apps/macos/Headroom` | App target with a 420 pt SwiftUI popover presented by `NSStatusItem` and `NSPopover`, provider/account grids, notices list and detail, five Settings panes and notification banners |
+| `apps/macos/Headroom` | App target with a 420 pt SwiftUI popover presented by `NSStatusItem` and `NSPopover`, Room now chart, compact account disclosures, inline notices, five Settings panes and notification banners |
 | `apps/macos/Widgets` | Sandboxed widget extension with App Intent account and limit configuration. Small offers Account or Overall, Medium shows up to three chosen accounts, Large shows eight, and Extra Large adds secondary limits. It reads its own cache only |
 | `apps/macos/HeadroomKit` | Swift 6.2 package: `HeadroomAPI` generates public types and a GET client; `HeadroomKit` owns sources, one Keychain token map, polling, feed and notice stores, formatting and widget-cache writing |
 | `apps/macos/Shared` | The app and widget views share Geist, provider marks, artwork and surface tokens |
@@ -91,7 +91,7 @@ A source is `{ id, name, baseURL }` in the app's settings, plus its token, kept 
 
 - The notice store keeps, per notice id: first seen, read, bannered. Ids missing from two feeds in a row are dropped.
 - Banner history retains id tombstones after visible records expire, so a returning id cannot banner again. A source-token failure has one local sign-out notice; repeated failures keep it in the list without another banner. Provider disconnects also banner at most once per account.
-- Authorization is requested only for the first eligible banner. Bad notices use time-sensitive interruption only when the system allows it; otherwise they are active. Warnings are active and information is passive. Banners group by source and account. Each stores its display text so a click can still show the detail after it leaves the feed. A claim is saved before submission to prevent duplicates after a crash; an OS rejection leaves the notice in the list without retrying its banner.
+- Authorization is requested only for the first eligible banner. Bad notices use time-sensitive interruption only when the system allows it; otherwise they are active. Warnings are active and information is passive. Banners group by source and account. Each stores its display text so a click can still expand the notice after it leaves the feed. A claim is saved before submission to prevent duplicates after a crash; an OS rejection leaves the notice in the list without retrying its banner.
 - A new id that is unread, of a kind the owner left on, from a source that has been read before, gets one banner. Clicking it opens the popover on that notice; its link opens the account on the source's dashboard.
 - Mark read, mark unread and mark all read act on the store only. The menu bar icon shows a dot while unread notices exist.
 
@@ -122,7 +122,9 @@ A Debug build with `--synthetic --capture-widgets <directory>` renders the share
 
 Widget configuration uses WidgetKit's native editor. Account and limit entities come from the cache, limits depend on the chosen account, and Medium declares a maximum of three accounts. WidgetKit owns selection and reorder controls; an extension cannot substitute the mockup's radio, checkbox and move-button layout. Reset and run-out timeline entries update wording from saved dates. A passed reset makes its percentage unknown until a new reading arrives. Stale boundaries also get entries. In accented mode, the dim view is rendered as a full-colour image so system tinting keeps the red forecast and hatching. System placement and rendering still need an owner check. Fonts include static OFL instances of the bundled Geist for consistent widget weights; the Antigravity asset uses a lossless raster conversion because the native SVG renderer omits its mask/filter content.
 
-A Debug build accepts `--synthetic`. It uses the committed Demo Mode fixture, three synthetic sources, an in-memory token vault and temporary stores. No server or production store is used. Add `--capture <directory>` to capture the real SwiftUI views in light and dark appearance, all five Settings panes, notice detail and the illustrated source states. The capture run checks read, unread and mark-all-read behavior before exiting. Release builds exclude this mode.
+A Debug build accepts `--synthetic`. It uses the committed round 6 popover fixture, three synthetic sources, an in-memory token vault and temporary stores. No server or production store is used. Add `--capture <directory>` to capture the real SwiftUI views in light and dark appearance, all five Settings panes, inline notices and the source states. The capture run checks read, unread and mark-all-read behavior before exiting. Release builds exclude this mode.
+
+The Room now chart uses one binding limit per account in provider order. Known kept readings retain their height; sign-in and unknown quota use dotted columns. The headline counts known room, including kept readings. The next-back line excludes offline sources. Account disclosures hold other limits, money and banked resets. Notices expand in place and mark read through the local notice store.
 
 Settings keeps Menu Bar, List, Notifications, Sources and General from round 5. The per-kind switches persist in `NoticeStore` for layer 5; they do not request banner permission. Source edits use a sheet so verification happens before saving. General shows the fixed feed polling cadence instead of changing server collection. Account links open the source's Detailed dashboard; the web app has no per-account or Devices deep link.
 

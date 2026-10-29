@@ -11,6 +11,8 @@ struct NoticeItem: Identifiable {
   var id: String { "\(source.id)/\(notice.id)" }
 }
 
+enum NoticePhase { case loading, ready, failed }
+
 enum SettingsPane: String, CaseIterable, Identifiable {
   case menuBar = "Menu Bar"
   case list = "List"
@@ -24,6 +26,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
 final class AppModel {
   var sources: [SourceSnapshot] = []
   var notices: [NoticeItem] = []
+  var noticePhase: NoticePhase = .loading
   var preferences = DisplayPreferences()
   var enabledKinds: [String: Bool] = [:]
   var selectedPane: SettingsPane = .menuBar
@@ -103,6 +106,7 @@ final class AppModel {
       }
     } catch {
       self.error = "Could not load local settings. Your saved data has been kept."
+      noticePhase = .failed
       ready = true
     }
   }
@@ -179,6 +183,9 @@ final class AppModel {
           read: records[$0.id]?.read ?? false)
       }
     }
+    noticePhase =
+      sources.isEmpty || sources.contains { $0.cached != nil }
+      ? .ready : (sources.contains { $0.state == .noData } ? .loading : .failed)
     notices = items.sorted { $0.notice.occurredAt > $1.notice.occurredAt }
     await presentBannerNotice()
   }
@@ -300,7 +307,7 @@ final class AppModel {
       feedCache = FeedCache(directory: directory)
       vault = InMemoryTokenVault()
       noticeStore = try NoticeStore(directory: directory)
-      guard let url = Bundle.main.url(forResource: "demo", withExtension: "json") else {
+      guard let url = Bundle.main.url(forResource: "popover", withExtension: "json") else {
         throw CocoaError(.fileReadNoSuchFile)
       }
       let feed = try JSONDecoder().decode(AppFeed.self, from: Data(contentsOf: url))
@@ -314,7 +321,12 @@ final class AppModel {
             string: index == 2 ? "http://127.0.0.1:8080" : "https://source-\(index).example.invalid"
           )!)
         var part = feed
-        part.accounts = feed.accounts.enumerated().filter { $0.offset % 3 == index }.map(\.element)
+        part.accounts = feed.accounts.filter { account in
+          let source =
+            account.id == "codex-personal"
+            ? 2 : ["codex-work", "vercel"].contains(account.id) ? 1 : 0
+          return source == index
+        }
         part.providerOrder = [
           .claude, .codex, .cursor, .copilot, .antigravity, .grok, .vercel_ai_gateway,
         ]
@@ -340,7 +352,8 @@ final class AppModel {
         notices: noticeStore!,
         widgetWriter: WidgetCacheWriter(
           location: WidgetCacheLocation(url: directory.appending(path: "widgets.json"))),
-        client: SyntheticFeedReader(snapshots: snapshots), clock: SyntheticClock(time: now))
+        client: SyntheticFeedReader(snapshots: snapshots),
+        clock: SyntheticClock(time: now.addingTimeInterval(-420)))
       self.poller = poller
       let stream = await poller.updates()
       observer = Task { [weak self] in
@@ -354,10 +367,10 @@ final class AppModel {
       }
       await poller.start()
       await loadNotices()
-      if let read = notices.last {
+      for read in notices where !["n1", "n2", "n3", "n5"].contains(read.notice.id) {
         try await noticeStore?.setRead(true, id: read.notice.id, sourceID: read.source.id)
-        await loadNotices()
       }
+      await loadNotices()
       localAvailable = true
     }
   }

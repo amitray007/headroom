@@ -5,178 +5,202 @@ struct NoticesView: View {
   @Bindable var model: AppModel
   var back: () -> Void
   @State private var unreadOnly = false
-  @State private var selected: NoticeItem?
+  @State private var expanded: Set<String> = []
   @FocusState private var focused: String?
+
+  private var items: [NoticeItem] {
+    model.notices.filter { !unreadOnly || !$0.read || expanded.contains($0.id) }
+  }
 
   var body: some View {
     VStack(spacing: 0) {
-      VStack(alignment: .leading, spacing: 12) {
-        HStack(spacing: 8) {
-          Button(action: back) { Image(systemName: "chevron.left") }.buttonStyle(ToolButtonStyle())
-            .accessibilityLabel("Back to accounts")
-          Text("Notices").font(HR.font(14, .semibold)).accessibilityAddTraits(.isHeader)
-          Text("\(model.unread) unread").foregroundStyle(HR.secondary).accessibilityValue(
-            "\(model.unread) unread notices")
-          Spacer()
+      HStack {
+        Text("Notices").font(HR.popoverFont(16, .medium)).accessibilityAddTraits(.isHeader)
+        Spacer()
+        if model.noticePhase == .ready && !items.isEmpty {
+          Text("\(model.unread) unread").font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
+            .accessibilityLabel("\(model.unread) unread notices")
         }
-        HStack(spacing: 6) {
-          Button("Mark all as read") { Task { await model.markAllRead() } }
-            .buttonStyle(HRButtonStyle()).disabled(model.unread == 0)
-          Button("Unread") { unreadOnly = true }.buttonStyle(HRButtonStyle(selected: unreadOnly))
-            .focused($focused, equals: "unread-filter")
-            .accessibilityAddTraits(unreadOnly ? .isSelected : [])
-          Button("All") { unreadOnly = false }.buttonStyle(HRButtonStyle(selected: !unreadOnly))
-            .accessibilityAddTraits(!unreadOnly ? .isSelected : [])
-        }.font(HR.font(12))
-      }.padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 12)
-      Divider().overlay(HR.border)
-      ScrollViewReader { proxy in
-        ScrollView {
-          VStack(alignment: .leading, spacing: 0) {
-            if items.isEmpty {
-              ArtState(
-                art: "no-notices", title: unreadOnly ? "No unread notices" : "No notices",
-                message: "You are up to date.")
-            } else {
-              ForEach([true, false], id: \.self) { today in
-                let grouped = items.filter { isToday($0) == today }
-                if !grouped.isEmpty {
-                  Text(today ? "Today" : "Earlier").hrHeading().padding(.vertical, 10)
-                  ForEach(grouped) { item in
-                    noticeRow(item).id(item.id).focused($focused, equals: item.id)
-                  }
-                }
-              }
+        Button("Close", action: back).buttonStyle(.plain).font(HR.popoverFont(12))
+          .padding(.leading, 8).accessibilityLabel("Back to Home")
+      }.padding(.horizontal, 16).frame(height: 52)
+      if model.noticePhase == .loading {
+        skeletons
+      } else if model.noticePhase == .failed {
+        PopoverState(
+          art: "source-offline", title: "Notices could not load",
+          message: "Account readings are still available."
+        ) {
+          Button("Try again") {
+            Task {
+              await model.readSources()
+              await model.loadNotices()
             }
-          }.padding(.horizontal, 16)
+          }.buttonStyle(.plain)
         }
-        .frame(height: items.isEmpty ? 270 : 520)
-        .onKeyPress(.home) {
-          if let first = items.first {
-            focused = first.id
-            proxy.scrollTo(first.id, anchor: .top)
-          }
-          return .handled
+      } else if model.notices.isEmpty {
+        PopoverState(
+          art: "no-notices", title: "All clear",
+          message: "No new notices. Your accounts are in Home."
+        ) {
+          Button("View accounts", action: back).buttonStyle(.plain)
         }
-        .onKeyPress(.end) {
-          if let last = items.last {
-            focused = last.id
-            proxy.scrollTo(last.id, anchor: .bottom)
-          }
-          return .handled
+      } else {
+        toolbar
+        ScrollViewReader { proxy in
+          ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+              if items.isEmpty {
+                PopoverState(
+                  art: "no-notices", title: "All caught up", message: "No unread notices."
+                ) { EmptyView() }
+              }
+              ForEach(items) { item in noticeRow(item).id(item.id) }
+            }.padding(.horizontal, 16)
+          }.frame(height: items.isEmpty ? 330 : 588)
+            .onChange(of: model.bannerNoticeID) { _, id in
+              if let id { proxy.scrollTo(id, anchor: .top) }
+            }
+            .onChange(of: focused) { _, id in
+              if let id { proxy.scrollTo(id) }
+            }
         }
       }
     }
-    .onAppear { selectBanner() }
-    .onChange(of: model.bannerNoticeID) { _, _ in selectBanner() }
-    .onChange(of: model.notices.count) { _, _ in selectBanner() }
-    .onExitCommand(perform: back)
-    .sheet(item: $selected) { item in
-      NoticeDetail(model: model, item: item) {
-        selected = nil
-        focused =
-          items.contains(where: { $0.id == item.id }) ? item.id : items.first?.id ?? "unread-filter"
+    .onAppear {
+      if model.synthetic && model.captureState == "notice-expanded", let first = model.notices.first
+      {
+        expand(first)
       }
+      selectBanner()
+    }
+    .onChange(of: model.bannerNoticeID) { _, _ in selectBanner() }
+    .onKeyPress(.escape) {
+      if let id = focused, expanded.contains(id) {
+        expanded.remove(id)
+      } else {
+        back()
+      }
+      return .handled
     }
   }
 
+  private var toolbar: some View {
+    HStack(spacing: 4) {
+      Button("All") { unreadOnly = false }.buttonStyle(NoticeFilterStyle(selected: !unreadOnly))
+        .accessibilityAddTraits(!unreadOnly ? .isSelected : [])
+      Button("Unread") { unreadOnly = true }.buttonStyle(NoticeFilterStyle(selected: unreadOnly))
+        .focused($focused, equals: "unread-filter").accessibilityAddTraits(
+          unreadOnly ? .isSelected : [])
+      Spacer()
+      Button("Mark all as read") {
+        Task {
+          await model.markAllRead()
+          if unreadOnly { expanded.removeAll() }
+        }
+      }
+      .buttonStyle(.plain).underline().disabled(model.unread == 0)
+    }.font(HR.popoverFont(11)).padding(.horizontal, 16).padding(.bottom, 12)
+      .overlay(alignment: .bottom) { Rectangle().fill(HR.border).frame(height: 1) }
+  }
+
+  private func expand(_ item: NoticeItem) {
+    expanded.insert(item.id)
+    Task { await model.setRead(true, item: item) }
+  }
   private func selectBanner() {
     guard let id = model.bannerNoticeID, let item = model.notices.first(where: { $0.id == id })
     else { return }
     unreadOnly = false
-    selected = item
+    expand(item)
     focused = id
     model.bannerNoticeID = nil
   }
 
-  private var items: [NoticeItem] { model.notices.filter { !unreadOnly || !$0.read } }
-  private func isToday(_ item: NoticeItem) -> Bool {
-    let date = item.notice.occurredAt
-    return Calendar.current.isDate(date, inSameDayAs: model.now)
-  }
   private func noticeRow(_ item: NoticeItem) -> some View {
-    Button {
-      Task {
-        await model.setRead(true, item: item)
-        var read = item
-        read.read = true
-        selected = read
-      }
-    } label: {
-      VStack(alignment: .leading, spacing: 8) {
-        Text(toneLabel(item) + (item.read ? "" : " · Unread"))
-          .font(HR.font(11)).foregroundStyle(tone(item))
-        Text(item.notice.title).font(HR.font(13, item.read ? .medium : .semibold))
-          .fixedSize(horizontal: false, vertical: true)
-        Text(
-          "\(item.notice.accountLabel) · \(item.source.source.name) · \(Formatting.age(item.notice.occurredAt, now: model.now))"
+    let open = expanded.contains(item.id)
+    return VStack(alignment: .leading, spacing: 0) {
+      Button {
+        if open { expanded.remove(item.id) } else { expand(item) }
+      } label: {
+        HStack(alignment: .top, spacing: 8) {
+          Circle().fill(item.read ? .clear : HR.ink).frame(width: 5, height: 5).padding(.top, 5)
+            .frame(width: 7)
+          VStack(alignment: .leading, spacing: 2) {
+            Text(item.notice.title).font(HR.popoverFont(12, item.read ? .regular : .medium))
+              .foregroundStyle(item.read ? HR.secondary : HR.ink)
+              .lineSpacing(2).fixedSize(horizontal: false, vertical: true)
+            Text(
+              "\(item.notice.accountLabel) · \(Formatting.age(item.notice.occurredAt, now: model.now))"
+            )
+            .font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
+          }.frame(maxWidth: .infinity, alignment: .leading)
+          Image(systemName: open ? "chevron.down" : "chevron.right")
+            .font(.system(size: 9)).foregroundStyle(HR.secondary).frame(width: 10).padding(.top, 4)
+        }.padding(.vertical, 6).contentShape(Rectangle())
+      }.buttonStyle(.plain).focused($focused, equals: item.id)
+        .accessibilityLabel(
+          "\(item.read ? "Read" : "Unread"). \(item.notice.title). \(item.notice.accountLabel). \(Formatting.age(item.notice.occurredAt, now: model.now))"
         )
-        .font(HR.font(11)).foregroundStyle(HR.secondary).fixedSize(
-          horizontal: false, vertical: true)
+        .accessibilityValue(open ? "Expanded" : "Collapsed")
+      if open {
+        Text(item.notice.message).font(HR.popoverFont(12)).lineSpacing(5)
+          .fixedSize(horizontal: false, vertical: true).padding(.leading, 15).padding(.top, 4)
+          .padding(.bottom, 8)
+        HStack {
+          Button("Mark unread") {
+            Task {
+              await model.setRead(false, item: item)
+              expanded.remove(item.id)
+              focused = item.id
+            }
+          }.accessibilityLabel("Mark \(item.notice.title) as unread")
+          Spacer()
+          Button("Open dashboard") {
+            model.openDashboard(item.source.source, accountID: item.notice.accountID)
+          }
+        }.font(HR.popoverFont(11)).buttonStyle(.plain).underline().foregroundStyle(HR.secondary)
+          .padding(.leading, 15).frame(minHeight: 24)
       }
-      .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 8).padding(
-        .vertical, 16
-      )
-      .background(item.read ? HR.surface : HR.muted)
-      .overlay(alignment: .leading) { if !item.read { Rectangle().fill(HR.ink).frame(width: 3) } }
-      .overlay(alignment: .bottom) { Rectangle().fill(HR.border).frame(height: 1) }
-      .contentShape(Rectangle())
-    }.buttonStyle(.plain).accessibilityLabel(
-      "\(item.read ? "Read" : "Unread"). \(item.notice.title). \(item.source.source.name). Open notice"
-    )
-    .contextMenu {
-      Button(item.read ? "Mark as unread" : "Mark as read") {
-        Task { await model.setRead(!item.read, item: item) }
+    }
+    .padding(.horizontal, open ? 8 : 0).padding(.top, open ? 4 : 0).padding(.bottom, open ? 8 : 0)
+    .background(open ? HR.muted : HR.surface, in: RoundedRectangle(cornerRadius: 5))
+    .padding(.vertical, 8)
+    .overlay(alignment: .bottom) { Rectangle().fill(HR.border).frame(height: 1) }
+  }
+
+  private var skeletons: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      Text("Reading notices…").font(HR.popoverFont(11)).foregroundStyle(HR.secondary).frame(
+        height: 16
+      ).padding(
+        .bottom, 12)
+      ForEach(0..<7, id: \.self) { _ in
+        HStack {
+          GeometryReader { geometry in
+            VStack(alignment: .leading, spacing: 7) {
+              Rectangle().fill(HR.muted).frame(width: geometry.size.width * 0.6, height: 10)
+              Rectangle().fill(HR.muted).frame(width: geometry.size.width * 0.35, height: 10)
+            }
+          }.frame(height: 27)
+          Spacer(minLength: 16)
+          Rectangle().fill(HR.muted).frame(width: 14, height: 14)
+        }.frame(height: 49)
+        Divider().overlay(HR.border)
       }
-    }
-  }
-  private func tone(_ item: NoticeItem) -> Color {
-    switch item.notice.tone {
-    case .bad: HR.danger
-    case .warn: HR.warning
-    case .info: HR.secondary
-    }
-  }
-  private func toneLabel(_ item: NoticeItem) -> String {
-    switch item.notice.tone {
-    case .bad: "Attention"
-    case .warn: "Warning"
-    case .info: "Update"
-    }
+    }.padding(.horizontal, 16).accessibilityElement(children: .ignore).accessibilityLabel(
+      "Reading notices")
   }
 }
 
-struct NoticeDetail: View {
-  let model: AppModel
-  let item: NoticeItem
-  var close: () -> Void
-  var body: some View {
-    VStack(alignment: .leading, spacing: 16) {
-      Text(
-        "\(Formatting.age(item.notice.occurredAt, now: model.now)) · Read"
+private struct NoticeFilterStyle: ButtonStyle {
+  let selected: Bool
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label.padding(.horizontal, 8).padding(.vertical, 6)
+      .background(
+        selected || configuration.isPressed ? HR.muted : .clear,
+        in: RoundedRectangle(cornerRadius: 6)
       )
-      .font(HR.font(12)).foregroundStyle(HR.secondary)
-      Text(item.notice.title).font(HR.font(18, .semibold)).accessibilityAddTraits(.isHeader)
-      Text(item.notice.message).font(HR.font(15)).fixedSize(horizontal: false, vertical: true)
-      Text(
-        "\(item.notice.accountLabel) · \(item.source.source.name)"
-      )
-      .font(HR.font(12)).foregroundStyle(HR.secondary)
-      HStack(spacing: 8) {
-        Button("Open in web dashboard") {
-          model.openDashboard(item.source.source, accountID: item.notice.accountID)
-        }
-        .keyboardShortcut(.defaultAction)
-        Button("Mark as unread") {
-          Task {
-            await model.setRead(false, item: item)
-            close()
-          }
-        }
-        Button("Close", action: close).keyboardShortcut(.cancelAction)
-      }.font(HR.font(11)).buttonStyle(HRButtonStyle())
-    }
-    .padding(24).frame(width: 460, alignment: .leading)
-    .foregroundStyle(HR.ink).background(HR.surface).preferredColorScheme(model.colorScheme)
+      .contentShape(Rectangle())
   }
 }

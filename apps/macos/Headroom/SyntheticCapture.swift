@@ -16,78 +16,58 @@
           model.preferences.appearance = appearance
           let theme = appearance.rawValue
           model.sources = saved
-          try await shot(
-            PopoverView(model: model), name: "popover-\(theme)", size: nil, directory: directory)
-          try await shot(
-            MenuItemLabel(model: model, style: .logoAndPercentage).padding(12).background(
-              HR.surface),
-            name: "item-\(theme)", size: NSSize(width: 180, height: 48), directory: directory)
-          try await shot(
-            PopoverView(model: model, notices: true), name: "notices-\(theme)", size: nil,
-            directory: directory)
-          if let item = model.notices.first {
-            await model.setRead(true, item: item)
+          model.noticePhase = .ready
+          for item in model.notices {
+            await model.setRead(!["n1", "n2", "n3", "n5"].contains(item.notice.id), item: item)
+          }
+          for (state, name) in [
+            ("capture", "home-popover"), ("expanded", "expanded-popover"), ("lower", "home-lower"),
+          ] {
+            model.captureState = state
             try await shot(
-              NoticeDetail(model: model, item: item) {}, name: "notice-detail-\(theme)",
-              size: NSSize(width: 460, height: 300), directory: directory)
-            await model.setRead(false, item: item)
+              PopoverView(model: model), name: "r6-\(name)-\(theme)-2x", size: nil,
+              directory: directory)
+          }
+          model.captureState = "capture"
+          if let first = model.notices.first { await model.setRead(true, item: first) }
+          try await shot(
+            PopoverView(model: model, notices: true), name: "r6-notices-\(theme)-2x", size: nil,
+            directory: directory)
+          model.captureState = "notice-expanded"
+          try await shot(
+            PopoverView(model: model, notices: true), name: "r6-notices-expanded-\(theme)-2x",
+            size: nil, directory: directory)
+          if let first = model.notices.first { await model.setRead(false, item: first) }
+          for state in ["empty", "loading", "offline", "clear", "notice-loading", "notice-error"] {
+            model.sources = saved
+            model.captureState = state
+            model.noticePhase = .ready
+            switch state {
+            case "empty": model.sources = []
+            case "loading": model.sources = saved.map { SourceSnapshot(source: $0.source) }
+            case "offline": model.sources[1].state = .offline
+            case "clear": model.notices = []
+            case "notice-loading": model.noticePhase = .loading
+            case "notice-error": model.noticePhase = .failed
+            default: break
+            }
+            let isNotices = ["clear", "notice-loading", "notice-error"].contains(state)
+            try await shot(
+              PopoverView(model: model, notices: isNotices),
+              name: "r6-\(state == "empty" ? "states" : "state-" + state)-\(theme)-2x", size: nil,
+              directory: directory)
+            model.sources = saved
+            await model.loadNotices()
           }
           for pane in SettingsPane.allCases {
             model.selectedPane = pane
             try await shot(
               SettingsView(model: model),
               name:
-                "settings-\(pane.rawValue.lowercased().replacingOccurrences(of: " ", with: "-"))-\(theme)",
+                "r6-settings-\(pane.rawValue.lowercased().replacingOccurrences(of: " ", with: "-"))-\(theme)-2x",
               size: NSSize(width: 700, height: 598), directory: directory,
               title: "Headroom Settings")
           }
-          try await shot(
-            SourceEditor(model: model, draft: SourceDraft()) {}, name: "source-add-\(theme)",
-            size: NSSize(width: 440, height: 310), directory: directory)
-          for state in [
-            "no-sources", "loading", "offline", "signed-out", "all-clear", "no-accounts",
-          ] {
-            model.sources = saved
-            model.captureState = state
-            switch state {
-            case "no-sources": model.sources = []
-            case "loading":
-              model.sources = saved.map { SourceSnapshot(source: $0.source) }
-            case "offline": model.sources[1].state = .offline
-            case "signed-out": model.sources[1].state = .signedOut
-            case "no-accounts":
-              var snapshot = saved[0]
-              snapshot.cached?.feed.accounts = []
-              snapshot.cached?.feed.notices = []
-              model.sources = [snapshot]
-            case "all-clear":
-              var snapshot = saved[0]
-              let clearAccounts =
-                snapshot.cached?.feed.accounts.filter { account in
-                  account.state == .ready && !account.limits.isEmpty
-                    && account.limits.allSatisfy {
-                      ($0.percentLeft ?? 0) > 20 && $0.runsOutAt == nil
-                    }
-                } ?? []
-              snapshot.cached?.feed.accounts = clearAccounts
-              snapshot.cached?.feed.notices = []
-              model.sources = [snapshot]
-            default: break
-            }
-            await model.loadNotices()
-            try await shot(
-              PopoverView(model: model), name: "state-\(state)-\(theme)", size: nil,
-              directory: directory)
-          }
-          model.sources = saved
-          model.captureState = "capture"
-          await model.loadNotices()
-          let notices = model.notices
-          model.notices = []
-          try await shot(
-            NoticesView(model: model) {}, name: "no-notices-\(theme)",
-            size: NSSize(width: 420, height: 380), directory: directory)
-          model.notices = notices
         }
         model.sources = saved
         model.captureState = "capture"
@@ -116,6 +96,12 @@
       _ content: Content, name: String, size: NSSize?, directory: URL, title: String? = nil
     ) async throws {
       let view = content.font(HR.font()).foregroundStyle(HR.ink).background(HR.surface)
+        .clipShape(RoundedRectangle(cornerRadius: title == nil ? 16 : 0))
+        .overlay {
+          if title == nil {
+            RoundedRectangle(cornerRadius: 16).strokeBorder(HR.border, lineWidth: 1)
+          }
+        }
       let host = NSHostingView(rootView: view)
       let measured = size ?? host.fittingSize
       let window = NSWindow(
@@ -126,7 +112,7 @@
       window.title = title ?? "Headroom synthetic capture"
       window.contentView = host
       window.setContentSize(measured)
-      window.appearance = NSAppearance(named: name.hasSuffix("dark") ? .darkAqua : .aqua)
+      window.appearance = NSAppearance(named: name.contains("-dark") ? .darkAqua : .aqua)
       window.center()
       window.makeKeyAndOrderFront(nil)
       NSApp.activate()
@@ -148,6 +134,13 @@
           throw CaptureError.image
         }
         try data.write(to: path)
+      }
+      // Normalize the display profile so comparisons use the mockup's sRGB colors.
+      if let image = NSBitmapImageRep(data: try Data(contentsOf: path)),
+        let normalized = image.converting(to: .sRGB, renderingIntent: .default),
+        let png = normalized.representation(using: .png, properties: [:])
+      {
+        try png.write(to: path)
       }
       window.close()
     }
