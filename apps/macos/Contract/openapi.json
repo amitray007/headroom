@@ -1,0 +1,894 @@
+{
+  "components": {
+    "schemas": {
+      "AppFeed": {
+        "additionalProperties": false,
+        "properties": {
+          "accounts": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "banked": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "count": {
+                          "anyOf": [
+                            {
+                              "minimum": 0,
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "expiries": {
+                          "items": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "type": "array"
+                        },
+                        "interface": {
+                          "enum": ["official", "private"],
+                          "type": "string"
+                        },
+                        "unit": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["count", "unit", "expiries", "interface"],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "charges": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "availability": {
+                        "enum": [
+                          "available",
+                          "unsupported",
+                          "not_authorized",
+                          "temporarily_unavailable",
+                          "unknown"
+                        ],
+                        "type": "string"
+                      },
+                      "cap": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "unit": {
+                                "type": "string"
+                              },
+                              "value": {
+                                "type": "number"
+                              }
+                            },
+                            "required": ["value", "unit"],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "interface": {
+                        "enum": ["official", "private"],
+                        "type": "string"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": ["spend", "balance", "count"],
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "unit": {
+                        "type": "string"
+                      },
+                      "unlimited": {
+                        "type": "boolean"
+                      },
+                      "value": {
+                        "type": ["number", "null"]
+                      },
+                      "window": {
+                        "type": ["string", "null"]
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "label",
+                      "kind",
+                      "value",
+                      "unit",
+                      "cap",
+                      "window",
+                      "unlimited",
+                      "availability",
+                      "interface"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "identity": {
+                  "type": ["string", "null"]
+                },
+                "interface": {
+                  "enum": ["official", "private"],
+                  "type": "string"
+                },
+                "lastSuccessAt": {
+                  "anyOf": [
+                    {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "limits": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "interface": {
+                        "enum": ["official", "private"],
+                        "type": "string"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "notStarted": {
+                        "type": "boolean"
+                      },
+                      "part": {
+                        "type": "boolean"
+                      },
+                      "percentLeft": {
+                        "anyOf": [
+                          {
+                            "maximum": 100,
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "resetWords": {
+                        "enum": ["resets", "cycle_end", "not_started"],
+                        "type": "string"
+                      },
+                      "resetsAt": {
+                        "anyOf": [
+                          {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "runsOutAt": {
+                        "anyOf": [
+                          {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "unlimited": {
+                        "type": "boolean"
+                      },
+                      "window": {
+                        "type": ["string", "null"]
+                      },
+                      "windowKind": {
+                        "enum": ["session", "weekly", "cycle", "other"],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "label",
+                      "window",
+                      "windowKind",
+                      "percentLeft",
+                      "unlimited",
+                      "notStarted",
+                      "resetsAt",
+                      "resetWords",
+                      "runsOutAt",
+                      "part",
+                      "interface"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "observedAt": {
+                  "anyOf": [
+                    {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "plan": {
+                  "type": ["string", "null"]
+                },
+                "provider": {
+                  "enum": [
+                    "codex",
+                    "claude",
+                    "grok",
+                    "antigravity",
+                    "copilot",
+                    "cursor",
+                    "vercel_ai_gateway"
+                  ],
+                  "type": "string"
+                },
+                "reconnectReason": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "refresh_rejected",
+                        "token_rejected",
+                        "identity_changed",
+                        "revoked_by_owner"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "state": {
+                  "enum": ["ready", "partial", "reconnect_required", "paused"],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "provider",
+                "name",
+                "plan",
+                "identity",
+                "state",
+                "reconnectReason",
+                "interface",
+                "lastSuccessAt",
+                "observedAt",
+                "limits",
+                "charges",
+                "banked"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "apiVersion": {
+            "const": 1,
+            "type": "number"
+          },
+          "dashboardUrl": {
+            "anyOf": [
+              {
+                "format": "uri",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "generatedAt": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "notices": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "connection": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "identity": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "name": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": ["string", "null"]
+                    }
+                  },
+                  "required": ["id", "name", "plan"],
+                  "type": "object"
+                },
+                "figures": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amount": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "unit": {
+                          "enum": [
+                            "USD",
+                            "codex_credits",
+                            "grok_credits",
+                            "gateway_credits",
+                            "credits"
+                          ],
+                          "type": "string"
+                        },
+                        "value": {
+                          "type": "number"
+                        }
+                      },
+                      "required": ["value", "unit"],
+                      "type": "object"
+                    },
+                    "cap": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "unit": {
+                          "enum": [
+                            "USD",
+                            "codex_credits",
+                            "grok_credits",
+                            "gateway_credits",
+                            "credits"
+                          ],
+                          "type": "string"
+                        },
+                        "value": {
+                          "type": "number"
+                        }
+                      },
+                      "required": ["value", "unit"],
+                      "type": "object"
+                    },
+                    "expiresAt": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "percentLeft": {
+                      "type": "number"
+                    },
+                    "percentUsed": {
+                      "type": "number"
+                    },
+                    "resetsAt": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "runsOutAt": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                },
+                "id": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "kind": {
+                  "enum": [
+                    "almost_out",
+                    "running_low",
+                    "pacing",
+                    "reset_expiring",
+                    "balance_low",
+                    "spend_near_cap",
+                    "spend_cap_reached",
+                    "extra_usage_started",
+                    "refresh_failed",
+                    "disconnected",
+                    "reset_granted",
+                    "early_reset",
+                    "auto_reset",
+                    "top_up_detected",
+                    "budget_near",
+                    "budget_exceeded",
+                    "credits_expiring"
+                  ],
+                  "type": "string"
+                },
+                "links": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "dashboard": {
+                      "format": "uri",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "message": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "observedAt": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "occurredAt": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "provider": {
+                  "enum": [
+                    "codex",
+                    "claude",
+                    "grok",
+                    "antigravity",
+                    "copilot",
+                    "cursor",
+                    "vercel_ai_gateway"
+                  ],
+                  "type": "string"
+                },
+                "schemaVersion": {
+                  "const": 1,
+                  "type": "number"
+                },
+                "subject": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "label": {
+                      "type": ["string", "null"]
+                    },
+                    "metricKey": {
+                      "type": ["string", "null"]
+                    },
+                    "window": {
+                      "type": ["string", "null"]
+                    }
+                  },
+                  "required": ["metricKey", "label", "window"],
+                  "type": "object"
+                },
+                "title": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "tone": {
+                  "enum": ["bad", "warn", "info"],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "schemaVersion",
+                "id",
+                "kind",
+                "tone",
+                "occurredAt",
+                "observedAt",
+                "provider",
+                "connection",
+                "subject",
+                "figures",
+                "title",
+                "message",
+                "links"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "providerOrder": {
+            "items": {
+              "enum": [
+                "codex",
+                "claude",
+                "grok",
+                "antigravity",
+                "copilot",
+                "cursor",
+                "vercel_ai_gateway"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "refreshIntervalMs": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "serverVersion": {
+            "type": "string"
+          },
+          "staleAfterMs": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "summary": {
+            "additionalProperties": false,
+            "properties": {
+              "extraSpend": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "unit": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": ["number", "null"]
+                    }
+                  },
+                  "required": ["unit", "value"],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "monthlyPlanTotal": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "currency": {
+                        "enum": [
+                          "USD",
+                          "EUR",
+                          "GBP",
+                          "INR",
+                          "CAD",
+                          "AUD",
+                          "JPY",
+                          "SGD",
+                          "CHF",
+                          "BRL"
+                        ],
+                        "type": "string"
+                      },
+                      "minor": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      }
+                    },
+                    "required": ["minor", "currency"],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "nextLimitBack": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "accountId": {
+                        "type": "string"
+                      },
+                      "at": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "metricKey": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["accountId", "metricKey", "at"],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["monthlyPlanTotal", "extraSpend", "nextLimitBack"],
+            "type": "object"
+          }
+        },
+        "required": [
+          "apiVersion",
+          "serverVersion",
+          "generatedAt",
+          "refreshIntervalMs",
+          "staleAfterMs",
+          "dashboardUrl",
+          "providerOrder",
+          "accounts",
+          "summary",
+          "notices"
+        ],
+        "type": "object"
+      },
+      "AppWhoami": {
+        "additionalProperties": false,
+        "properties": {
+          "apiVersion": {
+            "const": 1,
+            "type": "number"
+          },
+          "serverVersion": {
+            "type": "string"
+          },
+          "tokenName": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["apiVersion", "serverVersion", "tokenName"],
+        "type": "object"
+      },
+      "Error": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": ["error"],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "appToken": {
+        "bearerFormat": "Headroom read token",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "Headroom App API",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/app/v1/feed": {
+      "get": {
+        "operationId": "getAppFeed",
+        "parameters": [
+          {
+            "description": "Whole minutes east of UTC. Plain integer; defaults to 0.",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 840,
+              "minimum": -720,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppFeed"
+                }
+              }
+            },
+            "description": "Current source data. Cache-Control: no-store.",
+            "headers": {
+              "ETag": {
+                "description": "Strong SHA-256 body validator.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The feed is unchanged. No response body.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid query: invalid_tz."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing, expired, revoked or invalid token: invalid_token."
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Only GET and HEAD are allowed: method_not_allowed.",
+            "headers": {
+              "Allow": {
+                "schema": {
+                  "const": "GET, HEAD",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many authentication attempts: rate_limited.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "appToken": []
+          }
+        ]
+      }
+    },
+    "/api/app/v1/whoami": {
+      "get": {
+        "operationId": "getAppWhoami",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppWhoami"
+                }
+              }
+            },
+            "description": "Current source data. Cache-Control: no-store."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid query: invalid_tz."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing, expired, revoked or invalid token: invalid_token."
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Only GET and HEAD are allowed: method_not_allowed.",
+            "headers": {
+              "Allow": {
+                "schema": {
+                  "const": "GET, HEAD",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many authentication attempts: rate_limited.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "appToken": []
+          }
+        ]
+      }
+    }
+  }
+}

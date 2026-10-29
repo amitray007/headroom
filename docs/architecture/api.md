@@ -25,6 +25,7 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 | `POST /api/wallet/top-ups`, `PUT /api/wallet/top-ups/:id`, `DELETE /api/wallet/top-ups/:id` | Record a top-up, edit one, or remove one |
 | `GET /api/exchange-rates`, `POST /api/exchange-rates/refresh` | The daily reference rates the Wallet converts with; the POST fetches them again now, at most once a minute, and touches no account |
 | `GET /api/tokens`, `POST /api/tokens`, `DELETE /api/tokens/:id` | Session-only device token management, see [API tokens](#api-tokens) |
+| `GET /api/app/v1/feed?tz=<minutes>` | Token-only account feed, notices and Wallet summary, see [App feed](#app-feed) |
 | `GET /api/app/v1/whoami` | Token-only API version, server version and token name |
 | `/api/delivery/...` | Notification channels (Telegram, webhook), tests and Telegram chat discovery, see [Delivery](#delivery) |
 
@@ -36,7 +37,37 @@ The Better Auth API key plugin stores a hash, assigns only `{ app: ["read"] }`, 
 
 `/api/app/v1/*` accepts only `Authorization: Bearer <token>`. A session cookie or `x-api-key` cannot authenticate it. GET and HEAD are allowed; other methods return 405 `method_not_allowed` with `Allow: GET, HEAD`. Missing, invalid, expired, revoked or unscoped keys return 401 `invalid_token`. Ten failed attempts from one client address within a minute block further attempts with 429 `rate_limited` and `Retry-After`. This bounded, in-memory limit resets on server restart and uses the same trusted-proxy policy as sign-in. A token cannot authenticate any session route or change server state.
 
-`GET /api/app/v1/whoami` returns `{ apiVersion: 1, serverVersion, tokenName }`. The feed is a later layer. Demo Mode hides the real token list and refuses token changes; the static demo returns an empty list and the usual demo refusal.
+`GET /api/app/v1/whoami` returns `{ apiVersion: 1, serverVersion, tokenName }`. Both app responses are validated against the Zod schemas in `packages/view-model/src/app-feed.ts`. Demo Mode hides the real token list and refuses token changes; the static demo returns an empty list and the usual demo refusal.
+
+## App feed
+
+`GET /api/app/v1/feed?tz=<minutes>` needs a read token. A session cookie does not grant access. The offset has the same syntax and range as [History](#history): a whole number of minutes east of UTC, from -720 to 840, default 0. An invalid value returns 400 `invalid_tz` after authentication.
+
+The strict `appFeedSchema` in `packages/view-model/src/app-feed.ts` defines the response. Instants are epoch milliseconds. Unknown values are null; a known zero stays zero.
+
+| Field | Content |
+| --- | --- |
+| `apiVersion`, `serverVersion` | Literal `1` and the server version |
+| `generatedAt` | When this representation was built. It stays fixed while its content is unchanged in the route's bounded, per-offset cache |
+| `refreshIntervalMs`, `staleAfterMs` | Collection cadence and the age after which the app marks a reading stale |
+| `dashboardUrl` | `HEADROOM_PUBLIC_URL`, or null; the app can fall back to its configured source URL |
+| `providerOrder`, `accounts` | The same provider and account order as the overview |
+| `summary.monthlyPlanTotal` | Wallet monthly price total as `{ minor, currency }`, or null when no cost is entered or a conversion rate is missing |
+| `summary.extraSpend` | Spend totals as `{ unit, value }`, sorted by unit. Any unread spend makes that unit's total null |
+| `summary.nextLimitBack` | The earliest future reset of an exhausted limit on a ready or partial account, as `{ accountId, metricKey, at }`, or null. Cursor parts do not count |
+| `notices` | Validated `notificationEventSchema` events from the delivery derivation, with exact time style, the request offset and Wallet expiry notices. Dashboard links use `dashboardUrl` when set |
+
+Each account carries its internal `id`, provider, display name, plan, display identity, state, reconnect reason, interface, `lastSuccessAt` and `observedAt`. These timestamps let the app show age without changing the feed each second. It carries no provider account id, workspace id, credential, raw response or run error text.
+
+`limits` contains `key`, `label`, `window`, `windowKind`, `percentLeft`, `unlimited`, `notStarted`, `resetsAt`, `resetWords`, `runsOutAt`, `part` and `interface`. The shared panel and account helpers supply percent left and labels. `runsOutAt` projects a weekly limit at its recent burn rate from the reading time, with the pacing notice's gates but without its one-day lead: it is set whenever the limit runs out before it resets. It stays fixed between collections and is null when no qualifying pace exists or the limit lasts to the reset. The app labels it “if the pace holds”. Cursor Auto and API pools have `part: true`.
+
+`charges` keeps each metric's unit and interface. Each entry has `key`, `label`, `kind` (`spend`, `balance` or `count`), `value`, `unit`, `cap` (`{ value, unit }` or null), `window`, `unlimited` and `availability`. Provider spending caps use the same mapping and scope rule as notices. An owner budget is a separate concept. `banked` is `{ count, unit, expiries, interface }` or null; its sorted expiries contain no credit ids. Unknown inventory counts stay null.
+
+The Wallet total uses the owner's display currency and the server's stored exchange rates. With no selected currency, the server uses USD because the request has no browser locale. A free or included plan contributes a known zero. Unset account costs stay outside the total. A feed read does not collect from providers or fetch exchange rates.
+
+The route sends `Cache-Control: no-store` and a strong `ETag`, the quoted SHA-256 hash of the exact JSON body. A matching `If-None-Match` returns 304 with the ETag and no body. A list of validators, weak validators and `*` are accepted for GET and HEAD. Content changes, including notice changes, produce a new body and validator. The route keeps up to eight offset representations in process memory; eviction or restart can produce a new `generatedAt`.
+
+`mise run mac:contract` writes `apps/macos/Contract/openapi.json` from the feed and whoami Zod schemas with `z.toJSONSchema()`. The OpenAPI 3.1 document has sorted keys and stable formatting. `mise run check` runs its `--check` mode and fails if the committed file differs. It builds no Swift code.
 
 ## History
 

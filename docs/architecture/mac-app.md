@@ -1,6 +1,6 @@
 # Headroom for Mac
 
-**Status: planned, not implemented.** Decision: [ADR 0004](../decisions/0004-mac-app.md). The approved design is round 5 of the Mac mockups, kept in the private `headroom-visuals` repository.
+**Status: native app planned; server token API, feed and generated contract implemented.** Decision: [ADR 0004](../decisions/0004-mac-app.md). The approved design is round 5 of the Mac mockups, kept in the private `headroom-visuals` repository.
 
 Headroom for Mac is a menu bar app with desktop widgets and notifications. It reads one or more Headroom servers and never changes an account. This document covers its parts, the server routes it needs, how data moves, the setup and the build order.
 
@@ -58,9 +58,11 @@ Tests prove that a token gets 401 on every session route and every mutating rout
 | `serverVersion`, `generatedAt` | For the Settings source list and the age line |
 | `refreshIntervalMs`, `staleAfterMs` | The server's collection cadence; the app derives stale from `lastSuccessAt` |
 | `dashboardUrl` | `HEADROOM_PUBLIC_URL` when set, else null. The app then uses the source URL |
-| `providerOrder`, `accounts` | Accounts in the owner's order. Each: id, provider, name, plan, identity, state, reconnect reason, `lastSuccessAt`, `observedAt`, limits (percent left, reset time, run-out time when a pace exists), charges in their own units with caps, banked resets (count, expiries) |
-| `summary` | Plan prices from the Wallet as a monthly total in the display currency, or null when no cost is entered |
+| `providerOrder`, `accounts` | Accounts in the owner's order. Each: id, provider, name, plan, identity, state, reconnect reason, `lastSuccessAt`, `observedAt`, limits (percent left, reset time, run-out time when a pace exists), charges in their own units with caps, banked resets (count, unit, expiries) |
+| `summary` | `monthlyPlanTotal` from the Wallet in the selected currency (USD when unset), or null when no cost is entered or rates are missing; `extraSpend` totals by unit; `nextLimitBack` for an exhausted limit, or null |
 | `notices` | `notificationEventSchema` events, derived with the app's `tz` and the exact time style |
+
+`generatedAt` stays fixed while the cached representation is unchanged. Limits carry `windowKind`, reset wording, Cursor `part` flags and an interface label. Charges carry availability and preserve each metric’s unit. Run-out times use the shared weekly pacing gates at the reading time. The built fields are listed in [App feed](api.md#app-feed).
 
 Rules carried from the dashboard: unknown is null, never 0; units stay separate; no provider account id or workspace id; no credential, raw response or run error text. The route sets an `ETag` from the body hash and answers `If-None-Match` with 304.
 
@@ -103,7 +105,7 @@ A source is `{ id, name, baseURL }` in the app's settings, plus its token, kept 
 | --- | --- |
 | Xcode | The version `macos.yml` pins (26.x until GitHub's macos-26 image defaults to 27) |
 | Commands | `mise run mac:contract` regenerates the OpenAPI document; `mise run mac:test` runs `swift test` in `HeadroomKit`; `mise run mac:build` runs `xcodebuild` for the app |
-| Gate | `mise run check` gains the contract freshness check; it does not build Swift, so Linux CI is unchanged |
+| Gate | `mise run check` includes the contract freshness check; it does not build Swift, so Linux CI is unchanged |
 | Local data | `mise run dev` plus a token from the dev dashboard. Debug builds also accept a synthetic feed made from the Demo Mode data, for tests and screenshots |
 | Fixtures | Synthetic only, generated from `@headroom/view-model/demo` |
 

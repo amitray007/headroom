@@ -15,6 +15,7 @@ import type { AppContext } from "./bootstrap.ts";
 import { version } from "./version.ts";
 import { type Env, rejectCrossSite, requireSession } from "./middleware/session.ts";
 import { requireApiToken } from "./middleware/api-token.ts";
+import { appRoutes } from "./routes/app.ts";
 import { tokenRoutes } from "./routes/tokens.ts";
 import { attemptRoutes } from "./routes/attempts.ts";
 import { connectionRoutes } from "./routes/connections.ts";
@@ -67,9 +68,7 @@ export function createApp(ctx: AppContext): Hono {
   const addressOf = (c: Context<Env>): string =>
     clientAddress(c.req.raw, ctx.config.trustProxy, () => socketAddress(c));
   api.use("/app/v1/*", requireApiToken(ctx, addressOf));
-  api.get("/app/v1/whoami", (c) =>
-    c.json({ apiVersion: 1, serverVersion: version, tokenName: c.get("apiTokenName") }),
-  );
+  api.route("/app/v1", appRoutes(ctx));
 
   api.use(
     cors({
