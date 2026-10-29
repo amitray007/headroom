@@ -310,3 +310,6 @@ export type TopUpSource = z.infer<typeof topUpSourceSchema>;
 export const disconnectResults = ["revoked", "local_only", "failed"] as const;
 export const disconnectResultSchema = z.enum(disconnectResults);
 export type DisconnectResult = z.infer<typeof disconnectResultSchema>;
+
+/** Read-only access to the versioned app API. */
+export const apiTokenScopes = ["read"] as const;

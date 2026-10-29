@@ -112,6 +112,8 @@ function getRoute(path: string): Response {
         refreshIntervalMs: 900_000,
         staleAfterMs: 3_600_000,
       });
+    case "/api/tokens":
+      return Response.json({ tokens: [] });
     case "/api/settings":
       return Response.json({ settings });
     case "/api/exchange-rates":

@@ -14,6 +14,8 @@ import {
 import type { AppContext } from "./bootstrap.ts";
 import { version } from "./version.ts";
 import { type Env, rejectCrossSite, requireSession } from "./middleware/session.ts";
+import { requireApiToken } from "./middleware/api-token.ts";
+import { tokenRoutes } from "./routes/tokens.ts";
 import { attemptRoutes } from "./routes/attempts.ts";
 import { connectionRoutes } from "./routes/connections.ts";
 import { deliveryRoutes } from "./routes/delivery.ts";
@@ -63,6 +65,16 @@ export function createApp(ctx: AppContext): Hono {
 
   const api = new Hono<Env>();
   api.use(
+    "/app/v1/*",
+    requireApiToken(ctx, (c) =>
+      clientAddress(c.req.raw, ctx.config.trustProxy, () => socketAddress(c)),
+    ),
+  );
+  api.get("/app/v1/whoami", (c) =>
+    c.json({ apiVersion: 1, serverVersion: version, tokenName: c.get("apiTokenName") }),
+  );
+
+  api.use(
     cors({
       origin: (origin) => (ctx.trustedOrigins.includes(origin) ? origin : null),
       credentials: true,
@@ -74,9 +86,14 @@ export function createApp(ctx: AppContext): Hono {
 
   api.use(rejectCrossSite(ctx));
 
+  // Token management is exposed only through the scoped Headroom routes below.
+  api.use("/auth/api-key/*", requireSession(ctx));
+  api.all("/auth/api-key/*", (c) => c.json({ error: "not_found" }, 404));
+
   /** Better Auth owns everything under /api/auth, including its own origin checks and rate limits. */
   api.on(["GET", "POST"], "/auth/*", async (c) => {
     const headers = new Headers(c.req.raw.headers);
+    headers.delete("authorization");
     headers.set(
       clientIpHeader,
       clientAddress(c.req.raw, ctx.config.trustProxy, () => socketAddress(c)),
@@ -95,6 +112,7 @@ export function createApp(ctx: AppContext): Hono {
     return c.json({ id: user.id, name: user.name, email: user.email });
   });
 
+  api.route("/tokens", tokenRoutes(ctx));
   api.route("/providers", providerRoutes(ctx));
   api.route("/connections", connectionRoutes(ctx));
   api.route("/attempts", attemptRoutes(ctx));

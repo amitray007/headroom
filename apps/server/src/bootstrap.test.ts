@@ -71,6 +71,7 @@ describe("bootstrap", () => {
         "0005_single_owner",
         "0006_automations",
         "0007_expiry_reset",
+          "0008_api_tokens",
       ]);
       expect(statSync(join(dir, "data", "headroom.db")).isFile()).toBe(true);
       expect(statSync(join(dir, "auth")).mode & 0o777).toBe(0o600);

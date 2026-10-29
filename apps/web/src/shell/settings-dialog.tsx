@@ -14,6 +14,7 @@ import { Sk } from "../ui/skeleton.tsx";
 import { SlideSwap, type SwapDirection } from "../ui/slide-swap.tsx";
 import { Tabs } from "../ui/tabs.tsx";
 import { AutomationsTab } from "./automations-tab.tsx";
+import { DevicesTab } from "./devices-tab.tsx";
 import { ChannelsTab } from "./delivery/tab.tsx";
 import { ExchangeRatesSection } from "./exchange-rates-section.tsx";
 import { ProviderCards } from "./provider-cards.tsx";
@@ -87,6 +88,7 @@ const tabs = [
   { value: "notifications", label: "Notifications" },
   { value: "automations", label: "Automations" },
   { value: "channels", label: "Channels" },
+  { value: "devices", label: "Devices" },
   { value: "privacy", label: "Privacy" },
 ] as const;
 
@@ -465,6 +467,7 @@ export function SettingsDialog(props: {
                 />
               ) : null}
               {tab === "channels" ? <ChannelsTab /> : null}
+              {props.open && tab === "devices" ? <DevicesTab /> : null}
               {tab === "privacy" ? <Privacy /> : null}
             </SlideSwap>
           </div>

@@ -1,3 +1,4 @@
+import { apiKey } from "@better-auth/api-key";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
@@ -5,6 +6,7 @@ import { APIError } from "better-auth/api";
 import { username } from "better-auth/plugins";
 import { count } from "drizzle-orm";
 
+import { apiTokenScopes } from "../enums.ts";
 import { type Db, schema } from "../db/index.ts";
 
 /**
@@ -52,6 +54,15 @@ export function createAuth(options: AuthOptions) {
       requireEmailVerification: false,
     },
     plugins: [
+      apiKey({
+        enableSessionForAPIKeys: false,
+        defaultPrefix: "hr_",
+        requireName: true,
+        maximumNameLength: 40,
+        startingCharactersConfig: { charactersLength: 11 },
+        permissions: { defaultPermissions: { app: [...apiTokenScopes] } },
+        rateLimit: { enabled: true, timeWindow: 60_000, maxRequests: 120 },
+      }),
       username({ minUsernameLength: minimumUsernameLength }),
       passkey({
         rpID: base.hostname,
