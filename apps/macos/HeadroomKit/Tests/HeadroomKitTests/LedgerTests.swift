@@ -102,3 +102,32 @@ private func row(_ rows: [LedgerRow], _ id: String) throws -> LedgerRow {
   #expect(Formatting.amount(20, unit: "USD") == "$20")
   #expect(Formatting.amount(579.74, unit: "credits") == "579.74")
 }
+
+@Test func demoFeedMovesEveryInstantByTheSameAmount() throws {
+  let url = try #require(
+    Bundle.module.url(forResource: "demo", withExtension: "json", subdirectory: "Fixtures"))
+  let data = try Data(contentsOf: url)
+  let original = try JSONDecoder().decode(AppFeed.self, from: data)
+  let now = Date(timeIntervalSince1970: 1_900_000_000)
+  let demo = try DemoFeed.current(data, now: now)
+  let shift = 1_900_000_000_000 - original.generatedAt
+  #expect(demo.generatedAt == 1_900_000_000_000)
+  #expect(demo.accounts.count == original.accounts.count)
+  for (moved, source) in zip(demo.accounts, original.accounts) {
+    for (a, b) in zip(moved.limits, source.limits) {
+      #expect(a.resetsAt == b.resetsAt.map { $0 + shift })
+      #expect(a.percentLeft == b.percentLeft)
+    }
+  }
+  #expect(demo.notices.first?.occurredAt == original.notices.first.map { $0.occurredAt + shift })
+}
+
+@Test func displayPreferencesLoadFilesSavedBeforeNewFields() throws {
+  let old = Data(#"{"itemStyle":"percentage","hiddenAccounts":[],"accountOrder":[]}"#.utf8)
+  let value = try JSONDecoder().decode(DisplayPreferences.self, from: old)
+  #expect(value.itemStyle == .percentage)
+  #expect(value.appearance == .system)
+  #expect(!value.privacy)
+  #expect(!value.demo)
+  #expect(value.sourceFilter == nil)
+}

@@ -28,7 +28,10 @@ final class AppModel {
   var notices: [NoticeItem] = []
   var noticePhase: NoticePhase = .loading
   var preferences = DisplayPreferences() {
-    didSet { if preferences.appearance != oldValue.appearance { applyAppearance() } }
+    didSet {
+      if preferences.appearance != oldValue.appearance { applyAppearance() }
+      if preferences.demo != oldValue.demo { Task { await self.applyDemo() } }
+    }
   }
   var enabledKinds: [String: Bool] = [:]
   var selectedPane: SettingsPane = .menuBar
@@ -60,9 +63,23 @@ final class AppModel {
   private var noticeStore: NoticeStore?
   private var feedCache = FeedCache()
 
-  var accounts: [AccountItem] { Presentation.accounts(sources, preferences: preferences) }
+  var refreshing = false
+  /// Demo Mode replaces every account and notice with a made-up feed; real sources keep polling.
+  private(set) var demoSources: [SourceSnapshot] = []
+  var displaySources: [SourceSnapshot] { preferences.demo ? demoSources : sources }
+  /// The popover's source selector. A filter for a removed source falls back to all sources.
+  var popoverSources: [SourceSnapshot] {
+    guard let filter = preferences.sourceFilter,
+      displaySources.contains(where: { $0.id == filter })
+    else { return displaySources }
+    return displaySources.filter { $0.id == filter }
+  }
+  var popoverAccounts: [AccountItem] {
+    Presentation.accounts(popoverSources, preferences: preferences)
+  }
+  var accounts: [AccountItem] { Presentation.accounts(displaySources, preferences: preferences) }
   var allAccounts: [AccountItem] {
-    Presentation.accounts(sources, preferences: preferences, includeHidden: true)
+    Presentation.accounts(displaySources, preferences: preferences, includeHidden: true)
   }
   var unread: Int { notices.filter { !$0.read }.count }
   /// The app-wide appearance, not `preferredColorScheme`: SwiftUI leaves a window on the last
@@ -145,7 +162,8 @@ final class AppModel {
         guard !Task.isCancelled, let self, self.generation == current else { return }
         self.sources = snapshots
         await self.loadNotices()
-        if let noticeStore = self.noticeStore, !self.synthetic {
+        // Demo notices are made up; only real ones become banners.
+        if let noticeStore = self.noticeStore, !self.synthetic, !self.preferences.demo {
           await self.banners.deliver(self.notices, store: noticeStore)
         }
         if await poller.storageFailed {
@@ -167,9 +185,55 @@ final class AppModel {
     popoverPresented = true
     NSApp.activate()
   }
-  func readSources() async { await poller?.refresh() }
+  /// The refresh button spins for at least half a second, so a fast read still shows it worked.
+  func readSources() async {
+    guard !refreshing else { return }
+    refreshing = true
+    let started = ContinuousClock.now
+    if !preferences.demo { await poller?.refresh() }
+    try? await Task.sleep(until: started + .milliseconds(600))
+    refreshing = false
+  }
+
+  func applyDemo() async {
+    if preferences.demo {
+      do {
+        guard let url = Bundle.main.url(forResource: "demo", withExtension: "json") else {
+          throw CocoaError(.fileReadNoSuchFile)
+        }
+        let feed = try DemoFeed.current(Data(contentsOf: url), now: Date())
+        let source = try Source(
+          id: Self.demoSourceID, name: "Demo",
+          baseURL: URL(string: "https://demo.example.invalid")!)
+        demoSources = [
+          SourceSnapshot(
+            source: source, state: .connected,
+            cached: CachedFeed(feed: feed, etag: nil, readAt: Date()))
+        ]
+      } catch {
+        self.error = "Could not load the demo accounts."
+      }
+    } else {
+      demoSources = []
+    }
+    await loadNotices()
+  }
+  private static let demoSourceID = UUID(uuidString: "00000000-0000-4000-8000-00000000DE70")!
 
   func loadNotices() async {
+    if preferences.demo {
+      // Demo notices live in memory only; their read state is never saved.
+      let kept = Dictionary(uniqueKeysWithValues: notices.map { ($0.id, $0.read) })
+      notices = demoSources.flatMap { snapshot in
+        (snapshot.cached?.feed.notices ?? []).map {
+          let notice = NativeNotice($0, sourceName: snapshot.source.name)
+          return NoticeItem(
+            source: snapshot, notice: notice, read: kept["\(snapshot.id)/\(notice.id)"] ?? false)
+        }
+      }.sorted { $0.notice.occurredAt > $1.notice.occurredAt }
+      noticePhase = .ready
+      return
+    }
     guard let noticeStore else { return }
     var items: [NoticeItem] = []
     for snapshot in sources {
@@ -219,12 +283,20 @@ final class AppModel {
   }
 
   func setRead(_ value: Bool, item: NoticeItem) async {
+    if preferences.demo {
+      if let index = notices.firstIndex(where: { $0.id == item.id }) { notices[index].read = value }
+      return
+    }
     do {
       try await noticeStore?.setRead(value, id: item.notice.id, sourceID: item.source.id)
       await loadNotices()
     } catch { self.error = "Could not save notice read state." }
   }
   func markAllRead() async {
+    if preferences.demo {
+      for index in notices.indices { notices[index].read = true }
+      return
+    }
     do {
       try await noticeStore?.markAllRead()
       await loadNotices()

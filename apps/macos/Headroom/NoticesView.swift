@@ -7,6 +7,7 @@ struct NoticesView: View {
   @State private var unreadOnly = false
   @State private var expanded: Set<String> = []
   @FocusState private var focused: String?
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   private var items: [NoticeItem] {
     model.notices.filter { !unreadOnly || !$0.read || expanded.contains($0.id) }
@@ -77,7 +78,7 @@ struct NoticesView: View {
     .onChange(of: model.bannerNoticeID) { _, _ in selectBanner() }
     .onKeyPress(.escape) {
       if let id = focused, expanded.contains(id) {
-        expanded.remove(id)
+        _ = withAnimation(Motion.expand(reduceMotion)) { expanded.remove(id) }
       } else {
         back()
       }
@@ -87,9 +88,11 @@ struct NoticesView: View {
 
   private var toolbar: some View {
     HStack(spacing: 4) {
-      Button("All") { unreadOnly = false }.buttonStyle(NoticeFilterStyle(selected: !unreadOnly))
+      Button("All") { withAnimation(Motion.expand(reduceMotion)) { unreadOnly = false } }
+        .buttonStyle(NoticeFilterStyle(selected: !unreadOnly))
         .accessibilityAddTraits(!unreadOnly ? .isSelected : [])
-      Button("Unread") { unreadOnly = true }.buttonStyle(NoticeFilterStyle(selected: unreadOnly))
+      Button("Unread") { withAnimation(Motion.expand(reduceMotion)) { unreadOnly = true } }
+        .buttonStyle(NoticeFilterStyle(selected: unreadOnly))
         .focused($focused, equals: "unread-filter").accessibilityAddTraits(
           unreadOnly ? .isSelected : [])
       Spacer()
@@ -105,7 +108,7 @@ struct NoticesView: View {
   }
 
   private func expand(_ item: NoticeItem) {
-    expanded.insert(item.id)
+    _ = withAnimation(Motion.expand(reduceMotion)) { expanded.insert(item.id) }
     Task { await model.setRead(true, item: item) }
   }
   private func selectBanner() {
@@ -121,10 +124,15 @@ struct NoticesView: View {
     let open = expanded.contains(item.id)
     return VStack(alignment: .leading, spacing: 0) {
       Button {
-        if open { expanded.remove(item.id) } else { expand(item) }
+        if open {
+          _ = withAnimation(Motion.expand(reduceMotion)) { expanded.remove(item.id) }
+        } else {
+          expand(item)
+        }
       } label: {
         HStack(alignment: .top, spacing: 8) {
           Circle().fill(item.read ? .clear : HR.ink).frame(width: 5, height: 5).padding(.top, 5)
+            .animation(Motion.hover, value: item.read)
             .frame(width: 7)
           VStack(alignment: .leading, spacing: 2) {
             Text(item.notice.title).font(HR.popoverFont(12, item.read ? .regular : .medium))
@@ -135,7 +143,7 @@ struct NoticesView: View {
             )
             .font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
           }.frame(maxWidth: .infinity, alignment: .leading)
-          Image(systemName: open ? "chevron.down" : "chevron.right")
+          Image(systemName: "chevron.right").rotationEffect(.degrees(open ? 90 : 0))
             .font(.system(size: 9)).foregroundStyle(HR.secondary).frame(width: 10).padding(.top, 4)
         }.padding(.vertical, 6).contentShape(Rectangle())
       }.buttonStyle(.plain).focused($focused, equals: item.id)
@@ -144,23 +152,25 @@ struct NoticesView: View {
         )
         .accessibilityValue(open ? "Expanded" : "Collapsed")
       if open {
-        Text(item.notice.message).font(HR.popoverFont(12)).lineSpacing(5)
-          .fixedSize(horizontal: false, vertical: true).padding(.leading, 15).padding(.top, 4)
-          .padding(.bottom, 8)
-        HStack {
-          Button("Mark unread") {
-            Task {
-              await model.setRead(false, item: item)
-              expanded.remove(item.id)
-              focused = item.id
+        VStack(alignment: .leading, spacing: 0) {
+          Text(item.notice.message).font(HR.popoverFont(12)).lineSpacing(5)
+            .fixedSize(horizontal: false, vertical: true).padding(.leading, 15).padding(.top, 4)
+            .padding(.bottom, 8)
+          HStack {
+            Button("Mark unread") {
+              Task {
+                await model.setRead(false, item: item)
+                expanded.remove(item.id)
+                focused = item.id
+              }
+            }.accessibilityLabel("Mark \(item.notice.title) as unread")
+            Spacer()
+            Button("Open dashboard") {
+              model.openDashboard(item.source.source, accountID: item.notice.accountID)
             }
-          }.accessibilityLabel("Mark \(item.notice.title) as unread")
-          Spacer()
-          Button("Open dashboard") {
-            model.openDashboard(item.source.source, accountID: item.notice.accountID)
-          }
-        }.font(HR.popoverFont(11)).buttonStyle(.plain).underline().foregroundStyle(HR.secondary)
-          .padding(.leading, 15).frame(minHeight: 24)
+          }.font(HR.popoverFont(11)).buttonStyle(.plain).underline().foregroundStyle(HR.secondary)
+            .padding(.leading, 15).frame(minHeight: 24)
+        }.transition(Motion.reveal(reduceMotion))
       }
     }
     .padding(.horizontal, open ? 8 : 0).padding(.top, open ? 4 : 0).padding(.bottom, open ? 8 : 0)

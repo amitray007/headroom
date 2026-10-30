@@ -17,7 +17,9 @@ struct LedgerRowView: View {
   let row: LedgerRow
   let model: AppModel
   @State private var expanded = false
+  @State private var hovered = false
   @FocusState private var summaryFocused: Bool
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   private var item: AccountItem { row.item }
   private var account: FeedAccount { item.account }
   private var quiet: Bool { item.snapshot.state != .connected }
@@ -25,7 +27,7 @@ struct LedgerRowView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       Button {
-        expanded.toggle()
+        withAnimation(Motion.expand(reduceMotion)) { expanded.toggle() }
       } label: {
         HStack(spacing: 14) {
           who.frame(width: 164, alignment: .leading)
@@ -45,12 +47,16 @@ struct LedgerRowView: View {
             }.lineLimit(1).fixedSize()
           }
         }.frame(height: 44).padding(.horizontal, 16).contentShape(Rectangle())
-          .background(expanded ? HR.muted : .clear)
-      }.buttonStyle(.plain).focused($summaryFocused)
+          .background(expanded ? HR.muted : hovered ? HR.muted.opacity(0.55) : .clear)
+          .animation(Motion.hover, value: hovered)
+      }.buttonStyle(.plain).focused($summaryFocused).onHover { hovered = $0 }
         .accessibilityLabel(row.column.text(now: model.now))
         .accessibilityValue(expanded ? "Expanded" : "Collapsed")
         .accessibilityHint("Show other limits and account details")
-      if expanded { AccountDetail(row: row, model: model).background(HR.muted) }
+      if expanded {
+        AccountDetail(row: row, model: model).background(HR.muted)
+          .transition(Motion.reveal(reduceMotion))
+      }
     }
     .foregroundStyle(quiet ? HR.secondary : HR.ink)
     .onAppear {
@@ -60,7 +66,7 @@ struct LedgerRowView: View {
     }
     .onKeyPress(.escape) {
       guard expanded else { return .ignored }
-      expanded = false
+      withAnimation(Motion.expand(reduceMotion)) { expanded = false }
       summaryFocused = true
       return .handled
     }
@@ -77,7 +83,16 @@ struct LedgerRowView: View {
             + Text(account.name).font(HR.popoverFont(13, .medium)))
             .font(HR.popoverFont(13))
         }
-        Text(subtitle).font(HR.popoverFont(11))
+        HStack(spacing: 0) {
+          Text(subtitle)
+          if let identity = shownIdentity {
+            Text(subtitle.isEmpty ? "" : " · ")
+            // Privacy Mode blurs the email until the pointer is over the row.
+            Text(identity).layoutPriority(-1).blur(radius: hidesIdentity ? 4 : 0)
+              .animation(Motion.hover, value: hidesIdentity)
+              .accessibilityHidden(hidesIdentity)
+          }
+        }.font(HR.popoverFont(11))
           .foregroundStyle(row.column.state == .signIn ? HR.popoverDanger : HR.textMuted)
       }.lineLimit(1).truncationMode(.tail)
     }
@@ -88,13 +103,18 @@ struct LedgerRowView: View {
   // provider takes the first line and the account name moves to the second.
   private var nameBelow: Bool { account.identity == nil || providerName.count > 12 }
 
+  private var shownIdentity: String? {
+    row.column.state == .signIn || quiet ? nil : account.identity
+  }
+  private var hidesIdentity: Bool { model.preferences.privacy && !hovered && !expanded }
+
   private var subtitle: String {
     if row.column.state == .signIn { return "Sign in again in the dashboard" }
     if quiet {
       return "Kept · \(item.snapshot.source.name) \(item.snapshot.state.label.lowercased())"
     }
     return [
-      nameBelow ? account.name : nil, account.plan, account.identity,
+      nameBelow ? account.name : nil, account.plan,
       Presentation.needsSource(item, among: model.accounts) ? item.snapshot.source.name : nil,
     ].compactMap { $0 }.joined(separator: " · ")
   }
@@ -107,6 +127,7 @@ struct LedgerMeterView: View {
     VStack(spacing: 5) {
       HStack(alignment: .firstTextBaseline, spacing: 6) {
         Text(meter.value).font(HR.popoverFont(13, .medium)).foregroundStyle(tone).fixedSize()
+          .contentTransition(.numericText()).animation(Motion.data, value: meter.value)
         // The window name gives way first; the value and the right-edge note stay whole.
         Text(meter.label).font(HR.popoverFont(11.5)).foregroundStyle(HR.textMuted)
           .truncationMode(.tail).layoutPriority(-1)
@@ -151,7 +172,7 @@ struct Cells: View {
           }
         }.clipShape(RoundedRectangle(cornerRadius: 1.5))
       }
-    }.frame(height: 7)
+    }.frame(height: 7).animation(Motion.data, value: fill)
   }
 
   private var color: Color {

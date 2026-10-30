@@ -13,49 +13,59 @@ struct PopoverView: View {
     _showingNotices = State(initialValue: notices)
   }
 
-  private var room: RoomNow { RoomNow(items: model.accounts, now: model.now) }
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  private var room: RoomNow { RoomNow(items: model.popoverAccounts, now: model.now) }
   private var loading: Bool {
-    model.sources.isEmpty
-      ? !model.ready : model.accounts.isEmpty && model.sources.contains { $0.state == .noData }
+    model.displaySources.isEmpty
+      ? !model.ready
+      : model.popoverAccounts.isEmpty && model.popoverSources.contains { $0.state == .noData }
   }
 
   var body: some View {
     VStack(spacing: 0) {
       if showingNotices {
-        NoticesView(model: model) { showingNotices = false }
-      } else {
-        header
-        if loading {
-          loadingContent
-        } else if model.sources.isEmpty {
-          PopoverState(
-            art: "no-sources", title: "No sources yet",
-            message: "Add a Headroom server to see its accounts here."
-          ) {
-            Button("Add a source") {
-              model.selectedPane = .sources
-              settings()
-            }.buttonStyle(PopoverActionStyle())
-          }
-        } else if model.accounts.isEmpty {
-          emptyAccounts
-        } else {
-          summaryLine
-          ForEach(model.sources.filter { $0.state != .connected }) { snapshot in
-            Text(sourceNote(snapshot)).font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
-              .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-              .padding(.vertical, 10).padding(.horizontal, 16)
-            Divider().overlay(HR.border)
-          }
-          accountList
+        NoticesView(model: model) {
+          withAnimation(Motion.view(reduceMotion)) { showingNotices = false }
         }
+        .transition(Motion.push(.trailing, reduceMotion))
+      } else {
+        VStack(spacing: 0) {
+          header
+          if loading {
+            loadingContent
+          } else if model.displaySources.isEmpty {
+            PopoverState(
+              art: "no-sources", title: "No sources yet",
+              message: "Add a Headroom server to see its accounts here."
+            ) {
+              Button("Add a source") {
+                model.selectedPane = .sources
+                settings()
+              }.buttonStyle(PopoverActionStyle())
+            }
+          } else if model.popoverAccounts.isEmpty {
+            emptyAccounts
+          } else {
+            summaryLine
+            ForEach(model.popoverSources.filter { $0.state != .connected }) { snapshot in
+              Text(sourceNote(snapshot)).font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
+                .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 10).padding(.horizontal, 16)
+              Divider().overlay(HR.border)
+            }
+            accountList
+          }
+        }.transition(Motion.push(.leading, reduceMotion))
       }
       footer
     }
     .font(HR.popoverFont()).monospacedDigit().foregroundStyle(HR.ink).background(HR.surface)
     .frame(width: 600)
+    .clipped()
     .task { if model.bannerNoticeID != nil { showingNotices = true } }
-    .onChange(of: model.bannerNoticeID) { _, id in if id != nil { showingNotices = true } }
+    .onChange(of: model.bannerNoticeID) { _, id in
+      if id != nil { withAnimation(Motion.view(reduceMotion)) { showingNotices = true } }
+    }
     .alert(
       "Headroom",
       isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })
@@ -71,15 +81,20 @@ struct PopoverView: View {
       HeadroomGlyph().frame(width: 23, height: 23)
       Text("Headroom").font(HR.popoverFont(16, .medium)).accessibilityAddTraits(.isHeader)
       Spacer()
-      if !loading && !model.sources.isEmpty {
+      if !loading && !model.displaySources.isEmpty {
         Button {
           Task { await model.readSources() }
         } label: {
           Image(systemName: "arrow.clockwise").font(.system(size: 16))
-        }.buttonStyle(PopoverToolStyle()).help("Read sources")
-          .accessibilityLabel("Read sources")
+            .symbolEffect(
+              .rotate.byLayer, options: .repeat(.continuous),
+              isActive: model.refreshing && !reduceMotion
+            )
+            .opacity(model.refreshing && reduceMotion ? 0.4 : 1)
+        }.buttonStyle(PopoverToolStyle()).help("Read sources").disabled(model.refreshing)
+          .accessibilityLabel(model.refreshing ? "Reading sources" : "Read sources")
         Button {
-          showingNotices = true
+          withAnimation(Motion.view(reduceMotion)) { showingNotices = true }
         } label: {
           HStack(spacing: 5) {
             Image(systemName: "bell").font(.system(size: 16))
@@ -103,7 +118,7 @@ struct PopoverView: View {
   private var rows: [LedgerRow] { room.columns.map { LedgerRow(column: $0, now: model.now) } }
 
   private var summaryLine: some View {
-    let summary = LedgerSummary(rows: rows, feeds: model.sources.compactMap(\.cached?.feed))
+    let summary = LedgerSummary(rows: rows, feeds: model.popoverSources.compactMap(\.cached?.feed))
     return HStack(spacing: 14) {
       if let plans = summary.plans { Text("**\(plans)** a month in plans") }
       if let spend = summary.extraSpend { Text("**\(spend)** extra spend") }
@@ -186,7 +201,7 @@ struct PopoverView: View {
   }
 
   @ViewBuilder private var emptyAccounts: some View {
-    if let snapshot = model.sources.first(where: { $0.state != .connected }) {
+    if let snapshot = model.popoverSources.first(where: { $0.state != .connected }) {
       PopoverState(
         art: snapshot.state == .signedOut ? "signed-out" : "source-offline",
         title: sourceNote(snapshot), message: "Readings appear when this source is available."
@@ -198,7 +213,7 @@ struct PopoverView: View {
         art: "no-accounts", title: "No accounts yet",
         message: "Link accounts in your web dashboard."
       ) {
-        if let source = model.sources.first?.source {
+        if let source = model.popoverSources.first?.source {
           Button("Open dashboard") { model.openDashboard(source) }.buttonStyle(.plain)
         }
       }
@@ -219,34 +234,98 @@ struct PopoverView: View {
 
   private var footer: some View {
     HStack(spacing: 0) {
-      if model.sources.isEmpty {
+      if model.displaySources.isEmpty {
         Text("No readings yet")
       } else if loading {
         Text("Room and reset times appear after the first reading.")
       } else {
         Text(
-          "Updated \(Formatting.age(model.sources.compactMap(\.cached?.readAt).max(), now: model.now))"
+          "Updated \(Formatting.age(model.popoverSources.compactMap(\.cached?.readAt).max(), now: model.now))"
         )
-        ForEach(model.sources) { snapshot in
+        ForEach(model.popoverSources) { snapshot in
           Text(" · ")
           Button(snapshot.source.name + (snapshot.state == .offline ? " offline" : "")) {
             model.openDashboard(snapshot.source)
           }.buttonStyle(.plain).help("Open \(snapshot.source.name) dashboard")
         }
+        Spacer(minLength: 12)
+        if model.displaySources.count > 1 { sourcePicker }
       }
     }.font(HR.popoverFont(11)).foregroundStyle(HR.secondary).lineLimit(1).frame(height: 20)
       .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 12)
       .overlay(alignment: .top) { Rectangle().fill(HR.border).frame(height: 1) }
   }
+
+  /// Which sources the popover shows: all of them, or one.
+  private var sourcePicker: some View {
+    let selected = model.popoverSources.count == 1 && model.displaySources.count > 1
+    return Menu {
+      Picker("Show", selection: sourceFilter) {
+        Text("All sources").tag(UUID?.none)
+        ForEach(model.displaySources) { snapshot in
+          Text(snapshot.source.name).tag(UUID?.some(snapshot.id))
+        }
+      }.pickerStyle(.inline)
+    } label: {
+      HStack(spacing: 4) {
+        Text(selected ? model.popoverSources[0].source.name : "All sources")
+        Image(systemName: "chevron.up.chevron.down").font(.system(size: 8, weight: .semibold))
+      }.foregroundStyle(HR.ink)
+    }.menuStyle(.button).buttonStyle(PopoverFooterStyle()).menuIndicator(.hidden).fixedSize()
+      .help("Choose which sources to show").accessibilityLabel("Sources shown")
+  }
+
+  private var sourceFilter: Binding<UUID?> {
+    Binding(
+      get: { model.popoverSources.count == 1 ? model.preferences.sourceFilter : nil },
+      set: { value in
+        withAnimation(Motion.view(reduceMotion)) { model.preferences.sourceFilter = value }
+        model.saveDisplay()
+      })
+  }
+}
+
+struct PopoverFooterStyle: ButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    HoverSurface(pressed: configuration.isPressed, bordered: true) {
+      configuration.label.font(HR.popoverFont(11, .medium)).padding(.horizontal, 8)
+        .frame(height: 22)
+    }
+  }
 }
 
 struct PopoverToolStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
-    configuration.label.frame(minWidth: 32, minHeight: 32)
+    HoverSurface(pressed: configuration.isPressed, bordered: false) {
+      configuration.label.frame(minWidth: 32, minHeight: 32)
+    }
+  }
+}
+
+/// A quiet hover fill and a small press, shared by the popover's icon and footer buttons.
+private struct HoverSurface<Label: View>: View {
+  let pressed: Bool
+  let bordered: Bool
+  @ViewBuilder var label: Label
+  @Environment(\.isEnabled) private var enabled
+  @State private var hovered = false
+  var body: some View {
+    label
       .background(
-        configuration.isPressed ? HR.track : .clear, in: RoundedRectangle(cornerRadius: 6)
+        pressed ? HR.track : hovered && enabled ? HR.muted : .clear,
+        in: RoundedRectangle(cornerRadius: 6)
       )
+      .overlay {
+        if bordered { RoundedRectangle(cornerRadius: 6).strokeBorder(HR.border) }
+      }
+      .scaleEffect(pressed && enabled ? 0.94 : 1)
+      .animation(
+        pressed ? .easeOut(duration: 0.1) : .spring(response: 0.35, dampingFraction: 0.6),
+        value: pressed
+      )
+      .animation(Motion.hover, value: hovered)
+      .onHover { hovered = $0 }
       .contentShape(Rectangle())
   }
 }

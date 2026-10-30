@@ -8,13 +8,14 @@ struct SettingsView: View {
   @State private var editing: SourceDraft?
   @State private var remove: SourceSnapshot?
   @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
     HStack(spacing: 0) {
       VStack(spacing: 2) {
         ForEach(SettingsPane.allCases) { pane in
           SidebarItem(title: pane.rawValue, selected: model.selectedPane == pane) {
-            model.selectedPane = pane
+            withAnimation(.easeOut(duration: 0.18)) { model.selectedPane = pane }
           }
         }
         Spacer()
@@ -37,6 +38,7 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 12).padding(.bottom, 24)
       }
       .scrollIndicators(.never).id(model.selectedPane)
+      .transition(Motion.reveal(reduceMotion))
       .background(HR.raisedSurface)
     }
     .font(HR.popoverFont(14)).foregroundStyle(HR.ink).tint(HR.ink)
@@ -361,6 +363,21 @@ struct SettingsView: View {
             options: DisplayPreferences.Appearance.allCases.map { ($0, $0.rawValue.capitalized) })
         }
       }
+      SettingsSection("Privacy") {
+        SettingsRow(
+          title: "Privacy Mode",
+          note: "Blur emails until the pointer is over the account. Saved on this Mac."
+        ) {
+          Toggle("Privacy Mode", isOn: $model.preferences.privacy).toggleStyle(WebSwitchStyle())
+        }
+        SettingsRow(
+          title: "Demo Mode",
+          note:
+            "Show made-up accounts, figures and notices, for screenshots and screen sharing. Your sources keep reading in the background."
+        ) {
+          Toggle("Demo Mode", isOn: $model.preferences.demo).toggleStyle(WebSwitchStyle())
+        }
+      }
     }
   }
 }
@@ -478,8 +495,10 @@ struct SourceEditor: View {
           .accessibilityLabel("Source URL")
       }
       WebField(label: draft.sourceID == nil ? "Read-only token" : "New token") {
-        SecureField(draft.sourceID == nil ? "hr_…" : "Leave empty to keep the saved token", text: $token)
-          .focused($focused, equals: .token).accessibilityLabel("Read-only source token")
+        SecureField(
+          draft.sourceID == nil ? "hr_…" : "Leave empty to keep the saved token", text: $token
+        )
+        .focused($focused, equals: .token).accessibilityLabel("Read-only source token")
       }
       VStack(alignment: .leading, spacing: 4) {
         Text(

@@ -19,7 +19,28 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
   public var hiddenAccounts: Set<String> = []
   public var accountOrder: [String] = []
   public var appearance: Appearance = .system
+  /// Blur account emails until the pointer is over the row.
+  public var privacy = false
+  /// Show made-up accounts and notices, for screenshots and screen sharing.
+  public var demo = false
+  /// The popover shows only this source; nil, or a source that no longer exists, shows all.
+  public var sourceFilter: UUID?
   public init() {}
+
+  // Files saved before a field existed still load, with that field at its default.
+  public init(from decoder: any Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    let defaults = DisplayPreferences()
+    itemStyle = try values.decodeIfPresent(ItemStyle.self, forKey: .itemStyle) ?? defaults.itemStyle
+    followedAccount = try values.decodeIfPresent(String.self, forKey: .followedAccount)
+    hiddenAccounts = try values.decodeIfPresent(Set<String>.self, forKey: .hiddenAccounts) ?? []
+    accountOrder = try values.decodeIfPresent([String].self, forKey: .accountOrder) ?? []
+    appearance =
+      try values.decodeIfPresent(Appearance.self, forKey: .appearance) ?? defaults.appearance
+    privacy = try values.decodeIfPresent(Bool.self, forKey: .privacy) ?? false
+    demo = try values.decodeIfPresent(Bool.self, forKey: .demo) ?? false
+    sourceFilter = try values.decodeIfPresent(UUID.self, forKey: .sourceFilter)
+  }
 }
 
 public actor DisplayPreferenceStore {
