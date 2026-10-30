@@ -41,6 +41,8 @@ struct SettingsView: View {
     }
     .font(HR.popoverFont(14)).foregroundStyle(HR.ink).tint(HR.ink)
     .frame(width: 700, height: 598)
+    // The title sat across the sidebar edge; each pane already names itself.
+    .toolbar(removing: .title)
     .preferredColorScheme(model.colorScheme)
     .onChange(of: model.preferences) { _, _ in model.saveDisplay() }
     .sheet(item: $editing) { draft in SourceEditor(model: model, draft: draft) { editing = nil } }
