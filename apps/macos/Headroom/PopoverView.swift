@@ -6,6 +6,7 @@ struct PopoverView: View {
   @Bindable var model: AppModel
   @Environment(\.openSettings) private var openSettings
   @State private var showingNotices = false
+  @State private var listHeight: CGFloat = 0
 
   init(model: AppModel, notices: Bool = false) {
     self.model = model
@@ -39,9 +40,7 @@ struct PopoverView: View {
         } else if model.accounts.isEmpty {
           emptyAccounts
         } else {
-          RoomChart(room: room, now: model.now)
-            .padding(.horizontal, 16).padding(.bottom, 12)
-          Divider().overlay(HR.border)
+          summaryLine
           ForEach(model.sources.filter { $0.state != .connected }) { snapshot in
             Text(sourceNote(snapshot)).font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
               .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
@@ -54,7 +53,7 @@ struct PopoverView: View {
       footer
     }
     .font(HR.popoverFont()).monospacedDigit().foregroundStyle(HR.ink).background(HR.surface)
-    .frame(width: 420)
+    .frame(width: 600)
     .task { if model.bannerNoticeID != nil { showingNotices = true } }
     .onChange(of: model.bannerNoticeID) { _, id in if id != nil { showingNotices = true } }
     .alert(
@@ -101,33 +100,44 @@ struct PopoverView: View {
     openSettings()
   }
 
+  private var rows: [LedgerRow] { room.columns.map { LedgerRow(column: $0, now: model.now) } }
+
+  private var summaryLine: some View {
+    let summary = LedgerSummary(rows: rows, feeds: model.sources.compactMap(\.cached?.feed))
+    return HStack(spacing: 14) {
+      if let plans = summary.plans { Text("**\(plans)** a month in plans") }
+      if let spend = summary.extraSpend { Text("**\(spend)** extra spend") }
+      if summary.banked > 0 {
+        Text("**\(summary.banked)** banked \(summary.banked == 1 ? "reset" : "resets")")
+      }
+      Spacer(minLength: 8)
+      if summary.out > 0 {
+        Text("\(Text("\(summary.out)").foregroundStyle(HR.popoverDanger)) out")
+      }
+      if summary.low > 0 {
+        Text("\(Text("\(summary.low)").foregroundStyle(HR.popoverWarning)) running low")
+      }
+    }.font(HR.popoverFont(12)).foregroundStyle(HR.secondary).lineLimit(1)
+      .padding(.horizontal, 16).padding(.bottom, 12)
+      .overlay(alignment: .bottom) { Rectangle().fill(HR.border).frame(height: 1) }
+  }
+
   private var accountList: some View {
     ScrollViewReader { proxy in
       ScrollView {
-        LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-          Section {
-            ForEach(providers, id: \.self) { provider in
-              ProviderSection(
-                provider: provider,
-                columns: room.columns.filter { $0.item.account.provider.rawValue == provider },
-                model: model
-              )
-              .id(provider)
-              if provider != providers.last { Divider().overlay(HR.border) }
-            }
-          } header: {
-            HStack(spacing: 8) {
-              Spacer()
-              Text("Left").frame(width: 62, alignment: .trailing)
-              Text("Resets").frame(width: 84, alignment: .trailing)
-            }.font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
-              .padding(.top, 7).padding(.bottom, 12).background(HR.surface)
-              .overlay(alignment: .bottom) {
-                Rectangle().fill(HR.surface).frame(height: 8).offset(y: 8)
-              }
+        VStack(spacing: 0) {
+          ForEach(providers, id: \.self) { provider in
+            LedgerGroup(
+              rows: rows.filter { $0.item.account.provider.rawValue == provider }, model: model
+            ).id(provider)
+            if provider != providers.last { Divider().overlay(HR.border) }
           }
-        }.padding(.horizontal, 16)
-      }.frame(height: 482)
+        }.onGeometryChange(for: CGFloat.self) {
+          $0.size.height
+        } action: {
+          listHeight = $0
+        }
+      }.frame(height: min(max(listHeight, 44), 640))
         .onAppear {
           if model.synthetic && model.captureState == "lower" {
             proxy.scrollTo(providers.last, anchor: .bottom)

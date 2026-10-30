@@ -74,6 +74,37 @@ public enum Formatting {
     return "\(remainder) min"
   }
 
+  /// A compact countdown for the popover rows: "in 2h 10m", "in 6d 17h", "in 45m".
+  public static func countdown(to date: Date, now: Date = Date()) -> String {
+    let minutes = max(0, Int((date.timeIntervalSince(now) / 60).rounded()))
+    let days = minutes / 1440
+    let hours = (minutes % 1440) / 60
+    let remainder = minutes % 60
+    if minutes == 0 { return "now" }
+    if days > 0 { return "in \(days)d" + (hours > 0 ? " \(hours)h" : "") }
+    if hours > 0 { return "in \(hours)h" + (remainder > 0 ? " \(remainder)m" : "") }
+    return "in \(remainder)m"
+  }
+
+  /// Money with its symbol ("$3.20", "$20"); any other unit as a bare number ("579.74").
+  public static func amount(_ value: Double, unit: String) -> String {
+    let symbols = ["USD": "$", "EUR": "€", "GBP": "£", "INR": "₹", "JPY": "¥"]
+    let text =
+      value.rounded() == value
+      ? String(format: "%.0f", locale: Locale(identifier: "en_GB"), value)
+      : String(format: "%.2f", locale: Locale(identifier: "en_GB"), value)
+    if let symbol = symbols[unit] { return symbol + text }
+    return ["CAD", "AUD", "SGD", "CHF", "BRL"].contains(unit) ? "\(unit) \(text)" : text
+  }
+
+  /// A weekday within the coming week, otherwise a date: "Sat", "12 Nov".
+  public static func day(_ date: Date, now: Date = Date(), timeZone: TimeZone = .current)
+    -> String
+  {
+    format(
+      date, pattern: date.timeIntervalSince(now) < 6 * 86400 ? "EEE" : "d MMM", timeZone: timeZone)
+  }
+
   public static func age(_ date: Date?, now: Date = Date()) -> String {
     guard let date else { return "Unknown" }
     let seconds = max(0, now.timeIntervalSince(date))
