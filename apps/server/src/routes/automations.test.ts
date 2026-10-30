@@ -56,7 +56,14 @@ async function harness(provider: "codex" | "claude" = "codex", withActions = tru
   return { ctx, app, cookie, id: row.id, send, snapshot };
 }
 
-const rule = { enabled: true, window: "weekly", thresholdPercent: 95, minHoursLeft: 12 } as const;
+const rule = {
+  enabled: true,
+  window: "weekly",
+  thresholdPercent: 95,
+  minHoursLeft: 12,
+  beforeExpiry: true,
+  beforeExpiryMinutes: 2,
+} as const;
 
 describe("PUT/DELETE /api/connections/:id/auto-reset", () => {
   test("needs a session", async () => {

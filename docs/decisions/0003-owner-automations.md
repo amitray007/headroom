@@ -24,7 +24,7 @@ The collector compares each new reading with the previous one for the same accou
 | `reset_granted` | A usable reset credit appears whose id was not in the previous reading, the usable count rose, and both readings report the inventory. Claude grant ids are positional, so for Claude a grant is new only when its expiry is new too | Codex, Claude |
 | `early_reset` | A percent limit fell from 10% used or more to 5% or less, a drop of at least 10 points, while the previous reading still put its reset more than 10 minutes away. Any action since the previous reading that has not failed explains the drop, so the event is skipped. That includes an action still in flight, because its follow-up collection runs before the row is marked `succeeded`. When a usable banked reset that had not expired left the inventory between the same two readings, the detail carries `bankedUsed: true`: the owner spent it outside Headroom | Every provider with percent limits; `bankedUsed` for Codex and Claude |
 | `top_up_detected` | A credit balance rose by at least 0.01 of its unit. Headroom also records a Wallet top-up for it, except for a balance in USD | Codex `credits.balance`, Grok `prepaid_balance`, Vercel AI Gateway: the granted total (`credits.balance` plus `credits.total_used`), else `credits.balance`. Claude `prepaid.balance` in USD since 2026-10-08 (D32), with no Wallet row because the Wallet counts credits |
-| `auto_reset` | An auto-reset rule fired. The detail names the action and its final state | Codex |
+| `auto_reset` | An auto-reset rule fired. The detail names the action and its final state. `trigger: "expiry"` marks a use before expiry; it also carries `creditExpiresAt`, and its `percent` and `resetsAt` describe the longest known limit window, or are null | Codex |
 
 Nothing is detected without a previous reading, or when the value was unknown or unavailable in either reading. Unknown is not zero.
 
@@ -58,6 +58,19 @@ After each scheduled collection that succeeded, the scheduler evaluates the rule
 5. No automatic action for this account started inside the current instance of any qualifying window. An instance runs from `resetsAt` minus the window length. When several windows qualify, the longest is reported. A failed or `uncertain` attempt therefore blocks retries until the window resets on its own. A successful reset starts a new instance.
 
 The rule calls the action service with `origin: "automation"`. The service creates the action row, uses its id as the idempotency key, holds the lease, and records `uncertain` explicitly. After the action, Headroom writes an `auto_reset` event.
+
+### Use before expiry
+
+Amended on 2026-10-30 by the owner. A banked reset that expires unused is lost, and the owner can forget to use one. The rule therefore has a second trigger, `beforeExpiry`, with `beforeExpiryMinutes` of 2, 5 or 10. It is on by default at 2 minutes: an account with no stored rule behaves as `defaultAutoResetRule`, which has the limit trigger off and this trigger on. The owner can switch it off or change the lead time per account in Automations. It still needs "Allow Account Actions", which is off by default, so nothing fires until the owner turns that on.
+
+The scheduler checks this trigger on every tick (every 30 seconds) for each `ready` or `partial` connection, due for collection or not, because a collection interval of 15 minutes would miss a lead time of 2. It fires when:
+
+1. The trigger is on, "Allow Account Actions" is on, and the connector supports `consume_reset_credit`.
+2. A usable reset credit expires after now and within `beforeExpiryMinutes`. The one that expires first is used. A credit with no expiry never qualifies. How much of any limit is used does not matter: an unused credit is worth more spent than lost.
+3. No earlier try for the same credit is inside its backoff. After the first try the next waits 30 seconds, then 60, 120 and so on, until the credit expires. A try counts whether the action ran, threw, or had no fresh reading. The count is kept in memory, so a restart allows one early try.
+4. A collection that succeeded in the last minute still lists the credit as usable and inside the lead time. When the latest reading is older, the scheduler collects the account first, within its usual Retry-After and lease rules, and runs the spent-limit check on that reading as for any collection. Without a fresh reading the try is skipped: an `uncertain` attempt may have applied, and only a fresh reading can show it.
+
+The action row carries `origin: expiry`, so these attempts do not count as the limit trigger's one attempt per window instance. Each attempt writes an `auto_reset` event with `trigger: "expiry"`.
 
 The consume route is still unvalidated. The owner accepted that: if the first automatic call fails, the endpoint gets fixed and the rule keeps working. Agents never enable a rule or run a consume with real credentials.
 
@@ -93,6 +106,6 @@ Event-based notices use the event id in their dedupe id, so each one sends once.
 ## Consequences
 
 - AGENTS.md now allows a mutation that an owner-configured rule starts. Monitoring alone still never generates a model request, redeems a reset or buys credits.
-- `account_actions.origin` separates owner and automatic actions.
+- `account_actions.origin` separates owner actions, spent-limit automation and use-before-expiry.
 - Wallet totals gain a "price not set" count.
 - The overview carries each account's events from the last 7 days and its automation settings, so the browser bell and server delivery derive the same notices.

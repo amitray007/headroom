@@ -37,7 +37,7 @@ export interface PerformActionInput {
   readonly creditId?: string;
   /** Must be true; the browser sets it only after the owner confirmed the named credit. */
   readonly confirm: boolean;
-  /** `automation` only from an owner-configured rule (ADR 0003). Defaults to `owner`. */
+  /** `automation` or `expiry` only from an auto-reset rule (ADR 0003). Defaults to `owner`. */
   readonly origin?: AccountActionOrigin;
 }
 

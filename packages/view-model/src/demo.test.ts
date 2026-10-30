@@ -376,6 +376,8 @@ describe("demoOverview", () => {
       window: "weekly",
       thresholdPercent: 95,
       minHoursLeft: 24,
+      beforeExpiry: true,
+      beforeExpiryMinutes: 2,
     });
     const budget = at("cursor", 1)?.automation.budgets[0];
     expect(budget?.metricKey).toBe("on_demand.used");

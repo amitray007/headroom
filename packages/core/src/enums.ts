@@ -124,8 +124,11 @@ export const accountActionKinds = ["consume_reset_credit"] as const;
 export const accountActionKindSchema = z.enum(accountActionKinds);
 export type AccountActionKind = z.infer<typeof accountActionKindSchema>;
 
-/** Who started an account action: the owner from the dashboard, or an owner-configured automation rule (ADR 0003). */
-export const accountActionOrigins = ["owner", "automation"] as const;
+/**
+ * Who started an account action: the owner from the dashboard, the auto-reset rule for a spent
+ * limit (`automation`), or its use-before-expiry trigger (`expiry`) (ADR 0003).
+ */
+export const accountActionOrigins = ["owner", "automation", "expiry"] as const;
 export const accountActionOriginSchema = z.enum(accountActionOrigins);
 export type AccountActionOrigin = z.infer<typeof accountActionOriginSchema>;
 

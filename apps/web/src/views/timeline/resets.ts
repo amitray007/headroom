@@ -49,6 +49,19 @@ function early(at: number, due: number): string {
   return `${countdown(due, at)} early`;
 }
 
+const autoResetWhat = {
+  limit: {
+    succeeded: "Auto-reset by Headroom",
+    failed: "Auto-reset failed",
+    uncertain: "Auto-reset not confirmed",
+  },
+  expiry: {
+    succeeded: "Used before expiry by Headroom",
+    failed: "Use before expiry failed",
+    uncertain: "Use before expiry not confirmed",
+  },
+} as const;
+
 function rowsOf(connection: OverviewConnection, words: ResetWords): ResetRow[] {
   const meters = meterWindows(connection);
   const limitOf = (key: string | null): string =>
@@ -70,19 +83,16 @@ function rowsOf(connection: OverviewConnection, words: ResetWords): ResetRow[] {
         change: `${pct(shown(detail.previousPercent, words.view))} → ${pct(shown(detail.percent, words.view))} ${word}`,
       });
     } else if (detail.kind === "auto_reset") {
-      const what = {
-        succeeded: "Auto-reset by Headroom",
-        failed: "Auto-reset failed",
-        uncertain: "Auto-reset not confirmed",
-      }[detail.state];
+      const what = autoResetWhat[detail.trigger ?? "limit"][detail.state];
       rows.push({
         ...base,
         mark: detail.state === "succeeded" ? "auto" : "bad",
         limit: limitOf(event.metricKey),
         onLimit: true,
         what,
-        detail: early(event.occurredAt, detail.resetsAt),
-        change: `At ${pct(shown(detail.percent, words.view))} ${word}`,
+        detail: detail.resetsAt === null ? null : early(event.occurredAt, detail.resetsAt),
+        change:
+          detail.percent === null ? null : `At ${pct(shown(detail.percent, words.view))} ${word}`,
       });
     } else if (detail.kind === "reset_granted") {
       const claude = connection.provider === "claude";

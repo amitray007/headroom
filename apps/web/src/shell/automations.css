@@ -63,6 +63,16 @@
 .auto-opts .fld-label {
   font-size: var(--text-xs);
 }
+/* Use Before Expiry: its own switch, so it is not dimmed with the limit choices above. */
+.auto-row .auto-expiry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px auto;
+  align-items: center;
+  gap: 8px 12px;
+}
+.auto-expiry:not([data-on]) .fld {
+  opacity: 0.6;
+}
 .auto-budget {
   display: flex;
   align-items: flex-end;
@@ -82,5 +92,11 @@
   }
   .auto-budget {
     flex-wrap: wrap;
+  }
+  .auto-row .auto-expiry {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .auto-expiry .sbody {
+    grid-column: 1 / -1;
   }
 }

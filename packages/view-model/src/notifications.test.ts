@@ -1100,6 +1100,29 @@ describe("auto_reset", () => {
     });
     expect(derive([paused]).map((n) => n.id)).toEqual(["x9:auto_reset:a-failed"]);
   });
+  test("a use before expiry says why and carries the credit's expiry", () => {
+    const expiry = (state: "succeeded" | "failed") =>
+      event(`e-${state}`, {
+        kind: "auto_reset",
+        actionId: "act-2",
+        state,
+        creditId: "rc-2",
+        percent: null,
+        resetsAt: null,
+        trigger: "expiry",
+        creditExpiresAt: now + 60_000,
+      });
+    const [used] = derive([withEvents("codex", [expiry("succeeded")])]);
+    expect(used).toMatchObject({
+      tone: "info",
+      message: "A banked reset was about to expire unused, so Headroom used it.",
+      figures: { expiresAt: now + 60_000 },
+    });
+    expect(used?.figures).not.toHaveProperty("percentUsed");
+    expect(notificationEventSchema.safeParse(used).success).toBe(true);
+    const [failed] = derive([withEvents("codex", [expiry("failed")])]);
+    expect(failed?.message).toContain("retries until it expires");
+  });
   test("the reset activity switch silences all of them", () => {
     const off = withNotifications(switchOff(...resetKinds));
     expect(derive([withEvents("codex", [autoRan("failed"), autoRan("succeeded")])], off)).toEqual(

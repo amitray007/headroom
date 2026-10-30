@@ -204,6 +204,8 @@ describe("demo mode guard", () => {
         window: "weekly",
         thresholdPercent: 100,
         minHoursLeft: 24,
+        beforeExpiry: true,
+        beforeExpiryMinutes: 2,
       }),
       api.clearAutoReset("demo-1"),
       api.setBudget("demo-1", "on_demand.used", 50),
@@ -256,6 +258,8 @@ describe("demo mode guard", () => {
       window: "either" as const,
       thresholdPercent: 95 as const,
       minHoursLeft: 12 as const,
+      beforeExpiry: true,
+      beforeExpiryMinutes: 2 as const,
     };
     const rules = stub({ autoReset: rule });
     expect(await api.setAutoReset("c1", rule)).toEqual({ autoReset: rule });
@@ -287,6 +291,8 @@ describe("demo mode guard", () => {
           window: "weekly",
           thresholdPercent: 100,
           minHoursLeft: 24,
+          beforeExpiry: true,
+          beforeExpiryMinutes: 2,
         }),
       ),
     ).toBe("The server sent an unexpected response");

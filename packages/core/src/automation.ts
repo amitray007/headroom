@@ -24,6 +24,8 @@ function ruleFromRow(row: RuleRow): AutoResetRule | null {
     window: row.window,
     thresholdPercent: row.thresholdPercent,
     minHoursLeft: row.minHoursLeft,
+    beforeExpiry: row.beforeExpiry,
+    beforeExpiryMinutes: row.beforeExpiryMinutes,
   });
   return parsed.success ? parsed.data : null;
 }
@@ -70,6 +72,8 @@ export class AutomationStore {
       window: rule.window,
       thresholdPercent: rule.thresholdPercent,
       minHoursLeft: rule.minHoursLeft,
+      beforeExpiry: rule.beforeExpiry,
+      beforeExpiryMinutes: rule.beforeExpiryMinutes,
       updatedAt: this.now(),
     };
     this.db

@@ -32,6 +32,7 @@ export {
 export {
   accountEventDetailSchema,
   accountEventSchema,
+  autoResetExpiryMinutes,
   autoResetMinHoursLeft,
   autoResetRuleSchema,
   autoResetThresholds,

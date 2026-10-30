@@ -789,6 +789,24 @@ function percentText(value: number): string {
   return `${Math.round(value)}%`;
 }
 
+function autoResetMessage(detail: Extract<AccountEvent["detail"], { kind: "auto_reset" }>): string {
+  if (detail.trigger === "expiry") {
+    if (detail.state === "succeeded")
+      return "A banked reset was about to expire unused, so Headroom used it.";
+    return detail.state === "failed"
+      ? "A banked reset was about to expire unused, but using it did not go through. Headroom retries until it expires."
+      : "A banked reset was about to expire unused, but Headroom could not confirm it was used. Headroom checks again and retries until it expires.";
+  }
+  const reached =
+    detail.percent === null
+      ? "A limit ran out"
+      : `A limit reached ${percentText(detail.percent)} used`;
+  if (detail.state === "succeeded") return `${reached}, so Headroom used a banked reset.`;
+  return detail.state === "failed"
+    ? `${reached}, but the reset did not go through. Headroom will not retry until the limit resets.`
+    : `${reached}, but Headroom could not confirm the reset. Check the account before you use another.`;
+}
+
 function eventNotifications(
   connection: OverviewConnection,
   settings: NotificationSettings,
@@ -810,17 +828,16 @@ function eventNotifications(
         ...eventBase(connection, event, "auto_reset"),
         tone: succeeded ? "info" : "warn",
         subject: { metricKey: event.metricKey, label: "Auto-Reset", window: null },
-        figures: { percentUsed: detail.percent },
+        figures: {
+          ...(detail.percent === null ? {} : { percentUsed: detail.percent }),
+          ...(detail.creditExpiresAt === undefined ? {} : { expiresAt: detail.creditExpiresAt }),
+        },
         title: succeeded
           ? `${name} Auto-Reset Used a Banked Reset`
           : detail.state === "failed"
             ? `${name} Auto-Reset Failed`
             : `${name} Auto-Reset May Not Have Worked`,
-        message: succeeded
-          ? `A limit reached ${percentText(detail.percent)} used, so Headroom used a banked reset.`
-          : detail.state === "failed"
-            ? `A limit reached ${percentText(detail.percent)} used, but the reset did not go through. Headroom will not retry until the limit resets.`
-            : `A limit reached ${percentText(detail.percent)} used, but Headroom could not confirm the reset. Check the account before you use another.`,
+        message: autoResetMessage(detail),
       });
       continue;
     }

@@ -853,7 +853,14 @@ function automationOf(
         },
       ],
       automation: {
-        autoReset: { enabled: true, window: "weekly", thresholdPercent: 95, minHoursLeft: 24 },
+        autoReset: {
+          enabled: true,
+          window: "weekly",
+          thresholdPercent: 95,
+          minHoursLeft: 24,
+          beforeExpiry: true,
+          beforeExpiryMinutes: 2,
+        },
         budgets: [],
       },
     };

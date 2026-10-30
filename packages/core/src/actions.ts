@@ -86,7 +86,7 @@ export class ActionStore {
       .all();
   }
 
-  /** Automatic actions for the connection that started at or after `since`, newest first. */
+  /** Spent-limit automatic actions (`automation`) for the connection that started at or after `since`, newest first. */
   automaticSince(connectionId: string, since: Date): AccountActionRow[] {
     return this.db
       .select()

@@ -295,6 +295,8 @@ describe("overviewConnections", () => {
       window: "weekly",
       thresholdPercent: 95,
       minHoursLeft: 12,
+      beforeExpiry: true,
+      beforeExpiryMinutes: 2,
     } as const;
     ctx.automation.setAutoReset(a.id, rule);
     ctx.automation.setBudget(a.id, "on_demand.used", 50, "USD");

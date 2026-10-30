@@ -29,12 +29,26 @@ describe("autoResetAccounts", () => {
 describe("autoResetSummary", () => {
   test("states the window, the threshold and the time left", () => {
     expect(
-      autoResetSummary({ enabled: true, window: "weekly", thresholdPercent: 95, minHoursLeft: 24 }),
+      autoResetSummary({
+        enabled: true,
+        window: "weekly",
+        thresholdPercent: 95,
+        minHoursLeft: 24,
+        beforeExpiry: true,
+        beforeExpiryMinutes: 2,
+      }),
     ).toBe(
       "Uses the banked reset that expires first when a weekly limit reaches 95% used and its own reset is more than 24 hours away.",
     );
     expect(
-      autoResetSummary({ enabled: true, window: "either", thresholdPercent: 100, minHoursLeft: 1 }),
+      autoResetSummary({
+        enabled: true,
+        window: "either",
+        thresholdPercent: 100,
+        minHoursLeft: 1,
+        beforeExpiry: true,
+        beforeExpiryMinutes: 2,
+      }),
     ).toContain(
       "a weekly or 5-hour limit reaches 100% used and its own reset is more than 1 hour away",
     );
