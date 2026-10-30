@@ -111,9 +111,6 @@ struct SettingsView: View {
           }.labelsHidden().frame(maxWidth: 270)
         }.padding(.vertical, 10)
       }
-      hint(
-        "Follow one account, or the tightest account that still has room. A dot marks unread notices, or an account that is out or signed out."
-      )
     }
   }
 
@@ -280,6 +277,7 @@ struct SettingsView: View {
             Text("Starting…").foregroundStyle(HR.secondary)
           } else if model.localServer != nil {
             Button("Start Headroom") { Task { await model.startLocal() } }
+              .help("Headroom also starts at every login.")
           } else {
             Button("Copy command") {
               NSPasteboard.general.clearContents()
@@ -294,7 +292,6 @@ struct SettingsView: View {
           ).padding(.vertical, 10)
         }
       }
-      hint(thisMacHint)
     }
   }
 
@@ -306,16 +303,6 @@ struct SettingsView: View {
       return "Headroom is installed on this Mac but not running."
     }
     return "Headroom is not installed on this Mac."
-  }
-
-  private var thisMacHint: String {
-    if model.localAvailable {
-      return "Create a token in its dashboard at 127.0.0.1:8080, Settings, Devices, then add it."
-    }
-    if model.localStarting || model.localServer != nil {
-      return "Starting it here also starts it at every login."
-    }
-    return "Install it with Homebrew, then start it here. The app only reads it, like any source."
   }
 
   private var general: some View {
@@ -357,8 +344,6 @@ struct SettingsView: View {
           }.labelsHidden().fixedSize()
         }.padding(.vertical, 10)
       }
-      hint(
-        "Readings are read-only. Collection runs on each server and never sends a model request.")
     }
   }
 
