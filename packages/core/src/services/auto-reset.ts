@@ -25,7 +25,7 @@ export interface AutoResetServiceOptions {
   readonly automation: Pick<AutomationStore, "autoReset">;
   readonly connections: Pick<ConnectionStore, "get">;
   readonly snapshots: Pick<SnapshotStore, "latest" | "latestRun">;
-  readonly actionRows: Pick<ActionStore, "automaticSince">;
+  readonly actionRows: Pick<ActionStore, "automaticSince" | "latestRequestedAt">;
   readonly events: Pick<AccountEventStore, "record">;
   readonly actions: Pick<ActionService, "perform" | "enabled" | "supported">;
 }
@@ -44,7 +44,12 @@ type SkipReason =
   | "no_fresh_reading";
 
 export type AutoResetOutcome =
-  | { readonly status: "fired"; readonly state: "succeeded" | "failed" | "uncertain" }
+  | {
+      readonly status: "fired";
+      readonly state: "succeeded" | "failed" | "uncertain";
+      /** The provider's Retry-After on a failed or unknown result, when it sent one. */
+      readonly retryAfterMs?: number;
+    }
   | { readonly status: "skipped"; readonly reason: SkipReason };
 
 type Latest = NonNullable<ReturnType<SnapshotStore["latest"]>>;
@@ -96,7 +101,7 @@ export class AutoResetService {
    * or had no fresh reading, so a provider that is down is not read on every tick. Kept in memory:
    * a restart allows one early try.
    */
-  private readonly tries = new Map<string, { count: number; at: number }>();
+  private readonly tries = new Map<string, { count: number; at: number; notBefore: number }>();
 
   constructor(private readonly deps: AutoResetServiceOptions) {}
 
@@ -151,33 +156,41 @@ export class AutoResetService {
   wantsReading(connectionId: string, now: number): boolean {
     const found = this.expiring(connectionId, now);
     return (
-      !("status" in found) && !this.backingOff(found.key, now) && !this.fresh(connectionId, now)
+      !("status" in found) &&
+      !this.backingOff(found.key, now) &&
+      !this.fresh(connectionId, found.key, now)
     );
   }
 
   /**
    * Uses a usable banked reset that expires within the rule's lead time, whatever the limits show.
    * An account with no stored rule uses the default, which has this trigger on. Each try needs a
-   * reading from the last minute that still lists the credit as usable, inside the lead time: a
-   * credit that left the inventory was used, and an unconfirmed try may have applied. After a try,
-   * the next waits `expiryRetryBaseMs`, doubling each time.
+   * reading from the last minute, taken after the previous try and after the account's newest
+   * action, that still lists the credit as usable inside the lead time: a credit that left the
+   * inventory was used, and an unconfirmed attempt may have applied. After a try, the next waits
+   * `expiryRetryBaseMs`, doubling each time, or longer when the provider sent a Retry-After.
    */
   async beforeExpiry(connectionId: string, now: number): Promise<AutoResetOutcome> {
     const found = this.expiring(connectionId, now);
     if ("status" in found) return found;
     if (this.backingOff(found.key, now)) return { status: "skipped", reason: "backing_off" };
     for (const [key, entry] of this.tries) if (now - entry.at > hourMs) this.tries.delete(key);
-    const tries = this.tries.get(found.key)?.count ?? 0;
-    this.tries.set(found.key, { count: tries + 1, at: now });
-    if (!this.fresh(connectionId, now)) return { status: "skipped", reason: "no_fresh_reading" };
+    // Checked before this try is recorded: the reading must postdate the previous one.
+    const fresh = this.fresh(connectionId, found.key, now);
+    const count = (this.tries.get(found.key)?.count ?? 0) + 1;
+    this.tries.set(found.key, { count, at: now, notBefore: 0 });
+    if (!fresh) return { status: "skipped", reason: "no_fresh_reading" };
 
     const window = limitWindows(found.latest)[0];
-    return this.fire(connectionId, now, found.creditId, window?.key ?? null, {
+    const outcome = await this.fire(connectionId, now, found.creditId, window?.key ?? null, {
       percent: window?.percent ?? null,
       resetsAt: window?.resetsAt ?? null,
       trigger: "expiry",
       creditExpiresAt: found.expiresAt,
     });
+    if (outcome.status === "fired" && outcome.retryAfterMs !== undefined)
+      this.tries.set(found.key, { count, at: now, notBefore: now + outcome.retryAfterMs });
+    return outcome;
   }
 
   /** The gates every trigger shares. Returns the latest reading, or why the rule cannot act. */
@@ -214,15 +227,21 @@ export class AutoResetService {
 
   private backingOff(key: string, now: number): boolean {
     const last = this.tries.get(key);
-    return last !== undefined && now - last.at < expiryRetryBaseMs * 2 ** (last.count - 1);
+    if (last === undefined) return false;
+    return now < Math.max(last.at + expiryRetryBaseMs * 2 ** (last.count - 1), last.notBefore);
   }
 
-  /** The latest collection succeeded within `expiryFreshMs`. */
-  private fresh(connectionId: string, now: number): boolean {
+  /**
+   * The latest collection succeeded within `expiryFreshMs`, and finished after the previous try for
+   * this credit and after the account's newest action of any origin, so it shows their effect.
+   */
+  private fresh(connectionId: string, key: string, now: number): boolean {
     const run = this.deps.snapshots.latestRun(connectionId);
     const finishedAt = run?.finishedAt?.getTime();
     const ok = run?.outcome === "succeeded" || run?.outcome === "partial";
-    return ok && finishedAt !== undefined && now - finishedAt <= expiryFreshMs;
+    if (!ok || finishedAt === undefined || now - finishedAt > expiryFreshMs) return false;
+    const lastAction = this.deps.actionRows.latestRequestedAt(connectionId)?.getTime() ?? 0;
+    return finishedAt > Math.max(this.tries.get(key)?.at ?? 0, lastAction);
   }
 
   private async fire(
@@ -251,8 +270,10 @@ export class AutoResetService {
       throw error;
     }
     const state = outcome.action.state;
+    const retryAfter =
+      outcome.retryAfterMs === undefined ? {} : { retryAfterMs: outcome.retryAfterMs };
     if (state !== "succeeded" && state !== "failed" && state !== "uncertain")
-      return { status: "fired", state: "uncertain" };
+      return { status: "fired", state: "uncertain", ...retryAfter };
     this.deps.events.record(connectionId, now, metricKey, {
       kind: "auto_reset",
       actionId: outcome.action.id,
@@ -260,6 +281,6 @@ export class AutoResetService {
       creditId,
       ...extra,
     });
-    return { status: "fired", state };
+    return { status: "fired", state, ...retryAfter };
   }
 }
