@@ -807,6 +807,23 @@ function autoResetMessage(detail: Extract<AccountEvent["detail"], { kind: "auto_
     : `${reached}, but Headroom could not confirm the reset. Check the account before you use another.`;
 }
 
+/**
+ * Use before expiry retries one credit several times inside its lead time. Only the first attempt
+ * with each outcome for a credit becomes a notice, so one failing credit warns once, and its id
+ * stays the same as later attempts arrive.
+ */
+function firstExpiryAttempts(events: readonly AccountEvent[]): Set<string> {
+  const first = new Map<string, AccountEvent>();
+  for (const event of events) {
+    const { detail } = event;
+    if (detail.kind !== "auto_reset" || detail.trigger !== "expiry") continue;
+    const key = `${detail.creditId}:${detail.state}`;
+    const seen = first.get(key);
+    if (!seen || event.occurredAt < seen.occurredAt) first.set(key, event);
+  }
+  return new Set([...first.values()].map((event) => event.id));
+}
+
 function eventNotifications(
   connection: OverviewConnection,
   settings: NotificationSettings,
@@ -817,10 +834,12 @@ function eventNotifications(
   const on = settings.notifications;
   const name = providerName(connection.provider);
   const found: AppNotification[] = [];
+  const retries = firstExpiryAttempts(connection.events);
   for (const event of connection.events) {
     if (now - event.occurredAt > eventLifetime) continue;
     const detail = event.detail;
     if (detail.kind === "auto_reset") {
+      if (detail.trigger === "expiry" && !retries.has(event.id)) continue;
       // A failed or uncertain attempt matters even for a muted provider or an account that stopped updating.
       const succeeded = detail.state === "succeeded";
       if (succeeded && (muted || !live)) continue;

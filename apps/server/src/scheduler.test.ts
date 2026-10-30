@@ -169,6 +169,25 @@ describe("Scheduler", () => {
     expect(await scheduler.tick()).toEqual([]);
   });
 
+  test("urgent never starts a collection while another run is open", async () => {
+    const { ctx, connection, advance } = setup();
+    const scheduler = new Scheduler({
+      connections: ctx.connections,
+      attempts: ctx.attempts,
+      connect: ctx.connect,
+      snapshots: ctx.snapshots,
+      collection: ctx.collection,
+      intervalMs: 900_000,
+      now: ctx.now,
+      urgent: () => true,
+    });
+    expect(await scheduler.tick()).toEqual([connection.id]);
+    // A Hold to Reset press is collecting right now.
+    ctx.snapshots.startRun(connection.id);
+    advance(30_000);
+    expect(await scheduler.tick()).toEqual([]);
+  });
+
   test("prunes on the first tick, then at most every six hours, with the current setting", async () => {
     const { ctx, advance } = setup();
     const cutoffs: number[] = [];

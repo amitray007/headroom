@@ -814,6 +814,17 @@ describe("AutoResetService.beforeExpiry", () => {
     expect(actionCalls(h)).toHaveLength(2);
   });
 
+  test("a partial reading counts as fresh", async () => {
+    const h = setup();
+    const partial: CollectResult = {
+      ...expiring(base, base + minute),
+      failures: [{ category: "provider_unavailable", class: "transient", message: "one metric" }],
+    };
+    await h.read(partial);
+    expect(h.snapshots.latestRun(h.connection.id)?.outcome).toBe("partial");
+    expect((await h.autoReset.beforeExpiry(h.connection.id, base)).status).toBe("fired");
+  });
+
   test("uses the credit that expires first when two are inside the lead time", async () => {
     const h = setup();
     await h.read(
