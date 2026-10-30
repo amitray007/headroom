@@ -10,6 +10,9 @@ import { version } from "../version.ts";
 import { parseTz } from "./tz.ts";
 
 /** Mounted after requireApiToken and before the session-only routes. */
+/** Feed representations kept per time zone offset, oldest dropped first. */
+const cacheLimit = 8;
+
 export function appRoutes(ctx: AppContext): Hono<Env> {
   const app = new Hono<Env>();
   // Keep representation timestamps stable until visible content changes. Bound request offsets in memory.
@@ -50,7 +53,7 @@ export function appRoutes(ctx: AppContext): Hono<Env> {
         body,
         etag: `"${createHash("sha256").update(body).digest("hex")}"`,
       };
-      if (cache.size >= 8) cache.delete(cache.keys().next().value!);
+      if (cache.size >= cacheLimit) cache.delete(cache.keys().next().value!);
       cache.set(tz, representation);
     }
     c.header("ETag", representation.etag);

@@ -6,6 +6,7 @@ import {
   notificationEventSchema,
   providerSchema,
   reconnectReasonSchema,
+  type MetricKind,
   type Provider,
 } from "@headroom/core/contracts";
 import { z } from "zod";
@@ -16,10 +17,12 @@ import { accountName, planLabel } from "./labels.ts";
 import {
   deriveNotifications,
   expiringTopUps,
+  metricOf,
+  numberOf,
   projectedRunOut,
   type NotificationSettings,
 } from "./notifications.ts";
-import type { Metric, OverviewConnection } from "./overview.ts";
+import type { OverviewConnection } from "./overview.ts";
 import { presentPanel } from "./present.ts";
 import { summarize, type WalletBook } from "./wallet.ts";
 import type { Rates } from "./wallet-money.ts";
@@ -119,19 +122,22 @@ interface FeedInput {
   readonly tzOffsetMinutes: number;
 }
 
-function numberOf(metric: Metric | undefined): number | null {
-  return metric?.availability === "available" && metric.unlimited !== true ? metric.valueNum : null;
-}
+const chargeKinds: ReadonlySet<MetricKind> = new Set([
+  "spend",
+  "currency_balance",
+  "credits",
+  "absolute_quota",
+]);
 
-function chargesOf(connection: OverviewConnection): Charge[] {
-  const panel = presentPanel(connection);
+type Panel = ReturnType<typeof presentPanel>;
+
+function chargesOf(connection: OverviewConnection, panel: Panel): Charge[] {
   const metrics = connection.snapshot?.metrics ?? [];
   const pair = spendPairs[connection.provider];
   // A cap is shown with the figure it limits, never as a row of its own.
   const capKeys = new Set([pair?.cap, "cloud_credits.limit"]);
   return metrics.flatMap((metric): Charge[] => {
-    if (!["spend", "currency_balance", "credits", "absolute_quota"].includes(metric.kind))
-      return [];
+    if (!chargeKinds.has(metric.kind)) return [];
     if (capKeys.has(metric.providerMetricKey)) return [];
     const cell = panel.cells.find((item) => item.key === metric.providerMetricKey);
     const fact = panel.facts.find((item) => item.key === metric.providerMetricKey);
@@ -141,7 +147,7 @@ function chargesOf(connection: OverviewConnection): Charge[] {
         : metric.providerMetricKey === "cloud_credits.remaining"
           ? "cloud_credits.limit"
           : null;
-    const cap = metrics.find((item) => item.providerMetricKey === capKey);
+    const cap = capKey === null ? null : metricOf(connection, capKey);
     const capValue = numberOf(cap);
     const sameScope =
       pair?.used !== metric.providerMetricKey || !pair.sameScope || cap?.scope === metric.scope;
@@ -174,8 +180,10 @@ function chargesOf(connection: OverviewConnection): Charge[] {
   });
 }
 
-function bankedOf(connection: OverviewConnection): Feed["accounts"][number]["banked"] {
-  const panel = presentPanel(connection);
+function bankedOf(
+  connection: OverviewConnection,
+  panel: Panel,
+): Feed["accounts"][number]["banked"] {
   const resets = panel.cells.find((cell) => cell.kind === "resets");
   const metric = connection.snapshot?.metrics.find((item) => item.kind === "reset_inventory");
   if (panel.banked === null && resets?.kind !== "resets" && metric === undefined) return null;
@@ -191,47 +199,48 @@ function bankedOf(connection: OverviewConnection): Feed["accounts"][number]["ban
 
 /** Pure: the caller supplies the representation time, preferences, Wallet and stored rates. */
 export function buildAppFeed(input: FeedInput): Feed {
-  const accounts = input.connections.map((connection) => ({
-    id: connection.id,
-    provider: connection.provider,
-    name: accountName(connection),
-    plan: planLabel(connection.plan),
-    identity: connection.identity,
-    state: connection.state,
-    reconnectReason: connection.reconnectReason,
-    interface: connection.interface,
-    lastSuccessAt: connection.lastSuccessAt,
-    observedAt: connection.snapshot?.observedAt ?? null,
-    limits: meterWindows(connection).map((window) => {
-      const runsOutAt = projectedRunOut(
-        connection,
-        window,
-        connection.snapshot?.observedAt ?? input.generatedAt,
-      );
-      return {
-        key: window.key,
-        label: window.label,
-        window: window.window,
-        windowKind: window.kind,
-        percentLeft: leftOf(window),
-        unlimited: window.unlimited,
-        notStarted: window.notStarted,
-        resetsAt: window.resetsAt,
-        resetWords: window.resetWords,
-        // The notices' recent-rate projection, anchored to the reading rather than the request,
-        // without the pacing notice's one-day lead: the popover shows any run-out before the reset.
-        runsOutAt,
-        part:
-          connection.provider === "cursor" &&
-          ["included.auto_percent", "included.api_percent"].includes(window.key),
-        interface:
-          connection.snapshot?.metrics.find((metric) => metric.providerMetricKey === window.key)
-            ?.interface ?? connection.interface,
-      };
-    }),
-    charges: chargesOf(connection),
-    banked: bankedOf(connection),
-  }));
+  const accounts = input.connections.map((connection) => {
+    const panel = presentPanel(connection);
+    return {
+      id: connection.id,
+      provider: connection.provider,
+      name: accountName(connection),
+      plan: planLabel(connection.plan),
+      identity: connection.identity,
+      state: connection.state,
+      reconnectReason: connection.reconnectReason,
+      interface: connection.interface,
+      lastSuccessAt: connection.lastSuccessAt,
+      observedAt: connection.snapshot?.observedAt ?? null,
+      limits: meterWindows(connection).map((window) => {
+        const runsOutAt = projectedRunOut(
+          connection,
+          window,
+          connection.snapshot?.observedAt ?? input.generatedAt,
+        );
+        return {
+          key: window.key,
+          label: window.label,
+          window: window.window,
+          windowKind: window.kind,
+          percentLeft: leftOf(window),
+          unlimited: window.unlimited,
+          notStarted: window.notStarted,
+          resetsAt: window.resetsAt,
+          resetWords: window.resetWords,
+          // The notices' recent-rate projection, anchored to the reading rather than the request,
+          // without the pacing notice's one-day lead: the popover shows any run-out before the reset.
+          runsOutAt,
+          part:
+            connection.provider === "cursor" &&
+            ["included.auto_percent", "included.api_percent"].includes(window.key),
+          interface: metricOf(connection, window.key)?.interface ?? connection.interface,
+        };
+      }),
+      charges: chargesOf(connection, panel),
+      banked: bankedOf(connection, panel),
+    };
+  });
   const totals = new Map<string, number | null>();
   for (const charge of accounts.flatMap((account) => account.charges)) {
     if (charge.kind !== "spend") continue;
@@ -274,8 +283,7 @@ export function buildAppFeed(input: FeedInput): Feed {
     input.generatedAt,
     expiringTopUps(input.wallet.topUps),
   ).map((event) =>
-    notificationEventSchema.parse({
-      ...event,
+    Object.assign({}, event, {
       links: input.dashboardUrl === null ? {} : { dashboard: input.dashboardUrl },
     }),
   );

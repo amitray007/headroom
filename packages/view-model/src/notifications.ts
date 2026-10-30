@@ -325,14 +325,13 @@ function expiryNotifications(
 
 // ---------- balances and spend ----------
 
-function metricOf(connection: OverviewConnection, key: string): Metric | null {
+export function metricOf(connection: OverviewConnection, key: string): Metric | null {
   return connection.snapshot?.metrics.find((metric) => metric.providerMetricKey === key) ?? null;
 }
 
 /** A reported number. Unavailable, unlimited and unknown values are null, never zero. */
-function numberOf(metric: Metric | null): number | null {
-  if (metric === null || metric.availability !== "available" || metric.unlimited === true)
-    return null;
+export function numberOf(metric: Metric | null | undefined): number | null {
+  if (!metric || metric.availability !== "available" || metric.unlimited === true) return null;
   return metric.valueNum;
 }
 
