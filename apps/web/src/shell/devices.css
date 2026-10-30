@@ -1,0 +1,51 @@
+.device-form,
+.device-key {
+  display: grid;
+  gap: 10px;
+  margin-block: 20px;
+}
+.device-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.device-actions input {
+  flex: 1;
+  min-width: 0;
+}
+.device-key textarea {
+  width: 100%;
+  resize: none;
+  font: 400 var(--text-sm) / 1.5 var(--mono);
+  padding: 12px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--foreground);
+}
+.device-key textarea:focus-visible {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
+.device-list {
+  padding: 0;
+  list-style: none;
+}
+.device-entry {
+  padding-block: 16px;
+  border-top: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.device-entry > code {
+  margin-left: 12px;
+}
+.device-entry dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  font-size: 12px;
+}
+.device-entry dd {
+  margin: 0;
+}

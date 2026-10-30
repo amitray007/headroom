@@ -90,6 +90,22 @@ const setupSchema = z.object({
   minimumPasswordLength: z.number(),
   minimumUsernameLength: z.number(),
 });
+const tokenSchema = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  prefix: z.string().nullable(),
+  start: z.string().nullable(),
+  createdAt: z.number(),
+  lastUsedAt: z.number().nullable(),
+  expiresAt: z.number().nullable(),
+});
+const tokensSchema = z.object({ tokens: z.array(tokenSchema) });
+export type ApiToken = z.infer<typeof tokenSchema>;
+const createdTokenSchema = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  key: z.string(),
+});
 const meSchema = z.object({ id: z.string(), name: z.string(), email: z.string() });
 const providersSchema = z.object({
   providers: z.array(
@@ -387,6 +403,20 @@ export const api = {
   ),
   removeTopUp: changesAccount((id: string) =>
     request("DELETE", `/api/wallet/top-ups/${encodeURIComponent(id)}`, walletSchema),
+  ),
+  tokens: () =>
+    demoOn()
+      ? Promise.resolve({ tokens: [] as ApiToken[] })
+      : request("GET", "/api/tokens", tokensSchema),
+  createToken: changesAccount((name: string) =>
+    request("POST", "/api/tokens", createdTokenSchema, { name }),
+  ),
+  revokeToken: changesAccount((id: string) =>
+    request(
+      "DELETE",
+      `/api/tokens/${encodeURIComponent(id)}`,
+      z.object({ success: z.literal(true) }),
+    ),
   ),
   settings: () => request("GET", "/api/settings", settingsEnvelopeSchema),
   saveSettings: (settings: Settings) =>

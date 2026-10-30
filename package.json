@@ -24,13 +24,15 @@
     "docs:check": "python3 scripts/check_docs.py",
     "notices": "bun scripts/notices.ts",
     "notices:check": "bun scripts/notices.ts --check",
-    "check": "bun run docs:check && bun run notices:check && bun run format:check && bun run lint && bun run typecheck && bun run knip && bun run test",
+    "check": "bun run docs:check && bun run notices:check && bun run mac:contract:check && bun run format:check && bun run lint && bun run typecheck && bun run knip && bun run test",
     "audit:dependencies": "bun audit --audit-level=high",
     "db:generate": "drizzle-kit generate",
     "auth:generate": "cd packages/core && bunx auth@1.7.7 generate --config auth-schema.config.ts --output src/db/auth-schema.ts --yes",
     "web:dev": "bun run --cwd apps/web dev",
     "web:build": "bun run --cwd apps/web build",
-    "web:build:demo": "bun run --cwd apps/web build --mode demo"
+    "web:build:demo": "bun run --cwd apps/web build --mode demo",
+    "mac:contract": "bun scripts/app-contract.ts",
+    "mac:contract:check": "bun scripts/app-contract.ts --check"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",
@@ -40,7 +42,8 @@
     "oxlint": "1.87.0",
     "oxlint-tsgolint": "7.0.2003",
     "playwright-core": "1.64.0",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "zod": "4.6.7"
   },
   "engines": {
     "bun": "1.4.2"

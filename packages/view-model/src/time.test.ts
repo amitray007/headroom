@@ -120,3 +120,15 @@ describe("resolveWhen", () => {
     });
   });
 });
+
+test("request offsets format exact times across day boundaries without changing local defaults", () => {
+  const at = Date.UTC(2026, 9, 29, 23, 45);
+  const before = Date.UTC(2026, 9, 29, 19);
+  expect(exact(at, before, "24h", 330)).toBe("05:15");
+  expect(exact(at, before, "24h", -720)).toBe("11:45");
+  expect(shortDate(at, 840)).toBe("Oct 30");
+  expect(
+    resolveWhen("until", at, before, { timeStyle: "exact", clock: "12h", tzOffsetMinutes: 330 })
+      .text,
+  ).toBe("at 5:15 AM");
+});

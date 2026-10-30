@@ -9,7 +9,7 @@ import {
 
 import type { Metric, OverviewConnection } from "./overview.ts";
 import { meterWindows, type MeterWindow } from "./accounts.ts";
-import { spendLabel } from "./automation.ts";
+import { spendLabel, spendPairs } from "./automation.ts";
 import { accountName, providerName, refreshFailed } from "./labels.ts";
 import { formatNumber, formatUsd } from "./present.ts";
 import { resolveWhen, shortDate } from "./time.ts";
@@ -53,6 +53,7 @@ export type NotificationSettings = {
   readonly lowThresholdPercent: 30 | 20 | 15;
   readonly timeStyle: "countdown" | "exact";
   readonly clock: "24h" | "12h";
+  readonly tzOffsetMinutes?: number;
   readonly notifications: NotificationPreferences;
 };
 
@@ -88,10 +89,14 @@ interface RunOut {
 }
 
 /**
- * When a weekly limit runs out at its recent burn rate, if that is at least a day before it resets.
+ * When a weekly limit runs out at its recent burn rate, if that is before it resets.
  * Null when the pace is unknown or stale, or the limit would last until the reset.
  */
-function runOutOf(connection: OverviewConnection, window: MeterWindow, now: number): RunOut | null {
+export function projectedRunOut(
+  connection: OverviewConnection,
+  window: MeterWindow,
+  now: number,
+): number | null {
   const snapshot = connection.snapshot;
   const used = window.used;
   if (snapshot === null || used === null || window.resetsAt === null) return null;
@@ -99,7 +104,14 @@ function runOutOf(connection: OverviewConnection, window: MeterWindow, now: numb
   if (now - snapshot.observedAt > paceFreshness) return null;
   const pace = connection.pace.find((item) => item.metricKey === window.key);
   if (pace === undefined || Math.abs(pace.to - snapshot.observedAt) > paceReadingGap) return null;
-  const runsOutAt = snapshot.observedAt + ((100 - used) / pace.ratePerHour) * hour;
+  const runsOutAt = Math.round(snapshot.observedAt + ((100 - used) / pace.ratePerHour) * hour);
+  return runsOutAt < window.resetsAt ? runsOutAt : null;
+}
+
+/** A projected run-out that is at least a day before the reset: the pacing notice's lead. */
+function runOutOf(connection: OverviewConnection, window: MeterWindow, now: number): RunOut | null {
+  const runsOutAt = projectedRunOut(connection, window, now);
+  if (runsOutAt === null || window.resetsAt === null) return null;
   const earlyBy = window.resetsAt - runsOutAt;
   return earlyBy >= day ? { runsOutAt, earlyBy } : null;
 }
@@ -294,8 +306,8 @@ function expiryNotifications(
   const days = Math.ceil((first.expiresAt - now) / day);
   const verb =
     soon.length === 1
-      ? `expires ${shortDate(first.expiresAt)}`
-      : `expire from ${shortDate(first.expiresAt)}`;
+      ? `expires ${shortDate(first.expiresAt, settings.tzOffsetMinutes)}`
+      : `expire from ${shortDate(first.expiresAt, settings.tzOffsetMinutes)}`;
   return [
     {
       ...base(connection, snapshot.observedAt),
@@ -313,14 +325,13 @@ function expiryNotifications(
 
 // ---------- balances and spend ----------
 
-function metricOf(connection: OverviewConnection, key: string): Metric | null {
+export function metricOf(connection: OverviewConnection, key: string): Metric | null {
   return connection.snapshot?.metrics.find((metric) => metric.providerMetricKey === key) ?? null;
 }
 
 /** A reported number. Unavailable, unlimited and unknown values are null, never zero. */
-function numberOf(metric: Metric | null): number | null {
-  if (metric === null || metric.availability !== "available" || metric.unlimited === true)
-    return null;
+export function numberOf(metric: Metric | null | undefined): number | null {
+  if (!metric || metric.availability !== "available" || metric.unlimited === true) return null;
   return metric.valueNum;
 }
 
@@ -403,7 +414,7 @@ function usageCreditsExpiring(
       subject: { metricKey: key, label, window: null },
       figures: { expiresAt: expires, amount: { value: amount, unit: "USD" } },
       title: `${providerName(connection.provider)} ${label} Expire in ${days} ${days === 1 ? "Day" : "Days"}`,
-      message: `${formatUsd(amount)} of ${label.toLowerCase()} expire ${shortDate(expires)}.`,
+      message: `${formatUsd(amount)} of ${label.toLowerCase()} expire ${shortDate(expires, settings.tzOffsetMinutes)}.`,
     });
   }
   return found;
@@ -475,39 +486,6 @@ function balanceNotifications(
     },
   ];
 }
-
-interface SpendPair {
-  readonly used: string;
-  readonly cap: string;
-  readonly label: string;
-  readonly unit: NotificationAmountUnit;
-  /** The cap must describe the same scope as the spend. */
-  readonly sameScope: boolean;
-}
-
-const spendPairs: Partial<Record<Provider, SpendPair>> = {
-  claude: {
-    used: "extra_usage.used",
-    cap: "extra_usage.monthly_limit",
-    label: "Extra Usage",
-    unit: "USD",
-    sameScope: false,
-  },
-  cursor: {
-    used: "on_demand.used",
-    cap: "on_demand.limit",
-    label: "On-Demand Spend",
-    unit: "USD",
-    sameScope: true,
-  },
-  grok: {
-    used: "on_demand.used",
-    cap: "on_demand_cap",
-    label: "On-Demand Use",
-    unit: "grok_credits",
-    sameScope: false,
-  },
-};
 
 function amountText(value: number, unit: NotificationAmountUnit): string {
   return unit === "USD" ? formatUsd(value) : formatNumber(value, Number.isInteger(value) ? 0 : 2);
@@ -717,8 +695,9 @@ function expiringCreditNotifications(
   connection: OverviewConnection,
   topUps: readonly ExpiringTopUp[],
   now: number,
+  tzOffsetMinutes = 0,
 ): AppNotification[] {
-  const today = Date.parse(`${isoDate(now)}T00:00:00Z`);
+  const today = Date.parse(`${isoDate(now + tzOffsetMinutes * 60_000)}T00:00:00Z`);
   const found: AppNotification[] = [];
   for (const topUp of topUps) {
     if (topUp.connectionId !== connection.id) continue;
@@ -869,7 +848,7 @@ function eventNotifications(
       const expires =
         detail.expiresAt === null
           ? "The new one has no expiry date."
-          : `The new one expires ${shortDate(detail.expiresAt)}.`;
+          : `The new one expires ${shortDate(detail.expiresAt, settings.tzOffsetMinutes)}.`;
       found.push({
         ...eventBase(connection, event, "reset_granted"),
         tone: "info",
@@ -980,7 +959,7 @@ export function deriveNotifications(
       );
     }
     if (!muted) {
-      found.push(...expiringCreditNotifications(connection, topUps, now));
+      found.push(...expiringCreditNotifications(connection, topUps, now, settings.tzOffsetMinutes));
       found.push(...usageCreditsExpiring(connection, settings, now));
     }
     found.push(...eventNotifications(connection, settings, now, muted, live));

@@ -178,7 +178,7 @@ SOFTWARE.
 
 ## Packages in the binary and the web app
 
-The `headroom` binary and the web app are built from these 61 npm packages: the runtime dependencies of the workspaces, and theirs. The web app also ships the Geist and Geist Mono fonts through `@fontsource-variable`, under the SIL Open Font License 1.1.
+The `headroom` binary and the web app are built from these 62 npm packages: the runtime dependencies of the workspaces, and theirs. The web app also ships the Geist and Geist Mono fonts through `@fontsource-variable`, under the SIL Open Font License 1.1.
 
 ### @ai-sdk/gateway
 
@@ -225,6 +225,33 @@ limitations under the License.
 https://github.com/vercel/ai. License: Apache-2.0.
 
 The package ships no license file. The Apache-2.0 text is in [LICENSES/Apache-2.0.txt](LICENSES/Apache-2.0.txt).
+
+### @better-auth/api-key
+
+https://github.com/better-auth/better-auth. License: MIT.
+
+```text
+The MIT License (MIT)
+Copyright (c) 2024 - present, Bereket Engida
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the “Software”), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
 
 ### @better-auth/core
 

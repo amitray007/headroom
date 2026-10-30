@@ -5,7 +5,7 @@ import type { SessionInfo } from "@headroom/core";
 import type { AppContext } from "../bootstrap.ts";
 
 export type Env = {
-  Variables: { session: SessionInfo };
+  Variables: { session: SessionInfo; apiTokenName: string | null };
 };
 
 /**
@@ -14,8 +14,11 @@ export type Env = {
  */
 export function requireSession(ctx: AppContext): MiddlewareHandler<Env> {
   return async (c, next) => {
+    const headers = new Headers();
+    const cookie = c.req.header("cookie");
+    if (cookie) headers.set("cookie", cookie);
     const session = await ctx.auth.api.getSession({
-      headers: c.req.raw.headers,
+      headers,
       query: { disableCookieCache: true },
     });
     if (!session) return c.json({ error: "authentication_required" }, 401);

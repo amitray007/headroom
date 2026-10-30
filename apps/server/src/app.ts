@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { getConnInfo } from "hono/bun";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
@@ -14,6 +14,9 @@ import {
 import type { AppContext } from "./bootstrap.ts";
 import { version } from "./version.ts";
 import { type Env, rejectCrossSite, requireSession } from "./middleware/session.ts";
+import { requireApiToken } from "./middleware/api-token.ts";
+import { appRoutes } from "./routes/app.ts";
+import { tokenRoutes } from "./routes/tokens.ts";
 import { attemptRoutes } from "./routes/attempts.ts";
 import { connectionRoutes } from "./routes/connections.ts";
 import { deliveryRoutes } from "./routes/delivery.ts";
@@ -62,6 +65,11 @@ export function createApp(ctx: AppContext): Hono {
   app.get("/healthz", (c) => c.json({ status: "ok", version }));
 
   const api = new Hono<Env>();
+  const addressOf = (c: Context<Env>): string =>
+    clientAddress(c.req.raw, ctx.config.trustProxy, () => socketAddress(c));
+  api.use("/app/v1/*", requireApiToken(ctx, addressOf));
+  api.route("/app/v1", appRoutes(ctx));
+
   api.use(
     cors({
       origin: (origin) => (ctx.trustedOrigins.includes(origin) ? origin : null),
@@ -74,13 +82,15 @@ export function createApp(ctx: AppContext): Hono {
 
   api.use(rejectCrossSite(ctx));
 
+  // Token management is exposed only through the scoped Headroom routes below.
+  api.use("/auth/api-key/*", requireSession(ctx));
+  api.all("/auth/api-key/*", (c) => c.json({ error: "not_found" }, 404));
+
   /** Better Auth owns everything under /api/auth, including its own origin checks and rate limits. */
   api.on(["GET", "POST"], "/auth/*", async (c) => {
     const headers = new Headers(c.req.raw.headers);
-    headers.set(
-      clientIpHeader,
-      clientAddress(c.req.raw, ctx.config.trustProxy, () => socketAddress(c)),
-    );
+    headers.delete("authorization");
+    headers.set(clientIpHeader, addressOf(c));
     const response = await ctx.auth.handler(new Request(c.req.raw, { headers }));
     return ownerRaceLost(c.req.path, response, ctx) ? ownerClosed() : response;
   });
@@ -95,6 +105,7 @@ export function createApp(ctx: AppContext): Hono {
     return c.json({ id: user.id, name: user.name, email: user.email });
   });
 
+  api.route("/tokens", tokenRoutes(ctx));
   api.route("/providers", providerRoutes(ctx));
   api.route("/connections", connectionRoutes(ctx));
   api.route("/attempts", attemptRoutes(ctx));

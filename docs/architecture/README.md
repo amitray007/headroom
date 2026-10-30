@@ -51,6 +51,7 @@ An optional callback bridge that listens on the provider's registered localhost 
 - [Data model](data-model.md) defines identity, state enums and metric units.
 - [HTTP API](api.md) defines the overview, settings and rename routes.
 - [Deployment](deployment.md) defines the binary, storage and key handling.
+- [Headroom for Mac](mac-app.md) plans the menu bar app, its API tokens and its read-only feed.
 
 ## Current boundary
 

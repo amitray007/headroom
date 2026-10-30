@@ -53,6 +53,7 @@ describe("demo site API reads", () => {
     expect((await api.settings()).settings).toEqual(defaultSettings);
     expect((await api.wallet()).topUps).toEqual([]);
     expect((await api.channels()).channels).toEqual([]);
+    expect((await api.tokens()).tokens).toEqual([]);
     const rates = await api.exchangeRates();
     expect(rates.perUsd?.["USD"]).toBe(1);
     expect(Object.keys(rates.perUsd ?? {})).toHaveLength(10);
@@ -90,6 +91,8 @@ describe("demo site API writes", () => {
   test("every other change gets the demo refusal", async () => {
     expect(await refused(api.beginAttempt("codex", "cli_login"))).toBe(true);
     expect(await refused(api.rename("a", "b"))).toBe(true);
+    expect(await refused(api.createToken("Test Mac"))).toBe(true);
+    expect(await refused(api.revokeToken("synthetic-id"))).toBe(true);
     expect(await refused(api.clearCost("a"))).toBe(true);
     expect(await refused(api.updateChannel("c", { enabled: true }))).toBe(true);
     expect(await refused(api.deleteChannel("c"))).toBe(true);

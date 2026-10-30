@@ -17,6 +17,7 @@ describe("openDatabase", () => {
       "0005_single_owner",
       "0006_automations",
       "0007_expiry_reset",
+      "0008_api_tokens",
     ]);
     const tables = sqlite
       .query<{ name: string }, []>(
@@ -31,6 +32,7 @@ describe("openDatabase", () => {
         "account",
         "verification",
         "passkey",
+        "apikey",
         "connections",
         "credentials",
         "auth_attempts",

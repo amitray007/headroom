@@ -1,4 +1,9 @@
-import type { AutoResetRule, Provider, SpendBudget } from "@headroom/core/contracts";
+import type {
+  AutoResetRule,
+  NotificationAmountUnit,
+  Provider,
+  SpendBudget,
+} from "@headroom/core/contracts";
 
 import type { OverviewConnection } from "./overview.ts";
 
@@ -78,3 +83,36 @@ export function spendRows(connections: readonly OverviewConnection[]): SpendRow[
     }),
   );
 }
+
+interface SpendPair {
+  readonly used: string;
+  readonly cap: string;
+  readonly label: string;
+  readonly unit: NotificationAmountUnit;
+  /** The cap must describe the same scope as the spend. */
+  readonly sameScope: boolean;
+}
+
+export const spendPairs: Partial<Record<Provider, SpendPair>> = {
+  claude: {
+    used: "extra_usage.used",
+    cap: "extra_usage.monthly_limit",
+    label: "Extra Usage",
+    unit: "USD",
+    sameScope: false,
+  },
+  cursor: {
+    used: "on_demand.used",
+    cap: "on_demand.limit",
+    label: "On-Demand Spend",
+    unit: "USD",
+    sameScope: true,
+  },
+  grok: {
+    used: "on_demand.used",
+    cap: "on_demand_cap",
+    label: "On-Demand Use",
+    unit: "grok_credits",
+    sameScope: false,
+  },
+};

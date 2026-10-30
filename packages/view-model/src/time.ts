@@ -54,44 +54,58 @@ export function age(past: number, now: number): string {
   return text === null ? "Just now" : `${text} ago`;
 }
 
-function clockTime(date: Date, clock: Clock): string {
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const hours = date.getHours();
+/** A fixed offset uses UTC getters, so request formatting never changes the process time zone. */
+function calendar(t: number, tzOffsetMinutes?: number) {
+  const date = new Date(t + (tzOffsetMinutes ?? 0) * minute);
+  const utc = tzOffsetMinutes !== undefined;
+  return {
+    year: utc ? date.getUTCFullYear() : date.getFullYear(),
+    month: utc ? date.getUTCMonth() : date.getMonth(),
+    day: utc ? date.getUTCDate() : date.getDate(),
+    weekday: utc ? date.getUTCDay() : date.getDay(),
+    hours: utc ? date.getUTCHours() : date.getHours(),
+    minutes: utc ? date.getUTCMinutes() : date.getMinutes(),
+  };
+}
+
+type Calendar = ReturnType<typeof calendar>;
+
+function clockTime(date: Calendar, clock: Clock): string {
+  const minutes = String(date.minutes).padStart(2, "0");
+  const hours = date.hours;
   if (clock === "24h") return `${String(hours).padStart(2, "0")}:${minutes}`;
   return `${hours % 12 || 12}:${minutes} ${hours < 12 ? "AM" : "PM"}`;
 }
 
-function sameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
+function sameDay(a: Calendar, b: Calendar): boolean {
+  return a.year === b.year && a.month === b.month && a.day === b.day;
 }
 
-/** "Oct 5". */
-export function shortDate(t: number): string {
-  const date = new Date(t);
-  return `${months[date.getMonth()] ?? ""} ${date.getDate()}`;
+/** "Oct 5". Omit the offset to use the browser's local time zone. */
+export function shortDate(t: number, tzOffsetMinutes?: number): string {
+  const date = calendar(t, tzOffsetMinutes);
+  return `${months[date.month] ?? ""} ${date.day}`;
 }
 
-function dayAndTime(date: Date, clock: Clock): string {
-  const weekday = weekdays[date.getDay()] ?? "";
-  return `${weekday}, ${shortDate(date.getTime())} · ${clockTime(date, clock)}`;
+function dayAndTime(t: number, clock: Clock, tzOffsetMinutes?: number): string {
+  const date = calendar(t, tzOffsetMinutes);
+  return `${weekdays[date.weekday] ?? ""}, ${shortDate(t, tzOffsetMinutes)} · ${clockTime(date, clock)}`;
 }
 
 /** "15:06" for today, otherwise "Wed, Oct 8 · 08:14". */
-export function exact(t: number, now: number, clock: Clock): string {
-  const date = new Date(t);
-  return sameDay(date, new Date(now)) ? clockTime(date, clock) : dayAndTime(date, clock);
+export function exact(t: number, now: number, clock: Clock, tzOffsetMinutes?: number): string {
+  const date = calendar(t, tzOffsetMinutes);
+  return sameDay(date, calendar(now, tzOffsetMinutes))
+    ? clockTime(date, clock)
+    : dayAndTime(t, clock, tzOffsetMinutes);
 }
 
 /** Hover title: "Today · 15:06", otherwise "Wed, Oct 8 · 08:14". */
-export function exactFull(t: number, now: number, clock: Clock): string {
-  const date = new Date(t);
-  return sameDay(date, new Date(now))
+export function exactFull(t: number, now: number, clock: Clock, tzOffsetMinutes?: number): string {
+  const date = calendar(t, tzOffsetMinutes);
+  return sameDay(date, calendar(now, tzOffsetMinutes))
     ? `Today · ${clockTime(date, clock)}`
-    : dayAndTime(date, clock);
+    : dayAndTime(t, clock, tzOffsetMinutes);
 }
 
 export interface ResolvedWhen {
@@ -106,20 +120,28 @@ export function resolveWhen(
   kind: WhenKind,
   at: number,
   now: number,
-  style: { readonly timeStyle: TimeStyle; readonly clock: Clock },
+  style: {
+    readonly timeStyle: TimeStyle;
+    readonly clock: Clock;
+    readonly tzOffsetMinutes?: number;
+  },
 ): ResolvedWhen {
   const duration = kind === "until" ? countdown(at, now) : age(at, now);
   if (style.timeStyle === "countdown") {
     // "Resets in under 1 min" reads as a sentence; the standalone form keeps its capital.
     if (kind === "until" && duration === "Under 1 min")
-      return { lead: "in", text: "under 1 min", title: exactFull(at, now, style.clock) };
+      return {
+        lead: "in",
+        text: "under 1 min",
+        title: exactFull(at, now, style.clock, style.tzOffsetMinutes),
+      };
     return {
       lead: kind === "until" ? "in" : "",
       text: duration,
-      title: exactFull(at, now, style.clock),
+      title: exactFull(at, now, style.clock, style.tzOffsetMinutes),
     };
   }
-  const today = sameDay(new Date(at), new Date(now));
-  const text = exact(at, now, style.clock);
+  const today = sameDay(calendar(at, style.tzOffsetMinutes), calendar(now, style.tzOffsetMinutes));
+  const text = exact(at, now, style.clock, style.tzOffsetMinutes);
   return { lead: "", text: kind === "until" && today ? `at ${text}` : text, title: duration };
 }

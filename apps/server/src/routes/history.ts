@@ -6,6 +6,8 @@ import { accepts } from "hono/accepts";
 import { createHistoryReader, historyMarker } from "@headroom/core";
 import { encodeHistory } from "@headroom/view-model/history";
 
+import { parseTz } from "./tz.ts";
+
 import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
 
@@ -14,14 +16,6 @@ const bucketMs = 3_600_000;
 const ranges = new Set(["7", "30", "90"]);
 const longest = 90 * day;
 const cacheLimit = 8;
-
-/** Minutes east of UTC as a plain integer in the real-world range, or null. */
-function parseTz(raw: string | undefined): number | null {
-  if (raw === undefined) return 0;
-  if (!/^-?\d{1,4}$/.test(raw)) return null;
-  const tz = Number(raw);
-  return tz >= -720 && tz <= 840 ? tz : null;
-}
 
 /**
  * Usage history for the Analytics view: hourly maxima of each percent-of-limit reading, per
