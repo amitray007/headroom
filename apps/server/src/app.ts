@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { getConnInfo } from "hono/bun";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
@@ -64,12 +64,9 @@ export function createApp(ctx: AppContext): Hono {
   app.get("/healthz", (c) => c.json({ status: "ok", version }));
 
   const api = new Hono<Env>();
-  api.use(
-    "/app/v1/*",
-    requireApiToken(ctx, (c) =>
-      clientAddress(c.req.raw, ctx.config.trustProxy, () => socketAddress(c)),
-    ),
-  );
+  const addressOf = (c: Context<Env>): string =>
+    clientAddress(c.req.raw, ctx.config.trustProxy, () => socketAddress(c));
+  api.use("/app/v1/*", requireApiToken(ctx, addressOf));
   api.get("/app/v1/whoami", (c) =>
     c.json({ apiVersion: 1, serverVersion: version, tokenName: c.get("apiTokenName") }),
   );
@@ -94,10 +91,7 @@ export function createApp(ctx: AppContext): Hono {
   api.on(["GET", "POST"], "/auth/*", async (c) => {
     const headers = new Headers(c.req.raw.headers);
     headers.delete("authorization");
-    headers.set(
-      clientIpHeader,
-      clientAddress(c.req.raw, ctx.config.trustProxy, () => socketAddress(c)),
-    );
+    headers.set(clientIpHeader, addressOf(c));
     const response = await ctx.auth.handler(new Request(c.req.raw, { headers }));
     return ownerRaceLost(c.req.path, response, ctx) ? ownerClosed() : response;
   });

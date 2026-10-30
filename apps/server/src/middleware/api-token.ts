@@ -1,4 +1,4 @@
-import type { MiddlewareHandler } from "hono";
+import type { Context, MiddlewareHandler } from "hono";
 
 import { apiTokenScopes } from "@headroom/core";
 
@@ -8,7 +8,7 @@ import type { Env } from "./session.ts";
 /** Per-process failed-attempt window, bounded even when many addresses send invalid keys. */
 export function requireApiToken(
   ctx: AppContext,
-  address: (c: Parameters<MiddlewareHandler<Env>>[0]) => string,
+  address: (c: Context<Env>) => string,
 ): MiddlewareHandler<Env> {
   const failures = new Map<string, { count: number; until: number }>();
   const windowMs = 60_000;
@@ -20,10 +20,10 @@ export function requireApiToken(
       return c.json({ error: "method_not_allowed" }, 405);
     }
     const now = ctx.now().getTime();
-    for (const [key, value] of failures) if (value.until <= now) failures.delete(key);
     const client = address(c);
     const failed = failures.get(client);
-    if (failed && failed.count >= maxFailures) {
+    if (failed && failed.until <= now) failures.delete(client);
+    else if (failed && failed.count >= maxFailures) {
       c.header("Retry-After", String(Math.max(1, Math.ceil((failed.until - now) / 1000))));
       return c.json({ error: "rate_limited" }, 429);
     }
@@ -35,6 +35,10 @@ export function requireApiToken(
       : null;
     if (!result?.valid || !result.key) {
       const current = failures.get(client);
+      // Sweep expired addresses only when the window is full, not on every poll.
+      if (!current && failures.size >= 10_000) {
+        for (const [key, value] of failures) if (value.until <= now) failures.delete(key);
+      }
       if (!current && failures.size >= 10_000) {
         // Fail closed rather than evicting an address that is still being throttled.
         c.header("Retry-After", "60");
