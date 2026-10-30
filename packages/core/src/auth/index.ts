@@ -61,7 +61,9 @@ export function createAuth(options: AuthOptions) {
         maximumNameLength: 40,
         startingCharactersConfig: { charactersLength: 11 },
         permissions: { defaultPermissions: { app: [...apiTokenScopes] } },
-        rateLimit: { enabled: true, timeWindow: 60_000, maxRequests: 120 },
+        // The plugin window resets only after a quiet minute, so steady polling would hit the cap and
+        // read as a revoked token. The address limiter in requireApiToken bounds failed guesses.
+        rateLimit: { enabled: false },
       }),
       username({ minUsernameLength: minimumUsernameLength }),
       passkey({

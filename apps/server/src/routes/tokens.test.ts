@@ -182,6 +182,18 @@ describe("read-only API tokens", () => {
     ctx.sqlite.close();
   });
 
+  test("a token polled without pause keeps reading past a minute's worth of requests", async () => {
+    const { ctx, app, headers } = await fixture();
+    const statuses = await Promise.all(
+      Array.from(
+        { length: 130 },
+        async () => (await app.request(url(ctx, "/api/app/v1/whoami"), { headers })).status,
+      ),
+    );
+    expect(statuses.every((status) => status === 200)).toBe(true);
+    ctx.sqlite.close();
+  });
+
   test("expired, disabled and unscoped keys cannot read", async () => {
     await Promise.all(
       [

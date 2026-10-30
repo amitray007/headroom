@@ -67,7 +67,7 @@ This is the logical schema behind the SQLite database. Migrations live in `packa
 
 `apiTokenScopes` in `packages/core/src/enums.ts` contains only `read`, stored by Better Auth as `{ "app": ["read"] }` in `apikey.permissions`. It allows GET and HEAD only under `/api/app/v1/`. API key sessions are disabled, so the scope never grants dashboard or account mutations.
 
-The plugin owns token generation, hashing, prefix, expiry and per-key rate limiting. `apikey.key` stores the hash; `start` stores the first 11 characters, including `hr_`, for display. `reference_id` is the owner's user id. `last_request` is the last successful verification time. Expiry is nullable; new tokens have no expiry. Revocation deletes the row, and the next verification fails. Management responses select only display fields, never the hash or the key. The plaintext key is returned only when created.
+The plugin owns token generation, hashing, prefix and expiry. Its per-key rate limit is off. `apikey.key` stores the hash; `start` stores the first 11 characters, including `hr_`, for display. `reference_id` is the owner's user id. `last_request` is the last successful verification time. Expiry is nullable; new tokens have no expiry. Revocation deletes the row, and the next verification fails. Management responses select only display fields, never the hash or the key. The plaintext key is returned only when created.
 
 ## Identity
 
