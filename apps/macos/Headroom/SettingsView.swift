@@ -252,22 +252,70 @@ struct SettingsView: View {
           }.controlSize(.small).padding(.bottom, 12)
         }
       }
-      HStack {
-        Button("Add a source") { editing = SourceDraft() }
-        if model.localAvailable
-          && !model.sources.contains(where: {
-            $0.source.baseURL.absoluteString == "http://127.0.0.1:8080"
-          })
-        {
-          Button("Add This Mac") { editing = SourceDraft(local: true) }
-        }
-      }.disabled(model.busy)
+      Button("Add a source") { editing = SourceDraft() }.disabled(model.busy)
       if model.sources.isEmpty {
         hint(
           "Create a read-only token in your server's Settings, Devices. Paste it here with the server URL."
         )
       }
+      if !model.sources.contains(where: { $0.source.baseURL == LocalServer.url }) {
+        thisMac.padding(.top, 8)
+      }
     }
+    .task { await model.checkLocal() }
+  }
+
+  /// This Mac as a source: add it when it answers, start it when installed, else how to install.
+  private var thisMac: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text("This Mac").font(HR.font(13, .semibold))
+      settingsGroup {
+        HStack(spacing: 12) {
+          Text(thisMacStatus).fixedSize(horizontal: false, vertical: true)
+          Spacer()
+          if model.localAvailable {
+            Button("Add This Mac") { editing = SourceDraft(local: true) }.disabled(model.busy)
+          } else if model.localStarting {
+            ProgressView().controlSize(.small)
+            Text("Starting…").foregroundStyle(HR.secondary)
+          } else if model.localServer != nil {
+            Button("Start Headroom") { Task { await model.startLocal() } }
+          } else {
+            Button("Copy command") {
+              NSPasteboard.general.clearContents()
+              NSPasteboard.general.setString(Self.installCommand, forType: .string)
+            }
+          }
+        }.padding(.vertical, 10)
+        if !model.localAvailable && model.localServer == nil {
+          Divider().overlay(HR.border)
+          Text(Self.installCommand).font(.system(size: 12, design: .monospaced)).textSelection(
+            .enabled
+          ).padding(.vertical, 10)
+        }
+      }
+      hint(thisMacHint)
+    }
+  }
+
+  private static let installCommand = "brew install amitray007/headroom/headroom"
+
+  private var thisMacStatus: String {
+    if model.localAvailable { return "Headroom is running on this Mac." }
+    if model.localStarting || model.localServer != nil {
+      return "Headroom is installed on this Mac but not running."
+    }
+    return "Headroom is not installed on this Mac."
+  }
+
+  private var thisMacHint: String {
+    if model.localAvailable {
+      return "Create a token in its dashboard at 127.0.0.1:8080, Settings, Devices, then add it."
+    }
+    if model.localStarting || model.localServer != nil {
+      return "Starting it here also starts it at every login."
+    }
+    return "Install it with Homebrew, then start it here. The app only reads it, like any source."
   }
 
   private var general: some View {
@@ -369,6 +417,12 @@ struct SourceEditor: View {
         "Create a token in this source's Settings, Devices. It stays in this Mac's Keychain. Changing the URL requires a new token."
       )
       .font(HR.font(12)).foregroundStyle(HR.secondary)
+      if let dashboard = URL(string: draft.url), ["http", "https"].contains(dashboard.scheme),
+        dashboard.host() != nil
+      {
+        Button("Open this source's dashboard") { NSWorkspace.shared.open(dashboard) }
+          .buttonStyle(.link).font(HR.font(12))
+      }
       if let error {
         Text(error).font(HR.font(12)).foregroundStyle(HR.danger).accessibilityLabel(
           "Error: \(error)")

@@ -34,6 +34,9 @@ final class AppModel {
   var ready = false
   var busy = false
   var localAvailable = false
+  /// An installed Headroom server on this Mac that the app can start, when one is not answering.
+  var localServer: LocalServer?
+  var localStarting = false
   var now = Date()
   var synthetic = false
   var captureState: String?
@@ -88,7 +91,7 @@ final class AppModel {
       enabledKinds = await noticeStore?.enabledKinds() ?? [:]
       try await connect(try await sourceStore.load())
       ready = true
-      localAvailable = await FeedClient().thisMacAvailable()
+      await checkLocal()
       let monitor = NWPathMonitor()
       monitor.pathUpdateHandler = { [weak self] _ in
         Task { @MainActor in await self?.poller?.networkDidChange() }
@@ -292,6 +295,29 @@ final class AppModel {
       try await connect(values)
     } catch { self.error = "Could not save source order." }
   }
+  func checkLocal() async {
+    guard !synthetic else { return }
+    localAvailable = await FeedClient().thisMacAvailable()
+    localServer = LocalServer.find(
+      home: FileManager.default.homeDirectoryForCurrentUser,
+      exists: { FileManager.default.fileExists(atPath: $0) })
+  }
+
+  func startLocal() async {
+    guard let localServer, !localStarting else { return }
+    localStarting = true
+    defer { localStarting = false }
+    do {
+      try await localServer.start(
+        runner: ProcessRunner(), uid: getuid(),
+        shell: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
+        answers: { await FeedClient().thisMacAvailable() })
+      localAvailable = true
+    } catch {
+      self.error = error.localizedDescription
+    }
+  }
+
   func openDashboard(_ source: Source, accountID: String? = nil) {
     NSWorkspace.shared.open(Presentation.dashboard(source, accountID: accountID))
   }
