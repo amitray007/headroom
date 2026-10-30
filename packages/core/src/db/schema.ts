@@ -215,7 +215,7 @@ export const accountActions = sqliteTable(
       .notNull()
       .references(() => connections.id, { onDelete: "cascade" }),
     action: text("action").notNull(),
-    /** `automation` when an owner-configured rule started it (ADR 0003). */
+    /** `automation` or `expiry` when an auto-reset rule started it (ADR 0003). */
     origin: text("origin", { enum: accountActionOrigins }).notNull().default("owner"),
     idempotencyKey: text("idempotency_key").notNull(),
     state: text("state", { enum: accountActionStates }).notNull(),
@@ -364,6 +364,9 @@ export const autoResetRules = sqliteTable("auto_reset_rules", {
   window: text("window", { enum: autoResetWindows }).notNull(),
   thresholdPercent: integer("threshold_percent").notNull(),
   minHoursLeft: integer("min_hours_left").notNull(),
+  /** Use a banked reset that is about to expire. On by default (ADR 0003). */
+  beforeExpiry: integer("before_expiry", { mode: "boolean" }).notNull().default(true),
+  beforeExpiryMinutes: integer("before_expiry_minutes").notNull().default(2),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
 });
 

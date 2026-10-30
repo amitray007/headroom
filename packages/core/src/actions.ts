@@ -86,7 +86,20 @@ export class ActionStore {
       .all();
   }
 
-  /** Automatic actions for the connection that started at or after `since`, newest first. */
+  /** When the connection's newest action of any origin was requested, or null when it has none. */
+  latestRequestedAt(connectionId: string): Date | null {
+    return (
+      this.db
+        .select({ at: schema.accountActions.requestedAt })
+        .from(schema.accountActions)
+        .where(eq(schema.accountActions.connectionId, connectionId))
+        .orderBy(desc(schema.accountActions.requestedAt))
+        .limit(1)
+        .get()?.at ?? null
+    );
+  }
+
+  /** Spent-limit automatic actions (`automation`) for the connection that started at or after `since`, newest first. */
   automaticSince(connectionId: string, since: Date): AccountActionRow[] {
     return this.db
       .select()

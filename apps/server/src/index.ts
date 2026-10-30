@@ -105,6 +105,8 @@ const scheduler = new Scheduler({
   collection: ctx.collection,
   events: ctx.accountEvents,
   afterCollect: (connectionId, now) => ctx.autoReset.evaluate(connectionId, now),
+  urgent: (connectionId, now) => ctx.autoReset.wantsReading(connectionId, now),
+  watch: (connectionId, now) => ctx.autoReset.beforeExpiry(connectionId, now),
   intervalMs: () => ctx.settings.get().refreshIntervalMinutes * 60_000,
   retentionDays: () => ctx.settings.get().historyRetentionDays,
   afterTick: (now) => ctx.dispatcher.dispatch(now).then(() => undefined),

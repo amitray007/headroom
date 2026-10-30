@@ -79,6 +79,31 @@ describe("resetRows", () => {
     expect(rows[1]?.detail).toBeNull();
   });
 
+  test("names a use before expiry, with no figure when no limit was known", () => {
+    const expiry = connection("codex", {
+      id: "codex-2",
+      events: [
+        event("x", now - hour, null, {
+          kind: "auto_reset",
+          actionId: "act",
+          state: "succeeded",
+          creditId: "c",
+          percent: null,
+          resetsAt: null,
+          trigger: "expiry",
+          creditExpiresAt: now - hour + 60_000,
+        }),
+      ],
+    });
+    const [row] = resetRows([expiry], words);
+    expect(row).toMatchObject({
+      mark: "auto",
+      what: "Used before expiry by Headroom",
+      detail: null,
+      change: null,
+    });
+  });
+
   test("follows the left view", () => {
     const [row] = resetRows([codex], { ...words, view: "left" });
     expect(row?.change).toBe("36% → 99% left");

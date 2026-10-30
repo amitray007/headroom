@@ -16,6 +16,7 @@ describe("openDatabase", () => {
       "0004_wallet",
       "0005_single_owner",
       "0006_automations",
+      "0007_expiry_reset",
     ]);
     const tables = sqlite
       .query<{ name: string }, []>(
@@ -119,6 +120,36 @@ describe("openDatabase", () => {
       chmodSync(path, 0o644);
       const { sqlite } = openDatabase({ path });
       expect(statSync(path).mode & 0o777).toBe(0o600);
+      sqlite.close();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("0007 gives an existing auto-reset rule use-before-expiry, on at 2 minutes", () => {
+    const root = mkdtempSync(join(tmpdir(), "headroom-db-"));
+    try {
+      const path = join(root, "headroom.db");
+      // Roll a fresh database back to before 0007 and store a rule the 0.1 way.
+      const before = openDatabase({ path }).sqlite;
+      before.run("ALTER TABLE auto_reset_rules DROP COLUMN before_expiry");
+      before.run("ALTER TABLE auto_reset_rules DROP COLUMN before_expiry_minutes");
+      before.run("DELETE FROM headroom_migrations WHERE name = '0007_expiry_reset'");
+      before.run(
+        "INSERT INTO connections (id, provider, provider_account_id, scope, label, auth_method, state, interface, connector_version) VALUES ('c1', 'codex', 'a', 'individual', 'A', 'cli_login', 'ready', 'private', '1')",
+      );
+      before.run(
+        "INSERT INTO auto_reset_rules (connection_id, enabled, window, threshold_percent, min_hours_left) VALUES ('c1', 0, 'weekly', 100, 24)",
+      );
+      before.close();
+
+      const { db, sqlite } = openDatabase({ path });
+      expect(db.select().from(schema.autoResetRules).get()).toMatchObject({
+        connectionId: "c1",
+        enabled: false,
+        beforeExpiry: true,
+        beforeExpiryMinutes: 2,
+      });
       sqlite.close();
     } finally {
       rmSync(root, { recursive: true, force: true });

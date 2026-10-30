@@ -789,6 +789,41 @@ function percentText(value: number): string {
   return `${Math.round(value)}%`;
 }
 
+function autoResetMessage(detail: Extract<AccountEvent["detail"], { kind: "auto_reset" }>): string {
+  if (detail.trigger === "expiry") {
+    if (detail.state === "succeeded")
+      return "A banked reset was about to expire unused, so Headroom used it.";
+    return detail.state === "failed"
+      ? "A banked reset was about to expire unused, but using it did not go through. Headroom retries until it expires."
+      : "A banked reset was about to expire unused, but Headroom could not confirm it was used. Headroom checks again and retries until it expires.";
+  }
+  const reached =
+    detail.percent === null
+      ? "A limit ran out"
+      : `A limit reached ${percentText(detail.percent)} used`;
+  if (detail.state === "succeeded") return `${reached}, so Headroom used a banked reset.`;
+  return detail.state === "failed"
+    ? `${reached}, but the reset did not go through. Headroom will not retry until the limit resets.`
+    : `${reached}, but Headroom could not confirm the reset. Check the account before you use another.`;
+}
+
+/**
+ * Use before expiry retries one credit several times inside its lead time. Only the first attempt
+ * with each outcome for a credit becomes a notice, so one failing credit warns once, and its id
+ * stays the same as later attempts arrive.
+ */
+function firstExpiryAttempts(events: readonly AccountEvent[]): Set<string> {
+  const first = new Map<string, AccountEvent>();
+  for (const event of events) {
+    const { detail } = event;
+    if (detail.kind !== "auto_reset" || detail.trigger !== "expiry") continue;
+    const key = `${detail.creditId}:${detail.state}`;
+    const seen = first.get(key);
+    if (!seen || event.occurredAt < seen.occurredAt) first.set(key, event);
+  }
+  return new Set([...first.values()].map((event) => event.id));
+}
+
 function eventNotifications(
   connection: OverviewConnection,
   settings: NotificationSettings,
@@ -799,10 +834,12 @@ function eventNotifications(
   const on = settings.notifications;
   const name = providerName(connection.provider);
   const found: AppNotification[] = [];
+  const retries = firstExpiryAttempts(connection.events);
   for (const event of connection.events) {
     if (now - event.occurredAt > eventLifetime) continue;
     const detail = event.detail;
     if (detail.kind === "auto_reset") {
+      if (detail.trigger === "expiry" && !retries.has(event.id)) continue;
       // A failed or uncertain attempt matters even for a muted provider or an account that stopped updating.
       const succeeded = detail.state === "succeeded";
       if (succeeded && (muted || !live)) continue;
@@ -810,17 +847,16 @@ function eventNotifications(
         ...eventBase(connection, event, "auto_reset"),
         tone: succeeded ? "info" : "warn",
         subject: { metricKey: event.metricKey, label: "Auto-Reset", window: null },
-        figures: { percentUsed: detail.percent },
+        figures: {
+          ...(detail.percent === null ? {} : { percentUsed: detail.percent }),
+          ...(detail.creditExpiresAt === undefined ? {} : { expiresAt: detail.creditExpiresAt }),
+        },
         title: succeeded
           ? `${name} Auto-Reset Used a Banked Reset`
           : detail.state === "failed"
             ? `${name} Auto-Reset Failed`
             : `${name} Auto-Reset May Not Have Worked`,
-        message: succeeded
-          ? `A limit reached ${percentText(detail.percent)} used, so Headroom used a banked reset.`
-          : detail.state === "failed"
-            ? `A limit reached ${percentText(detail.percent)} used, but the reset did not go through. Headroom will not retry until the limit resets.`
-            : `A limit reached ${percentText(detail.percent)} used, but Headroom could not confirm the reset. Check the account before you use another.`,
+        message: autoResetMessage(detail),
       });
       continue;
     }

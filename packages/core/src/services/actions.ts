@@ -37,7 +37,7 @@ export interface PerformActionInput {
   readonly creditId?: string;
   /** Must be true; the browser sets it only after the owner confirmed the named credit. */
   readonly confirm: boolean;
-  /** `automation` only from an owner-configured rule (ADR 0003). Defaults to `owner`. */
+  /** `automation` or `expiry` only from an auto-reset rule (ADR 0003). Defaults to `owner`. */
   readonly origin?: AccountActionOrigin;
 }
 
@@ -45,6 +45,8 @@ export interface ActionOutcome {
   readonly action: AccountActionRow;
   /** The follow-up collection after a success; absent otherwise. */
   readonly collection?: CollectionOutcome;
+  /** How long the provider asked to wait before another request, when a failed or unknown result said so. */
+  readonly retryAfterMs?: number;
 }
 
 export class ActionsDisabledError extends Error {
@@ -151,16 +153,14 @@ export class ActionService {
         return { action: done, collection };
       }
       case "failed":
-        return {
-          action: this.deps.actions.complete(row.id, "failed", {
-            sanitizedError: `${result.error.category}: ${result.error.message}`,
-          }),
-        };
       case "uncertain":
         return {
-          action: this.deps.actions.complete(row.id, "uncertain", {
+          action: this.deps.actions.complete(row.id, result.status, {
             sanitizedError: `${result.error.category}: ${result.error.message}`,
           }),
+          ...(result.error.retryAfterMs === undefined
+            ? {}
+            : { retryAfterMs: result.error.retryAfterMs }),
         };
       default:
         return assertNever(result);

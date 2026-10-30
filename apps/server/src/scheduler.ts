@@ -7,8 +7,9 @@ import type {
 } from "@headroom/core";
 
 /**
- * Periodic tick: expire overdue attempts, then collect every connection that is due.
- * Due means no run yet, a Retry-After that has passed, or the interval plus a
+ * Periodic tick: expire overdue attempts, then collect every connection that is due and run the
+ * watch hook on every ready connection.
+ * Due means no run yet, a Retry-After that has passed, an urgent need, or the interval plus a
  * per-connection jitter elapsed since the last run started. One connection at a time.
  */
 export interface SchedulerOptions {
@@ -25,6 +26,16 @@ export interface SchedulerOptions {
    * logged by class and never stops the other connections.
    */
   readonly afterCollect?: (connectionId: string, now: number) => Promise<unknown>;
+  /**
+   * Runs on every tick for each ready connection, due or not, for example the use-before-expiry
+   * rule, which must act within minutes of a credit's expiry. Its failure is logged by class.
+   */
+  readonly watch?: (connectionId: string, now: number) => Promise<unknown>;
+  /**
+   * True when a connection needs a reading before its interval is up, for example a banked reset
+   * about to expire. A Retry-After or a run in progress still holds it back.
+   */
+  readonly urgent?: (connectionId: string, now: number) => boolean;
   /** A getter lets a settings change apply at the next tick without a restart. */
   readonly intervalMs: number | (() => number);
   readonly tickMs?: number;
@@ -107,24 +118,22 @@ export class Scheduler {
         // One connection failing (deleted mid-tick, a decrypt error) must not skip the others.
         try {
           if (connection.state !== "ready" && connection.state !== "partial") continue;
-          if (!this.isDue(connection.id)) continue;
-          // Sequential on purpose: one provider request at a time keeps rate limits predictable.
-          // eslint-disable-next-line no-await-in-loop -- collections must not run concurrently
-          const outcome = await this.deps.collection.run(
-            connection.id,
-            `scheduler:${connection.id}`,
-          );
-          this.deps.log?.("debug", `collected ${connection.id}: ${outcome.status}`);
-          if (outcome.status === "collected" || outcome.status === "failed")
-            collected.push(connection.id);
-          if (outcome.status === "collected" && this.deps.afterCollect) {
-            try {
+          if (this.isDue(connection.id)) {
+            // Sequential on purpose: one provider request at a time keeps rate limits predictable.
+            // eslint-disable-next-line no-await-in-loop -- collections must not run concurrently
+            const outcome = await this.deps.collection.run(
+              connection.id,
+              `scheduler:${connection.id}`,
+            );
+            this.deps.log?.("debug", `collected ${connection.id}: ${outcome.status}`);
+            if (outcome.status === "collected" || outcome.status === "failed")
+              collected.push(connection.id);
+            if (outcome.status === "collected")
               // eslint-disable-next-line no-await-in-loop -- a rule may act on the account before the next one is collected
-              await this.deps.afterCollect(connection.id, this.now().getTime());
-            } catch (error) {
-              this.deps.log?.("error", `after-collect hook failed: ${errorClass(error)}`);
-            }
+              await this.runHook("after-collect", this.deps.afterCollect, connection.id);
           }
+          // eslint-disable-next-line no-await-in-loop -- a rule may act on the account before the next one is collected
+          await this.runHook("watch", this.deps.watch, connection.id);
         } catch (error) {
           // The class only: the message could carry provider text.
           this.deps.log?.("error", `collecting ${connection.id} failed: ${errorClass(error)}`);
@@ -134,6 +143,20 @@ export class Scheduler {
       await this.runAfterTick();
     }
     return collected;
+  }
+
+  /** Runs a per-connection hook, if set. Its failure is logged by class only and never thrown. */
+  private async runHook(
+    name: string,
+    hook: ((connectionId: string, now: number) => Promise<unknown>) | undefined,
+    connectionId: string,
+  ): Promise<void> {
+    if (!hook) return;
+    try {
+      await hook(connectionId, this.now().getTime());
+    } catch (error) {
+      this.deps.log?.("error", `${name} hook failed: ${errorClass(error)}`);
+    }
   }
 
   /** Delete history past the retention period, at most every six hours. Logs counts only and never throws. */
@@ -177,7 +200,8 @@ export class Scheduler {
     if (run.retryAfter) return now >= run.retryAfter.getTime();
     const { intervalMs } = this.deps;
     const interval = typeof intervalMs === "function" ? intervalMs() : intervalMs;
-    return now - run.startedAt.getTime() >= interval + jitter(connectionId, interval);
+    if (now - run.startedAt.getTime() >= interval + jitter(connectionId, interval)) return true;
+    return this.deps.urgent?.(connectionId, now) === true;
   }
 }
 

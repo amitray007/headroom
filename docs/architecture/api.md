@@ -51,7 +51,7 @@ The route keeps the last eight serialized bodies in process memory. The key is `
 - `actions`: `{ enabled, supported }`, where `enabled` is the effective gate.
 - `events`: the account's events from the last 7 days, newest first, at most 20. Each is `{ id, connectionId, occurredAt, metricKey, detail }` and `detail` is one of the `accountEventDetailSchema` shapes (`reset_granted`, `early_reset`, `top_up_detected`, `auto_reset`). They carry numbers and ids only. One query reads the events of every account.
 - `pace`: the recent burn rate of each percent limit, as `{ metricKey, ratePerHour, from, to }`: percentage points used per hour over the readings from `from` to `to`. A limit with no entry has an unknown pace, never zero. The server measures it from the last 24 hours of stored readings and keeps it until the account gets a new reading. See [Pacing](notifications.md#pacing).
-- `automation`: `{ autoReset, budgets }`. `autoReset` is the owner's rule `{ enabled, window, thresholdPercent, minHoursLeft }` or null. `budgets` lists `{ metricKey, amount, unit }`, one per spend metric the owner set a budget for.
+- `automation`: `{ autoReset, budgets }`. `autoReset` is the owner's rule `{ enabled, window, thresholdPercent, minHoursLeft, beforeExpiry, beforeExpiryMinutes }` or null. Null means the default rule (`defaultAutoResetRule`): the limit trigger off, use-before-expiry on at 2 minutes. `budgets` lists `{ metricKey, amount, unit }`, one per spend metric the owner set a budget for.
 
 The response carries no provider account id or workspace id. The detail route is built field by field for the same reason.
 
@@ -106,7 +106,7 @@ Every Wallet route needs a session; the mutating ones also pass the cross-site g
 
 Both routes need a session and the cross-site guard. The rules and the ADR behind them are in [ADR 0003](../decisions/0003-owner-automations.md).
 
-`PUT /api/connections/:id/auto-reset` takes `{ enabled, window, thresholdPercent, minHoursLeft }`: `window` is `weekly`, `session` or `either`, `thresholdPercent` is 90, 95 or 100, `minHoursLeft` is 1, 3, 6, 12, 24 or 48. It answers `{ autoReset }`. `DELETE` answers `{ autoReset: null }`. Errors: `400 invalid_body`, `404 unknown_connection`, and `409 unsupported_action` when the provider's connector cannot consume a reset credit. A saved rule does nothing while "Allow Account Actions" is off.
+`PUT /api/connections/:id/auto-reset` takes `{ enabled, window, thresholdPercent, minHoursLeft, beforeExpiry, beforeExpiryMinutes }`: `window` is `weekly`, `session` or `either`, `thresholdPercent` is 90, 95 or 100, `minHoursLeft` is 1, 3, 6, 12, 24 or 48, `beforeExpiryMinutes` is 2, 5 or 10. It answers `{ autoReset }`. `DELETE` answers `{ autoReset: null }`, which brings back the default rule. Errors: `400 invalid_body`, `404 unknown_connection`, and `409 unsupported_action` when the provider's connector cannot consume a reset credit. A saved rule does nothing while "Allow Account Actions" is off.
 
 `PUT /api/connections/:id/budgets/:metricKey` takes `{ amount }`, a positive number up to 1,000,000,000. The unit is not in the request: the server copies it from that metric in the latest snapshot. It answers `{ budgets }`, every budget of that account. `DELETE` clears one budget and answers the same shape. Errors: `400 invalid_body`, `404 unknown_connection`, and `409 not_a_spend_metric` when the latest snapshot has no metric of kind `spend` with that key, or its unit is not a notification amount unit.
 

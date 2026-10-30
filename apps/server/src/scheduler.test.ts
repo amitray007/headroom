@@ -114,6 +114,80 @@ describe("Scheduler", () => {
     expect(seen).toEqual([]);
   });
 
+  test("watch runs on every tick for a ready connection, due or not, and its failure is logged", async () => {
+    const { ctx, connection, advance } = setup();
+    const seen: string[] = [];
+    const logs: string[] = [];
+    const scheduler = new Scheduler({
+      connections: ctx.connections,
+      attempts: ctx.attempts,
+      connect: ctx.connect,
+      snapshots: ctx.snapshots,
+      collection: ctx.collection,
+      intervalMs: 900_000,
+      now: ctx.now,
+      watch: (id) => {
+        seen.push(id);
+        return Promise.reject(new Error("boom"));
+      },
+      log: (_level, message) => logs.push(message),
+    });
+    expect(await scheduler.tick()).toEqual([connection.id]);
+    // 30 seconds later nothing is due, but the watch still runs.
+    advance(30_000);
+    expect(await scheduler.tick()).toEqual([]);
+    expect(seen).toEqual([connection.id, connection.id]);
+    expect(logs.join("\n")).toContain("watch hook failed: Error");
+    ctx.connections.setPaused(connection.id, true);
+    await scheduler.tick();
+    expect(seen).toHaveLength(2);
+  });
+
+  test("urgent collects a connection before its interval, but never inside a Retry-After", async () => {
+    const { ctx, connector, connection, advance } = setup();
+    let urgent = false;
+    const scheduler = new Scheduler({
+      connections: ctx.connections,
+      attempts: ctx.attempts,
+      connect: ctx.connect,
+      snapshots: ctx.snapshots,
+      collection: ctx.collection,
+      intervalMs: 900_000,
+      now: ctx.now,
+      urgent: () => urgent,
+    });
+    expect(await scheduler.tick()).toEqual([connection.id]);
+    advance(30_000);
+    expect(await scheduler.tick()).toEqual([]);
+    urgent = true;
+    expect(await scheduler.tick()).toEqual([connection.id]);
+    connector.collectQueue.push(rateLimitError(), rateLimitError());
+    advance(30_000);
+    expect(await scheduler.tick()).toEqual([connection.id]);
+    // The 429 asked for 30 seconds.
+    advance(10_000);
+    expect(await scheduler.tick()).toEqual([]);
+  });
+
+  test("urgent never starts a collection while another run is open", async () => {
+    const { ctx, connection, advance } = setup();
+    const scheduler = new Scheduler({
+      connections: ctx.connections,
+      attempts: ctx.attempts,
+      connect: ctx.connect,
+      snapshots: ctx.snapshots,
+      collection: ctx.collection,
+      intervalMs: 900_000,
+      now: ctx.now,
+      urgent: () => true,
+    });
+    expect(await scheduler.tick()).toEqual([connection.id]);
+    // A Hold to Reset press is collecting right now.
+    ctx.snapshots.startRun(connection.id);
+    advance(30_000);
+    expect(await scheduler.tick()).toEqual([]);
+  });
+
   test("prunes on the first tick, then at most every six hours, with the current setting", async () => {
     const { ctx, advance } = setup();
     const cutoffs: number[] = [];

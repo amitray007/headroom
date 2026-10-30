@@ -1,6 +1,7 @@
 import { useContext, useRef, useState } from "react";
 
 import {
+  autoResetExpiryMinutes,
   autoResetMinHoursLeft,
   autoResetThresholds,
   defaultAutoResetRule,
@@ -82,6 +83,9 @@ const hoursOptions: readonly SelectOption<`${AutoResetRule["minHoursLeft"]}`>[] 
     label: value === 1 ? "1 hour" : `${value} hours`,
   }));
 
+const expiryOptions: readonly SelectOption<`${AutoResetRule["beforeExpiryMinutes"]}`>[] =
+  autoResetExpiryMinutes.map((value) => ({ value: `${value}`, label: `${value} min before` }));
+
 /**
  * One account's rule: a switch, and the three choices that say when it fires. The choices can be set before the
  * rule is switched on, so it never fires with settings the owner has not seen. A change shows at once and is saved
@@ -155,6 +159,28 @@ function AutoResetRow(props: {
           }}
         />
       </div>
+      <div className="srow auto-expiry" data-on={rule.beforeExpiry ? "" : undefined}>
+        <span className="sbody">
+          <b>Use Before Expiry</b>
+          <span className="muted">Uses a banked reset that would expire unused.</span>
+        </span>
+        <Select
+          label={`Use before expiry lead time for ${name}`}
+          hideLabel
+          size="sm"
+          value={`${rule.beforeExpiryMinutes}` as const}
+          options={expiryOptions}
+          onChange={(value) => {
+            const beforeExpiryMinutes = autoResetExpiryMinutes.find((item) => `${item}` === value);
+            if (beforeExpiryMinutes !== undefined) save({ beforeExpiryMinutes });
+          }}
+        />
+        <Switch
+          checked={rule.beforeExpiry}
+          label={`Use before expiry for ${name}`}
+          onChange={(beforeExpiry) => save({ beforeExpiry })}
+        />
+      </div>
       {error === null ? null : (
         <p className="form-error" role="alert">
           {error}
@@ -174,8 +200,8 @@ function AutoResetSection(props: {
   return (
     <Section title="Auto-Reset">
       <p className="auto-note muted">
-        Uses the reset that expires first, once per window. Not yet validated, so the first try may
-        fail.
+        Uses the reset that expires first, once per window. Use Before Expiry is on by default and
+        retries until the reset expires. Not yet validated, so the first try may fail.
       </p>
       {waiting || settings.accountActions ? null : (
         <output className="auto-hint">

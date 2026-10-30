@@ -50,9 +50,16 @@ export const accountEventDetailSchema = z.discriminatedUnion("kind", [
     actionId: z.string().min(1),
     state: accountActionStateSchema.extract(["succeeded", "failed", "uncertain"]),
     creditId: z.string().min(1),
-    /** The watched window's used percent that fired the rule, and when it would have reset on its own. */
-    percent,
-    resetsAt: instant,
+    /**
+     * The window's used percent and when it would have reset on its own: the watched window that
+     * fired the rule, or for `expiry` the longest known limit window. Null when no window is known.
+     */
+    percent: percent.nullable(),
+    resetsAt: instant.nullable(),
+    /** `expiry` when the credit was used because it was about to expire. Absent for a spent limit. */
+    trigger: z.literal("expiry").optional(),
+    /** For `expiry`: when the credit would have expired. */
+    creditExpiresAt: instant.optional(),
   }),
 ]);
 export type AccountEventDetail = z.infer<typeof accountEventDetailSchema>;
@@ -72,10 +79,18 @@ export const autoResetThresholds = [90, 95, 100] as const;
 /** Hours the window's own reset must still be away, so a banked reset is not spent on a window about to reset anyway. */
 export const autoResetMinHoursLeft = [1, 3, 6, 12, 24, 48] as const;
 
+/** Minutes before a banked reset expires that Headroom uses it, if it is still unused. */
+export const autoResetExpiryMinutes = [2, 5, 10] as const;
+
 /**
- * One auto-reset rule per account. When a watched window is at least `thresholdPercent` used and
- * resets on its own more than `minHoursLeft` hours away, Headroom uses the usable banked reset
- * that expires first. At most one automatic attempt per window instance.
+ * One auto-reset rule per account, with two triggers.
+ *
+ * - `enabled`: when a watched window is at least `thresholdPercent` used and resets on its own
+ *   more than `minHoursLeft` hours away, Headroom uses the usable banked reset that expires first.
+ *   At most one automatic attempt per window instance.
+ * - `beforeExpiry`: a usable banked reset that would expire within `beforeExpiryMinutes` is used
+ *   anyway, so it is not lost. A failed or unconfirmed attempt is retried with backoff until the
+ *   credit is gone or has expired.
  */
 export const autoResetRuleSchema = z.strictObject({
   enabled: z.boolean(),
@@ -89,14 +104,19 @@ export const autoResetRuleSchema = z.strictObject({
     z.literal(24),
     z.literal(48),
   ]),
+  beforeExpiry: z.boolean(),
+  beforeExpiryMinutes: z.union([z.literal(2), z.literal(5), z.literal(10)]),
 });
 export type AutoResetRule = z.infer<typeof autoResetRuleSchema>;
 
+/** An account with no stored rule behaves as this: the limit trigger off, use-before-expiry on. */
 export const defaultAutoResetRule: AutoResetRule = {
   enabled: false,
   window: "weekly",
   thresholdPercent: 100,
   minHoursLeft: 24,
+  beforeExpiry: true,
+  beforeExpiryMinutes: 2,
 };
 
 /** The owner's own budget for one spend metric, in that metric's unit. */

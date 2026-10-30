@@ -4,7 +4,7 @@ import { AccountEventStore } from "../account-events.ts";
 import { ActionStore } from "../actions.ts";
 import { AutomationStore } from "../automation.ts";
 import type { AutoResetRule } from "../automation-schemas.ts";
-import type { CollectResult, ResetCreditObservation } from "../connector.ts";
+import type { ActionResult, CollectResult, ResetCreditObservation } from "../connector.ts";
 import { CredentialStore } from "../credentials.ts";
 import { createKeyring, generateKeyHex, parseKeyHex } from "../crypto/index.ts";
 import { openDatabase } from "../db/index.ts";
@@ -14,7 +14,7 @@ import { SnapshotStore } from "../snapshots.ts";
 import { WalletStore } from "../wallet.ts";
 import { AccountEventService } from "./account-events.ts";
 import { ActionService } from "./actions.ts";
-import { AutoResetService } from "./auto-reset.ts";
+import { AutoResetService, expiryFreshMs, expiryRetryBaseMs } from "./auto-reset.ts";
 import { CollectionService } from "./collect.ts";
 import { credentialFixture, FakeConnector } from "./fake-connector.ts";
 
@@ -195,6 +195,8 @@ const rule: AutoResetRule = {
   window: "weekly",
   thresholdPercent: 100,
   minHoursLeft: 24,
+  beforeExpiry: true,
+  beforeExpiryMinutes: 2,
 };
 
 describe("account events from collection", () => {
@@ -570,5 +572,285 @@ describe("AutoResetService", () => {
       ),
     });
     expect((await h.autoReset.evaluate(h.connection.id, base)).status).toBe("skipped");
+  });
+});
+
+const minute = 60_000;
+const failed: ActionResult = {
+  status: "failed",
+  error: { category: "provider_unavailable", class: "transient", message: "down" },
+};
+/** A credit that expires at `expiresAt`, read at `at` with the weekly limit 10% used. */
+const expiring = (at: number, expiresAt: number, id = "rc-1") =>
+  reading(at, [weekly(10, base + 3 * day)], [usable(id, expiresAt)]);
+/** One scheduler tick at `at`: collect when the service asks for a reading, then run the trigger. */
+const tick = async (h: ReturnType<typeof setup>, at: number, fresh: CollectResult | Error) => {
+  h.setNow(at);
+  if (h.autoReset.wantsReading(h.connection.id, at)) {
+    h.connector.collectQueue.push(fresh);
+    await h.collection.run(h.connection.id);
+  }
+  return h.autoReset.beforeExpiry(h.connection.id, at);
+};
+
+describe("AutoResetService.beforeExpiry", () => {
+  test("with no stored rule, uses a credit expiring within 2 minutes", async () => {
+    const h = setup();
+    const expiresAt = base + 90_000;
+    await h.read(expiring(base, expiresAt));
+    // The reading is fresh, so no other is needed.
+    expect(h.autoReset.wantsReading(h.connection.id, base)).toBe(false);
+    expect(await h.autoReset.beforeExpiry(h.connection.id, base)).toEqual({
+      status: "fired",
+      state: "succeeded",
+    });
+    const [row] = h.actionRows.list(h.connection.id);
+    // Its own origin, so it is not the limit trigger's one attempt per window.
+    expect(row?.origin).toBe("expiry");
+    const event = h.events.recent(new Date(0)).find((e) => e.detail.kind === "auto_reset");
+    expect(event?.metricKey).toBe(weeklyKey);
+    expect(event?.detail).toEqual({
+      kind: "auto_reset",
+      actionId: row?.id ?? "",
+      state: "succeeded",
+      creditId: "rc-1",
+      percent: 10,
+      resetsAt: base + 3 * day,
+      trigger: "expiry",
+      creditExpiresAt: expiresAt,
+    });
+  });
+
+  test("asks for a fresh reading when the last one is over a minute old, and acts on it", async () => {
+    const h = setup();
+    const expiresAt = base + 5 * minute;
+    await h.read(expiring(base, expiresAt));
+    const at = base + 4 * minute;
+    expect(h.autoReset.wantsReading(h.connection.id, at)).toBe(true);
+    // Without that reading nothing is sent.
+    h.setNow(at);
+    expect(await h.autoReset.beforeExpiry(h.connection.id, at)).toEqual({
+      status: "skipped",
+      reason: "no_fresh_reading",
+    });
+    const later = at + expiryRetryBaseMs;
+    expect((await tick(h, later, expiring(later, expiresAt))).status).toBe("fired");
+    expect(actionCalls(h)).toHaveLength(1);
+  });
+
+  test("waits until the credit is inside the lead time", async () => {
+    const h = setup();
+    await h.read(expiring(base, base + 3 * minute));
+    expect(h.autoReset.wantsReading(h.connection.id, base)).toBe(false);
+    expect(await h.autoReset.beforeExpiry(h.connection.id, base)).toEqual({
+      status: "skipped",
+      reason: "no_credit",
+    });
+    expect(actionCalls(h)).toEqual([]);
+  });
+
+  test("a fresh reading that moved the expiry out of the lead time stops the attempt", async () => {
+    const h = setup();
+    await h.read(expiring(base, base + minute));
+    const at = base + 2 * expiryFreshMs;
+    // The credit now expires in a week.
+    expect(await tick(h, at, expiring(at, base + week))).toEqual({
+      status: "skipped",
+      reason: "no_credit",
+    });
+    expect(actionCalls(h)).toEqual([]);
+  });
+
+  test("follows the owner's lead time and switch", async () => {
+    const h = setup();
+    h.automation.setAutoReset(h.connection.id, { ...rule, beforeExpiryMinutes: 10 });
+    await h.read(expiring(base, base + 9 * minute));
+    expect((await h.autoReset.beforeExpiry(h.connection.id, base)).status).toBe("fired");
+
+    const off = setup();
+    off.automation.setAutoReset(off.connection.id, { ...rule, beforeExpiry: false });
+    await off.read(expiring(base, base + minute));
+    expect(off.autoReset.wantsReading(off.connection.id, base + 2 * expiryFreshMs)).toBe(false);
+    expect(await off.autoReset.beforeExpiry(off.connection.id, base)).toEqual({
+      status: "skipped",
+      reason: "expiry_disabled",
+    });
+  });
+
+  test("does nothing while account actions are switched off", async () => {
+    const h = setup({ enabled: false });
+    await h.read(expiring(base, base + minute));
+    expect(await h.autoReset.beforeExpiry(h.connection.id, base)).toEqual({
+      status: "skipped",
+      reason: "actions_disabled",
+    });
+    expect(actionCalls(h)).toEqual([]);
+  });
+
+  test("ignores a credit that has already expired or has no expiry", async () => {
+    const h = setup();
+    await h.read(
+      reading(base, [weekly(10, base + 3 * day)], [usable("gone", base), usable("forever", null)]),
+    );
+    expect((await h.autoReset.beforeExpiry(h.connection.id, base)).status).toBe("skipped");
+    expect(actionCalls(h)).toEqual([]);
+  });
+
+  test("retries a failed attempt with a doubling wait until the credit expires", async () => {
+    const h = setup();
+    const expiresAt = base + 2 * minute;
+    await h.read(expiring(base, expiresAt));
+    const tries: number[] = [];
+    for (let at = base; at < expiresAt; at += 10_000) {
+      h.connector.actionQueue.push(failed);
+      // eslint-disable-next-line no-await-in-loop -- one tick at a time, like the scheduler
+      const outcome = await tick(h, at, expiring(at, expiresAt));
+      if (outcome.status === "fired") tries.push(at - base);
+      else expect(outcome).toEqual({ status: "skipped", reason: "backing_off" });
+      h.connector.actionQueue.length = 0;
+    }
+    const b = expiryRetryBaseMs;
+    expect(tries).toEqual([0, b, b + 2 * b]);
+    // Past the expiry nothing more is tried.
+    expect((await tick(h, expiresAt, expiring(expiresAt, expiresAt))).status).toBe("skipped");
+    expect(actionCalls(h)).toHaveLength(3);
+  });
+
+  test("an unconfirmed attempt is not repeated once a fresh reading shows the credit gone", async () => {
+    const h = setup();
+    const expiresAt = base + 2 * minute;
+    await h.read(expiring(base, expiresAt));
+    h.connector.actionQueue.push({
+      status: "uncertain",
+      error: { category: "provider_unavailable", class: "transient", message: "timeout" },
+    });
+    expect(await tick(h, base, expiring(base, expiresAt))).toEqual({
+      status: "fired",
+      state: "uncertain",
+    });
+    const later = base + 2 * expiryFreshMs;
+    expect(await tick(h, later, reading(later, [weekly(0, base + week)]))).toEqual({
+      status: "skipped",
+      reason: "no_credit",
+    });
+    expect(actionCalls(h)).toHaveLength(1);
+  });
+
+  test("a failed reading counts as a try, so a provider that is down is not read every tick", async () => {
+    const h = setup();
+    const at = base + 2 * expiryFreshMs;
+    const expiresAt = at + minute;
+    await h.read(expiring(base, expiresAt));
+    expect(await tick(h, at, new Error("network"))).toEqual({
+      status: "skipped",
+      reason: "no_fresh_reading",
+    });
+    expect(h.autoReset.wantsReading(h.connection.id, at + expiryRetryBaseMs - 1)).toBe(false);
+    expect(h.autoReset.wantsReading(h.connection.id, at + expiryRetryBaseMs)).toBe(true);
+    expect(actionCalls(h)).toEqual([]);
+  });
+
+  test("a retry needs a reading taken after the previous attempt", async () => {
+    const h = setup();
+    const expiresAt = base + 2 * minute;
+    await h.read(expiring(base, expiresAt));
+    h.connector.actionQueue.push({
+      status: "uncertain",
+      error: { category: "provider_unavailable", class: "transient", message: "timeout" },
+    });
+    expect((await h.autoReset.beforeExpiry(h.connection.id, base)).status).toBe("fired");
+    // 30 seconds later the reading from before the attempt is still under a minute old.
+    const later = base + expiryRetryBaseMs;
+    h.setNow(later);
+    expect(h.autoReset.wantsReading(h.connection.id, later)).toBe(true);
+    expect(await h.autoReset.beforeExpiry(h.connection.id, later)).toEqual({
+      status: "skipped",
+      reason: "no_fresh_reading",
+    });
+    expect(actionCalls(h)).toHaveLength(1);
+  });
+
+  test("does not try a credit again in the tick the limit trigger just tried it", async () => {
+    const h = setup();
+    h.automation.setAutoReset(h.connection.id, { ...rule, minHoursLeft: 1 });
+    await h.read(reading(base, [weekly(100, base + 3 * day)], [usable("rc-1", base + minute)]));
+    h.connector.actionQueue.push(failed);
+    expect(await h.autoReset.evaluate(h.connection.id, base)).toEqual({
+      status: "fired",
+      state: "failed",
+    });
+    expect(await h.autoReset.beforeExpiry(h.connection.id, base)).toEqual({
+      status: "skipped",
+      reason: "no_fresh_reading",
+    });
+    expect(actionCalls(h)).toHaveLength(1);
+  });
+
+  test("waits out the provider's Retry-After when it is longer than the backoff", async () => {
+    const h = setup();
+    const expiresAt = base + 2 * minute;
+    await h.read(expiring(base, expiresAt));
+    h.connector.actionQueue.push({
+      status: "failed",
+      error: {
+        category: "rate_limited",
+        class: "transient",
+        message: "429",
+        retryAfterMs: 90_000,
+      },
+    });
+    expect(await tick(h, base, expiring(base, expiresAt))).toEqual({
+      status: "fired",
+      state: "failed",
+      retryAfterMs: 90_000,
+    });
+    const early = base + 60_000;
+    expect(await tick(h, early, expiring(early, expiresAt))).toEqual({
+      status: "skipped",
+      reason: "backing_off",
+    });
+    const due = base + 90_000;
+    expect((await tick(h, due, expiring(due, expiresAt))).status).toBe("fired");
+    expect(actionCalls(h)).toHaveLength(2);
+  });
+
+  test("a partial reading counts as fresh", async () => {
+    const h = setup();
+    const partial: CollectResult = {
+      ...expiring(base, base + minute),
+      failures: [{ category: "provider_unavailable", class: "transient", message: "one metric" }],
+    };
+    await h.read(partial);
+    expect(h.snapshots.latestRun(h.connection.id)?.outcome).toBe("partial");
+    expect((await h.autoReset.beforeExpiry(h.connection.id, base)).status).toBe("fired");
+  });
+
+  test("uses the credit that expires first when two are inside the lead time", async () => {
+    const h = setup();
+    await h.read(
+      reading(
+        base,
+        [weekly(10, base + 3 * day)],
+        [usable("later", base + 100_000), usable("sooner", base + 50_000)],
+      ),
+    );
+    await h.autoReset.beforeExpiry(h.connection.id, base);
+    expect(actionCalls(h)[0]).toContain("consume_reset_credit:sooner");
+  });
+
+  test("a failed use-before-expiry attempt does not block the limit rule", async () => {
+    const h = setup();
+    h.automation.setAutoReset(h.connection.id, rule);
+    const credits = [usable("soon", base + minute), usable("later", base + week)];
+    await h.read(reading(base, [weekly(10, base + 3 * day)], credits));
+    h.connector.actionQueue.push(failed);
+    expect((await h.autoReset.beforeExpiry(h.connection.id, base)).status).toBe("fired");
+    const later = base + hour;
+    h.setNow(later);
+    await h.read(reading(later, [weekly(100, base + 3 * day)], [usable("later", base + week)]));
+    expect(await h.autoReset.evaluate(h.connection.id, later)).toEqual({
+      status: "fired",
+      state: "succeeded",
+    });
   });
 });

@@ -133,6 +133,8 @@ describe("AutomationStore", () => {
       window: "either",
       thresholdPercent: 95,
       minHoursLeft: 6,
+      beforeExpiry: true,
+      beforeExpiryMinutes: 2,
     } as const;
     h.automation.setAutoReset("a", rule);
     expect(h.automation.autoReset("a")).toEqual(rule);
@@ -170,6 +172,8 @@ describe("AutomationStore", () => {
         window: "weekly",
         thresholdPercent: 100,
         minHoursLeft: 24,
+        beforeExpiry: true,
+        beforeExpiryMinutes: 2,
       }),
     ).toThrow(UnknownConnectionError);
     expect(() => h.automation.setBudget("nope", "k", 1, "USD")).toThrow(UnknownConnectionError);
