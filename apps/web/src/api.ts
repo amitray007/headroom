@@ -100,6 +100,31 @@ const tokenSchema = z.object({
   expiresAt: z.number().nullable(),
 });
 const tokensSchema = z.object({ tokens: z.array(tokenSchema) });
+
+/** Two synthetic linked devices for Demo Mode. Their starts are made up and match no key. */
+function demoTokens(now: number): ApiToken[] {
+  const day = 86_400_000;
+  return [
+    {
+      id: "demo-token-studio",
+      name: "Studio MacBook Pro",
+      prefix: "hr_",
+      start: "hr_Demo7xQa",
+      createdAt: now - 12 * day,
+      lastUsedAt: now - 4 * 60_000,
+      expiresAt: null,
+    },
+    {
+      id: "demo-token-desk",
+      name: "Desk Mac mini",
+      prefix: "hr_",
+      start: "hr_Demo2mKp",
+      createdAt: now - 40 * day,
+      lastUsedAt: now - 3 * day,
+      expiresAt: null,
+    },
+  ];
+}
 export type ApiToken = z.infer<typeof tokenSchema>;
 const createdTokenSchema = z.object({
   id: z.string(),
@@ -406,7 +431,7 @@ export const api = {
   ),
   tokens: () =>
     demoOn()
-      ? Promise.resolve({ tokens: [] as ApiToken[] })
+      ? Promise.resolve({ tokens: demoTokens(Date.now()) })
       : request("GET", "/api/tokens", tokensSchema),
   createToken: changesAccount((name: string) =>
     request("POST", "/api/tokens", createdTokenSchema, { name }),
