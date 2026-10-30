@@ -218,6 +218,13 @@ describe("app feed", () => {
     const charges = build([claude]).accounts[0]?.charges ?? [];
     expect(charges.map((charge) => charge.key)).toEqual(["cloud_credits.remaining"]);
     expect(charges[0]?.cap).toEqual({ value: 250, unit: "USD" });
+    const off = connection("claude", {
+      metrics: [
+        metric("cloud_credits.remaining", { kind: "currency_balance", unit: "USD", valueNum: 40 }),
+        metric("cloud_credits.limit", { kind: "currency_balance", unit: "USD", valueNum: 0 }),
+      ],
+    });
+    expect(build([off]).accounts[0]?.charges[0]?.cap).toBeNull();
   });
 
   test("Cursor parts, provider caps, units, banked expiries and the next exhausted limit", () => {

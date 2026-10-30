@@ -160,8 +160,9 @@ function chargesOf(connection: OverviewConnection): Charge[] {
               : "count",
         value: numberOf(metric),
         unit: metric.unit,
+        // A cap of zero means off, as in the spend notices.
         cap:
-          capValue === null || cap?.unit !== metric.unit || !sameScope
+          capValue === null || capValue <= 0 || cap?.unit !== metric.unit || !sameScope
             ? null
             : { value: capValue, unit: cap.unit },
         window: cell?.window ?? null,
