@@ -11,31 +11,21 @@ struct SettingsView: View {
 
   var body: some View {
     HStack(spacing: 0) {
-      VStack(spacing: 0) {
+      VStack(spacing: 2) {
         ForEach(SettingsPane.allCases) { pane in
-          Button {
+          SidebarItem(title: pane.rawValue, selected: model.selectedPane == pane) {
             model.selectedPane = pane
-          } label: {
-            Text(pane.rawValue).font(
-              .system(size: 13, weight: model.selectedPane == pane ? .semibold : .regular)
-            )
-            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 9).padding(
-              .vertical, 9
-            )
-            .background(
-              model.selectedPane == pane ? HR.muted : .clear, in: RoundedRectangle(cornerRadius: 7)
-            )
-            .contentShape(Rectangle())
-          }.buttonStyle(.plain).accessibilityAddTraits(
-            model.selectedPane == pane ? .isSelected : [])
+          }
         }
         Spacer()
-      }.padding(.horizontal, 10).padding(.top, 14).frame(width: 165).background(
-        HR.muted.opacity(0.6))
+      }
+      .padding(.horizontal, 10).padding(.top, 12).frame(width: 165)
+      .background(HR.background)
+      .overlay(alignment: .trailing) { Rectangle().fill(HR.borderSubtle).frame(width: 1) }
       ScrollView {
-        VStack(alignment: .leading, spacing: 16) {
-          Text(model.selectedPane.rawValue).font(HR.font(16, .semibold)).accessibilityAddTraits(
-            .isHeader)
+        VStack(alignment: .leading, spacing: 0) {
+          Text(model.selectedPane.rawValue).font(HR.popoverFont(16, .medium))
+            .frame(height: 34).padding(.horizontal, 24).accessibilityAddTraits(.isHeader)
           switch model.selectedPane {
           case .menuBar: menuBar
           case .list: accountList
@@ -43,12 +33,13 @@ struct SettingsView: View {
           case .sources: sources
           case .general: general
           }
-          Spacer(minLength: 0)
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 25).padding(
-          .vertical, 20)
-      }.id(model.selectedPane)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 12).padding(.bottom, 24)
+      }
+      .scrollIndicators(.never).id(model.selectedPane)
+      .background(HR.raisedSurface)
     }
-    .font(HR.font()).foregroundStyle(HR.ink).background(HR.background).tint(HR.ink)
+    .font(HR.popoverFont(14)).foregroundStyle(HR.ink).tint(HR.ink)
     .frame(width: 700, height: 598)
     .preferredColorScheme(model.colorScheme)
     .onChange(of: model.preferences) { _, _ in model.saveDisplay() }
@@ -77,89 +68,119 @@ struct SettingsView: View {
     }
   }
 
-  private var menuBar: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      LazyVGrid(columns: [.init(.flexible()), .init(.flexible())], spacing: 8) {
-        ForEach(DisplayPreferences.ItemStyle.allCases, id: \.self) { style in
-          Button {
-            model.preferences.itemStyle = style
-            if style == .pinned && model.preferences.followedAccount == nil {
-              model.preferences.followedAccount = model.allAccounts.first?.id
-            }
-          } label: {
-            VStack(alignment: .leading, spacing: 10) {
-              MenuItemLabel(model: model, style: style, sample: true).frame(height: 23)
-              Text(style.label).font(HR.font(12))
-            }.frame(maxWidth: .infinity, alignment: .leading).padding(10)
-              .background(HR.muted, in: RoundedRectangle(cornerRadius: 7))
-              .overlay(
-                RoundedRectangle(cornerRadius: 7).strokeBorder(
-                  model.preferences.itemStyle == style ? HR.ink : HR.border))
-          }.buttonStyle(.plain).accessibilityLabel(style.label)
-            .accessibilityAddTraits(model.preferences.itemStyle == style ? .isSelected : [])
-        }
-      }
-      settingsGroup {
-        HStack {
-          Text("Follow")
-          Spacer()
-          Picker("Follow", selection: $model.preferences.followedAccount) {
-            Text("Tightest account with room").tag(String?.none)
-            ForEach(model.allAccounts) { item in
-              Text("\(item.name) · \(item.snapshot.source.name)").tag(Optional(item.id))
-            }
-          }.labelsHidden().frame(maxWidth: 270)
-        }.padding(.vertical, 10)
-      }
-    }
+  private func addSource() {
+    model.selectedPane = .sources
+    editing = SourceDraft()
   }
 
-  private var accountList: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      hint("Hide accounts or change their order with the buttons.").padding(.bottom, 12)
-      if model.allAccounts.isEmpty {
-        hint("Accounts appear after a source sends its first readings.")
-      } else {
-        settingsGroup {
-          ForEach(Array(model.allAccounts.enumerated()), id: \.element.id) { index, item in
-            HStack {
-              Toggle(
-                isOn: Binding(
-                  get: { !model.preferences.hiddenAccounts.contains(item.id) },
-                  set: {
-                    if $0 {
-                      model.preferences.hiddenAccounts.remove(item.id)
-                    } else {
-                      model.preferences.hiddenAccounts.insert(item.id)
-                    }
-                  })
-              ) {
-                Text(
-                  item.name
-                    + (Presentation.needsSource(item, among: model.allAccounts)
-                      ? " · \(item.snapshot.source.name)" : ""))
-              }.toggleStyle(.checkbox)
-              Spacer()
-              Button {
-                model.moveAccount(item, by: -1)
-              } label: {
-                Image(systemName: "arrow.up")
+  // MARK: Menu Bar
+
+  private var menuBar: some View {
+    SettingsSections {
+      SettingsSection("Style") {
+        LazyVGrid(columns: [.init(.flexible(), spacing: 10), .init(.flexible())], spacing: 10) {
+          ForEach(DisplayPreferences.ItemStyle.allCases, id: \.self) { style in
+            StyleCard(model: model, style: style, selected: model.preferences.itemStyle == style) {
+              model.preferences.itemStyle = style
+              if style == .pinned && model.preferences.followedAccount == nil {
+                model.preferences.followedAccount = model.allAccounts.first?.id
               }
-              .disabled(index == 0).accessibilityLabel("Move \(item.name) up")
-              Button {
-                model.moveAccount(item, by: 1)
-              } label: {
-                Image(systemName: "arrow.down")
+            }
+          }
+        }.padding(.vertical, 8)
+      }
+      SettingsSection("Follow") {
+        SettingsRow(title: "Account", note: "The menu bar shows this account's room.") {
+          WebSelect(value: followedName) {
+            Button("Tightest account with room") { model.preferences.followedAccount = nil }
+            if !model.allAccounts.isEmpty { Divider() }
+            ForEach(model.allAccounts) { item in
+              Button("\(item.name) · \(item.snapshot.source.name)") {
+                model.preferences.followedAccount = item.id
               }
-              .disabled(index == model.allAccounts.count - 1).accessibilityLabel(
-                "Move \(item.name) down")
-            }.padding(.vertical, 10)
-            if index != model.allAccounts.count - 1 { Divider().overlay(HR.border) }
+            }
           }
         }
       }
     }
   }
+
+  private var followedName: String {
+    guard let id = model.preferences.followedAccount,
+      let item = model.allAccounts.first(where: { $0.id == id })
+    else { return "Tightest account with room" }
+    return item.name
+  }
+
+  // MARK: List
+
+  @ViewBuilder private var accountList: some View {
+    if model.allAccounts.isEmpty {
+      if model.sources.isEmpty {
+        SettingsEmpty(
+          symbol: "list.bullet", title: "No accounts yet",
+          message: "Add a source, and its accounts appear here to show, hide and order."
+        ) {
+          Button("Add a source", action: addSource).buttonStyle(WebButtonStyle(kind: .primary))
+        }
+      } else {
+        SettingsEmpty(
+          symbol: "list.bullet", title: "No accounts yet",
+          message: "Accounts appear after a source sends its first readings."
+        ) {
+          if let source = model.sources.first?.source {
+            Button("Open dashboard") { model.openDashboard(source) }.buttonStyle(WebButtonStyle())
+          }
+        }
+      }
+    } else {
+      SettingsSections {
+        SettingsSection("Accounts") {
+          ForEach(Array(model.allAccounts.enumerated()), id: \.element.id) { index, item in
+            SettingsRow(title: item.name, note: accountNote(item)) {
+              HStack(spacing: 2) {
+                Button {
+                  model.moveAccount(item, by: -1)
+                } label: {
+                  Image(systemName: "arrow.up")
+                }
+                .disabled(index == 0).accessibilityLabel("Move \(item.name) up")
+                Button {
+                  model.moveAccount(item, by: 1)
+                } label: {
+                  Image(systemName: "arrow.down")
+                }
+                .disabled(index == model.allAccounts.count - 1)
+                .accessibilityLabel("Move \(item.name) down")
+                Toggle("Show \(item.name)", isOn: shown(item)).toggleStyle(WebSwitchStyle())
+                  .padding(.leading, 10)
+              }.buttonStyle(WebIconButtonStyle())
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private func accountNote(_ item: AccountItem) -> String {
+    let provider = Presentation.providerName(item.account.provider.rawValue)
+    return Presentation.needsSource(item, among: model.allAccounts)
+      ? "\(provider) · \(item.snapshot.source.name)" : provider
+  }
+
+  private func shown(_ item: AccountItem) -> Binding<Bool> {
+    Binding(
+      get: { !model.preferences.hiddenAccounts.contains(item.id) },
+      set: {
+        if $0 {
+          model.preferences.hiddenAccounts.remove(item.id)
+        } else {
+          model.preferences.hiddenAccounts.insert(item.id)
+        }
+      })
+  }
+
+  // MARK: Notifications
 
   /// "almost_out" reads "Almost out": sentence case, as everywhere else in Settings.
   private func kindLabel(_ kind: NoticeKind) -> String {
@@ -167,30 +188,34 @@ struct SettingsView: View {
     return words.prefix(1).uppercased() + words.dropFirst()
   }
 
-  private var notifications: some View {
-    VStack(alignment: .leading, spacing: 16) {
-      hint("Delivery switches apply to this Mac. Collection and owner rules stay on each server.")
-      ForEach(noticeGroups, id: \.0) { group in
-        Text(group.0).hrHeading()
-        settingsGroup {
-          ForEach(Array(group.1.enumerated()), id: \.element) { index, kind in
-            HStack {
-              Text(kindLabel(kind))
-              Spacer()
-              Toggle(
-                kindLabel(kind),
-                isOn: Binding(
-                  get: { model.enabledKinds[kind.rawValue] != false },
-                  set: { value in Task { await model.setKind(kind, enabled: value) } })
-              )
-              .labelsHidden().toggleStyle(.checkbox)
-            }.padding(.vertical, 10)
-            if index != group.1.count - 1 { Divider().overlay(HR.border) }
+  @ViewBuilder private var notifications: some View {
+    if model.sources.isEmpty {
+      SettingsEmpty(
+        symbol: "bell", title: "No notices yet",
+        message: "Notices come from your sources. Add one, then choose which show as banners."
+      ) {
+        Button("Add a source", action: addSource).buttonStyle(WebButtonStyle(kind: .primary))
+      }
+    } else {
+      SettingsSections {
+        ForEach(noticeGroups, id: \.0) { group in
+          SettingsSection(group.0) {
+            ForEach(group.1, id: \.self) { kind in
+              SettingsRow(title: kindLabel(kind)) {
+                Toggle(
+                  kindLabel(kind),
+                  isOn: Binding(
+                    get: { model.enabledKinds[kind.rawValue] != false },
+                    set: { value in Task { await model.setKind(kind, enabled: value) } })
+                ).toggleStyle(WebSwitchStyle())
+              }
+            }
           }
         }
       }
     }
   }
+
   private var noticeGroups: [(String, [NoticeKind])] {
     [
       ("Limits", [.almost_out, .pacing, .running_low]),
@@ -206,90 +231,97 @@ struct SettingsView: View {
     ]
   }
 
-  private var sources: some View {
-    VStack(alignment: .leading, spacing: 16) {
-      hint("Sign in through each source's web dashboard.")
-      ForEach(Array(model.sources.enumerated()), id: \.element.id) { index, snapshot in
-        settingsGroup {
-          HStack {
-            Text("Name")
-            Spacer()
-            Text(snapshot.source.name).textSelection(.enabled)
-          }.padding(.vertical, 10)
-          Divider().overlay(HR.border)
-          HStack(alignment: .top) {
-            Text("URL")
-            Spacer()
-            Text(snapshot.source.baseURL.absoluteString).textSelection(.enabled).lineLimit(2)
-              .frame(maxWidth: 300, alignment: .trailing)
-          }.padding(.vertical, 10)
-          Divider().overlay(HR.border)
-          hint(
-            "\(snapshot.state.label) · Updated \(Formatting.age(snapshot.cached?.readAt, now: model.now)) · \(snapshot.cached?.feed.serverVersion ?? "Version unknown")"
-          )
-          .padding(.vertical, 8)
-          HStack(spacing: 8) {
-            Button("Open in web dashboard") { model.openDashboard(snapshot.source) }
-            Button("Edit") { editing = SourceDraft(snapshot.source) }.disabled(model.busy)
-            Button {
-              Task { await model.moveSource(snapshot, by: -1) }
-            } label: {
-              Image(systemName: "arrow.up")
-            }
-            .disabled(index == 0 || model.busy).accessibilityLabel(
-              "Move \(snapshot.source.name) up")
-            Button {
-              Task { await model.moveSource(snapshot, by: 1) }
-            } label: {
-              Image(systemName: "arrow.down")
-            }
-            .disabled(index == model.sources.count - 1 || model.busy).accessibilityLabel(
-              "Move \(snapshot.source.name) down")
-            Button("Remove") { remove = snapshot }
-          }.controlSize(.small).padding(.bottom, 12)
-        }
-      }
-      Button("Add a source") { editing = SourceDraft() }.disabled(model.busy)
+  // MARK: Sources
+
+  @ViewBuilder private var sources: some View {
+    let hasThisMac = model.sources.contains { $0.source.baseURL == LocalServer.url }
+    Group {
       if model.sources.isEmpty {
-        hint(
-          "Create a read-only token in your server's Settings, Devices. Paste it here with the server URL."
-        )
-      }
-      if !model.sources.contains(where: { $0.source.baseURL == LocalServer.url }) {
-        thisMac.padding(.top, 8)
+        SettingsEmpty(
+          symbol: "server.rack", title: "No sources yet",
+          message:
+            "Add a Headroom server with a read-only token from its dashboard, Settings, Devices."
+        ) {
+          Button("Add a source", action: addSource).buttonStyle(WebButtonStyle(kind: .primary))
+            .disabled(model.busy)
+        }
+        if !hasThisMac { SettingsSections { thisMac } }
+      } else {
+        SettingsSections {
+          SettingsSection("Sources") {
+            Button("Add a source", action: addSource)
+              .buttonStyle(WebButtonStyle(small: true)).disabled(model.busy)
+          } content: {
+            ForEach(Array(model.sources.enumerated()), id: \.element.id) { index, snapshot in
+              sourceRow(snapshot, index: index)
+            }
+          }
+          if !hasThisMac { thisMac }
+        }
       }
     }
     .task { await model.checkLocal() }
   }
 
+  private func sourceRow(_ snapshot: SourceSnapshot, index: Int) -> some View {
+    SettingsRow(title: snapshot.source.name, note: sourceNote(snapshot)) {
+      HStack(spacing: 6) {
+        Button("Open") { model.openDashboard(snapshot.source) }
+          .buttonStyle(WebButtonStyle(small: true))
+        Menu {
+          Button("Edit") { editing = SourceDraft(snapshot.source) }
+          Button("Move up") { Task { await model.moveSource(snapshot, by: -1) } }
+            .disabled(index == 0)
+          Button("Move down") { Task { await model.moveSource(snapshot, by: 1) } }
+            .disabled(index == model.sources.count - 1)
+          Divider()
+          Button("Remove…", role: .destructive) { remove = snapshot }
+        } label: {
+          Image(systemName: "ellipsis").font(.system(size: 13, weight: .medium))
+            .foregroundStyle(HR.secondary).frame(width: 30, height: 30).contentShape(Circle())
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .disabled(model.busy).accessibilityLabel("More for \(snapshot.source.name)")
+      }
+    }
+  }
+
+  private func sourceNote(_ snapshot: SourceSnapshot) -> String {
+    let url = snapshot.source.baseURL
+    let address = url.host().map { host in url.port.map { "\(host):\($0)" } ?? host }
+    return [
+      address ?? url.absoluteString, snapshot.state.label,
+      "Updated \(Formatting.age(snapshot.cached?.readAt, now: model.now))",
+      snapshot.cached?.feed.serverVersion,
+    ].compactMap(\.self).joined(separator: " · ")
+  }
+
   /// This Mac as a source: add it when it answers, start it when installed, else how to install.
   private var thisMac: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      Text("This Mac").font(HR.font(13, .semibold))
-      settingsGroup {
-        HStack(spacing: 12) {
-          Text(thisMacStatus).fixedSize(horizontal: false, vertical: true)
-          Spacer()
-          if model.localAvailable {
-            Button("Add This Mac") { editing = SourceDraft(local: true) }.disabled(model.busy)
-          } else if model.localStarting {
-            ProgressView().controlSize(.small)
-            Text("Starting…").foregroundStyle(HR.secondary)
-          } else if model.localServer != nil {
-            Button("Start Headroom") { Task { await model.startLocal() } }
-              .help("Headroom also starts at every login.")
-          } else {
-            Button("Copy command") {
-              NSPasteboard.general.clearContents()
-              NSPasteboard.general.setString(Self.installCommand, forType: .string)
-            }
+    SettingsSection("This Mac") {
+      if model.localAvailable {
+        SettingsRow(
+          title: "Headroom is running",
+          note: "Create a token in its dashboard, Settings, Devices, then add it."
+        ) {
+          Button("Add This Mac") { editing = SourceDraft(local: true) }
+            .buttonStyle(WebButtonStyle(small: true)).disabled(model.busy)
+        }
+      } else if model.localServer != nil || model.localStarting {
+        SettingsRow(
+          title: "Headroom is not running", note: "Starting it also starts it at every login."
+        ) {
+          Button(model.localStarting ? "Starting…" : "Start Headroom") {
+            Task { await model.startLocal() }
           }
-        }.padding(.vertical, 10)
-        if !model.localAvailable && model.localServer == nil {
-          Divider().overlay(HR.border)
-          Text(Self.installCommand).font(.system(size: 12, design: .monospaced)).textSelection(
-            .enabled
-          ).padding(.vertical, 10)
+          .buttonStyle(WebButtonStyle(small: true)).disabled(model.localStarting)
+        }
+      } else {
+        SettingsRow(title: "Headroom is not installed", note: Self.installCommand) {
+          Button("Copy command") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(Self.installCommand, forType: .string)
+          }.buttonStyle(WebButtonStyle(small: true))
         }
       }
     }
@@ -297,65 +329,111 @@ struct SettingsView: View {
 
   private static let installCommand = "brew install amitray007/headroom/headroom"
 
-  private var thisMacStatus: String {
-    if model.localAvailable { return "Headroom is running on this Mac." }
-    if model.localStarting || model.localServer != nil {
-      return "Headroom is installed on this Mac but not running."
-    }
-    return "Headroom is not installed on this Mac."
-  }
+  // MARK: General
 
   private var general: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      settingsGroup {
-        HStack {
-          Text("Launch at login")
-          Spacer()
-          Toggle("Launch at login", isOn: $launchAtLogin).labelsHidden().toggleStyle(.checkbox)
-        }.padding(.vertical, 10)
-          .onChange(of: launchAtLogin) { _, enabled in
-            guard !model.synthetic else { return }
-            do {
-              if enabled {
-                try SMAppService.mainApp.register()
-              } else {
-                try SMAppService.mainApp.unregister()
+    SettingsSections {
+      SettingsSection("General") {
+        SettingsRow(title: "Launch at login", note: "Open Headroom when you log in.") {
+          Toggle("Launch at login", isOn: $launchAtLogin).toggleStyle(WebSwitchStyle())
+            .onChange(of: launchAtLogin) { _, enabled in
+              guard !model.synthetic else { return }
+              do {
+                if enabled {
+                  try SMAppService.mainApp.register()
+                } else {
+                  try SMAppService.mainApp.unregister()
+                }
+              } catch {
+                launchAtLogin = SMAppService.mainApp.status == .enabled
+                model.error =
+                  "Could not change login settings. Check System Settings, General, Login Items."
               }
-            } catch {
-              launchAtLogin = SMAppService.mainApp.status == .enabled
-              model.error =
-                "Could not change login settings. Check System Settings, General, Login Items."
             }
-          }
-        Divider().overlay(HR.border)
-        HStack {
-          Text("Read sources")
-          Spacer()
-          Text("Every 2 min · 30 sec while open")
-        }.padding(.vertical, 10)
-        Divider().overlay(HR.border)
-        HStack {
-          Text("Appearance")
-          Spacer()
-          Picker("Appearance", selection: $model.preferences.appearance) {
-            ForEach(DisplayPreferences.Appearance.allCases, id: \.self) {
-              Text($0.rawValue.capitalized).tag($0)
-            }
-          }.labelsHidden().fixedSize()
-        }.padding(.vertical, 10)
+        }
+        SettingsRow(title: "Read sources", note: "Every 2 minutes, every 30 seconds while open.") {
+          EmptyView()
+        }
+        SettingsRow(title: "Appearance") {
+          WebSegmented(
+            selection: $model.preferences.appearance,
+            options: DisplayPreferences.Appearance.allCases.map { ($0, $0.rawValue.capitalized) })
+        }
       }
     }
   }
+}
 
-  private func settingsGroup<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-    VStack(alignment: .leading, spacing: 0, content: content).padding(.horizontal, 12)
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(HR.border))
+/// Sections of one pane, separated by a subtle rule as `.dsec + .dsec` is on the web.
+private struct SettingsSections<Content: View>: View {
+  @ViewBuilder var content: Content
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      Group(subviews: content) { sections in
+        ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
+          if index > 0 { Rectangle().fill(HR.borderSubtle).frame(height: 1) }
+          section
+        }
+      }
+    }
   }
-  private func hint(_ text: String) -> some View {
-    Text(text).font(HR.font(12)).foregroundStyle(HR.secondary).fixedSize(
-      horizontal: false, vertical: true)
+}
+
+private struct SidebarItem: View {
+  let title: String
+  let selected: Bool
+  let action: () -> Void
+  @State private var hovered = false
+  var body: some View {
+    Button(action: action) {
+      Text(title).font(HR.popoverFont(14, .medium))
+        .foregroundStyle(selected || hovered ? HR.ink : HR.textMuted)
+        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12)
+        .frame(height: 34)
+        .background(selected ? HR.muted : .clear, in: Capsule())
+        .contentShape(Capsule())
+    }
+    .buttonStyle(.plain).onHover { hovered = $0 }
+    .animation(.easeOut(duration: 0.16), value: hovered)
+    .accessibilityAddTraits(selected ? .isSelected : [])
   }
+}
+
+/// Arc's radio card: a 20 pt card, a ring and a filled dot on the chosen one.
+private struct StyleCard: View {
+  let model: AppModel
+  let style: DisplayPreferences.ItemStyle
+  let selected: Bool
+  let action: () -> Void
+  @State private var hovered = false
+  var body: some View {
+    Button(action: action) {
+      HStack(alignment: .top) {
+        VStack(alignment: .leading, spacing: 10) {
+          MenuItemLabel(model: model, style: style, sample: true).frame(height: 23)
+          Text(style.label).font(HR.popoverFont(14, .medium)).foregroundStyle(HR.ink)
+        }
+        Spacer(minLength: 8)
+        ZStack {
+          Circle().fill(selected ? HR.accent : .clear)
+          Circle().strokeBorder(selected ? HR.accent : HR.borderStrong, lineWidth: 1.5)
+          Circle().fill(HR.surface).frame(width: 6, height: 6).scaleEffect(selected ? 1 : 0)
+        }.frame(width: 18, height: 18).padding(.top, 2)
+      }
+      .padding(.horizontal, 16).padding(.vertical, 14)
+      .background(selected ? HR.muted.opacity(0.5) : HR.surface, in: card)
+      .overlay(
+        card.strokeBorder(
+          selected ? HR.accent : hovered ? HR.borderStrong : HR.border,
+          lineWidth: selected ? 1.5 : 1)
+      )
+      .contentShape(card)
+    }
+    .buttonStyle(.plain).onHover { hovered = $0 }
+    .animation(.spring(response: 0.4, dampingFraction: 0.7), value: selected)
+    .accessibilityLabel(style.label).accessibilityAddTraits(selected ? .isSelected : [])
+  }
+  private var card: RoundedRectangle { RoundedRectangle(cornerRadius: 20, style: .continuous) }
 }
 
 struct SourceDraft: Identifiable {
@@ -388,42 +466,50 @@ struct SourceEditor: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
-      Text(draft.sourceID == nil ? "Add a source" : "Edit source").font(HR.font(16, .semibold))
+      Text(draft.sourceID == nil ? "Add a source" : "Edit source").font(HR.popoverFont(16, .medium))
         .accessibilityAddTraits(.isHeader)
-      TextField("Name", text: $draft.name).focused($focused, equals: .name)
-        .accessibilityLabel("Source name")
-      TextField("URL", text: $draft.url).focused($focused, equals: .url)
-        .accessibilityLabel("Source URL")
-      SecureField(
-        draft.sourceID == nil ? "Read-only token" : "New token (leave empty to keep)", text: $token
-      )
-      .focused($focused, equals: .token).accessibilityLabel("Read-only source token")
-      Text(
-        "Create a token in this source's Settings, Devices. It stays in this Mac's Keychain. Changing the URL requires a new token."
-      )
-      .font(HR.font(12)).foregroundStyle(HR.secondary)
-      if let dashboard = URL(string: draft.url), ["http", "https"].contains(dashboard.scheme),
-        dashboard.host() != nil
-      {
-        Button("Open this source's dashboard") { NSWorkspace.shared.open(dashboard) }
-          .buttonStyle(.link).font(HR.font(12))
+      WebField(label: "Name") {
+        TextField("Home server", text: $draft.name).focused($focused, equals: .name)
+          .accessibilityLabel("Source name")
+      }
+      WebField(label: "URL") {
+        TextField("https://headroom.example.com", text: $draft.url).focused($focused, equals: .url)
+          .accessibilityLabel("Source URL")
+      }
+      WebField(label: draft.sourceID == nil ? "Read-only token" : "New token") {
+        SecureField(draft.sourceID == nil ? "hr_…" : "Leave empty to keep the saved token", text: $token)
+          .focused($focused, equals: .token).accessibilityLabel("Read-only source token")
+      }
+      VStack(alignment: .leading, spacing: 4) {
+        Text(
+          "Create a token in this source's dashboard, Settings, Devices. It stays in this Mac's Keychain. A new URL needs a new token."
+        )
+        .font(HR.popoverFont(12)).foregroundStyle(HR.textMuted).lineSpacing(1.5)
+        .fixedSize(horizontal: false, vertical: true)
+        if let dashboard = URL(string: draft.url), ["http", "https"].contains(dashboard.scheme),
+          dashboard.host() != nil
+        {
+          Button("Open this source's dashboard") { NSWorkspace.shared.open(dashboard) }
+            .buttonStyle(WebButtonStyle(kind: .quiet, small: true)).padding(.leading, -12)
+        }
       }
       if let error {
-        Text(error).font(HR.font(12)).foregroundStyle(HR.danger).accessibilityLabel(
-          "Error: \(error)")
+        Text(error).font(HR.popoverFont(13)).foregroundStyle(HR.danger)
+          .fixedSize(horizontal: false, vertical: true).accessibilityLabel("Error: \(error)")
       }
-      HStack {
+      HStack(spacing: 12) {
+        Spacer()
         Button("Cancel") {
           token = ""
           close()
-        }.keyboardShortcut(.cancelAction)
-        Spacer()
-        if saving { ProgressView().controlSize(.small).accessibilityLabel("Verifying source") }
+        }
+        .buttonStyle(WebButtonStyle()).keyboardShortcut(.cancelAction)
         Button(saving ? "Verifying…" : "Verify and save") { Task { await save() } }
-          .keyboardShortcut(.defaultAction).disabled(saving || model.busy || model.synthetic)
-      }
-    }.padding(24).frame(width: 440).font(HR.font()).textFieldStyle(.roundedBorder)
-      .foregroundStyle(HR.ink).background(HR.surface).preferredColorScheme(model.colorScheme)
+          .buttonStyle(WebButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
+          .disabled(saving || model.busy || model.synthetic)
+      }.padding(.top, 4)
+    }.padding(24).frame(width: 440).font(HR.popoverFont(14))
+      .foregroundStyle(HR.ink).background(HR.raisedSurface).preferredColorScheme(model.colorScheme)
       .task { focused = .name }
       .onDisappear { token = "" }
       .interactiveDismissDisabled(saving)
