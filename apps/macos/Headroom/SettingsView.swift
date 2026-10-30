@@ -88,7 +88,7 @@ struct SettingsView: View {
             }
           } label: {
             VStack(alignment: .leading, spacing: 10) {
-              MenuItemLabel(model: model, style: style).frame(height: 23)
+              MenuItemLabel(model: model, style: style, sample: true).frame(height: 23)
               Text(style.label).font(HR.font(12))
             }.frame(maxWidth: .infinity, alignment: .leading).padding(10)
               .background(HR.muted, in: RoundedRectangle(cornerRadius: 7))
