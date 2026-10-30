@@ -27,7 +27,9 @@ final class AppModel {
   var sources: [SourceSnapshot] = []
   var notices: [NoticeItem] = []
   var noticePhase: NoticePhase = .loading
-  var preferences = DisplayPreferences()
+  var preferences = DisplayPreferences() {
+    didSet { if preferences.appearance != oldValue.appearance { applyAppearance() } }
+  }
   var enabledKinds: [String: Bool] = [:]
   var selectedPane: SettingsPane = .menuBar
   var error: String?
@@ -63,12 +65,15 @@ final class AppModel {
     Presentation.accounts(sources, preferences: preferences, includeHidden: true)
   }
   var unread: Int { notices.filter { !$0.read }.count }
-  var colorScheme: ColorScheme? {
-    switch preferences.appearance {
-    case .system: nil
-    case .light: .light
-    case .dark: .dark
-    }
+  /// The app-wide appearance, not `preferredColorScheme`: SwiftUI leaves a window on the last
+  /// forced scheme when the choice returns to System, while `nil` here follows macOS again.
+  private func applyAppearance() {
+    NSApp.appearance =
+      switch preferences.appearance {
+      case .system: nil
+      case .light: NSAppearance(named: .aqua)
+      case .dark: NSAppearance(named: .darkAqua)
+      }
   }
 
   func start() async {

@@ -43,7 +43,6 @@ struct SettingsView: View {
     .frame(width: 700, height: 598)
     // The title sat across the sidebar edge; each pane already names itself.
     .toolbar(removing: .title)
-    .preferredColorScheme(model.colorScheme)
     .onChange(of: model.preferences) { _, _ in model.saveDisplay() }
     .sheet(item: $editing) { draft in SourceEditor(model: model, draft: draft) { editing = nil } }
     .confirmationDialog(
@@ -511,7 +510,7 @@ struct SourceEditor: View {
           .disabled(saving || model.busy || model.synthetic)
       }.padding(.top, 4)
     }.padding(24).frame(width: 440).font(HR.popoverFont(14))
-      .foregroundStyle(HR.ink).background(HR.raisedSurface).preferredColorScheme(model.colorScheme)
+      .foregroundStyle(HR.ink).background(HR.raisedSurface)
       .task { focused = .name }
       .onDisappear { token = "" }
       .interactiveDismissDisabled(saving)

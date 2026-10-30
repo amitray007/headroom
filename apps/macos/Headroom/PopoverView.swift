@@ -54,7 +54,7 @@ struct PopoverView: View {
       footer
     }
     .font(HR.popoverFont()).monospacedDigit().foregroundStyle(HR.ink).background(HR.surface)
-    .frame(width: 420).preferredColorScheme(model.colorScheme)
+    .frame(width: 420)
     .task { if model.bannerNoticeID != nil { showingNotices = true } }
     .onChange(of: model.bannerNoticeID) { _, id in if id != nil { showingNotices = true } }
     .alert(
