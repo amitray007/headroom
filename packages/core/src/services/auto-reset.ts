@@ -16,9 +16,8 @@ import { ActionsDisabledError, type ActionService } from "./actions.ts";
  * `ActionService.perform`. Any throw is for the caller to catch.
  *
  * - `evaluate` runs after a scheduled collection that succeeded: a spent limit. It never retries.
- * - `beforeExpiry` runs on every scheduler tick: a banked reset about to expire unused. It retries
- *   with backoff until the credit is gone or has expired, each time on a fresh reading.
- *   `wantsReading` tells the scheduler when to take that reading.
+ * - `beforeExpiry` runs on every scheduler tick: a banked reset about to expire unused. It retries;
+ *   `wantsReading` tells the scheduler when to take the fresh reading each try needs.
  */
 
 export interface AutoResetServiceOptions {
@@ -33,6 +32,7 @@ export interface AutoResetServiceOptions {
 type SkipReason =
   | "no_rule"
   | "rule_disabled"
+  | "expiry_disabled"
   | "actions_disabled"
   | "not_ready"
   | "unsupported"
@@ -177,8 +177,9 @@ export class AutoResetService {
     for (const [key, entry] of this.tries) if (now - entry.at > hourMs) this.tries.delete(key);
     // Checked before this try is recorded: the reading must postdate the previous one.
     const fresh = this.fresh(connectionId, found.key, now);
-    const count = (this.tries.get(found.key)?.count ?? 0) + 1;
-    this.tries.set(found.key, { count, at: now, notBefore: 0 });
+    // Recorded before the call, so a throw still counts as a try.
+    const entry = { count: (this.tries.get(found.key)?.count ?? 0) + 1, at: now, notBefore: 0 };
+    this.tries.set(found.key, entry);
     if (!fresh) return { status: "skipped", reason: "no_fresh_reading" };
 
     const window = limitWindows(found.latest)[0];
@@ -189,7 +190,7 @@ export class AutoResetService {
       creditExpiresAt: found.expiresAt,
     });
     if (outcome.status === "fired" && outcome.retryAfterMs !== undefined)
-      this.tries.set(found.key, { count, at: now, notBefore: now + outcome.retryAfterMs });
+      entry.notBefore = now + outcome.retryAfterMs;
     return outcome;
   }
 
@@ -210,7 +211,7 @@ export class AutoResetService {
     now: number,
   ): { latest: Latest; creditId: string; expiresAt: number; key: string } | Skipped {
     const rule = this.deps.automation.autoReset(connectionId) ?? defaultAutoResetRule;
-    if (!rule.beforeExpiry) return { status: "skipped", reason: "rule_disabled" };
+    if (!rule.beforeExpiry) return { status: "skipped", reason: "expiry_disabled" };
     const latest = this.ready(connectionId);
     if ("status" in latest) return latest;
     const leadMs = rule.beforeExpiryMinutes * 60_000;

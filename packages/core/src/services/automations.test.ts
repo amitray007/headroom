@@ -520,11 +520,7 @@ describe("AutoResetService", () => {
     const windows = [session(100, base + 3 * hour), weekly(100, base + 3 * day)];
     const run = async (window: AutoResetRule["window"], list = windows) => {
       const h = setup();
-      h.automation.setAutoReset(h.connection.id, {
-        ...rule,
-        window,
-        minHoursLeft: 1,
-      });
+      h.automation.setAutoReset(h.connection.id, { ...rule, window, minHoursLeft: 1 });
       await h.read(reading(base, list, [usable("rc-1")]));
       await h.autoReset.evaluate(h.connection.id, base);
       return h.events.recent(new Date(0)).map((e) => e.metricKey);
@@ -677,7 +673,7 @@ describe("AutoResetService.beforeExpiry", () => {
     expect(off.autoReset.wantsReading(off.connection.id, base + 2 * expiryFreshMs)).toBe(false);
     expect(await off.autoReset.beforeExpiry(off.connection.id, base)).toEqual({
       status: "skipped",
-      reason: "rule_disabled",
+      reason: "expiry_disabled",
     });
   });
 

@@ -128,23 +128,12 @@ export class Scheduler {
             this.deps.log?.("debug", `collected ${connection.id}: ${outcome.status}`);
             if (outcome.status === "collected" || outcome.status === "failed")
               collected.push(connection.id);
-            if (outcome.status === "collected" && this.deps.afterCollect) {
-              try {
-                // eslint-disable-next-line no-await-in-loop -- a rule may act on the account before the next one is collected
-                await this.deps.afterCollect(connection.id, this.now().getTime());
-              } catch (error) {
-                this.deps.log?.("error", `after-collect hook failed: ${errorClass(error)}`);
-              }
-            }
-          }
-          if (this.deps.watch) {
-            try {
+            if (outcome.status === "collected")
               // eslint-disable-next-line no-await-in-loop -- a rule may act on the account before the next one is collected
-              await this.deps.watch(connection.id, this.now().getTime());
-            } catch (error) {
-              this.deps.log?.("error", `watch hook failed: ${errorClass(error)}`);
-            }
+              await this.runHook("after-collect", this.deps.afterCollect, connection.id);
           }
+          // eslint-disable-next-line no-await-in-loop -- a rule may act on the account before the next one is collected
+          await this.runHook("watch", this.deps.watch, connection.id);
         } catch (error) {
           // The class only: the message could carry provider text.
           this.deps.log?.("error", `collecting ${connection.id} failed: ${errorClass(error)}`);
@@ -154,6 +143,20 @@ export class Scheduler {
       await this.runAfterTick();
     }
     return collected;
+  }
+
+  /** Runs a per-connection hook, if set. Its failure is logged by class only and never thrown. */
+  private async runHook(
+    name: string,
+    hook: ((connectionId: string, now: number) => Promise<unknown>) | undefined,
+    connectionId: string,
+  ): Promise<void> {
+    if (!hook) return;
+    try {
+      await hook(connectionId, this.now().getTime());
+    } catch (error) {
+      this.deps.log?.("error", `${name} hook failed: ${errorClass(error)}`);
+    }
   }
 
   /** Delete history past the retention period, at most every six hours. Logs counts only and never throws. */
@@ -195,10 +198,10 @@ export class Scheduler {
     // An open run is in progress, unless it is older than a lease lasts: its owner is gone.
     if (!run.finishedAt) return now - run.startedAt.getTime() >= this.deps.collection.leaseTtlMs;
     if (run.retryAfter) return now >= run.retryAfter.getTime();
-    if (this.deps.urgent?.(connectionId, now) === true) return true;
     const { intervalMs } = this.deps;
     const interval = typeof intervalMs === "function" ? intervalMs() : intervalMs;
-    return now - run.startedAt.getTime() >= interval + jitter(connectionId, interval);
+    if (now - run.startedAt.getTime() >= interval + jitter(connectionId, interval)) return true;
+    return this.deps.urgent?.(connectionId, now) === true;
   }
 }
 
