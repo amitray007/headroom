@@ -27,9 +27,9 @@ struct LedgerRowView: View {
       Button {
         expanded.toggle()
       } label: {
-        HStack(spacing: 16) {
-          who.frame(width: 172, alignment: .leading)
-          HStack(spacing: 16) {
+        HStack(spacing: 14) {
+          who.frame(width: 164, alignment: .leading)
+          HStack(spacing: 14) {
             if row.meters.isEmpty {
               Text("Quota unknown").font(HR.popoverFont(12)).foregroundStyle(HR.textMuted)
               Spacer(minLength: 0)
@@ -42,7 +42,7 @@ struct LedgerRowView: View {
             VStack(alignment: .trailing, spacing: 1) {
               Text(extra.value).font(HR.popoverFont(12.5, .medium))
               Text(extra.label).font(HR.popoverFont(11)).foregroundStyle(HR.textMuted)
-            }.lineLimit(1).frame(width: 76, alignment: .trailing)
+            }.lineLimit(1).fixedSize()
           }
         }.frame(height: 44).padding(.horizontal, 16).contentShape(Rectangle())
           .background(expanded ? HR.muted : .clear)
@@ -98,14 +98,16 @@ struct LedgerMeterView: View {
   var body: some View {
     VStack(spacing: 5) {
       HStack(alignment: .firstTextBaseline, spacing: 6) {
-        Text(meter.value).font(HR.popoverFont(13, .medium)).foregroundStyle(tone)
+        Text(meter.value).font(HR.popoverFont(13, .medium)).foregroundStyle(tone).fixedSize()
+        // The window name gives way first; the value and the right-edge note stay whole.
         Text(meter.label).font(HR.popoverFont(11.5)).foregroundStyle(HR.textMuted)
-        Spacer(minLength: 6)
+          .truncationMode(.tail).layoutPriority(-1)
+        Spacer(minLength: 4)
         HStack(spacing: 4) {
           if meter.runsOut { Circle().fill(HR.popoverDanger).frame(width: 6, height: 6) }
           Text(meter.note).font(HR.popoverFont(11))
             .foregroundStyle(meter.alarm && !quiet ? HR.popoverDanger : HR.secondary)
-        }.layoutPriority(1)
+        }.fixedSize()
       }.lineLimit(1)
       Cells(fill: meter.fill, tone: quiet ? .unknown : meter.tone)
     }.frame(maxWidth: .infinity).accessibilityHidden(true)
