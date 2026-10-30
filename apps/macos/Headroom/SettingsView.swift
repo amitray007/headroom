@@ -30,7 +30,7 @@ struct SettingsView: View {
             model.selectedPane == pane ? .isSelected : [])
         }
         Spacer()
-      }.padding(.horizontal, 10).padding(.top, 8).frame(width: 165).background(
+      }.padding(.horizontal, 10).padding(.top, 14).frame(width: 165).background(
         HR.muted.opacity(0.6))
       ScrollView {
         VStack(alignment: .leading, spacing: 16) {
