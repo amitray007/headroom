@@ -70,15 +70,23 @@ struct LedgerRowView: View {
     HStack(spacing: 8) {
       ProviderMark(provider: account.provider.rawValue).frame(width: 16, height: 16)
       VStack(alignment: .leading, spacing: 1) {
-        (Text(Presentation.providerName(account.provider.rawValue) + " ")
-          .foregroundStyle(HR.secondary)
-          + Text(account.name).font(HR.popoverFont(13, .medium)))
-          .font(HR.popoverFont(13))
+        if nameBelow {
+          Text(providerName).font(HR.popoverFont(13, .medium))
+        } else {
+          (Text(providerName + " ").foregroundStyle(HR.secondary)
+            + Text(account.name).font(HR.popoverFont(13, .medium)))
+            .font(HR.popoverFont(13))
+        }
         Text(subtitle).font(HR.popoverFont(11))
           .foregroundStyle(row.column.state == .signIn ? HR.popoverDanger : HR.textMuted)
       }.lineLimit(1).truncationMode(.tail)
     }
   }
+
+  private var providerName: String { Presentation.providerName(account.provider.rawValue) }
+  // With no email to tell accounts apart, or a long provider name ("Vercel AI Gateway"), the
+  // provider takes the first line and the account name moves to the second.
+  private var nameBelow: Bool { account.identity == nil || providerName.count > 12 }
 
   private var subtitle: String {
     if row.column.state == .signIn { return "Sign in again in the dashboard" }
@@ -86,7 +94,7 @@ struct LedgerRowView: View {
       return "Kept · \(item.snapshot.source.name) \(item.snapshot.state.label.lowercased())"
     }
     return [
-      account.plan, account.identity,
+      nameBelow ? account.name : nil, account.plan, account.identity,
       Presentation.needsSource(item, among: model.accounts) ? item.snapshot.source.name : nil,
     ].compactMap { $0 }.joined(separator: " · ")
   }
