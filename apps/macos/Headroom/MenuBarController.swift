@@ -49,8 +49,9 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
       _ = model.popoverPresented
       label?.rootView = MenuItemLabel(model: model, style: model.preferences.itemStyle)
       let size = label?.fittingSize ?? NSSize(width: 24, height: 24)
-      item.length = size.width + 12
-      label?.frame = NSRect(x: 6, y: 0, width: size.width, height: 24)
+      // 4 pt each side, as a standard 16 pt menu bar icon sits in its 24 pt item.
+      item.length = size.width + 8
+      label?.frame = NSRect(x: 4, y: 0, width: size.width, height: 24)
       item.button?.setAccessibilityLabel("Headroom, \(model.unread) unread notices")
       if model.popoverPresented {
         if popover.isShown { Task { await model.presentBannerNotice() } } else { show() }
