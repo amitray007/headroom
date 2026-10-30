@@ -1,28 +1,50 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useState } from "react";
+
+import { shortDate } from "@headroom/view-model/time";
 
 import { api, type ApiToken } from "../api.ts";
-import { useDevicePrefs } from "../lib/device-prefs.ts";
+import { KeyIcon } from "../icons.tsx";
+import { When } from "../lib/when.tsx";
 import { Button } from "../ui/button.tsx";
 import { CopyButton } from "../ui/copy-button.tsx";
+import { EmptyState } from "../ui/empty-state.tsx";
 import { ErrorNotice } from "../ui/error-notice.tsx";
+import { Sk } from "../ui/skeleton.tsx";
 import { Section } from "./settings-rows.tsx";
 import "./devices.css";
 
-const when = (value: number | null): string =>
-  value === null ? "Never" : new Date(value).toLocaleString();
+/** The token's visible start, its last use and, when set, its expiry. */
+function DeviceNote(props: { readonly token: ApiToken }) {
+  const { token } = props;
+  return (
+    <span className="muted">
+      <code>{token.start ?? token.prefix}…</code>
+      {" · "}
+      {token.lastUsedAt === null ? (
+        "Never used"
+      ) : (
+        <>
+          Used <When at={token.lastUsedAt} kind="ago" />
+        </>
+      )}
+      {" · Added "}
+      {shortDate(token.createdAt)}
+      {token.expiresAt === null ? null : ` · Expires ${shortDate(token.expiresAt)}`}
+    </span>
+  );
+}
 
-/** Keys live only in this mounted tab and are discarded when it closes. */
+/** Keys live only in this mounted tab and are discarded when it closes. The parent remounts it when Demo Mode changes. */
 export function DevicesTab() {
-  const { demo } = useDevicePrefs();
   const [tokens, setTokens] = useState<ApiToken[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [key, setKey] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ readonly name: string; readonly key: string } | null>(
+    null,
+  );
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<string | null>(null);
-  const keyRef = useRef<HTMLTextAreaElement>(null);
   const nameId = useId();
-  const keyId = useId();
   const reload = async (): Promise<void> => {
     setError(null);
     try {
@@ -33,7 +55,8 @@ export function DevicesTab() {
   };
   useEffect(() => {
     let active = true;
-    void (demo ? Promise.resolve({ tokens: [] as ApiToken[] }) : api.tokens())
+    void api
+      .tokens()
       .then((result) => {
         if (active) setTokens(result.tokens);
         return undefined;
@@ -44,17 +67,14 @@ export function DevicesTab() {
     return () => {
       active = false;
     };
-  }, [demo]);
-  useEffect(() => {
-    if (key) keyRef.current?.focus();
-  }, [key]);
+  }, []);
   const create = async (): Promise<void> => {
     if (busy) return;
     setBusy(true);
     setError(null);
     try {
       const token = await api.createToken(name.trim());
-      setKey(token.key);
+      setCreated({ name: token.name ?? name.trim(), key: token.key });
       setName("");
       await reload();
     } catch (cause) {
@@ -78,94 +98,117 @@ export function DevicesTab() {
     }
   };
   return (
-    <Section title="Devices">
-      <p className="muted">Read-only tokens let Headroom for Mac read this server.</p>
-      {error === null ? null : (
-        <ErrorNotice inline onRetry={() => void reload()}>
-          {error}
-        </ErrorNotice>
-      )}
-      {key === null ? (
-        <form
-          className="device-form field"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void create();
-          }}
-        >
-          <label htmlFor={nameId}>Device Name</label>
-          <div className="device-actions">
-            <input
-              id={nameId}
-              value={name}
-              maxLength={40}
-              required
-              placeholder="My Mac"
-              onChange={(event) => setName(event.target.value)}
-            />
-            <Button type="submit" variant="primary" busy={busy} disabled={!name.trim()}>
-              Create Token
-            </Button>
+    <>
+      <Section title="New Device">
+        {created === null ? (
+          <form
+            className="device-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void create();
+            }}
+          >
+            <label htmlFor={nameId} className="sbody">
+              <b>Device Name</b>
+              <span className="muted">
+                A read-only token lets Headroom for Mac read this server.
+              </span>
+            </label>
+            <div className="device-create">
+              <input
+                id={nameId}
+                value={name}
+                maxLength={40}
+                required
+                placeholder="My Mac"
+                onChange={(event) => setName(event.target.value)}
+              />
+              <Button type="submit" variant="primary" busy={busy} disabled={!name.trim()}>
+                Create Token
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="device-key">
+            <span className="sbody">
+              <b>Token for {created.name}</b>
+              <span className="muted">
+                Shown once. Paste it into Headroom for Mac with this server&apos;s address.
+              </span>
+            </span>
+            <div className="device-create">
+              <div className="key-field">
+                <code aria-label="Token">{created.key}</code>
+                <CopyButton value={created.key} label="Copy Token" size="sm" iconOnly />
+              </div>
+              <Button onClick={() => setCreated(null)}>Done</Button>
+            </div>
           </div>
-        </form>
-      ) : (
-        <div className="device-key field">
-          <label htmlFor={keyId}>Copy Your Token Now</label>
-          <p className="muted">Paste this into Headroom for Mac with this server's address.</p>
-          <textarea
-            id={keyId}
-            ref={keyRef}
-            readOnly
-            value={key}
-            rows={3}
-            onFocus={(event) => event.target.select()}
-          />
-          <p className="muted">This token is shown once.</p>
-          <div className="device-actions">
-            <CopyButton value={key} label="Copy Token" />
-            <Button onClick={() => setKey(null)}>Done</Button>
+        )}
+      </Section>
+      <Section title="Linked Devices">
+        {error === null ? null : (
+          <ErrorNotice inline onRetry={() => void reload()}>
+            {error}
+          </ErrorNotice>
+        )}
+        {tokens === null ? (
+          <div className="srow" aria-busy="true">
+            <span className="sbody">
+              <Sk width={120} height={14} />
+              <Sk width={220} height={12} />
+            </span>
+            <Sk width={76} height={30} className="sk-pill" />
           </div>
-        </div>
-      )}
-      {tokens === null ? (
-        <output>Loading devices…</output>
-      ) : tokens.length === 0 ? (
-        <p className="muted">No devices linked.</p>
-      ) : (
-        <ul className="device-list">
-          {tokens.map((token) => (
-            <li key={token.id} className="device-entry">
-              <b>{token.name}</b>
-              <code>{token.start ?? token.prefix}…</code>
-              <dl>
-                <dt>Created</dt>
-                <dd>{when(token.createdAt)}</dd>
-                <dt>Last Used</dt>
-                <dd>{when(token.lastUsedAt)}</dd>
-                <dt>Expires</dt>
-                <dd>{token.expiresAt === null ? "No expiry" : when(token.expiresAt)}</dd>
-              </dl>
-              {confirm === token.id ? (
-                <div className="device-confirm">
-                  <p>Revoke {token.name}? This device will lose access.</p>
-                  <div className="device-actions">
-                    <Button variant="danger" busy={busy} onClick={() => void revoke(token.id)}>
-                      Confirm Revoke
-                    </Button>
-                    <Button disabled={busy} onClick={() => setConfirm(null)}>
+        ) : tokens.length === 0 ? (
+          <EmptyState compact icon={<KeyIcon />} title="No devices yet">
+            Create a token above, then add this server in Headroom for Mac.
+          </EmptyState>
+        ) : (
+          tokens.map((token) => {
+            const label = token.name ?? "Unnamed device";
+            return (
+              <div key={token.id} className="srow device-row">
+                {confirm === token.id ? (
+                  <span className="sbody">
+                    <b>Revoke {label}?</b>
+                    <span className="muted">It loses access to this server at once.</span>
+                  </span>
+                ) : (
+                  <span className="sbody">
+                    <b>{label}</b>
+                    <DeviceNote token={token} />
+                  </span>
+                )}
+                {confirm === token.id ? (
+                  <span className="device-actions">
+                    <Button size="sm" disabled={busy} onClick={() => setConfirm(null)}>
                       Cancel
                     </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button variant="quiet-danger" disabled={busy} onClick={() => setConfirm(token.id)}>
-                  Revoke
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </Section>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      busy={busy}
+                      onClick={() => void revoke(token.id)}
+                    >
+                      Revoke
+                    </Button>
+                  </span>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="quiet-danger"
+                    disabled={busy}
+                    onClick={() => setConfirm(token.id)}
+                  >
+                    Revoke
+                  </Button>
+                )}
+              </div>
+            );
+          })
+        )}
+      </Section>
+    </>
   );
 }
