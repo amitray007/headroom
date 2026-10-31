@@ -1,4 +1,5 @@
 import {
+  apiTokenScopeSchema,
   availabilitySchema,
   connectionStateSchema,
   currencySchema,
@@ -6,6 +7,7 @@ import {
   notificationEventSchema,
   providerSchema,
   reconnectReasonSchema,
+  refreshIntervalMinutesSchema,
   type MetricKind,
   type Provider,
 } from "@headroom/core/contracts";
@@ -67,6 +69,13 @@ export const appWhoamiSchema = z.strictObject({
   apiVersion: z.literal(1),
   serverVersion: z.string(),
   tokenName: z.string().nullable(),
+  /** `read` always; `refresh` when the owner let this token change Refresh Every. */
+  scopes: z.array(apiTokenScopeSchema),
+});
+
+/** The body and the response of `PUT /api/app/v1/settings/refresh`. */
+export const appRefreshSchema = z.strictObject({
+  refreshIntervalMinutes: refreshIntervalMinutesSchema,
 });
 
 /** The only account projection exposed to native clients. Add fields here explicitly. */
