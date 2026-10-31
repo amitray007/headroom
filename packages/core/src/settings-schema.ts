@@ -12,9 +12,20 @@ import {
  * `contracts.ts`. `settings.ts` re-exports it next to the store that persists it.
  */
 
-const refreshIntervalMinutes = z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(30)]);
+/** Refresh Every choices, in minutes. The web and the Mac app offer exactly these. */
+export const refreshIntervalOptions = [2, 5, 10, 15, 30] as const;
+export const refreshIntervalMinutesSchema = z.union([
+  z.literal(2),
+  z.literal(5),
+  z.literal(10),
+  z.literal(15),
+  z.literal(30),
+]);
+const refreshIntervalMinutes = refreshIntervalMinutesSchema;
 const lowThresholdPercent = z.union([z.literal(30), z.literal(20), z.literal(15)]);
 const resetLeadDays = z.union([z.literal(1), z.literal(3), z.literal(7)]);
+/** History choices, in days. */
+export const historyRetentionOptions = [30, 90, 180, 365] as const;
 const historyRetentionDays = z.union([
   z.literal(30),
   z.literal(90),

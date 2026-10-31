@@ -183,7 +183,7 @@ describe("demo mode guard", () => {
     const calls = stub({});
     const refused = [
       api.rename("demo-1", "Work"),
-      api.createToken("Test Mac"),
+      api.createToken("Test Mac", false),
       api.revokeToken("synthetic-id"),
       api.pause("demo-1", true),
       api.refresh("demo-1"),

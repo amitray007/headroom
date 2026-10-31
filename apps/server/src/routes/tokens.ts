@@ -1,12 +1,15 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { apiTokenScopes, ApiTokenStore } from "@headroom/core";
+import { ApiTokenStore } from "@headroom/core";
 
 import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
 
-const createBody = z.object({ name: z.string().trim().min(1).max(40) }).strict();
+/** `refresh` opts the token into changing Refresh Every; every token can read. */
+const createBody = z
+  .object({ name: z.string().trim().min(1).max(40), refresh: z.boolean().optional() })
+  .strict();
 const tokenId = z.string().min(1).max(128);
 
 export function tokenRoutes(ctx: AppContext): Hono<Env> {
@@ -26,6 +29,7 @@ export function tokenRoutes(ctx: AppContext): Hono<Env> {
       createdAt: token.createdAt.getTime(),
       lastUsedAt: token.lastUsedAt?.getTime() ?? null,
       expiresAt: token.expiresAt?.getTime() ?? null,
+      scopes: token.scopes,
     }));
     return c.json({ tokens });
   });
@@ -36,7 +40,7 @@ export function tokenRoutes(ctx: AppContext): Hono<Env> {
       body: {
         name: parsed.data.name,
         userId: c.get("session").user.id,
-        permissions: { app: [...apiTokenScopes] },
+        permissions: { app: parsed.data.refresh === true ? ["read", "refresh"] : ["read"] },
       },
     });
     return c.json({ id: token.id, name: token.name, key: token.key }, 201);

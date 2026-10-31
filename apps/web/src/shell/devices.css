@@ -49,6 +49,12 @@
   color: var(--foreground);
   user-select: all;
 }
+.device-scope {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
 .device-row .sbody {
   max-width: none;
 }
