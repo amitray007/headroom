@@ -20,7 +20,7 @@ function DeviceNote(props: { readonly token: ApiToken }) {
   return (
     <span className="muted">
       <code>{token.start ?? token.prefix}…</code>
-      {token.scopes.includes("refresh") ? " · Can change Refresh Every" : " · Read only"}
+      {token.scopes.includes("refresh") ? " · Read & Write" : " · Read Only"}
       {" · "}
       {token.lastUsedAt === null ? (
         "Never used"
@@ -125,7 +125,7 @@ export function DevicesTab() {
                 value={refresh ? "write" : "read"}
                 options={[
                   { value: "read", label: "Read Only" },
-                  { value: "write", label: "Read + Write" },
+                  { value: "write", label: "Read & Write" },
                 ]}
                 onChange={(value) => setRefresh(value === "write")}
               />
