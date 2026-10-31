@@ -111,10 +111,25 @@ export function DevicesTab() {
               void create();
             }}
           >
-            <label htmlFor={nameId} className="sbody">
-              <b>Device Name</b>
-              <span className="muted">A token lets Headroom for Mac read this server.</span>
-            </label>
+            <div className="device-head">
+              <label htmlFor={nameId} className="sbody">
+                <b>Device Name</b>
+                <span className="muted">
+                  {refresh
+                    ? "A token lets Headroom for Mac read this server and change its Refresh Every."
+                    : "A token lets Headroom for Mac read this server."}
+                </span>
+              </label>
+              <Segmented
+                label="Access"
+                value={refresh ? "write" : "read"}
+                options={[
+                  { value: "read", label: "Read Only" },
+                  { value: "write", label: "Read + Write" },
+                ]}
+                onChange={(value) => setRefresh(value === "write")}
+              />
+            </div>
             <div className="device-create">
               <input
                 id={nameId}
@@ -127,23 +142,6 @@ export function DevicesTab() {
               <Button type="submit" variant="primary" busy={busy} disabled={!name.trim()}>
                 Create Token
               </Button>
-            </div>
-            <div className="device-access">
-              <span className="sbody">
-                <b>Access Type</b>
-                <span className="muted">
-                  Read + Refresh Every also lets the Mac set how often this server refreshes.
-                </span>
-              </span>
-              <Segmented
-                label="Access Type"
-                value={refresh ? "refresh" : "read"}
-                options={[
-                  { value: "read", label: "Read Only" },
-                  { value: "refresh", label: "Read + Refresh Every" },
-                ]}
-                onChange={(value) => setRefresh(value === "refresh")}
-              />
             </div>
           </form>
         ) : (
