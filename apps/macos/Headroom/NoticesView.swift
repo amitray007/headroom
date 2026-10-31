@@ -325,8 +325,8 @@ private struct NoticeRowStyle: ButtonStyle {
       .overlay {
         if hovered { RoundedRectangle(cornerRadius: 10).strokeBorder(HR.border) }
       }
-      .scaleEffect(configuration.isPressed ? 0.985 : 1)
-      .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+      .scaleEffect(configuration.isPressed ? 0.99 : 1)
+      .animation(Motion.press(configuration.isPressed), value: configuration.isPressed)
       .animation(Motion.hover, value: hovered)
       .animation(Motion.hover, value: unread)
   }
@@ -342,8 +342,8 @@ private struct NoticePillStyle: ButtonStyle {
       .padding(.horizontal, height > 26 ? 12 : 10).frame(height: height)
       .background(configuration.isPressed ? HR.track : HR.surface, in: Capsule())
       .overlay(Capsule().strokeBorder(HR.border))
-      .scaleEffect(configuration.isPressed && enabled ? 0.96 : 1)
-      .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+      .scaleEffect(configuration.isPressed && enabled ? 0.97 : 1)
+      .animation(Motion.press(configuration.isPressed), value: configuration.isPressed)
       .contentShape(Capsule())
   }
 }

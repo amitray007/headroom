@@ -15,7 +15,7 @@ extension HR {
   static let pressed = color(light: 0xEDEDED, dark: 0x2A2A2A)
 }
 
-/// `.btn`: 36 pt (30 pt small) pills, 14/500 labels, a press scale that releases on a spring.
+/// `.btn`: 36 pt (30 pt small) pills, 14/500 labels, a short press scale.
 struct WebButtonStyle: ButtonStyle {
   enum Kind { case secondary, primary, quiet, danger }
   var kind: Kind = .secondary
@@ -46,13 +46,9 @@ struct WebButtonStyle: ButtonStyle {
           y: 1
         )
         .opacity(enabled ? (kind == .primary && configuration.isPressed ? 0.84 : 1) : 0.52)
-        .scaleEffect(configuration.isPressed && enabled ? 0.97 : 1)
-        .animation(
-          configuration.isPressed
-            ? .easeOut(duration: 0.12) : .spring(response: 0.45, dampingFraction: 0.62),
-          value: configuration.isPressed
-        )
-        .animation(.easeOut(duration: 0.16), value: hovered)
+        .scaleEffect(configuration.isPressed && enabled ? 0.98 : 1)
+        .animation(Motion.press(configuration.isPressed), value: configuration.isPressed)
+        .animation(Motion.hover, value: hovered)
         .contentShape(Capsule())
         .onHover { hovered = $0 }
     }
@@ -100,8 +96,8 @@ struct WebIconButtonStyle: ButtonStyle {
           in: Circle()
         )
         .opacity(enabled ? 1 : 0.4)
-        .scaleEffect(configuration.isPressed && enabled ? 0.96 : 1)
-        .animation(.spring(response: 0.4, dampingFraction: 0.65), value: configuration.isPressed)
+        .scaleEffect(configuration.isPressed && enabled ? 0.97 : 1)
+        .animation(Motion.press(configuration.isPressed), value: configuration.isPressed)
         .contentShape(Circle()).onHover { hovered = $0 }
     }
   }
@@ -153,7 +149,8 @@ struct WebSegmented<Value: Hashable>: View {
             .padding(.horizontal, 12).frame(height: 28)
             .background {
               if chosen {
-                Capsule().fill(HR.raisedSurface).shadow(color: .black.opacity(0.18), radius: 1, y: 1)
+                Capsule().fill(HR.raisedSurface).shadow(
+                  color: .black.opacity(0.18), radius: 1, y: 1)
               }
             }
             .contentShape(Capsule())

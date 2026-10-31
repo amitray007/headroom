@@ -15,7 +15,7 @@ struct SettingsView: View {
       VStack(spacing: 2) {
         ForEach(SettingsPane.allCases) { pane in
           SidebarItem(title: pane.rawValue, selected: model.selectedPane == pane) {
-            withAnimation(.easeOut(duration: 0.18)) { model.selectedPane = pane }
+            withAnimation(.easeOut(duration: 0.14)) { model.selectedPane = pane }
           }
         }
         Spacer()
@@ -448,7 +448,7 @@ private struct StyleCard: View {
       .contentShape(card)
     }
     .buttonStyle(.plain).onHover { hovered = $0 }
-    .animation(.spring(response: 0.4, dampingFraction: 0.7), value: selected)
+    .animation(.smooth(duration: 0.2), value: selected)
     .accessibilityLabel(style.label).accessibilityAddTraits(selected ? .isSelected : [])
   }
   private var card: RoundedRectangle { RoundedRectangle(cornerRadius: 20, style: .continuous) }

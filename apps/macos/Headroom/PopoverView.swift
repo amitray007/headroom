@@ -363,11 +363,8 @@ private struct HoverSurface<Label: View>: View {
       .overlay {
         if bordered { RoundedRectangle(cornerRadius: 6).strokeBorder(HR.border) }
       }
-      .scaleEffect(pressed && enabled ? 0.94 : 1)
-      .animation(
-        pressed ? .easeOut(duration: 0.1) : .spring(response: 0.35, dampingFraction: 0.6),
-        value: pressed
-      )
+      .scaleEffect(pressed && enabled ? 0.97 : 1)
+      .animation(Motion.press(pressed), value: pressed)
       .animation(Motion.hover, value: hovered)
       .onHover { hovered = $0 }
       .contentShape(Rectangle())
