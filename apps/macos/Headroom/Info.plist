@@ -10,6 +10,10 @@
     <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
     <key>LSMinimumSystemVersion</key><string>$(MACOSX_DEPLOYMENT_TARGET)</string>
     <key>LSUIElement</key><true/>
+    <key>CFBundleURLTypes</key><array><dict>
+      <key>CFBundleURLName</key><string>club.theblank.headroom.mac</string>
+      <key>CFBundleURLSchemes</key><array><string>headroom</string></array>
+    </dict></array>
     <!-- Source validation restricts plain HTTP to loopback and private LAN literals. -->
     <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/></dict>
 </dict></plist>

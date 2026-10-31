@@ -7,12 +7,16 @@ public struct NoticeRecord: Codable, Sendable {
   public let kind: NoticeKind
   public var missingFeeds: Int
   var eligibleForBanner: Bool
+  var accountID: String?
 }
 
 public actor NoticeStore {
   private struct State: Codable {
     var sources: [UUID: [String: NoticeRecord]] = [:]
     var kinds: [String: Bool] = [:]
+    var bannerHistory: [UUID: Set<String>]?
+    var disconnectedAccounts: [UUID: Set<String>]?
+    var sourceSignOut: [UUID: NoticeRecord]?
   }
   private let file: URL
   private var state: State
@@ -26,6 +30,10 @@ public actor NoticeStore {
     let hasReadSource = state.sources[sourceID] != nil
     var entries = state.sources[sourceID] ?? [:]
     let present = Set(notices.map(\.id))
+    if !hasReadSource {
+      if state.bannerHistory == nil { state.bannerHistory = [:] }
+      state.bannerHistory?[sourceID, default: []].formUnion(present)
+    }
     for id in Array(entries.keys) where !present.contains(id) {
       entries[id]?.missingFeeds += 1
       if (entries[id]?.missingFeeds ?? 0) >= 2 { entries[id] = nil }
@@ -36,7 +44,10 @@ public actor NoticeStore {
       } else {
         entries[notice.id] = NoticeRecord(
           firstSeen: now, read: false, bannered: false, kind: notice.kind,
-          missingFeeds: 0, eligibleForBanner: hasReadSource
+          missingFeeds: 0,
+          eligibleForBanner: hasReadSource
+            && !(state.bannerHistory?[sourceID]?.contains(notice.id) ?? false),
+          accountID: notice.connection.id
         )
       }
     }
@@ -44,22 +55,53 @@ public actor NoticeStore {
     try persist()
   }
 
-  public func records(sourceID: UUID) -> [String: NoticeRecord] { state.sources[sourceID] ?? [:] }
+  public static let sourceSignOutID = "headroom:source-signed-out"
+
+  public func updateSourceState(sourceID: UUID, signedOut: Bool, now: Date) throws {
+    if state.sourceSignOut?[sourceID] == nil, signedOut {
+      if state.sourceSignOut == nil { state.sourceSignOut = [:] }
+      state.sourceSignOut?[sourceID] = NoticeRecord(
+        firstSeen: now, read: false, bannered: false,
+        kind: .disconnected, missingFeeds: 0, eligibleForBanner: true)
+    } else if state.sourceSignOut?[sourceID] != nil {
+      state.sourceSignOut?[sourceID]?.missingFeeds = signedOut ? 0 : 1
+    }
+    try persist()
+  }
+
+  public func records(sourceID: UUID) -> [String: NoticeRecord] {
+    var records = state.sources[sourceID] ?? [:]
+    if let record = state.sourceSignOut?[sourceID], record.missingFeeds == 0 {
+      records[Self.sourceSignOutID] = record
+    }
+    return records
+  }
 
   public func bannerIDs(sourceID: UUID) -> Set<String> {
     Set(
-      (state.sources[sourceID] ?? [:]).filter { _, value in
+      records(sourceID: sourceID).filter { _, value in
         value.missingFeeds == 0 && !value.read && !value.bannered && value.eligibleForBanner
           && state.kinds[value.kind.rawValue] != false
+          && !(value.kind == .disconnected
+            && value.accountID.map {
+              state.disconnectedAccounts?[sourceID]?.contains($0) ?? false
+            } == true)
       }.keys)
   }
 
   public func setRead(_ read: Bool, id: String, sourceID: UUID) throws {
-    state.sources[sourceID]?[id]?.read = read
+    if id == Self.sourceSignOutID {
+      state.sourceSignOut?[sourceID]?.read = read
+    } else {
+      state.sources[sourceID]?[id]?.read = read
+    }
     try persist()
   }
 
   public func markAllRead() throws {
+    for source in Array(state.sourceSignOut?.keys ?? [:].keys) {
+      state.sourceSignOut?[source]?.read = true
+    }
     for source in Array(state.sources.keys) {
       for id in Array(state.sources[source]?.keys ?? [String: NoticeRecord]().keys) {
         state.sources[source]?[id]?.read = true
@@ -68,8 +110,26 @@ public actor NoticeStore {
     try persist()
   }
 
+  public func claimBanner(id: String, sourceID: UUID) throws -> Bool {
+    guard bannerIDs(sourceID: sourceID).contains(id) else { return false }
+    try markBannered(id: id, sourceID: sourceID)
+    return true
+  }
+
   public func markBannered(id: String, sourceID: UUID) throws {
-    state.sources[sourceID]?[id]?.bannered = true
+    if id == Self.sourceSignOutID {
+      state.sourceSignOut?[sourceID]?.bannered = true
+    } else {
+      state.sources[sourceID]?[id]?.bannered = true
+    }
+    if state.bannerHistory == nil { state.bannerHistory = [:] }
+    state.bannerHistory?[sourceID, default: []].insert(id)
+    if let record = state.sources[sourceID]?[id], record.kind == .disconnected,
+      let account = record.accountID
+    {
+      if state.disconnectedAccounts == nil { state.disconnectedAccounts = [:] }
+      state.disconnectedAccounts?[sourceID, default: []].insert(account)
+    }
     try persist()
   }
 
@@ -82,6 +142,9 @@ public actor NoticeStore {
 
   public func remove(sourceID: UUID) throws {
     state.sources[sourceID] = nil
+    state.sourceSignOut?[sourceID] = nil
+    state.bannerHistory?[sourceID] = nil
+    state.disconnectedAccounts?[sourceID] = nil
     try persist()
   }
 

@@ -30,7 +30,7 @@ Each dossier describes metrics, connection steps, tools, limitations and sources
 ## Shared references
 
 - [HTTP API](architecture/api.md): overview, display name, settings, the Wallet, usage history for Analytics, and the account-actions gate.
-- [Headroom for Mac](architecture/mac-app.md): the planned menu bar app and widgets, API tokens, the read-only feed, setup and build order.
+- [Headroom for Mac](architecture/mac-app.md): the menu bar app and widgets, API tokens, the read-only feed, setup and build order.
 - [Notifications](architecture/notifications.md): what raises a notification, pacing alerts, the event schema, and server-side delivery to Telegram and webhooks.
 - [Connector contract](architecture/connector-contract.md): the TypeScript interface every provider package implements, in `packages/core/src/connector.ts`.
 - [Deployment and credential storage](architecture/deployment.md): single binary, SQLite, master key and backups.

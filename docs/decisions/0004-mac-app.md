@@ -20,7 +20,7 @@ Today every API route needs a Better Auth session cookie ([API](../architecture/
 | Concern | Choice | Why |
 | --- | --- | --- |
 | Language | Swift 6, strict concurrency | WidgetKit has no other first-class language. Tauri and Electron cannot ship a widget extension |
-| Menu bar and popover | SwiftUI `MenuBarExtra` with the window style | Native popover sizing, focus and dismissal; no `NSStatusItem` code unless a spike shows a gap |
+| Menu bar and popover | `NSStatusItem` and `NSPopover` with SwiftUI content | Layer 5 found that `MenuBarExtra` has no public API to present its popover after a banner click, so it uses the fallback allowed by the original decision |
 | Settings | SwiftUI `Settings` scene | The standard Settings window and shortcut |
 | Widgets | WidgetKit extension with App Intent configuration | Accounts and limits are picked per widget, as in the design |
 | Notifications | `UserNotifications` | Banners and Notification Center |
