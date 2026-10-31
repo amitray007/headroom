@@ -300,9 +300,9 @@ private struct AccountList: View {
         } action: {
           listHeight = $0
         }
-        // Room after the last row for the fade to sit on, so the fade can stay put: nothing
-        // here changes while the list scrolls.
-        .padding(.bottom, listHeight > listCap ? 32 : 0)
+        // A little room after the last row: at the end the fade's clear top half lies over the
+        // row's empty lower edge, so the fade can stay put and nothing changes while scrolling.
+        .padding(.bottom, listHeight > listCap ? 12 : 0)
       }.frame(height: min(max(listHeight, 44), listCap))
         // A fade over the cut row says the list goes on; at the end it covers only the room
         // left after the last row.
@@ -310,7 +310,7 @@ private struct AccountList: View {
           LinearGradient(
             colors: [HR.surface.opacity(0), HR.surface], startPoint: .top, endPoint: .bottom
           )
-          .frame(height: 32).allowsHitTesting(false)
+          .frame(height: 24).allowsHitTesting(false)
           .opacity(listHeight > listCap ? 1 : 0)
         }
         .onAppear {
