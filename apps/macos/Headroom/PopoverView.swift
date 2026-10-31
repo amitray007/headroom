@@ -374,7 +374,9 @@ struct PopoverFooterStyle: ButtonStyle {
 struct PopoverToolStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
     HoverSurface(pressed: configuration.isPressed, bordered: false) {
-      configuration.label.frame(minWidth: 32, minHeight: 32)
+      // Even side padding, so a label wider than its icon (the bell and its count) keeps
+      // the same inset as the icon-only buttons.
+      configuration.label.padding(.horizontal, 8).frame(minWidth: 32, minHeight: 32)
     }
   }
 }
