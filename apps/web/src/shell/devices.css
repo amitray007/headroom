@@ -1,51 +1,83 @@
+/* Devices: a name field with its create button, the one-time key in a one-line field, and a row per token. */
 .device-form,
 .device-key {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
-  margin-block: 20px;
+  padding-block: 10px;
 }
-.device-actions {
+.device-create {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
-.device-actions input {
+.device-create input {
   flex: 1;
   min-width: 0;
-}
-.device-key textarea {
-  width: 100%;
-  resize: none;
-  font: 400 var(--text-sm) / 1.5 var(--mono);
-  padding: 12px 16px;
+  height: 36px;
+  padding: 0 16px;
   border: 1px solid var(--border-strong);
   border-radius: 18px;
   background: var(--surface);
   color: var(--foreground);
+  font: 400 var(--text-base) / 1.4 var(--font);
 }
-.device-key textarea:focus-visible {
+.device-create input:focus-visible {
   outline: 2px solid var(--border-strong);
   outline-offset: 2px;
 }
-.device-list {
-  padding: 0;
-  list-style: none;
+/* The key reads as a field: one line, cut with an ellipsis, with its copy button inside the trailing edge. */
+.key-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding-inline: 16px 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  background: var(--surface);
 }
-.device-entry {
-  padding-block: 16px;
-  border-top: 1px solid var(--border);
-  overflow-wrap: anywhere;
+.key-field code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 var(--text-sm) / 1 var(--mono);
+  color: var(--foreground);
+  user-select: all;
 }
-.device-entry > code {
-  margin-left: 12px;
+.device-scope {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
 }
-.device-entry dl {
+.device-row .sbody {
+  max-width: none;
+}
+.device-row .sbody code {
+  font: 400 var(--text-xs) / 1 var(--mono);
+}
+.device-actions {
+  flex: none;
+  display: flex;
+  gap: 8px;
+}
+.device-form > .sbody,
+.device-key > .sbody {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
-  font-size: 12px;
+  gap: 2px;
 }
-.device-entry dd {
-  margin: 0;
+.device-form > .sbody b,
+.device-key > .sbody b {
+  font-weight: 500;
+  font-size: var(--text-base);
+}
+.device-form > .sbody .muted,
+.device-key > .sbody .muted {
+  font-size: var(--text-xs);
+  line-height: 1.35;
 }
