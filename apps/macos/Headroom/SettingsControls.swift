@@ -112,16 +112,18 @@ struct WebSwitchStyle: ToggleStyle {
 struct WebSegmented<Value: Hashable>: View {
   @Binding var selection: Value
   let options: [(Value, String)]
+  /// 12 pt labels on a 24 pt track, for a control inside a row.
+  var compact = false
   var body: some View {
-    HStack(spacing: 3) {
+    HStack(spacing: compact ? 2 : 3) {
       ForEach(options, id: \.0) { value, label in
         let chosen = selection == value
         Button {
           selection = value
         } label: {
-          Text(label).font(HR.popoverFont(13, .medium))
+          Text(label).font(HR.popoverFont(compact ? 12 : 13, .medium))
             .foregroundStyle(chosen ? HR.ink : HR.secondary)
-            .padding(.horizontal, 12).frame(height: 28)
+            .padding(.horizontal, compact ? 10 : 12).frame(height: compact ? 24 : 28)
             .background {
               if chosen {
                 Capsule().fill(HR.raisedSurface).shadow(
@@ -133,7 +135,7 @@ struct WebSegmented<Value: Hashable>: View {
         .buttonStyle(.plain).accessibilityAddTraits(chosen ? .isSelected : [])
       }
     }
-    .padding(3).background(HR.muted, in: Capsule())
+    .padding(compact ? 2 : 3).background(HR.muted, in: Capsule())
     .animation(.easeOut(duration: 0.16), value: selection)
   }
 }
@@ -238,13 +240,25 @@ struct WebField<Input: View>: View {
 /// The select trigger: a pill with the chosen value and a chevron, opening a native menu.
 struct WebSelect<Content: View>: View {
   let value: String
+  /// A provider mark, or failing that a symbol, before the value.
+  var mark: String? = nil
+  var symbol: String? = nil
+  /// Takes the row's free width, with the chevron at the trailing edge.
+  var fill = false
   @ViewBuilder var content: Content
   var body: some View {
     Menu {
       content
     } label: {
       HStack(spacing: 8) {
+        if let mark {
+          ProviderMark(provider: mark).frame(width: 14, height: 14)
+        } else if let symbol {
+          Image(systemName: symbol).font(.system(size: 12, weight: .medium))
+            .foregroundStyle(HR.secondary).frame(width: 14)
+        }
         Text(value).font(HR.popoverFont(13, .medium)).lineLimit(1)
+        if fill { Spacer(minLength: 8) }
         Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .semibold))
           .foregroundStyle(HR.secondary)
       }
@@ -253,6 +267,8 @@ struct WebSelect<Content: View>: View {
       .overlay(Capsule().strokeBorder(HR.border))
       .contentShape(Capsule())
     }
-    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
+    .fixedSize(horizontal: !fill, vertical: true)
+    .frame(maxWidth: fill ? .infinity : nil)
   }
 }

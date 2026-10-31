@@ -55,6 +55,7 @@ import Testing
   #expect(preferences.slots.count == DisplayPreferences.maxSlots)
   preferences.providerLogos = false
   preferences.colorLowOut = false
+  preferences.liveRoom = true
   preferences.hiddenAccounts = ["source-b/account-a"]
   preferences.accountOrder = ["source-a/account-a", "source-b/account-a"]
   try await store.save(preferences)

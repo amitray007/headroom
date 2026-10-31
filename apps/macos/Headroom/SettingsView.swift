@@ -21,7 +21,8 @@ struct SettingsView: View {
         }
         Spacer()
       }
-      .padding(.horizontal, 10).padding(.top, 12).frame(width: 165)
+      // The window content runs under the title bar; the list starts below the traffic lights.
+      .padding(.horizontal, 10).padding(.top, 48).frame(width: 165)
       .background(HR.background)
       .overlay(alignment: .trailing) { Rectangle().fill(HR.borderSubtle).frame(width: 1) }
       ScrollView {
@@ -36,7 +37,8 @@ struct SettingsView: View {
           case .general: general
           }
         }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 12).padding(.bottom, 24)
+        // The pane title sits in the traffic lights' row.
+        .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 9).padding(.bottom, 24)
       }
       .scrollIndicators(.never).id(model.selectedPane)
       .transition(Motion.reveal(reduceMotion))
@@ -44,6 +46,7 @@ struct SettingsView: View {
     }
     .font(HR.popoverFont(14)).foregroundStyle(HR.ink).tint(HR.ink)
     .frame(width: 700, height: 598)
+    .ignoresSafeArea(.container, edges: .top)
     // The title sat across the sidebar edge; each pane already names itself.
     .toolbar(removing: .title)
     .background(SettingsWindowChrome())
@@ -83,27 +86,44 @@ struct SettingsView: View {
   private var menuBar: some View {
     let style = model.preferences.itemStyle
     return SettingsSections {
-      SettingsSection("Style") {
-        LazyVGrid(columns: [.init(.flexible(), spacing: 10), .init(.flexible())], spacing: 10) {
-          ForEach(DisplayPreferences.ItemStyle.allCases, id: \.self) { style in
-            StyleCard(model: model, style: style, selected: model.preferences.itemStyle == style) {
-              model.preferences.itemStyle = style
-            }
-          }
-        }.padding(.vertical, 8)
+      SettingsSection("Preview") {
+        MenuBarPreview(status: MenuStatus(model: model, style: style, sample: true))
+          .padding(.vertical, 8)
+      }
+      SettingsSection("Show") {
+        WebSegmented(
+          selection: $model.preferences.itemStyle,
+          options: DisplayPreferences.ItemStyle.allCases.map { ($0, $0.label) }
+        ).padding(.vertical, 8)
       }
       if style != .logo {
-        SettingsSection(style.showsSlots ? "Accounts" : "Account") {
-          if style.showsSlots && model.preferences.slots.count < DisplayPreferences.maxSlots {
-            Button("Add account", action: addSlot).buttonStyle(WebButtonStyle(small: true))
-          }
-        } content: {
+        SettingsSection(style.showsSlots ? "Accounts · up to 3" : "Account") {
           ForEach(Array(model.preferences.slots.enumerated()), id: \.offset) { index, slot in
             if style.showsSlots || index == 0 { slotRow(index, slot: slot, style: style) }
+          }
+          if style.showsSlots {
+            Button(action: addSlot) {
+              Label("Add account", systemImage: "plus").font(HR.popoverFont(13, .medium))
+                .foregroundStyle(HR.secondary).padding(.horizontal, 14).frame(height: 30)
+                .overlay(Capsule().strokeBorder(HR.border, style: StrokeStyle(dash: [3, 3])))
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain).padding(.vertical, 10)
+            .disabled(model.preferences.slots.count >= DisplayPreferences.maxSlots)
+            .opacity(model.preferences.slots.count >= DisplayPreferences.maxSlots ? 0.45 : 1)
           }
         }
       }
       SettingsSection("Options") {
+        if style == .liveLogo {
+          SettingsRow(
+            title: "Room beside the logo",
+            note: "Adds the figure of the account with least room, about 32 pt."
+          ) {
+            Toggle("Room beside the logo", isOn: $model.preferences.liveRoom)
+              .toggleStyle(WebSwitchStyle())
+          }
+        }
         if style == .accounts {
           SettingsRow(title: "Provider logos", note: "Off saves about 16 pt per account.") {
             Toggle("Provider logos", isOn: $model.preferences.providerLogos)
@@ -136,7 +156,13 @@ struct SettingsView: View {
         Image(systemName: "line.3.horizontal").font(.system(size: 12, weight: .medium))
           .foregroundStyle(HR.textMuted).frame(width: 16).accessibilityHidden(true)
       }
-      WebSelect(value: name) {
+      WebSelect(
+        value: name,
+        mark: slot.account.flatMap { id in
+          model.allAccounts.first { $0.id == id }?.account.provider.rawValue
+        },
+        symbol: "gauge.medium", fill: true
+      ) {
         Button("Tightest account with room") { model.preferences.slots[index].account = nil }
         if !model.allAccounts.isEmpty { Divider() }
         ForEach(model.allAccounts) { item in
@@ -146,11 +172,10 @@ struct SettingsView: View {
           ) { model.preferences.slots[index].account = item.id }
         }
       }
-      Spacer(minLength: 12)
       if style == .accounts {
         WebSegmented(
           selection: $model.preferences.slots[index].look,
-          options: [(.percent, "%"), (.ring, "Ring"), (.bars, "Bars")]
+          options: [(.percent, "%"), (.ring, "Ring"), (.bars, "Bars")], compact: true
         ).help("Bars show the session window over the longer one.")
       }
       if movable {
@@ -570,44 +595,6 @@ private struct SidebarItem: View {
   }
 }
 
-/// Arc's radio card: a 20 pt card, a ring and a filled dot on the chosen one.
-private struct StyleCard: View {
-  let model: AppModel
-  let style: DisplayPreferences.ItemStyle
-  let selected: Bool
-  let action: () -> Void
-  @State private var hovered = false
-  var body: some View {
-    Button(action: action) {
-      HStack(alignment: .top) {
-        VStack(alignment: .leading, spacing: 10) {
-          MenuItemLabel(status: MenuStatus(model: model, style: style, sample: true))
-            .frame(height: 23)
-          Text(style.label).font(HR.popoverFont(14, .medium)).foregroundStyle(HR.ink)
-        }
-        Spacer(minLength: 8)
-        ZStack {
-          Circle().fill(selected ? HR.accent : .clear)
-          Circle().strokeBorder(selected ? HR.accent : HR.borderStrong, lineWidth: 1.5)
-          Circle().fill(HR.surface).frame(width: 6, height: 6).scaleEffect(selected ? 1 : 0)
-        }.frame(width: 18, height: 18).padding(.top, 2)
-      }
-      .padding(.horizontal, 16).padding(.vertical, 14)
-      .background(selected ? HR.muted.opacity(0.5) : HR.surface, in: card)
-      .overlay(
-        card.strokeBorder(
-          selected ? HR.accent : hovered ? HR.borderStrong : HR.border,
-          lineWidth: selected ? 1.5 : 1)
-      )
-      .contentShape(card)
-    }
-    .buttonStyle(.plain).onHover { hovered = $0 }
-    .animation(.smooth(duration: 0.2), value: selected)
-    .accessibilityLabel(style.label).accessibilityAddTraits(selected ? .isSelected : [])
-  }
-  private var card: RoundedRectangle { RoundedRectangle(cornerRadius: 20, style: .continuous) }
-}
-
 struct SourceDraft: Identifiable {
   let id = UUID()
   var sourceID: UUID?
@@ -715,7 +702,8 @@ struct SourceEditor: View {
 
 /// Gives the Settings window an empty unified toolbar. Without one, macOS uses the compact title
 /// bar and the close, minimize and zoom buttons sit tight in the window's rounded corner; with
-/// one they get the standard inset of a toolbar window.
+/// one they get the standard inset of a toolbar window. The content runs under the transparent
+/// toolbar, so it costs no height.
 private struct SettingsWindowChrome: NSViewRepresentable {
   func makeNSView(context: Context) -> NSView { ChromeView() }
   func updateNSView(_ view: NSView, context: Context) {}
@@ -728,6 +716,42 @@ private struct SettingsWindowChrome: NSViewRepresentable {
       window.toolbarStyle = .unified
       window.titleVisibility = .hidden
       window.titlebarAppearsTransparent = true
+      window.titlebarSeparatorStyle = .none
+      // Content fills the window, so the toolbar adds no empty band above the panes.
+      window.styleMask.insert(.fullSizeContentView)
     }
+  }
+}
+
+/// The menu bar item as it will look, beside stand-ins for the system items, at 1.5x.
+private struct MenuBarPreview: View {
+  let status: MenuStatus
+  @State private var size = CGSize.zero
+  private static let bar = HR.color(light: 0xE4E5E9, dark: 0x1D2030)
+
+  var body: some View {
+    HStack(spacing: 14) {
+      MenuItemLabel(status: status)
+      Group {
+        Image(systemName: "wifi")
+        Image(systemName: "battery.75percent").font(.system(size: 15))
+        Text(Date.now.formatted(.dateTime.weekday(.abbreviated).hour().minute()))
+      }.accessibilityHidden(true)
+    }
+    .font(.system(size: 13, weight: .medium)).foregroundStyle(.primary)
+    .padding(.horizontal, 10).frame(height: 24)
+    .background(Self.bar, in: RoundedRectangle(cornerRadius: 5))
+    .fixedSize()
+    .onGeometryChange(for: CGSize.self) {
+      $0.size
+    } action: {
+      size = $0
+    }
+    .scaleEffect(1.5, anchor: .topLeading)
+    .frame(width: size.width * 1.5, height: size.height * 1.5, alignment: .topLeading)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(14).background(HR.muted, in: RoundedRectangle(cornerRadius: 12))
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("Preview: \(status.summary)")
   }
 }

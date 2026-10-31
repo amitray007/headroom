@@ -89,6 +89,7 @@ extension MenuBarController {
     image.isTemplate = monochrome
     // The image carries no accessibility, so the button reads what the label shows.
     button.setAccessibilityLabel(status.summary)
+    button.toolTip = status.tooltip
     // The item keeps its variable length, so the menu bar pads it like every other icon. A
     // fixed width with 4 pt per side left 6 pt more space after it than between other icons.
     button.image = image

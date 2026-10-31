@@ -50,6 +50,8 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
   public var providerLogos = true
   /// Yellow when an account runs low, red when it is out; off keeps the menu bar's color.
   public var colorLowOut = true
+  /// Live logo adds the figure of the slot with least room beside the glyph.
+  public var liveRoom = false
   public var hiddenAccounts: Set<String> = []
   public var accountOrder: [String] = []
   public var appearance: Appearance = .system
@@ -77,6 +79,7 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
       slots.isEmpty ? [MenuSlot(account: followed)] : Array(slots.prefix(Self.maxSlots))
     providerLogos = try values.decodeIfPresent(Bool.self, forKey: .providerLogos) ?? true
     colorLowOut = try values.decodeIfPresent(Bool.self, forKey: .colorLowOut) ?? true
+    liveRoom = try values.decodeIfPresent(Bool.self, forKey: .liveRoom) ?? false
     hiddenAccounts = try values.decodeIfPresent(Set<String>.self, forKey: .hiddenAccounts) ?? []
     accountOrder = try values.decodeIfPresent([String].self, forKey: .accountOrder) ?? []
     appearance =

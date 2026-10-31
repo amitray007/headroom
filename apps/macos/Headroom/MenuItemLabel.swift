@@ -85,7 +85,11 @@ struct MenuReading: Equatable {
   let dot: MenuTone?
   let logos: Bool
   let colors: Bool
+  /// Live logo and room: the slot with least room, shown as its figure beside the glyph.
+  let liveRoom: MenuReading?
   let summary: String
+  /// One line per account, for the pointer: one-icon styles carry no names.
+  let tooltip: String
 
   init(model: AppModel, style: DisplayPreferences.ItemStyle, sample: Bool = false) {
     let preferences = model.preferences
@@ -157,18 +161,41 @@ struct MenuReading: Equatable {
     }
     self.text = text
     self.textTone = textTone
+    // Out first, then the least room left; a slot with no figure never stands for the rest.
+    liveRoom =
+      style == .liveLogo && preferences.liveRoom
+      ? readings.min { Self.urgency($0) > Self.urgency($1) } : nil
+
+    let lines: [String]
+    if style == .logoAndRoom {
+      lines = [
+        "\((columns.first ?? nil)?.item.name ?? "Tightest account"): \(text ?? "no readings yet")"
+      ]
+    } else {
+      lines = readings.map { "\($0.name): \(Self.figure($0))" }
+    }
+    tooltip = (["Headroom"] + lines).joined(separator: "\n")
 
     var parts = ["Headroom"]
     if style == .logoAndRoom {
       parts.append((columns.first ?? nil)?.item.name ?? "all accounts")
       parts.append(text ?? "no readings yet")
     } else {
-      parts += readings.map {
-        "\($0.name), \($0.left != nil && $0.tone != .out ? Formatting.percentLeft($0.left) : $0.text)"
-      }
+      parts += readings.map { "\($0.name), \(Self.figure($0))" }
     }
     if model.unread > 0 { parts.append("\(model.unread) unread notifications") }
     summary = parts.joined(separator: ", ")
+  }
+
+  /// "37% left", or the slot's word when it has no figure to give.
+  private static func figure(_ reading: MenuReading) -> String {
+    reading.left != nil && reading.tone != .out
+      ? Formatting.percentLeft(reading.left) : reading.text
+  }
+
+  private static func urgency(_ reading: MenuReading) -> Double {
+    if reading.tone == .out { return 200 }
+    return reading.left.map { 100 - $0 } ?? -1
   }
 
   /// The connected account with the least room that still has some, ranked by a projected
@@ -194,7 +221,9 @@ struct MenuReading: Equatable {
   /// True when the label draws in color: a low or out tone, or a provider mark in its own color.
   /// A one-color label is a template image the menu bar tints like any icon.
   var colored: Bool {
-    let tones = [textTone, dot ?? .plain] + readings.flatMap { [$0.tone] + $0.bars.map(\.tone) }
+    let tones =
+      [textTone, dot ?? .plain, liveRoom?.tone ?? .plain]
+      + readings.flatMap { [$0.tone] + $0.bars.map(\.tone) }
     let marks =
       style == .accounts && logos
       && readings.contains { ProviderMark.colored.contains($0.provider) }
@@ -217,7 +246,15 @@ struct MenuItemLabel: View {
     let readings = status.readings
     switch status.style {
     case .liveLogo where !readings.isEmpty:
-      withDot { LiveGlyph(readings: readings, color: color).frame(width: 16, height: 16) }
+      withDot {
+        HStack(spacing: 4) {
+          LiveGlyph(readings: readings, color: color).frame(width: 16, height: 16)
+          if let room = status.liveRoom {
+            Text(room.text).font(.system(size: 13, weight: .medium)).monospacedDigit()
+              .foregroundStyle(color(room.tone))
+          }
+        }
+      }
     case .dots where !readings.isEmpty:
       withDot { DotGrid(readings: readings, color: color).frame(width: 16, height: 16) }
     case .accounts where !readings.isEmpty:
