@@ -423,3 +423,32 @@ private struct MenuRing: View {
     }
   }
 }
+
+/// The colors themselves, in place of a sentence about them: a low ring in yellow and an out
+/// ring in red, or both in the plain color when coloring is off.
+struct MenuToneLegend: View {
+  let colors: Bool
+  var body: some View {
+    HStack(spacing: 14) {
+      sample(left: 14, tone: .low, label: "Low")
+      sample(left: 0, tone: .out, label: "Out")
+    }
+    .font(HR.popoverFont(12, .medium))
+    .animation(.easeOut(duration: 0.16), value: colors)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(
+      colors ? "Low shows in yellow, out shows in red" : "Low and out keep the menu bar color")
+  }
+
+  private func sample(left: Double, tone: MenuTone, label: String) -> some View {
+    HStack(spacing: 5) {
+      MenuRing(left: left, tone: tone, color: color).frame(width: 14, height: 14)
+      Text(label).foregroundStyle(color(tone))
+    }
+  }
+
+  private func color(_ tone: MenuTone) -> Color {
+    guard colors else { return HR.secondary }
+    return tone == .low ? MenuColor.low : HR.danger
+  }
+}

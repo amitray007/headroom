@@ -25,9 +25,10 @@ public enum Formatting {
       ? "\(label) unknown" : money(values.compactMap { $0 }.reduce(0, +), unit: label)
   }
 
+  /// Whole numbers as they are; anything else to two decimals, so a credit balance reads
+  /// "61,068.39", not "61068.3876350001".
   private static func number(_ value: Double) -> String {
-    value.rounded() == value
-      ? String(format: "%.0f", locale: gb, value) : String(value)
+    String(format: value.rounded() == value ? "%.0f" : "%.2f", locale: gb, value)
   }
 
   public static func money(_ value: Double?, unit: String) -> String {
@@ -50,10 +51,7 @@ public enum Formatting {
       return charge.availability == .not_authorized ? "Not on this plan" : "Unknown"
     }
     func amount(_ value: Double, _ unit: String) -> String {
-      if unit == "USD" || (unit == "credits" && value.rounded() != value) {
-        return String(format: "%.2f", locale: gb, value)
-      }
-      return number(value)
+      unit == "USD" ? String(format: "%.2f", locale: gb, value) : number(value)
     }
     let text = amount(value, charge.unit)
     guard let cap = charge.cap else { return "\(text) \(unitLabel(charge.unit))" }

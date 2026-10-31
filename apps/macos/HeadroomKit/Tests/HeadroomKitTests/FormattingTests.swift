@@ -85,6 +85,12 @@ func durationsMatchTheMockup(_ seconds: Double, _ expected: String) {
   #expect(Formatting.charge(charge) == "8.20 / 20.00 USD")
   charge.cap = .init(unit: "credits", value: 20)
   #expect(Formatting.charge(charge) == "8.20 USD / 20 credits")
+  charge.value = 61068.3876350001
+  charge.unit = "codex_credits"
+  charge.cap = nil
+  #expect(Formatting.charge(charge) == "61,068.39 Codex credits")
+  charge.value = 400
+  #expect(Formatting.charge(charge) == "400 Codex credits")
   charge.value = nil
   charge.availability = .unknown
   #expect(Formatting.charge(charge) == "Unknown")

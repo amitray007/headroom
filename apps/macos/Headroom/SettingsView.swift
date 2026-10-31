@@ -40,13 +40,16 @@ struct SettingsView: View {
         // The pane title sits in the traffic lights' row.
         .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 9).padding(.bottom, 24)
       }
-      .scrollIndicators(.never).id(model.selectedPane)
+      .scrollIndicators(.never).hidingTopScrollEdge().id(model.selectedPane)
       .transition(Motion.reveal(reduceMotion))
       .background(HR.raisedSurface)
     }
     .font(HR.popoverFont(14)).foregroundStyle(HR.ink).tint(HR.ink)
-    .frame(width: 700, height: 598)
+    // The window is 598 pt of content plus the title bar. The panes fill both: they stretch up
+    // under the transparent title bar, while the outer frame still sizes the window.
+    .frame(width: 700).frame(maxHeight: .infinity)
     .ignoresSafeArea(.container, edges: .top)
+    .frame(height: 598)
     // The title sat across the sidebar edge; each pane already names itself.
     .toolbar(removing: .title)
     .background(SettingsWindowChrome())
@@ -130,13 +133,16 @@ struct SettingsView: View {
               .toggleStyle(WebSwitchStyle())
           }
         }
-        SettingsRow(
-          title: "Color when low or out",
-          note: "Yellow when an account runs low, red when it is out. Off keeps the menu bar color."
-        ) {
+        HStack(spacing: 40) {
+          VStack(alignment: .leading, spacing: 6) {
+            Text("Color when low or out").font(HR.popoverFont(14, .medium)).foregroundStyle(HR.ink)
+            MenuToneLegend(colors: model.preferences.colorLowOut)
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
           Toggle("Color when low or out", isOn: $model.preferences.colorLowOut)
             .toggleStyle(WebSwitchStyle())
         }
+        .padding(.vertical, 10)
       }
     }
   }
@@ -696,6 +702,18 @@ struct SourceEditor: View {
       focused = .url
     } catch {
       self.error = "Could not save this source on this Mac. Your previous settings have been kept."
+    }
+  }
+}
+
+extension View {
+  /// The pane scrolls under the transparent toolbar. macOS 26 blurs content under a toolbar and
+  /// rules it off, which turned the pane title into a frosted band; the pane needs neither.
+  @ViewBuilder fileprivate func hidingTopScrollEdge() -> some View {
+    if #available(macOS 26, *) {
+      scrollEdgeEffectHidden(true, for: .top)
+    } else {
+      self
     }
   }
 }
