@@ -1489,7 +1489,7 @@ time.when {
 
 /* Settings dialog: sections of rows, each a title and one-line note on the left with a segment or switch on the right. */
 .dlg.settings {
-  width: min(560px, calc(100vw - 32px));
+  width: min(800px, calc(100vw - 32px));
   /* One fixed height for every tab, so switching tabs never resizes the dialog. The rows scroll under the tabs. */
   height: min(640px, calc(100dvh - 32px));
 }
@@ -1604,6 +1604,66 @@ label.srow {
 }
 .dlg.settings .dsec:first-child {
   border-top: 0;
+}
+/* Wider windows list the sections in a sidebar; the rows scroll on their own beside it. */
+.dlg.settings .stab-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  transition: color var(--dur-fast) var(--ease-standard);
+}
+.dlg.settings .stab-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.dlg.settings .stab[aria-selected="true"] .stab-icon {
+  color: var(--foreground);
+}
+@media (min-width: 681px) {
+  .dlg.settings .dhead {
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .dlg.settings .dbody:has(> .stabs) {
+    display: grid;
+    grid-template-columns: 196px minmax(0, 1fr);
+    overflow: hidden;
+  }
+  .dlg.settings .stabs {
+    position: relative;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 12px;
+    overflow-y: auto;
+    border-bottom: 0;
+    border-inline-end: 1px solid var(--border-subtle);
+    background: none;
+  }
+  .dlg.settings .stab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 10px;
+    text-align: start;
+  }
+  .dlg.settings .spanel {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .dlg.settings .spanel::-webkit-scrollbar {
+    display: none;
+  }
+}
+@media (max-width: 680px) {
+  .dlg.settings .stab-icon {
+    display: none;
+  }
 }
 /* The fading copy of the old tab sits on the dialog's own surface. */
 .dlg.settings .slide-swap-ghost {
@@ -2394,6 +2454,12 @@ html[data-density="compact"] .accounts .tname {
   height: 56px;
 }
 
+/* A dropdown choice keeps one width, so rows with different option lengths line up. */
+.srow-select {
+  flex: none;
+  width: 150px;
+}
+
 /* Phones: a choice row puts its segmented control under the text at full width, so the note keeps a
    readable measure. Switch rows stay on one line. */
 @media (max-width: 560px) {
@@ -2401,6 +2467,9 @@ html[data-density="compact"] .accounts .tname {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+  }
+  .srow-choice .srow-select {
+    width: 100%;
   }
   .srow-choice .seg,
   .srow-choice .sk-segs {

@@ -311,5 +311,10 @@ export const disconnectResults = ["revoked", "local_only", "failed"] as const;
 export const disconnectResultSchema = z.enum(disconnectResults);
 export type DisconnectResult = z.infer<typeof disconnectResultSchema>;
 
-/** Read-only access to the versioned app API. */
-export const apiTokenScopes = ["read"] as const;
+/**
+ * App API token scopes. Every token can `read`. `refresh` is opt-in at creation and lets a device
+ * change only the Refresh Every setting (ADR 0004, D44).
+ */
+export const apiTokenScopes = ["read", "refresh"] as const;
+export const apiTokenScopeSchema = z.enum(apiTokenScopes);
+export type ApiTokenScope = z.infer<typeof apiTokenScopeSchema>;
