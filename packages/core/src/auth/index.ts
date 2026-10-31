@@ -60,7 +60,8 @@ export function createAuth(options: AuthOptions) {
         requireName: true,
         maximumNameLength: 40,
         startingCharactersConfig: { charactersLength: 11 },
-        permissions: { defaultPermissions: { app: [...apiTokenScopes] } },
+        // A token reads only, unless the owner opts it into `refresh` when creating it.
+        permissions: { defaultPermissions: { app: [apiTokenScopes[0]] } },
         // The plugin window resets only after a quiet minute, so steady polling would hit the cap and
         // read as a revoked token. The address limiter in requireApiToken bounds failed guesses.
         rateLimit: { enabled: false },

@@ -631,10 +631,10 @@ html[data-density="compact"] .w-row {
   display: grid;
   gap: var(--space-3);
   padding: 16px;
-  border-radius: var(--radius-panel);
-}
-.notif.w-topups-pop {
   width: min(320px, calc(100vw - 24px));
+  border-radius: var(--radius-panel);
+  /* The panel sits inside a .w-cap caption, whose nowrap would stretch long notes past the width. */
+  white-space: normal;
 }
 .w-pop-head h2 {
   margin: 0;

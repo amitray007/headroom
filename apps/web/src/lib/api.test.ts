@@ -165,12 +165,14 @@ describe("demo mode guard", () => {
   afterEach(() => {
     devicePrefs().setDemo(false);
   });
-  test("tokens are hidden without a request while Demo Mode is on", async () => {
+  test("Demo Mode shows synthetic devices without a request", async () => {
     const prefs = devicePrefs();
     prefs.setDemo(true);
     const calls = stub({ tokens: [{ key: "must-not-be-read" }] });
     try {
-      expect(await api.tokens()).toEqual({ tokens: [] });
+      const { tokens } = await api.tokens();
+      expect(tokens.map((token) => token.id)).toEqual(["demo-token-studio", "demo-token-desk"]);
+      expect(JSON.stringify(tokens)).not.toContain("must-not-be-read");
       expect(calls).toEqual([]);
     } finally {
       prefs.setDemo(false);
@@ -181,7 +183,7 @@ describe("demo mode guard", () => {
     const calls = stub({});
     const refused = [
       api.rename("demo-1", "Work"),
-      api.createToken("Test Mac"),
+      api.createToken("Test Mac", false),
       api.revokeToken("synthetic-id"),
       api.pause("demo-1", true),
       api.refresh("demo-1"),
