@@ -28,7 +28,12 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     observe()
   }
 
-  func popoverDidShow(_ notification: Notification) { Task { await model.setOpen(true) } }
+  func popoverDidShow(_ notification: Notification) {
+    // NSPopover animates every content size change when `animates` is on, and SwiftUI lays the
+    // whole popover out again on each frame of it. Keep the open animation, then size instantly.
+    popover.animates = false
+    Task { await model.setOpen(true) }
+  }
   func popoverDidClose(_ notification: Notification) { Task { await model.setOpen(false) } }
 
   @objc private func toggle() {
@@ -36,6 +41,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
   }
   private func show() {
     guard let button = item.button else { return }
+    popover.animates = true
     popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     popover.contentViewController?.view.window?.makeKey()
   }

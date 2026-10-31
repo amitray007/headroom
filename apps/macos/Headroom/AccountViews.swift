@@ -5,16 +5,21 @@ import SwiftUI
 /// One provider's rows. Providers are separated by a rule; accounts inside one are not.
 struct LedgerGroup: View {
   let rows: [LedgerRow]
+  /// Rows whose subtitle names their source, worked out once for the whole list.
+  let withSource: Set<String>
   let model: AppModel
   var body: some View {
     VStack(spacing: 0) {
-      ForEach(rows) { row in LedgerRowView(row: row, model: model) }
+      ForEach(rows) { row in
+        LedgerRowView(row: row, showsSource: withSource.contains(row.id), model: model)
+      }
     }.padding(.vertical, 4)
   }
 }
 
 struct LedgerRowView: View {
   let row: LedgerRow
+  let showsSource: Bool
   let model: AppModel
   @State private var expanded = false
   @State private var hovered = false
@@ -115,7 +120,7 @@ struct LedgerRowView: View {
     }
     return [
       nameBelow ? account.name : nil, account.plan,
-      Presentation.needsSource(item, among: model.accounts) ? item.snapshot.source.name : nil,
+      showsSource ? item.snapshot.source.name : nil,
     ].compactMap { $0 }.joined(separator: " · ")
   }
 }

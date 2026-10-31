@@ -151,12 +151,10 @@ public enum Formatting {
     milliseconds.map { Date(timeIntervalSince1970: Double($0) / 1000) }
   }
 
+  private static let formatters = FormatterCache()
+
   private static func format(_ date: Date, pattern: String, timeZone: TimeZone) -> String {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "en_GB")
-    formatter.timeZone = timeZone
-    formatter.dateFormat = pattern
-    return formatter.string(from: date)
+    formatters.string(date, pattern: pattern, timeZone: timeZone)
   }
 
   public static func status(
@@ -187,5 +185,25 @@ public enum Formatting {
     }
     return account.charges.contains { $0.kind == .balance && $0.value != nil }
       ? "Balance only" : "Unknown"
+  }
+}
+
+/// A `DateFormatter` costs far more to create than to use, and the popover formats several
+/// dates per row on every render. One formatter per pattern and time zone is kept.
+private final class FormatterCache: @unchecked Sendable {
+  private let lock = NSLock()
+  private var formatters: [String: DateFormatter] = [:]
+
+  func string(_ date: Date, pattern: String, timeZone: TimeZone) -> String {
+    lock.lock()
+    defer { lock.unlock() }
+    let key = "\(pattern)|\(timeZone.identifier)"
+    if let formatter = formatters[key] { return formatter.string(from: date) }
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_GB")
+    formatter.timeZone = timeZone
+    formatter.dateFormat = pattern
+    formatters[key] = formatter
+    return formatter.string(from: date)
   }
 }

@@ -10,6 +10,7 @@ struct PopoverView: View {
   /// The account page's height. Notices take the same height so switching pages never
   /// resizes the popover.
   @State private var pageHeight: CGFloat = 0
+  @State private var listAtEnd = false
 
   init(model: AppModel, notices: Bool = false) {
     self.model = model
@@ -163,11 +164,16 @@ struct PopoverView: View {
   }
 
   private func accountList(_ groups: [(provider: String, rows: [LedgerRow])]) -> some View {
-    ScrollViewReader { proxy in
+    // Each row used to rebuild every account to decide this, on every hover.
+    let all = model.accounts
+    let withSource = Set(
+      groups.flatMap(\.rows).filter { Presentation.needsSource($0.item, among: all) }.map(\.id))
+    return ScrollViewReader { proxy in
       ScrollView {
         VStack(spacing: 0) {
           ForEach(groups, id: \.provider) { group in
-            LedgerGroup(rows: group.rows, model: model).id(group.provider)
+            LedgerGroup(rows: group.rows, withSource: withSource, model: model)
+              .id(group.provider)
             if group.provider != groups.last?.provider { Divider().overlay(HR.border) }
           }
         }.onGeometryChange(for: CGFloat.self) {
@@ -175,7 +181,21 @@ struct PopoverView: View {
         } action: {
           listHeight = $0
         }
-      }.frame(height: min(max(listHeight, 44), 640))
+      }.frame(height: min(max(listHeight, 44), listCap))
+        .onScrollGeometryChange(for: Bool.self) {
+          $0.contentOffset.y + $0.containerSize.height >= $0.contentSize.height - 1
+        } action: { _, atEnd in
+          listAtEnd = atEnd
+        }
+        // A fade over the last row says the list goes on; it clears at the end.
+        .overlay(alignment: .bottom) {
+          LinearGradient(
+            colors: [HR.surface.opacity(0), HR.surface], startPoint: .top, endPoint: .bottom
+          )
+          .frame(height: 24).allowsHitTesting(false)
+          .opacity(listHeight > listCap && !listAtEnd ? 1 : 0)
+          .animation(Motion.hover, value: listAtEnd)
+        }
         .onAppear {
           if model.synthetic && model.captureState == "lower" {
             proxy.scrollTo(groups.last?.provider, anchor: .bottom)
@@ -183,6 +203,13 @@ struct PopoverView: View {
         }
     }
   }
+  /// About nine rows, then the list scrolls. A short screen lowers it so the popover keeps clear
+  /// of the menu bar and the Dock: header, summary, footer and margins take about 180 pt.
+  private var listCap: CGFloat {
+    let screen = NSScreen.main?.visibleFrame.height ?? 900
+    return max(176, min(440, screen - 180))
+  }
+
   /// Rows by provider, in the order providers first appear, in one pass.
   private func groups(_ rows: [LedgerRow]) -> [(provider: String, rows: [LedgerRow])] {
     var order: [String] = []
