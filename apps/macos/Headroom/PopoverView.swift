@@ -104,16 +104,6 @@ private struct PopoverHeader: View {
       // 18 pt between glyphs.
       HStack(spacing: 2) {
         if !loading && !model.displaySources.isEmpty {
-          if model.popoverHasAccounts {
-            Button {
-              model.requestShare(Set(model.popoverAccounts.map(\.id)))
-            } label: {
-              Image(systemName: "square.and.arrow.up").font(.system(size: 16)).frame(
-                width: 18, height: 18)
-            }.buttonStyle(PopoverToolStyle()).help("Share a snapshot")
-              .keyboardShortcut("s", modifiers: [.command, .shift])
-              .accessibilityLabel("Share a snapshot")
-          }
           Button {
             Task { await model.readSources() }
           } label: {
@@ -138,15 +128,18 @@ private struct PopoverHeader: View {
           }.buttonStyle(PopoverToolStyle()).accessibilityLabel(
             "Notifications, \(unread) unread")
         }
-        Button {
-          model.openSettingsWindow(openSettings)
+        // Settings and Quit in one menu, so quitting is not hidden behind a right-click.
+        Menu {
+          Button("Settings…") { model.openSettingsWindow(openSettings) }
+            .keyboardShortcut(",", modifiers: .command)
+          Divider()
+          Button("Quit Headroom") { NSApp.terminate(nil) }
+            .keyboardShortcut("q", modifiers: .command)
         } label: {
-          Image(systemName: "gearshape").font(.system(size: 16))
+          Image(systemName: "ellipsis").font(.system(size: 16)).frame(width: 18, height: 18)
         }
-        .buttonStyle(PopoverToolStyle()).help("Open Settings").accessibilityLabel(
-          "Open Settings"
-        )
-        .contextMenu { Button("Quit Headroom") { NSApp.terminate(nil) } }
+        .menuStyle(.button).buttonStyle(PopoverToolStyle()).menuIndicator(.hidden).fixedSize()
+        .help("More").accessibilityLabel("More")
       }
     }.padding(.leading, 16).padding(.trailing, 8).frame(height: 52)
   }
@@ -389,6 +382,8 @@ private struct PopoverFooter: View {
       if !model.displaySources.isEmpty {
         dashboardButton
         sourcePicker
+        // Sharing acts on what the list shows, so it sits with the other footer actions.
+        if !model.popoverLoading && model.popoverHasAccounts { shareButton }
       }
     }.font(HR.popoverFont(11)).foregroundStyle(HR.secondary).lineLimit(1).frame(height: 22)
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -420,6 +415,20 @@ private struct PopoverFooter: View {
       }.menuStyle(.button).buttonStyle(PopoverFooterStyle()).menuIndicator(.hidden).fixedSize()
         .help("Choose a dashboard to open")
     }
+  }
+
+  private var shareButton: some View {
+    Button {
+      model.requestShare(Set(model.popoverAccounts.map(\.id)))
+    } label: {
+      HStack(spacing: 5) {
+        Image(systemName: "square.and.arrow.up").font(.system(size: 10, weight: .medium))
+          .foregroundStyle(HR.secondary)
+        Text("Share").foregroundStyle(HR.ink)
+      }
+    }.buttonStyle(PopoverFooterStyle()).fixedSize().help("Share a snapshot (⇧⌘S)")
+      .keyboardShortcut("s", modifiers: [.command, .shift])
+      .accessibilityLabel("Share a snapshot")
   }
 
   /// Which sources the popover shows: all of them, or one.
