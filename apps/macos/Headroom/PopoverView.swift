@@ -2,27 +2,20 @@ import AppKit
 import HeadroomKit
 import SwiftUI
 
+/// The popover root. It holds only which page is shown and the page height; each part below
+/// is its own view and reads only the model values it shows, so a change to one (the refresh
+/// flag, a row opening, the unread count) redraws that part and not every account row.
 struct PopoverView: View {
-  @Bindable var model: AppModel
-  @Environment(\.openSettings) private var openSettings
+  let model: AppModel
   @State private var showingNotices = false
-  @State private var listHeight: CGFloat = 0
   /// The account page's height. Notices take the same height so switching pages never
   /// resizes the popover.
   @State private var pageHeight: CGFloat = 0
-  @State private var listAtEnd = false
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   init(model: AppModel, notices: Bool = false) {
     self.model = model
     _showingNotices = State(initialValue: notices)
-  }
-
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
-  private var loading: Bool {
-    // The source check is cheap and usually false, so the account list is rarely built here.
-    model.displaySources.isEmpty
-      ? !model.ready
-      : model.popoverSources.contains { $0.state == .noData } && model.popoverAccounts.isEmpty
   }
 
   var body: some View {
@@ -34,17 +27,20 @@ struct PopoverView: View {
           NoticesView(model: model, fill: pageHeight > 0) { showNotices(false) }
             .transition(Motion.page(.trailing, reduceMotion))
         } else {
-          mainPage
-            .onGeometryChange(for: CGFloat.self) {
-              $0.size.height
-            } action: {
-              pageHeight = $0
-            }
-            .transition(Motion.page(.leading, reduceMotion))
+          VStack(spacing: 0) {
+            PopoverHeader(model: model) { showNotices(true) }
+            AccountsPage(model: model)
+          }
+          .onGeometryChange(for: CGFloat.self) {
+            $0.size.height
+          } action: {
+            pageHeight = $0
+          }
+          .transition(Motion.page(.leading, reduceMotion))
         }
       }.frame(
         height: pageHeight > 0 ? max(pageHeight, showingNotices ? 400 : 0) : nil, alignment: .top)
-      footer
+      PopoverFooter(model: model)
     }
     .font(HR.popoverFont()).monospacedDigit().foregroundStyle(HR.ink).background(HR.surface)
     .frame(width: 600)
@@ -63,46 +59,35 @@ struct PopoverView: View {
     }
   }
 
-  private var mainPage: some View {
-    // Build the rows once per render; the summary and every provider group share them.
-    let rows = RoomNow(items: model.popoverAccounts, now: model.now).columns.map {
-      LedgerRow(column: $0, now: model.now)
-    }
-    return VStack(spacing: 0) {
-      header
-      if loading {
-        loadingContent
-      } else if model.displaySources.isEmpty {
-        PopoverState(
-          art: "no-sources", title: "No sources yet",
-          message: "Add a Headroom server to see its accounts here."
-        ) {
-          Button("Add a source") {
-            model.selectedPane = .sources
-            settings()
-          }.buttonStyle(PopoverActionStyle())
-        }
-      } else if rows.isEmpty {
-        emptyAccounts
-      } else {
-        summaryLine(rows)
-        ForEach(model.popoverSources.filter { $0.state != .connected }) { snapshot in
-          Text(sourceNote(snapshot)).font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
-            .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 10).padding(.horizontal, 16)
-          Divider().overlay(HR.border)
-        }
-        accountList(groups(rows))
-      }
-    }
-  }
-
   private func showNotices(_ value: Bool) {
     guard showingNotices != value else { return }
     withAnimation(Motion.view(reduceMotion)) { showingNotices = value }
   }
+}
 
-  private var header: some View {
+extension AppModel {
+  /// No account readings yet because a shown source has not answered. The source check is
+  /// cheap and usually false, so the account list is rarely built here.
+  var popoverLoading: Bool {
+    displaySources.isEmpty
+      ? !ready
+      : popoverSources.contains { $0.state == .noData } && popoverAccounts.isEmpty
+  }
+
+  func openSettingsWindow(_ open: OpenSettingsAction) {
+    NSApp.activate()
+    open()
+  }
+}
+
+/// The title and the refresh, notices and settings buttons.
+private struct PopoverHeader: View {
+  let model: AppModel
+  let openNotices: () -> Void
+  @Environment(\.openSettings) private var openSettings
+
+  var body: some View {
+    let loading = model.popoverLoading
     HStack(spacing: 8) {
       HeadroomGlyph().frame(width: 23, height: 23)
       Text("Headroom").font(HR.popoverFont(16, .medium)).accessibilityAddTraits(.isHeader)
@@ -124,7 +109,7 @@ struct PopoverView: View {
           }.buttonStyle(PopoverToolStyle()).help("Read sources").disabled(model.refreshing)
             .accessibilityLabel(model.refreshing ? "Reading sources" : "Read sources")
           Button {
-            showNotices(true)
+            openNotices()
           } label: {
             HStack(spacing: 5) {
               Image(systemName: "bell").font(.system(size: 16))
@@ -134,20 +119,63 @@ struct PopoverView: View {
             }
           }.buttonStyle(PopoverToolStyle()).accessibilityLabel("Notices, \(popoverUnread) unread")
         }
-        Button(action: settings) { Image(systemName: "gearshape").font(.system(size: 16)) }
-          .buttonStyle(PopoverToolStyle()).help("Open Settings").accessibilityLabel(
-            "Open Settings"
-          )
-          .contextMenu { Button("Quit Headroom") { NSApp.terminate(nil) } }
+        Button {
+          model.openSettingsWindow(openSettings)
+        } label: {
+          Image(systemName: "gearshape").font(.system(size: 16))
+        }
+        .buttonStyle(PopoverToolStyle()).help("Open Settings").accessibilityLabel(
+          "Open Settings"
+        )
+        .contextMenu { Button("Quit Headroom") { NSApp.terminate(nil) } }
       }
     }.padding(.leading, 16).padding(.trailing, 8).frame(height: 52)
   }
 
   private var popoverUnread: Int { model.popoverNotices.filter { !$0.read }.count }
+}
 
-  private func settings() {
-    NSApp.activate()
-    openSettings()
+/// The summary line and the account list, or the loading and empty states.
+private struct AccountsPage: View {
+  let model: AppModel
+  @Environment(\.openSettings) private var openSettings
+
+  var body: some View {
+    // Build the rows once per render; the summary and every provider group share them.
+    let rows = RoomNow(items: model.popoverAccounts, now: model.now).columns.map {
+      LedgerRow(column: $0, now: model.now)
+    }
+    VStack(spacing: 0) {
+      if model.popoverLoading {
+        loadingContent
+      } else if model.displaySources.isEmpty {
+        PopoverState(
+          art: "no-sources", title: "No sources yet",
+          message: "Add a Headroom server to see its accounts here."
+        ) {
+          Button("Add a source") {
+            model.selectedPane = .sources
+            model.openSettingsWindow(openSettings)
+          }.buttonStyle(PopoverActionStyle())
+        }
+      } else if rows.isEmpty {
+        emptyAccounts
+      } else {
+        summaryLine(rows)
+        ForEach(model.popoverSources.filter { $0.state != .connected }) { snapshot in
+          Text(sourceNote(snapshot)).font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
+            .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 10).padding(.horizontal, 16)
+          Divider().overlay(HR.border)
+        }
+        // Each row used to rebuild every account to decide this, on every hover.
+        let all = model.accounts
+        AccountList(
+          groups: groups(rows),
+          withSource: Set(rows.filter { Presentation.needsSource($0.item, among: all) }.map(\.id)),
+          model: model)
+      }
+    }
   }
 
   private func summaryLine(_ rows: [LedgerRow]) -> some View {
@@ -168,53 +196,6 @@ struct PopoverView: View {
     }.font(HR.popoverFont(12)).foregroundStyle(HR.secondary).lineLimit(1)
       .padding(.horizontal, 16).padding(.bottom, 12)
       .overlay(alignment: .bottom) { Rectangle().fill(HR.border).frame(height: 1) }
-  }
-
-  private func accountList(_ groups: [(provider: String, rows: [LedgerRow])]) -> some View {
-    // Each row used to rebuild every account to decide this, on every hover.
-    let all = model.accounts
-    let withSource = Set(
-      groups.flatMap(\.rows).filter { Presentation.needsSource($0.item, among: all) }.map(\.id))
-    return ScrollViewReader { proxy in
-      ScrollView {
-        VStack(spacing: 0) {
-          ForEach(groups, id: \.provider) { group in
-            LedgerGroup(rows: group.rows, withSource: withSource, model: model)
-              .id(group.provider)
-            if group.provider != groups.last?.provider { Divider().overlay(HR.border) }
-          }
-        }.onGeometryChange(for: CGFloat.self) {
-          $0.size.height
-        } action: {
-          listHeight = $0
-        }
-      }.frame(height: min(max(listHeight, 44), listCap))
-        .onScrollGeometryChange(for: Bool.self) {
-          $0.contentOffset.y + $0.containerSize.height >= $0.contentSize.height - 1
-        } action: { _, atEnd in
-          listAtEnd = atEnd
-        }
-        // A fade over the last row says the list goes on; it clears at the end.
-        .overlay(alignment: .bottom) {
-          LinearGradient(
-            colors: [HR.surface.opacity(0), HR.surface], startPoint: .top, endPoint: .bottom
-          )
-          .frame(height: 24).allowsHitTesting(false)
-          .opacity(listHeight > listCap && !listAtEnd ? 1 : 0)
-          .animation(Motion.hover, value: listAtEnd)
-        }
-        .onAppear {
-          if model.synthetic && model.captureState == "lower" {
-            proxy.scrollTo(groups.last?.provider, anchor: .bottom)
-          }
-        }
-    }
-  }
-  /// About nine rows, then the list scrolls. A short screen lowers it so the popover keeps clear
-  /// of the menu bar and the Dock: header, summary, footer and margins take about 180 pt.
-  private var listCap: CGFloat {
-    let screen = NSScreen.main?.visibleFrame.height ?? 900
-    return max(176, min(440, screen - 180))
   }
 
   /// Rows by provider, in the order providers first appear, in one pass.
@@ -293,12 +274,72 @@ struct PopoverView: View {
     if snapshot.state == .needsUpdate { return "\(snapshot.source.name) needs an update." }
     return "\(snapshot.source.name) is loading."
   }
+}
 
-  private var footer: some View {
+/// The scrolling rows. Its height and scroll state live here, so opening a row or scrolling
+/// redraws this list and not the page around it.
+private struct AccountList: View {
+  let groups: [(provider: String, rows: [LedgerRow])]
+  let withSource: Set<String>
+  let model: AppModel
+  @State private var listHeight: CGFloat = 0
+  @State private var listAtEnd = false
+
+  var body: some View {
+    ScrollViewReader { proxy in
+      ScrollView {
+        VStack(spacing: 0) {
+          ForEach(groups, id: \.provider) { group in
+            LedgerGroup(rows: group.rows, withSource: withSource, model: model)
+              .id(group.provider)
+            if group.provider != groups.last?.provider { Divider().overlay(HR.border) }
+          }
+        }.onGeometryChange(for: CGFloat.self) {
+          $0.size.height
+        } action: {
+          listHeight = $0
+        }
+      }.frame(height: min(max(listHeight, 44), listCap))
+        .onScrollGeometryChange(for: Bool.self) {
+          $0.contentOffset.y + $0.containerSize.height >= $0.contentSize.height - 1
+        } action: { _, atEnd in
+          listAtEnd = atEnd
+        }
+        // A fade over the last row says the list goes on; it clears at the end.
+        .overlay(alignment: .bottom) {
+          LinearGradient(
+            colors: [HR.surface.opacity(0), HR.surface], startPoint: .top, endPoint: .bottom
+          )
+          .frame(height: 24).allowsHitTesting(false)
+          .opacity(listHeight > listCap && !listAtEnd ? 1 : 0)
+          .animation(Motion.hover, value: listAtEnd)
+        }
+        .onAppear {
+          if model.synthetic && model.captureState == "lower" {
+            proxy.scrollTo(groups.last?.provider, anchor: .bottom)
+          }
+        }
+    }
+  }
+
+  /// About nine rows, then the list scrolls. A short screen lowers it so the popover keeps clear
+  /// of the menu bar and the Dock: header, summary, footer and margins take about 180 pt.
+  private var listCap: CGFloat {
+    let screen = NSScreen.main?.visibleFrame.height ?? 900
+    return max(176, min(440, screen - 180))
+  }
+}
+
+/// Last read, Open dashboard and the source selector.
+private struct PopoverFooter: View {
+  let model: AppModel
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  var body: some View {
     HStack(spacing: 6) {
       if model.displaySources.isEmpty {
         Text("No readings yet")
-      } else if loading {
+      } else if model.popoverLoading {
         Text("Room and reset times appear after the first reading.")
       } else {
         Text(

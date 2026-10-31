@@ -151,7 +151,7 @@ struct NoticesView: View {
           ForEach(days, id: \.day) { group in
             Section {
               ForEach(group.items) { item in
-                NoticeRow(item: item, now: model.now) { toggle(item) }
+                NoticeRow(item: item, now: model.now) { toggle(item) }.equatable()
                   .focused($focused, equals: item.id).id(item.id)
               }
             } header: {
@@ -224,7 +224,12 @@ struct NoticesView: View {
   }
 }
 
-private struct NoticeRow: View {
+/// Equatable on what it shows, so marking one notice read redraws that row only.
+private struct NoticeRow: View, Equatable {
+  nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.item.shows(like: rhs.item) && lhs.now == rhs.now
+  }
+
   let item: NoticeItem
   let now: Date
   let toggle: () -> Void

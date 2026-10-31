@@ -12,12 +12,25 @@ struct LedgerGroup: View {
     VStack(spacing: 0) {
       ForEach(rows) { row in
         LedgerRowView(row: row, showsSource: withSource.contains(row.id), model: model)
+          .equatable()
       }
     }.padding(.vertical, 4)
   }
 }
 
-struct LedgerRowView: View {
+/// Equatable on what it shows, so a list redraw skips every row whose reading is unchanged.
+/// Values it reads from the model itself (now, Privacy Mode) still redraw it through
+/// observation.
+struct LedgerRowView: View, Equatable {
+  nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.row.id == rhs.row.id && lhs.showsSource == rhs.showsSource
+      && lhs.row.meters == rhs.row.meters && lhs.row.extra == rhs.row.extra
+      && lhs.row.column.state == rhs.row.column.state
+      && lhs.row.item.snapshot.state == rhs.row.item.snapshot.state
+      && lhs.row.item.snapshot.source.name == rhs.row.item.snapshot.source.name
+      && lhs.row.item.account == rhs.row.item.account
+  }
+
   let row: LedgerRow
   let showsSource: Bool
   let model: AppModel

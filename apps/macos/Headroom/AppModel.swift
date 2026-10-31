@@ -9,6 +9,13 @@ struct NoticeItem: Identifiable {
   let notice: NativeNotice
   var read: Bool
   var id: String { "\(source.id)/\(notice.id)" }
+
+  /// Same notice, read state and source state: nothing on screen would change.
+  func shows(like other: NoticeItem) -> Bool {
+    id == other.id && read == other.read && source.state == other.source.state
+      && source.source.name == other.source.source.name && notice.title == other.notice.title
+      && notice.message == other.notice.message
+  }
 }
 
 enum NoticePhase { case loading, ready, failed }
@@ -229,14 +236,15 @@ final class AppModel {
     if preferences.demo {
       // Demo notices live in memory only; their read state is never saved.
       let kept = Dictionary(uniqueKeysWithValues: notices.map { ($0.id, $0.read) })
-      notices = demoSources.flatMap { snapshot in
-        (snapshot.cached?.feed.notices ?? []).map {
-          let notice = NativeNotice($0, sourceName: snapshot.source.name)
-          return NoticeItem(
-            source: snapshot, notice: notice, read: kept["\(snapshot.id)/\(notice.id)"] ?? false)
-        }
-      }.sorted { $0.notice.occurredAt > $1.notice.occurredAt }
-      noticePhase = .ready
+      publish(
+        notices: demoSources.flatMap { snapshot in
+          (snapshot.cached?.feed.notices ?? []).map {
+            let notice = NativeNotice($0, sourceName: snapshot.source.name)
+            return NoticeItem(
+              source: snapshot, notice: notice, read: kept["\(snapshot.id)/\(notice.id)"] ?? false)
+          }
+        }.sorted { $0.notice.occurredAt > $1.notice.occurredAt })
+      if noticePhase != .ready { noticePhase = .ready }
       return
     }
     guard let noticeStore else { return }
@@ -260,11 +268,22 @@ final class AppModel {
           read: records[$0.id]?.read ?? false)
       }
     }
-    noticePhase =
+    let phase: NoticePhase =
       sources.isEmpty || sources.contains { $0.cached != nil }
       ? .ready : (sources.contains { $0.state == .noData } ? .loading : .failed)
-    notices = items.sorted { $0.notice.occurredAt > $1.notice.occurredAt }
+    if noticePhase != phase { noticePhase = phase }
+    publish(notices: items.sorted { $0.notice.occurredAt > $1.notice.occurredAt })
     await presentBannerNotice()
+  }
+
+  /// Every poll rebuilds the notices. Assigning an equal list would still redraw every view
+  /// that reads it, so only a visible change is published.
+  private func publish(notices items: [NoticeItem]) {
+    guard
+      items.count != notices.count
+        || zip(items, notices).contains(where: { !$0.shows(like: $1) })
+    else { return }
+    notices = items
   }
 
   func presentBannerNotice() async {
