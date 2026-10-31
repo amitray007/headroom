@@ -27,7 +27,12 @@ import { overviewRoutes } from "./routes/overview.ts";
 import { providerRoutes } from "./routes/providers.ts";
 import { settingsRoutes } from "./routes/settings.ts";
 import { walletRoutes } from "./routes/wallet.ts";
-import { resolveWebAssets, webUnavailableMessage } from "./web-assets.ts";
+import {
+  isRootImage,
+  isPublicIcon,
+  resolveWebAssets,
+  webUnavailableMessage,
+} from "./web-assets.ts";
 
 export { version };
 
@@ -37,6 +42,12 @@ export function createApp(ctx: AppContext): Hono {
   app.onError((error, c) => {
     ctx.log("error", `${c.req.method} ${c.req.path}: ${error.name}`);
     return c.json({ error: "internal_error" }, 500);
+  });
+
+  // Registered before secureHeaders so it runs after it: icons may be shown by other origins.
+  app.use(async (c, next) => {
+    await next();
+    if (isPublicIcon(c.req.path)) c.res.headers.set("cross-origin-resource-policy", "cross-origin");
   });
 
   app.use(
@@ -122,7 +133,11 @@ export function createApp(ctx: AppContext): Hono {
   // Built web UI, when present: static assets, then index.html for client-side routes.
   const web = resolveWebAssets(ctx.config.webDir);
   if (web) {
-    app.get("*", (c) => web.file(c.req.path) ?? web.index());
+    app.get("*", (c) => {
+      const file = web.file(c.req.path);
+      if (file) return file;
+      return isRootImage(c.req.path) ? c.text("Not found", 404) : web.index();
+    });
   } else {
     ctx.log("warn", webUnavailableMessage(ctx.config.webDir));
   }
