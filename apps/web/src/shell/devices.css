@@ -49,9 +49,17 @@
   color: var(--foreground);
   user-select: all;
 }
-/* The scope switch sits in the form, so it drops the row's own vertical padding. */
-.device-scope {
-  padding-block: 0;
+/* The token's one optional write, as a checkbox under the name it belongs to. */
+.device-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-inline-start: 16px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.device-check input {
+  accent-color: var(--accent);
 }
 .device-row .sbody {
   max-width: none;
