@@ -1,0 +1,37 @@
+{
+  "apiVersion": 1,
+  "serverVersion": "synthetic",
+  "generatedAt": 1793286000000,
+  "refreshIntervalMs": 900000,
+  "staleAfterMs": 1800000,
+  "dashboardUrl": "https://headroom.example.invalid",
+  "providerOrder": [
+    "codex",
+    "claude",
+    "grok",
+    "antigravity",
+    "copilot",
+    "cursor",
+    "vercel_ai_gateway"
+  ],
+  "accounts": [],
+  "summary": {
+    "monthlyPlanTotal": null,
+    "extraSpend": [
+      {
+        "unit": "grok_credits",
+        "value": 48
+      },
+      {
+        "unit": "USD",
+        "value": null
+      }
+    ],
+    "nextLimitBack": {
+      "accountId": "demo-codex-1",
+      "metricKey": "rate_limit.primary_window",
+      "at": 1793301592025
+    }
+  },
+  "notices": []
+}

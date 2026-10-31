@@ -9,44 +9,30 @@
               "additionalProperties": false,
               "properties": {
                 "banked": {
-                  "anyOf": [
-                    {
-                      "additionalProperties": false,
-                      "properties": {
-                        "count": {
-                          "anyOf": [
-                            {
-                              "minimum": 0,
-                              "type": "number"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
-                        "expiries": {
-                          "items": {
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": "array"
-                        },
-                        "interface": {
-                          "enum": ["official", "private"],
-                          "type": "string"
-                        },
-                        "unit": {
-                          "type": "string"
-                        }
-                      },
-                      "required": ["count", "unit", "expiries", "interface"],
-                      "type": "object"
+                  "additionalProperties": false,
+                  "properties": {
+                    "count": {
+                      "minimum": 0,
+                      "type": ["number", "null"]
                     },
-                    {
-                      "type": "null"
+                    "expiries": {
+                      "items": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "type": "array"
+                    },
+                    "interface": {
+                      "enum": ["official", "private"],
+                      "type": "string"
+                    },
+                    "unit": {
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": ["count", "unit", "expiries", "interface"],
+                  "type": ["object", "null"]
                 },
                 "charges": {
                   "items": {
@@ -63,24 +49,17 @@
                         "type": "string"
                       },
                       "cap": {
-                        "anyOf": [
-                          {
-                            "additionalProperties": false,
-                            "properties": {
-                              "unit": {
-                                "type": "string"
-                              },
-                              "value": {
-                                "type": "number"
-                              }
-                            },
-                            "required": ["value", "unit"],
-                            "type": "object"
+                        "additionalProperties": false,
+                        "properties": {
+                          "unit": {
+                            "type": "string"
                           },
-                          {
-                            "type": "null"
+                          "value": {
+                            "type": "number"
                           }
-                        ]
+                        },
+                        "required": ["value", "unit"],
+                        "type": ["object", "null"]
                       },
                       "interface": {
                         "enum": ["official", "private"],
@@ -136,16 +115,9 @@
                   "type": "string"
                 },
                 "lastSuccessAt": {
-                  "anyOf": [
-                    {
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": ["integer", "null"]
                 },
                 "limits": {
                   "items": {
@@ -168,44 +140,23 @@
                         "type": "boolean"
                       },
                       "percentLeft": {
-                        "anyOf": [
-                          {
-                            "maximum": 100,
-                            "minimum": 0,
-                            "type": "number"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "maximum": 100,
+                        "minimum": 0,
+                        "type": ["number", "null"]
                       },
                       "resetWords": {
                         "enum": ["resets", "cycle_end", "not_started"],
                         "type": "string"
                       },
                       "resetsAt": {
-                        "anyOf": [
-                          {
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": ["integer", "null"]
                       },
                       "runsOutAt": {
-                        "anyOf": [
-                          {
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": ["integer", "null"]
                       },
                       "unlimited": {
                         "type": "boolean"
@@ -240,16 +191,9 @@
                   "type": "string"
                 },
                 "observedAt": {
-                  "anyOf": [
-                    {
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": ["integer", "null"]
                 },
                 "plan": {
                   "type": ["string", "null"]
@@ -267,20 +211,14 @@
                   "type": "string"
                 },
                 "reconnectReason": {
-                  "anyOf": [
-                    {
-                      "enum": [
-                        "refresh_rejected",
-                        "token_rejected",
-                        "identity_changed",
-                        "revoked_by_owner"
-                      ],
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
+                  "enum": [
+                    "refresh_rejected",
+                    "token_rejected",
+                    "identity_changed",
+                    "revoked_by_owner",
+                    null
+                  ],
+                  "type": ["string", "null"]
                 },
                 "state": {
                   "enum": ["ready", "partial", "reconnect_required", "paused"],
@@ -311,15 +249,8 @@
             "type": "number"
           },
           "dashboardUrl": {
-            "anyOf": [
-              {
-                "format": "uri",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "format": "uri",
+            "type": ["string", "null"]
           },
           "generatedAt": {
             "maximum": 9007199254740991,
@@ -577,63 +508,38 @@
                 "type": "array"
               },
               "monthlyPlanTotal": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "currency": {
-                        "enum": [
-                          "USD",
-                          "EUR",
-                          "GBP",
-                          "INR",
-                          "CAD",
-                          "AUD",
-                          "JPY",
-                          "SGD",
-                          "CHF",
-                          "BRL"
-                        ],
-                        "type": "string"
-                      },
-                      "minor": {
-                        "maximum": 9007199254740991,
-                        "minimum": -9007199254740991,
-                        "type": "integer"
-                      }
-                    },
-                    "required": ["minor", "currency"],
-                    "type": "object"
+                "additionalProperties": false,
+                "properties": {
+                  "currency": {
+                    "enum": ["USD", "EUR", "GBP", "INR", "CAD", "AUD", "JPY", "SGD", "CHF", "BRL"],
+                    "type": "string"
                   },
-                  {
-                    "type": "null"
+                  "minor": {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer"
                   }
-                ]
+                },
+                "required": ["minor", "currency"],
+                "type": ["object", "null"]
               },
               "nextLimitBack": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "accountId": {
-                        "type": "string"
-                      },
-                      "at": {
-                        "maximum": 9007199254740991,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "metricKey": {
-                        "type": "string"
-                      }
-                    },
-                    "required": ["accountId", "metricKey", "at"],
-                    "type": "object"
+                "additionalProperties": false,
+                "properties": {
+                  "accountId": {
+                    "type": "string"
                   },
-                  {
-                    "type": "null"
+                  "at": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "metricKey": {
+                    "type": "string"
                   }
-                ]
+                },
+                "required": ["accountId", "metricKey", "at"],
+                "type": ["object", "null"]
               }
             },
             "required": ["monthlyPlanTotal", "extraSpend", "nextLimitBack"],
@@ -658,28 +564,8 @@
         "additionalProperties": false,
         "properties": {
           "refreshIntervalMinutes": {
-            "anyOf": [
-              {
-                "const": 2,
-                "type": "number"
-              },
-              {
-                "const": 5,
-                "type": "number"
-              },
-              {
-                "const": 10,
-                "type": "number"
-              },
-              {
-                "const": 15,
-                "type": "number"
-              },
-              {
-                "const": 30,
-                "type": "number"
-              }
-            ]
+            "enum": [2, 5, 10, 15, 30],
+            "type": "number"
           }
         },
         "required": ["refreshIntervalMinutes"],

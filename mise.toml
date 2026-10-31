@@ -81,3 +81,16 @@ run = "bun scripts/site.ts"
 [tasks."mac:contract"]
 description = "Generate the Mac app OpenAPI contract from Zod"
 run = "bun run mac:contract"
+
+[tasks."mac:fixtures"]
+description = "Generate synthetic Swift feed test resources from Demo Mode"
+run = "bun scripts/mac-fixtures.ts"
+
+[tasks."mac:test"]
+description = "Run the HeadroomKit Swift Testing suite"
+run = "swift test --package-path apps/macos/HeadroomKit"
+
+[tasks."mac:build"]
+description = "Build the Mac app and widget extension with ad-hoc signing"
+# The pinned generator is authorized to run without Xcode's first-build trust dialog.
+run = "xcodebuild -skipPackagePluginValidation -project apps/macos/Headroom.xcodeproj -scheme Headroom -configuration Debug -derivedDataPath apps/macos/.derived-data CODE_SIGN_IDENTITY=- build"

@@ -14,13 +14,8 @@ import {
 
 /** Refresh Every choices, in minutes. The web and the Mac app offer exactly these. */
 export const refreshIntervalOptions = [2, 5, 10, 15, 30] as const;
-export const refreshIntervalMinutesSchema = z.union([
-  z.literal(2),
-  z.literal(5),
-  z.literal(10),
-  z.literal(15),
-  z.literal(30),
-]);
+// One literal list, not a union: JSON Schema gets a plain `enum`, which the Mac contract allows.
+export const refreshIntervalMinutesSchema = z.literal(refreshIntervalOptions);
 const refreshIntervalMinutes = refreshIntervalMinutesSchema;
 const lowThresholdPercent = z.union([z.literal(30), z.literal(20), z.literal(15)]);
 const resetLeadDays = z.union([z.literal(1), z.literal(3), z.literal(7)]);

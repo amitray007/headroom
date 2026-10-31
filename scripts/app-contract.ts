@@ -15,7 +15,31 @@ const errorSchema = z.strictObject({ error: z.string() });
 
 function json(schema: z.ZodType) {
   const { $schema: _dialect, ...body } = z.toJSONSchema(schema, { target: "draft-2020-12" });
-  return body;
+  return nullableTypes(body);
+}
+
+/** Apple's generator needs type unions rather than anyOf for nullable fields. */
+function nullableTypes(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(nullableTypes);
+  if (value === null || typeof value !== "object") return value;
+  const node = Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, nullableTypes(item)]),
+  );
+  const variants = node["anyOf"];
+  if (Array.isArray(variants) && variants.length === 2) {
+    const nonNull = variants.find((item: Record<string, unknown>) => item["type"] !== "null");
+    const hasNull = variants.some((item: Record<string, unknown>) => item["type"] === "null");
+    if (hasNull && nonNull && typeof nonNull["type"] === "string") {
+      const { anyOf: _variants, ...rest } = node;
+      return {
+        ...rest,
+        ...nonNull,
+        type: [nonNull["type"], "null"],
+        ...(Array.isArray(nonNull["enum"]) ? { enum: [...nonNull["enum"], null] } : {}),
+      };
+    }
+  }
+  return node;
 }
 
 function sorted(value: unknown): unknown {
