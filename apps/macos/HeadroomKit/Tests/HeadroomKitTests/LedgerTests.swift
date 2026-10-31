@@ -131,3 +131,15 @@ private func row(_ rows: [LedgerRow], _ id: String) throws -> LedgerRow {
   #expect(!value.demo)
   #expect(value.sourceFilter == nil)
 }
+
+@Test func noticesGroupByCalendarDayAndShowElapsedTime() throws {
+  var calendar = Calendar(identifier: .gregorian)
+  calendar.timeZone = try #require(TimeZone(identifier: "UTC"))
+  let now = Date(timeIntervalSince1970: 86400 * 10 + 3600 * 2)
+  #expect(NoticeDay(now.addingTimeInterval(-3600), now: now, calendar: calendar) == .today)
+  #expect(NoticeDay(now.addingTimeInterval(-3 * 3600), now: now, calendar: calendar) == .yesterday)
+  #expect(NoticeDay(now.addingTimeInterval(-2 * 86400), now: now, calendar: calendar) == .earlier)
+  #expect(Formatting.elapsed(now.addingTimeInterval(-90), now: now) == "2 min")
+  #expect(Formatting.elapsed(now.addingTimeInterval(-9 * 3600), now: now) == "9 h")
+  #expect(Formatting.elapsed(now.addingTimeInterval(-5 * 86400), now: now) == "5 d")
+}

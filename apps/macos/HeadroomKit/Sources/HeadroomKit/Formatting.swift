@@ -114,6 +114,14 @@ public enum Formatting {
     return "\(days) \(days == 1 ? "day" : "days") ago"
   }
 
+  /// Time since, without "ago", for a list's time column: "2 min", "9 h", "5 d".
+  public static func elapsed(_ date: Date, now: Date = Date()) -> String {
+    let seconds = max(0, now.timeIntervalSince(date))
+    if seconds < 3600 { return "\(max(1, Int((seconds / 60).rounded()))) min" }
+    if seconds < 86400 { return "\(Int((seconds / 3600).rounded())) h" }
+    return "\(Int(seconds / 86400)) d"
+  }
+
   public static func clock(_ date: Date, timeZone: TimeZone = .current, twelveHour: Bool = false)
     -> String
   {

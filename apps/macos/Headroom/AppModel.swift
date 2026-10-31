@@ -82,6 +82,11 @@ final class AppModel {
     Presentation.accounts(displaySources, preferences: preferences, includeHidden: true)
   }
   var unread: Int { notices.filter { !$0.read }.count }
+  /// The notices of the sources the popover shows.
+  var popoverNotices: [NoticeItem] {
+    let shown = Set(popoverSources.map(\.id))
+    return notices.filter { shown.contains($0.source.id) }
+  }
   /// The app-wide appearance, not `preferredColorScheme`: SwiftUI leaves a window on the last
   /// forced scheme when the choice returns to System, while `nil` here follows macOS again.
   private func applyAppearance() {

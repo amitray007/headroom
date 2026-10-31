@@ -98,17 +98,19 @@ struct PopoverView: View {
         } label: {
           HStack(spacing: 5) {
             Image(systemName: "bell").font(.system(size: 16))
-            if model.noticePhase == .ready && !model.notices.isEmpty {
-              Text("\(model.unread)").font(HR.popoverFont(12))
+            if model.noticePhase == .ready && !model.popoverNotices.isEmpty {
+              Text("\(popoverUnread)").font(HR.popoverFont(12))
             }
           }
-        }.buttonStyle(PopoverToolStyle()).accessibilityLabel("Notices, \(model.unread) unread")
+        }.buttonStyle(PopoverToolStyle()).accessibilityLabel("Notices, \(popoverUnread) unread")
       }
       Button(action: settings) { Image(systemName: "gearshape").font(.system(size: 16)) }
         .buttonStyle(PopoverToolStyle()).help("Open Settings").accessibilityLabel("Open Settings")
         .contextMenu { Button("Quit Headroom") { NSApp.terminate(nil) } }
     }.padding(.horizontal, 16).frame(height: 52)
   }
+
+  private var popoverUnread: Int { model.popoverNotices.filter { !$0.read }.count }
 
   private func settings() {
     NSApp.activate()
@@ -233,7 +235,7 @@ struct PopoverView: View {
   }
 
   private var footer: some View {
-    HStack(spacing: 0) {
+    HStack(spacing: 6) {
       if model.displaySources.isEmpty {
         Text("No readings yet")
       } else if loading {
@@ -242,19 +244,40 @@ struct PopoverView: View {
         Text(
           "Updated \(Formatting.age(model.popoverSources.compactMap(\.cached?.readAt).max(), now: model.now))"
         )
-        ForEach(model.popoverSources) { snapshot in
-          Text(" · ")
-          Button(snapshot.source.name + (snapshot.state == .offline ? " offline" : "")) {
-            model.openDashboard(snapshot.source)
-          }.buttonStyle(.plain).help("Open \(snapshot.source.name) dashboard")
-        }
-        Spacer(minLength: 12)
-        if model.displaySources.count > 1 { sourcePicker }
       }
-    }.font(HR.popoverFont(11)).foregroundStyle(HR.secondary).lineLimit(1).frame(height: 20)
+      Spacer(minLength: 12)
+      if !model.displaySources.isEmpty {
+        dashboardButton
+        sourcePicker
+      }
+    }.font(HR.popoverFont(11)).foregroundStyle(HR.secondary).lineLimit(1).frame(height: 22)
       .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 12)
       .overlay(alignment: .top) { Rectangle().fill(HR.border).frame(height: 1) }
+  }
+
+  /// The one way to the web dashboard: the shown source's, or a choice when several are shown.
+  @ViewBuilder private var dashboardButton: some View {
+    let label = HStack(spacing: 4) {
+      Text("Open dashboard")
+      Image(systemName: "arrow.up.right").font(.system(size: 8, weight: .semibold))
+    }.foregroundStyle(HR.ink)
+    if model.popoverSources.count == 1, let source = model.popoverSources.first?.source {
+      Button {
+        model.openDashboard(source)
+      } label: {
+        label
+      }.buttonStyle(PopoverFooterStyle()).help("Open the \(source.name) dashboard")
+    } else {
+      Menu {
+        ForEach(model.popoverSources) { snapshot in
+          Button(snapshot.source.name) { model.openDashboard(snapshot.source) }
+        }
+      } label: {
+        label
+      }.menuStyle(.button).buttonStyle(PopoverFooterStyle()).menuIndicator(.hidden).fixedSize()
+        .help("Choose a dashboard to open")
+    }
   }
 
   /// Which sources the popover shows: all of them, or one.

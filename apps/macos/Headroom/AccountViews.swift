@@ -197,7 +197,7 @@ struct Hatch: View {
   }
 }
 
-/// Everything the row leaves out: the other limits, every charge, banked resets and a link.
+/// Everything the row leaves out: the other limits, every charge and banked resets.
 struct AccountDetail: View {
   let row: LedgerRow
   let model: AppModel
@@ -256,9 +256,6 @@ struct AccountDetail: View {
             .font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
         }
       }
-      Button("Open dashboard") {
-        model.openDashboard(item.snapshot.source, accountID: account.id)
-      }.buttonStyle(.plain).underline().font(HR.popoverFont(11)).padding(.vertical, 4)
     }.padding(.leading, 40).padding(.trailing, 16).padding(.top, 4).padding(.bottom, 10)
   }
 }

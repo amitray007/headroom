@@ -191,6 +191,7 @@ func everyNoticeKindHasAnIndependentSwitch(_ kind: NoticeKind) async throws {
   #expect(value.id == notice.id)
   #expect(value.kind == kind)
   #expect(value.accountID == notice.connection.id)
+  #expect(restored.provider == notice.provider.rawValue)
   #expect(value.title == notice.title)
   if kind == .disconnected || kind == .refresh_failed {
     #expect(value.message.contains("Work server"))
