@@ -59,7 +59,6 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
       _ = model.ready
       _ = model.popoverPresented
       drawLabel()
-      item.button?.setAccessibilityLabel("Headroom, \(model.unread) unread notifications")
       if model.popoverPresented {
         if popover.isShown { Task { await model.presentBannerNotice() } } else { show() }
         // The flag is an open request. Closing the popover does not change the unread dot.
@@ -78,17 +77,20 @@ extension MenuBarController {
   /// tints itself; a colored one is drawn for the menu bar's current appearance.
   fileprivate func drawLabel() {
     guard let button = item.button else { return }
-    let monochrome = MenuItemLabel.monochrome(model: model)
+    let status = MenuStatus(model: model, style: model.preferences.itemStyle)
+    let monochrome = !status.colored
     let dark =
       !monochrome && button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
     let renderer = ImageRenderer(
-      content: MenuItemLabel(model: model, style: model.preferences.itemStyle)
+      content: MenuItemLabel(status: status)
         .frame(height: 24).environment(\.colorScheme, dark ? .dark : .light))
     renderer.scale = button.window?.backingScaleFactor ?? 2
     guard let image = renderer.nsImage else { return }
     image.isTemplate = monochrome
+    // The image carries no accessibility, so the button reads what the label shows.
+    button.setAccessibilityLabel(status.summary)
+    // The item keeps its variable length, so the menu bar pads it like every other icon. A
+    // fixed width with 4 pt per side left 6 pt more space after it than between other icons.
     button.image = image
-    // 4 pt each side, as a standard 16 pt menu bar icon sits in its 24 pt item.
-    item.length = image.size.width + 8
   }
 }

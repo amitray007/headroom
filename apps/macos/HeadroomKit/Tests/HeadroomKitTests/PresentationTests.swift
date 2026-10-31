@@ -48,8 +48,13 @@ import Testing
   #expect(try await store.load() == DisplayPreferences())
   var preferences = DisplayPreferences()
   preferences.appearance = .dark
-  preferences.itemStyle = .pinned
-  preferences.followedAccount = "source-a/account-a"
+  preferences.itemStyle = .accounts
+  preferences.slots = [
+    .init(account: "source-a/account-a", look: .ring), .init(look: .bars), .init(), .init(),
+  ]
+  #expect(preferences.slots.count == DisplayPreferences.maxSlots)
+  preferences.providerLogos = false
+  preferences.colorLowOut = false
   preferences.hiddenAccounts = ["source-b/account-a"]
   preferences.accountOrder = ["source-a/account-a", "source-b/account-a"]
   try await store.save(preferences)

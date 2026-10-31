@@ -7,6 +7,7 @@ struct SettingsView: View {
   @Bindable var model: AppModel
   @State private var editing: SourceDraft?
   @State private var remove: SourceSnapshot?
+  @State private var dropTarget: String?
   @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -45,6 +46,7 @@ struct SettingsView: View {
     .frame(width: 700, height: 598)
     // The title sat across the sidebar edge; each pane already names itself.
     .toolbar(removing: .title)
+    .background(SettingsWindowChrome())
     .onChange(of: model.preferences) { _, _ in model.saveDisplay() }
     .sheet(item: $editing) { draft in SourceEditor(model: model, draft: draft) { editing = nil } }
     .confirmationDialog(
@@ -79,40 +81,141 @@ struct SettingsView: View {
   // MARK: Menu Bar
 
   private var menuBar: some View {
-    SettingsSections {
+    let style = model.preferences.itemStyle
+    return SettingsSections {
       SettingsSection("Style") {
         LazyVGrid(columns: [.init(.flexible(), spacing: 10), .init(.flexible())], spacing: 10) {
           ForEach(DisplayPreferences.ItemStyle.allCases, id: \.self) { style in
             StyleCard(model: model, style: style, selected: model.preferences.itemStyle == style) {
               model.preferences.itemStyle = style
-              if style == .pinned && model.preferences.followedAccount == nil {
-                model.preferences.followedAccount = model.allAccounts.first?.id
-              }
             }
           }
         }.padding(.vertical, 8)
       }
-      SettingsSection("Follow") {
-        SettingsRow(title: "Account", note: "The menu bar shows this account's room.") {
-          WebSelect(value: followedName) {
-            Button("Tightest account with room") { model.preferences.followedAccount = nil }
-            if !model.allAccounts.isEmpty { Divider() }
-            ForEach(model.allAccounts) { item in
-              Button("\(item.name) · \(item.snapshot.source.name)") {
-                model.preferences.followedAccount = item.id
-              }
-            }
+      if style != .logo {
+        SettingsSection(style.showsSlots ? "Accounts" : "Account") {
+          if style.showsSlots && model.preferences.slots.count < DisplayPreferences.maxSlots {
+            Button("Add account", action: addSlot).buttonStyle(WebButtonStyle(small: true))
           }
+        } content: {
+          ForEach(Array(model.preferences.slots.enumerated()), id: \.offset) { index, slot in
+            if style.showsSlots || index == 0 { slotRow(index, slot: slot, style: style) }
+          }
+        }
+      }
+      SettingsSection("Options") {
+        if style == .accounts {
+          SettingsRow(title: "Provider logos", note: "Off saves about 16 pt per account.") {
+            Toggle("Provider logos", isOn: $model.preferences.providerLogos)
+              .toggleStyle(WebSwitchStyle())
+          }
+        }
+        SettingsRow(
+          title: "Color when low or out",
+          note: "Yellow when an account runs low, red when it is out. Off keeps the menu bar color."
+        ) {
+          Toggle("Color when low or out", isOn: $model.preferences.colorLowOut)
+            .toggleStyle(WebSwitchStyle())
         }
       }
     }
   }
 
-  private var followedName: String {
-    guard let id = model.preferences.followedAccount,
-      let item = model.allAccounts.first(where: { $0.id == id })
-    else { return "Tightest account with room" }
-    return item.name
+  /// One menu bar slot: the account, its look in the Accounts style, and a grip to drag it into
+  /// place. Live logo and Dots stack the slots top to bottom in this order.
+  private func slotRow(
+    _ index: Int, slot: DisplayPreferences.MenuSlot, style: DisplayPreferences.ItemStyle
+  )
+    -> some View
+  {
+    let movable = style.showsSlots && model.preferences.slots.count > 1
+    let key = "menu-slot:\(index)"
+    let name = slotName(slot)
+    return HStack(spacing: 10) {
+      if movable {
+        Image(systemName: "line.3.horizontal").font(.system(size: 12, weight: .medium))
+          .foregroundStyle(HR.textMuted).frame(width: 16).accessibilityHidden(true)
+      }
+      WebSelect(value: name) {
+        Button("Tightest account with room") { model.preferences.slots[index].account = nil }
+        if !model.allAccounts.isEmpty { Divider() }
+        ForEach(model.allAccounts) { item in
+          Button(
+            Presentation.needsSource(item, among: model.allAccounts)
+              ? "\(item.name) · \(item.snapshot.source.name)" : item.name
+          ) { model.preferences.slots[index].account = item.id }
+        }
+      }
+      Spacer(minLength: 12)
+      if style == .accounts {
+        WebSegmented(
+          selection: $model.preferences.slots[index].look,
+          options: [(.percent, "%"), (.ring, "Ring"), (.bars, "Bars")]
+        ).help("Bars show the session window over the longer one.")
+      }
+      if movable {
+        Button {
+          withAnimation(Motion.expand(reduceMotion)) {
+            _ = model.preferences.slots.remove(at: index)
+          }
+        } label: {
+          Image(systemName: "xmark").font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(HR.textMuted).frame(width: 24, height: 24).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).help("Remove").accessibilityLabel("Remove \(name)")
+      }
+    }
+    .padding(.vertical, 8).padding(.horizontal, 8).contentShape(Rectangle())
+    .background(dropTarget == key ? HR.muted : .clear, in: RoundedRectangle(cornerRadius: 8))
+    .padding(.horizontal, -8).animation(Motion.hover, value: dropTarget)
+    .draggable(key) {
+      Text(name).font(HR.popoverFont(13, .medium)).padding(.horizontal, 10)
+        .padding(.vertical, 6).background(HR.raisedSurface, in: RoundedRectangle(cornerRadius: 7))
+    }
+    .dropDestination(for: String.self) { keys, _ in
+      guard movable, let from = keys.first.flatMap(slotIndex), from != index else { return false }
+      withAnimation(Motion.expand(reduceMotion)) {
+        model.preferences.slots.move(
+          fromOffsets: IndexSet(integer: from), toOffset: index > from ? index + 1 : index)
+      }
+      return true
+    } isTargeted: { targeted in
+      if targeted && movable {
+        dropTarget = key
+      } else if dropTarget == key {
+        dropTarget = nil
+      }
+    }
+    .accessibilityAction(named: "Move up") { moveSlot(index, by: -1) }
+    .accessibilityAction(named: "Move down") { moveSlot(index, by: 1) }
+  }
+
+  private func slotIndex(_ key: String) -> Int? {
+    guard key.hasPrefix("menu-slot:") else { return nil }
+    return Int(key.dropFirst("menu-slot:".count))
+  }
+
+  private func moveSlot(_ index: Int, by offset: Int) {
+    guard model.preferences.slots.indices.contains(index + offset) else { return }
+    model.preferences.slots.swapAt(index, index + offset)
+  }
+
+  /// A new slot takes the tightest account when no slot does yet, else the next account no slot
+  /// shows.
+  private func addSlot() {
+    let slots = model.preferences.slots
+    let used = Set(slots.compactMap(\.account))
+    let account =
+      slots.contains { $0.account == nil }
+      ? model.allAccounts.first { !used.contains($0.id) }?.id : nil
+    withAnimation(Motion.expand(reduceMotion)) {
+      model.preferences.slots.append(.init(account: account, look: slots.last?.look ?? .percent))
+    }
+  }
+
+  private func slotName(_ slot: DisplayPreferences.MenuSlot) -> String {
+    guard let id = slot.account else { return "Tightest account with room" }
+    return model.allAccounts.first { $0.id == id }?.name ?? "Account no longer linked"
   }
 
   // MARK: List
@@ -139,30 +242,46 @@ struct SettingsView: View {
     } else {
       SettingsSections {
         SettingsSection("Accounts") {
-          ForEach(Array(model.allAccounts.enumerated()), id: \.element.id) { index, item in
-            SettingsRow(title: item.name, note: accountNote(item)) {
-              HStack(spacing: 2) {
-                Button {
-                  model.moveAccount(item, by: -1)
-                } label: {
-                  Image(systemName: "arrow.up")
-                }
-                .disabled(index == 0).accessibilityLabel("Move \(item.name) up")
-                Button {
-                  model.moveAccount(item, by: 1)
-                } label: {
-                  Image(systemName: "arrow.down")
-                }
-                .disabled(index == model.allAccounts.count - 1)
-                .accessibilityLabel("Move \(item.name) down")
-                Toggle("Show \(item.name)", isOn: shown(item)).toggleStyle(WebSwitchStyle())
-                  .padding(.leading, 10)
-              }.buttonStyle(WebIconButtonStyle())
-            }
+          ForEach(model.allAccounts, id: \.id) { item in
+            accountRow(item)
           }
         }
       }
     }
+  }
+
+  /// A row to drag into place: the grip says it moves, and the row it is over fills to show
+  /// whose place it takes. VoiceOver gets Move up and Move down actions instead.
+  private func accountRow(_ item: AccountItem) -> some View {
+    HStack(spacing: 10) {
+      Image(systemName: "line.3.horizontal").font(.system(size: 12, weight: .medium))
+        .foregroundStyle(HR.textMuted).frame(width: 16).accessibilityHidden(true)
+      SettingsRow(title: item.name, note: accountNote(item)) {
+        Toggle("Show \(item.name)", isOn: shown(item)).toggleStyle(WebSwitchStyle())
+      }
+    }
+    .padding(.horizontal, 8).contentShape(Rectangle())
+    .background(
+      dropTarget == item.id ? HR.muted : .clear, in: RoundedRectangle(cornerRadius: 8)
+    )
+    .padding(.horizontal, -8).animation(Motion.hover, value: dropTarget)
+    .draggable(item.id) {
+      Text(item.name).font(HR.popoverFont(13, .medium)).padding(.horizontal, 10)
+        .padding(.vertical, 6).background(HR.raisedSurface, in: RoundedRectangle(cornerRadius: 7))
+    }
+    .dropDestination(for: String.self) { ids, _ in
+      guard let id = ids.first else { return false }
+      withAnimation(Motion.expand(reduceMotion)) { model.moveAccount(id: id, onto: item.id) }
+      return true
+    } isTargeted: { targeted in
+      if targeted {
+        dropTarget = item.id
+      } else if dropTarget == item.id {
+        dropTarget = nil
+      }
+    }
+    .accessibilityAction(named: "Move up") { model.moveAccount(item, by: -1) }
+    .accessibilityAction(named: "Move down") { model.moveAccount(item, by: 1) }
   }
 
   private func accountNote(_ item: AccountItem) -> String {
@@ -266,37 +385,71 @@ struct SettingsView: View {
     .task { await model.checkLocal() }
   }
 
+  /// The name with its state, then one line of address, version and last read. The address
+  /// gives way first, in the middle, so the state and age always show.
   private func sourceRow(_ snapshot: SourceSnapshot, index: Int) -> some View {
-    SettingsRow(title: snapshot.source.name, note: sourceNote(snapshot)) {
-      HStack(spacing: 6) {
-        Button("Open") { model.openDashboard(snapshot.source) }
-          .buttonStyle(WebButtonStyle(small: true))
-        Menu {
-          Button("Edit") { editing = SourceDraft(snapshot.source) }
-          Button("Move up") { Task { await model.moveSource(snapshot, by: -1) } }
-            .disabled(index == 0)
-          Button("Move down") { Task { await model.moveSource(snapshot, by: 1) } }
-            .disabled(index == model.sources.count - 1)
-          Divider()
-          Button("Remove…", role: .destructive) { remove = snapshot }
-        } label: {
-          Image(systemName: "ellipsis").font(.system(size: 13, weight: .medium))
-            .foregroundStyle(HR.secondary).frame(width: 30, height: 30).contentShape(Circle())
+    HStack(spacing: 40) {
+      VStack(alignment: .leading, spacing: 3) {
+        HStack(spacing: 8) {
+          Text(snapshot.source.name).font(HR.popoverFont(14, .medium)).foregroundStyle(HR.ink)
+          HStack(spacing: 5) {
+            Circle().fill(stateColor(snapshot.state)).frame(width: 6, height: 6)
+            Text(snapshot.state.label)
+          }.font(HR.popoverFont(12)).foregroundStyle(HR.secondary)
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-        .disabled(model.busy).accessibilityLabel("More for \(snapshot.source.name)")
+        HStack(spacing: 0) {
+          Text(address(snapshot.source)).truncationMode(.middle).layoutPriority(-1)
+          Text(sourceDetail(snapshot)).fixedSize()
+        }.font(HR.popoverFont(12)).foregroundStyle(HR.textMuted).lineLimit(1)
       }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .accessibilityElement(children: .combine)
+      sourceActions(snapshot, index: index)
+    }
+    .padding(.vertical, 10)
+  }
+
+  /// " · v0.1.13 · Updated 2 min ago", after the address.
+  private func sourceDetail(_ snapshot: SourceSnapshot) -> String {
+    var parts: [String] = []
+    if let version = snapshot.cached?.feed.serverVersion { parts.append("v\(version)") }
+    parts.append("Updated \(Formatting.age(model.readAt(snapshot), now: model.now))")
+    return parts.map { " · \($0)" }.joined()
+  }
+
+  private func stateColor(_ state: SourceState) -> Color {
+    switch state {
+    case .connected: HR.popoverSuccess
+    case .offline, .signedOut: HR.popoverDanger
+    case .needsUpdate, .noData: HR.popoverWarning
     }
   }
 
-  private func sourceNote(_ snapshot: SourceSnapshot) -> String {
-    let url = snapshot.source.baseURL
-    let address = url.host().map { host in url.port.map { "\(host):\($0)" } ?? host }
-    return [
-      address ?? url.absoluteString, snapshot.state.label,
-      "Updated \(Formatting.age(model.readAt(snapshot), now: model.now))",
-      snapshot.cached?.feed.serverVersion,
-    ].compactMap(\.self).joined(separator: " · ")
+  private func address(_ source: Source) -> String {
+    let url = source.baseURL
+    return url.host().map { host in url.port.map { "\(host):\($0)" } ?? host }
+      ?? url.absoluteString
+  }
+
+  private func sourceActions(_ snapshot: SourceSnapshot, index: Int) -> some View {
+    HStack(spacing: 6) {
+      Button("Open") { model.openDashboard(snapshot.source) }
+        .buttonStyle(WebButtonStyle(small: true))
+      Menu {
+        Button("Edit") { editing = SourceDraft(snapshot.source) }
+        Button("Move up") { Task { await model.moveSource(snapshot, by: -1) } }
+          .disabled(index == 0)
+        Button("Move down") { Task { await model.moveSource(snapshot, by: 1) } }
+          .disabled(index == model.sources.count - 1)
+        Divider()
+        Button("Remove…", role: .destructive) { remove = snapshot }
+      } label: {
+        Image(systemName: "ellipsis").font(.system(size: 13, weight: .medium))
+          .foregroundStyle(HR.secondary).frame(width: 30, height: 30).contentShape(Circle())
+      }
+      .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+      .disabled(model.busy).accessibilityLabel("More for \(snapshot.source.name)")
+    }
   }
 
   /// This Mac as a source: add it when it answers, start it when installed, else how to install.
@@ -428,7 +581,8 @@ private struct StyleCard: View {
     Button(action: action) {
       HStack(alignment: .top) {
         VStack(alignment: .leading, spacing: 10) {
-          MenuItemLabel(model: model, style: style, sample: true).frame(height: 23)
+          MenuItemLabel(status: MenuStatus(model: model, style: style, sample: true))
+            .frame(height: 23)
           Text(style.label).font(HR.popoverFont(14, .medium)).foregroundStyle(HR.ink)
         }
         Spacer(minLength: 8)
@@ -555,6 +709,25 @@ struct SourceEditor: View {
       focused = .url
     } catch {
       self.error = "Could not save this source on this Mac. Your previous settings have been kept."
+    }
+  }
+}
+
+/// Gives the Settings window an empty unified toolbar. Without one, macOS uses the compact title
+/// bar and the close, minimize and zoom buttons sit tight in the window's rounded corner; with
+/// one they get the standard inset of a toolbar window.
+private struct SettingsWindowChrome: NSViewRepresentable {
+  func makeNSView(context: Context) -> NSView { ChromeView() }
+  func updateNSView(_ view: NSView, context: Context) {}
+
+  private final class ChromeView: NSView {
+    override func viewDidMoveToWindow() {
+      super.viewDidMoveToWindow()
+      guard let window, window.toolbar == nil else { return }
+      window.toolbar = NSToolbar(identifier: "settings")
+      window.toolbarStyle = .unified
+      window.titleVisibility = .hidden
+      window.titlebarAppearsTransparent = true
     }
   }
 }

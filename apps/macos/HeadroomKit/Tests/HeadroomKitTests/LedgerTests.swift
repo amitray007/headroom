@@ -125,11 +125,22 @@ private func row(_ rows: [LedgerRow], _ id: String) throws -> LedgerRow {
 @Test func displayPreferencesLoadFilesSavedBeforeNewFields() throws {
   let old = Data(#"{"itemStyle":"percentage","hiddenAccounts":[],"accountOrder":[]}"#.utf8)
   let value = try JSONDecoder().decode(DisplayPreferences.self, from: old)
-  #expect(value.itemStyle == .percentage)
+  #expect(value.itemStyle == .logoAndRoom)
+  #expect(value.slots == [.init()])
+  #expect(value.providerLogos && value.colorLowOut)
   #expect(value.appearance == .system)
   #expect(!value.privacy)
   #expect(!value.demo)
   #expect(value.sourceFilter == nil)
+}
+
+@Test func pinnedMenuStyleBecomesOneAccountSlot() throws {
+  let old = Data(#"{"itemStyle":"pinned","followedAccount":"source-a/account-a"}"#.utf8)
+  let value = try JSONDecoder().decode(DisplayPreferences.self, from: old)
+  #expect(value.itemStyle == .accounts)
+  #expect(value.slots == [.init(account: "source-a/account-a")])
+  let badge = Data(#"{"itemStyle":"logoAndBadge"}"#.utf8)
+  #expect(try JSONDecoder().decode(DisplayPreferences.self, from: badge).itemStyle == .logo)
 }
 
 @Test func noticesGroupByCalendarDayAndShowElapsedTime() throws {

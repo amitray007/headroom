@@ -3,19 +3,53 @@ import HeadroomAPI
 
 public struct DisplayPreferences: Codable, Equatable, Sendable {
   public enum ItemStyle: String, Codable, CaseIterable, Sendable {
-    case logoAndPercentage, percentage, logoAndBadge, pinned
+    case logo, logoAndRoom, liveLogo, dots, accounts
     public var label: String {
       switch self {
-      case .logoAndPercentage: "Logo and percentage"
-      case .percentage: "Percentage only"
-      case .logoAndBadge: "Logo and badge"
-      case .pinned: "Pinned account"
+      case .logo: "Logo"
+      case .logoAndRoom: "Logo and room"
+      case .liveLogo: "Live logo"
+      case .dots: "Dots"
+      case .accounts: "Accounts"
+      }
+    }
+    /// Live logo, Dots and Accounts show every slot; Logo and room follows the first one.
+    public var showsSlots: Bool { self == .liveLogo || self == .dots || self == .accounts }
+
+    /// Styles saved before round 8: the percentage styles become Logo and room, the badge
+    /// becomes Logo and a pinned account becomes one Accounts slot.
+    init(saved: String) {
+      switch saved {
+      case "logoAndBadge": self = .logo
+      case "pinned": self = .accounts
+      default: self = ItemStyle(rawValue: saved) ?? .logoAndRoom
       }
     }
   }
+
+  /// One account in the menu bar item, with the look it takes in the Accounts style.
+  public struct MenuSlot: Codable, Equatable, Sendable {
+    public enum Look: String, Codable, CaseIterable, Sendable { case percent, ring, bars }
+    /// An account key, or nil for the tightest account with room that no other slot shows.
+    public var account: String?
+    public var look: Look
+    public init(account: String? = nil, look: Look = .percent) {
+      self.account = account
+      self.look = look
+    }
+  }
+  public static let maxSlots = 3
+
   public enum Appearance: String, Codable, CaseIterable, Sendable { case system, light, dark }
-  public var itemStyle: ItemStyle = .logoAndPercentage
-  public var followedAccount: String?
+  public var itemStyle: ItemStyle = .logoAndRoom
+  /// One to three slots, left to right in the menu bar and top to bottom in a one-icon style.
+  public var slots: [MenuSlot] = [MenuSlot()] {
+    didSet { if slots.count > Self.maxSlots { slots = Array(slots.prefix(Self.maxSlots)) } }
+  }
+  /// Each Accounts slot starts with its provider's mark.
+  public var providerLogos = true
+  /// Yellow when an account runs low, red when it is out; off keeps the menu bar's color.
+  public var colorLowOut = true
   public var hiddenAccounts: Set<String> = []
   public var accountOrder: [String] = []
   public var appearance: Appearance = .system
@@ -27,12 +61,22 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
   public var sourceFilter: UUID?
   public init() {}
 
+  private enum Saved: String, CodingKey { case followedAccount }
+
   // Files saved before a field existed still load, with that field at its default.
   public init(from decoder: any Decoder) throws {
     let values = try decoder.container(keyedBy: CodingKeys.self)
+    let saved = try decoder.container(keyedBy: Saved.self)
     let defaults = DisplayPreferences()
-    itemStyle = try values.decodeIfPresent(ItemStyle.self, forKey: .itemStyle) ?? defaults.itemStyle
-    followedAccount = try values.decodeIfPresent(String.self, forKey: .followedAccount)
+    itemStyle =
+      try values.decodeIfPresent(String.self, forKey: .itemStyle).map(ItemStyle.init(saved:))
+      ?? defaults.itemStyle
+    let followed = try saved.decodeIfPresent(String.self, forKey: .followedAccount)
+    let slots = try values.decodeIfPresent([MenuSlot].self, forKey: .slots) ?? []
+    self.slots =
+      slots.isEmpty ? [MenuSlot(account: followed)] : Array(slots.prefix(Self.maxSlots))
+    providerLogos = try values.decodeIfPresent(Bool.self, forKey: .providerLogos) ?? true
+    colorLowOut = try values.decodeIfPresent(Bool.self, forKey: .colorLowOut) ?? true
     hiddenAccounts = try values.decodeIfPresent(Set<String>.self, forKey: .hiddenAccounts) ?? []
     accountOrder = try values.decodeIfPresent([String].self, forKey: .accountOrder) ?? []
     appearance =

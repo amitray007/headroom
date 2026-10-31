@@ -78,31 +78,6 @@ struct WebButtonStyle: ButtonStyle {
   }
 }
 
-/// A square quiet button for one glyph, such as move up or down.
-struct WebIconButtonStyle: ButtonStyle {
-  func makeBody(configuration: Configuration) -> some View {
-    WebIcon(configuration: configuration)
-  }
-  private struct WebIcon: View {
-    let configuration: Configuration
-    @Environment(\.isEnabled) private var enabled
-    @State private var hovered = false
-    var body: some View {
-      configuration.label.font(.system(size: 12, weight: .medium))
-        .frame(width: 30, height: 30)
-        .foregroundStyle(enabled && hovered ? HR.ink : HR.secondary)
-        .background(
-          configuration.isPressed ? HR.pressed : enabled && hovered ? HR.muted : .clear,
-          in: Circle()
-        )
-        .opacity(enabled ? 1 : 0.4)
-        .scaleEffect(configuration.isPressed && enabled ? 0.97 : 1)
-        .animation(Motion.press(configuration.isPressed), value: configuration.isPressed)
-        .contentShape(Circle()).onHover { hovered = $0 }
-    }
-  }
-}
-
 /// Arc's switch: a 42 by 24 track, an 18 pt thumb that glides across, a foreground fill when on.
 struct WebSwitchStyle: ToggleStyle {
   func makeBody(configuration: Configuration) -> some View {

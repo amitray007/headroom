@@ -20,12 +20,14 @@ struct NoticeItem: Identifiable {
 
 enum NoticePhase { case loading, ready, failed }
 
+/// Sidebar order: General first, as in macOS Settings, then where readings come from, then
+/// how they show.
 enum SettingsPane: String, CaseIterable, Identifiable {
+  case general = "General"
+  case sources = "Sources"
   case menuBar = "Menu Bar"
   case list = "List"
   case notifications = "Notifications"
-  case sources = "Sources"
-  case general = "General"
   var id: String { rawValue }
 }
 
@@ -41,7 +43,7 @@ final class AppModel {
     }
   }
   var enabledKinds: [String: Bool] = [:]
-  var selectedPane: SettingsPane = .menuBar
+  var selectedPane: SettingsPane = .general
   var error: String?
   var ready = false
   var busy = false
@@ -361,6 +363,15 @@ final class AppModel {
       return
     }
     ids.swapAt(index, index + offset)
+    preferences.accountOrder = ids
+    saveDisplay()
+  }
+  /// A drag in Settings, List: the dragged account takes the place of the one it was dropped on.
+  func moveAccount(id: String, onto target: String) {
+    var ids = allAccounts.map(\.id)
+    guard let from = ids.firstIndex(of: id), let to = ids.firstIndex(of: target), from != to
+    else { return }
+    ids.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
     preferences.accountOrder = ids
     saveDisplay()
   }
