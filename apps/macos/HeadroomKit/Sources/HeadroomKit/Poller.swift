@@ -13,6 +13,7 @@ public struct SystemPollClock: PollClock {
 
 public struct SourceSnapshot: Identifiable, Sendable {
   public var id: UUID { source.id }
+
   public let source: Source
   public var state: SourceState
   public var cached: CachedFeed?
@@ -21,6 +22,20 @@ public struct SourceSnapshot: Identifiable, Sendable {
     self.source = source
     self.state = state
     self.cached = cached
+  }
+}
+
+extension SourceSnapshot {
+  /// True when two polls show the same thing: same sources, states, accounts, notices and
+  /// summary. Only the read time differs, and redrawing every view for that is wasted work.
+  public static func sameReadings(_ a: [SourceSnapshot], _ b: [SourceSnapshot]) -> Bool {
+    a.count == b.count
+      && zip(a, b).allSatisfy { old, new in
+        old.source == new.source && old.state == new.state
+          && old.cached?.feed.accounts == new.cached?.feed.accounts
+          && old.cached?.feed.notices == new.cached?.feed.notices
+          && old.cached?.feed.summary == new.cached?.feed.summary
+      }
   }
 }
 

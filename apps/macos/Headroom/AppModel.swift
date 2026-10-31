@@ -71,6 +71,9 @@ final class AppModel {
   private var feedCache = FeedCache()
 
   var refreshing = false
+  /// Each source's last read. Kept apart from `sources` so a poll that only moves the read time
+  /// updates the "Updated" line instead of every account row.
+  private(set) var readTimes: [UUID: Date] = [:]
   /// Demo Mode replaces every account and notice with a made-up feed; real sources keep polling.
   private(set) var demoSources: [SourceSnapshot] = []
   var displaySources: [SourceSnapshot] { preferences.demo ? demoSources : sources }
@@ -166,13 +169,13 @@ final class AppModel {
       sources: values, vault: vault, cache: feedCache, notices: noticeStore, client: client)
     self.poller = poller
     // Publish the cached feed before starting any network request.
-    sources = await poller.snapshots()
+    apply(await poller.snapshots())
     await loadNotices()
     let stream = await poller.updates()
     observer = Task { [weak self] in
       for await snapshots in stream {
         guard !Task.isCancelled, let self, self.generation == current else { return }
-        self.sources = snapshots
+        self.apply(snapshots)
         await self.loadNotices()
         // Demo notices are made up; only real ones become banners.
         if let noticeStore = self.noticeStore, !self.synthetic, !self.preferences.demo {
@@ -184,6 +187,18 @@ final class AppModel {
       }
     }
     await poller.start()
+  }
+
+  private func apply(_ snapshots: [SourceSnapshot]) {
+    let times = Dictionary(
+      snapshots.compactMap { snapshot in snapshot.cached.map { (snapshot.id, $0.readAt) } },
+      uniquingKeysWith: max)
+    if times != readTimes { readTimes = times }
+    if !SourceSnapshot.sameReadings(sources, snapshots) { sources = snapshots }
+  }
+  /// The later of the last poll and the reading the snapshot carries.
+  func readAt(_ snapshot: SourceSnapshot) -> Date? {
+    [readTimes[snapshot.id], snapshot.cached?.readAt].compactMap { $0 }.max()
   }
 
   func setOpen(_ open: Bool) async {

@@ -16,7 +16,11 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     super.init()
     popover.behavior = .transient
     popover.delegate = self
-    popover.contentViewController = NSHostingController(rootView: PopoverView(model: model))
+    let host = NSHostingController(rootView: PopoverView(model: model))
+    // The popover only needs its preferred size. The default options also work out a minimum,
+    // a maximum and an intrinsic size, each a full layout pass after every redraw.
+    host.sizingOptions = [.preferredContentSize]
+    popover.contentViewController = host
     if let button = item.button {
       button.target = self
       button.action = #selector(toggle)

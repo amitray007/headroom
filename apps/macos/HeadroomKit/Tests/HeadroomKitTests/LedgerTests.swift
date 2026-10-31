@@ -143,3 +143,29 @@ private func row(_ rows: [LedgerRow], _ id: String) throws -> LedgerRow {
   #expect(Formatting.elapsed(now.addingTimeInterval(-9 * 3600), now: now) == "9 h")
   #expect(Formatting.elapsed(now.addingTimeInterval(-5 * 86400), now: now) == "5 d")
 }
+
+@Test func pollsDifferingOnlyInReadTimeShowTheSameReadings() throws {
+  let feed = try fixture("popover")
+  let source = try source()
+  let first = [
+    SourceSnapshot(
+      source: source, state: .connected,
+      cached: CachedFeed(feed: feed, etag: nil, readAt: Date(timeIntervalSince1970: 0)))
+  ]
+  let later = [
+    SourceSnapshot(
+      source: source, state: .connected,
+      cached: CachedFeed(feed: feed, etag: nil, readAt: Date(timeIntervalSince1970: 60)))
+  ]
+  #expect(SourceSnapshot.sameReadings(first, later))
+  var changed = feed
+  changed.accounts[0].name = "Renamed"
+  let renamed = [
+    SourceSnapshot(
+      source: source, state: .connected,
+      cached: CachedFeed(feed: changed, etag: nil, readAt: Date()))
+  ]
+  #expect(!SourceSnapshot.sameReadings(first, renamed))
+  let offline = [SourceSnapshot(source: source, state: .offline, cached: first[0].cached)]
+  #expect(!SourceSnapshot.sameReadings(first, offline))
+}

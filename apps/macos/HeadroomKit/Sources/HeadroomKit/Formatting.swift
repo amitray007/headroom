@@ -1,6 +1,9 @@
 import Foundation
 
 public enum Formatting {
+  /// Built once: a `Locale` is costly to create and every figure on screen is formatted with it.
+  static let gb = Locale(identifier: "en_GB")
+
   public static func left(used: Double?) -> Double? { used.map { max(0, 100 - $0) } }
 
   public static func percentLeft(_ value: Double?) -> String {
@@ -11,7 +14,9 @@ public enum Formatting {
   public static func barePercent(_ value: Double?) -> String {
     guard let value, value.isFinite else { return "Unknown" }
     let rounded = value > 0 && value < 100 ? min(99, max(1, value.rounded())) : value.rounded()
-    return String(format: "%.0f%%", locale: Locale(identifier: "en_GB"), rounded)
+    // Whole numbers only: integer text is far cheaper than `String(format:)`, and every meter
+    // formats one on every redraw.
+    return "\(Int(rounded))%"
   }
 
   public static func unitTotal(_ values: [Double?], unit: String) -> String {
@@ -22,12 +27,12 @@ public enum Formatting {
 
   private static func number(_ value: Double) -> String {
     value.rounded() == value
-      ? String(format: "%.0f", locale: Locale(identifier: "en_GB"), value) : String(value)
+      ? String(format: "%.0f", locale: gb, value) : String(value)
   }
 
   public static func money(_ value: Double?, unit: String) -> String {
     guard let value, value.isFinite else { return "Unknown" }
-    return "\(String(format: "%.2f", locale: Locale(identifier: "en_GB"), value)) \(unit)"
+    return "\(String(format: "%.2f", locale: gb, value)) \(unit)"
   }
 
   public static func unitLabel(_ unit: String) -> String {
@@ -46,7 +51,7 @@ public enum Formatting {
     }
     func amount(_ value: Double, _ unit: String) -> String {
       if unit == "USD" || (unit == "credits" && value.rounded() != value) {
-        return String(format: "%.2f", locale: Locale(identifier: "en_GB"), value)
+        return String(format: "%.2f", locale: gb, value)
       }
       return number(value)
     }
@@ -91,8 +96,8 @@ public enum Formatting {
     let symbols = ["USD": "$", "EUR": "€", "GBP": "£", "INR": "₹", "JPY": "¥"]
     let text =
       value.rounded() == value
-      ? String(format: "%.0f", locale: Locale(identifier: "en_GB"), value)
-      : String(format: "%.2f", locale: Locale(identifier: "en_GB"), value)
+      ? String(format: "%.0f", locale: gb, value)
+      : String(format: "%.2f", locale: gb, value)
     if let symbol = symbols[unit] { return symbol + text }
     return ["CAD", "AUD", "SGD", "CHF", "BRL"].contains(unit) ? "\(unit) \(text)" : text
   }
@@ -200,7 +205,7 @@ private final class FormatterCache: @unchecked Sendable {
     let key = "\(pattern)|\(timeZone.identifier)"
     if let formatter = formatters[key] { return formatter.string(from: date) }
     let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "en_GB")
+    formatter.locale = Formatting.gb
     formatter.timeZone = timeZone
     formatter.dateFormat = pattern
     formatters[key] = formatter

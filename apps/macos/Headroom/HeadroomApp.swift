@@ -58,68 +58,96 @@ struct MenuItemLabel: View {
   let style: DisplayPreferences.ItemStyle
   /// Settings previews show a sample figure while there is nothing real to show.
   var sample = false
-  private var pinned: AccountItem? {
-    guard let id = model.preferences.followedAccount else { return nil }
-    return model.allAccounts.first(where: { $0.id == id })
-  }
-  /// Without a pinned account, the item follows the tightest account that still has room, so an
-  /// out or signed-out account never hides where work can continue; those show in the dot.
-  private var followed: AccountItem? {
-    if let pinned { return pinned }
-    return model.accounts
-      .filter { $0.snapshot.state == .connected && ($0.binding?.percentLeft ?? 0) > 0 }
-      .max { rank($0) < rank($1) }
-  }
-  private var anyOut: Bool { model.accounts.contains { $0.binding?.percentLeft == 0 } }
-  private var needsSignIn: Bool {
-    model.accounts.contains {
-      $0.snapshot.state == .signedOut || $0.account.state == .reconnect_required
-    }
-  }
-  private func rank(_ item: AccountItem) -> Double {
-    if item.binding?.percentLeft == 0 { return 300 }
-    if item.binding?.runsOutAt != nil { return 200 }
-    guard let left = item.binding?.percentLeft else { return 100 }
-    return 100 - left
-  }
-  /// Nil when there is nothing to report: no source yet, or connected sources with no accounts.
-  private var text: String? {
-    if let followed {
-      if followed.snapshot.state == .signedOut || followed.account.state == .reconnect_required {
-        return "!"
+  /// Everything the label shows, worked out once per redraw. As computed properties each read
+  /// rebuilt the account list, several times over.
+  private struct Status {
+    let pinned: AccountItem?
+    let followed: AccountItem?
+    let anyOut: Bool
+    let needsSignIn: Bool
+    let text: String?
+
+    @MainActor init(model: AppModel) {
+      let accounts = model.accounts
+      pinned = model.preferences.followedAccount.flatMap { id in
+        model.allAccounts.first { $0.id == id }
       }
-      if followed.snapshot.state != .connected { return "…" }
-      return followed.binding.map { Formatting.percentLeft($0.percentLeft) } ?? "Unknown"
+      // Without a pinned account, the item follows the tightest account that still has room, so
+      // an out or signed-out account never hides where work can continue; those show in the dot.
+      var tightest: (item: AccountItem, rank: Double)?
+      for item in accounts where item.snapshot.state == .connected {
+        guard let binding = item.binding, (binding.percentLeft ?? 0) > 0 else { continue }
+        let rank = Self.rank(binding)
+        if tightest.map({ rank > $0.rank }) ?? true { tightest = (item, rank) }
+      }
+      followed = pinned ?? tightest?.item
+      anyOut = accounts.contains { $0.binding?.percentLeft == 0 }
+      needsSignIn = accounts.contains {
+        $0.snapshot.state == .signedOut || $0.account.state == .reconnect_required
+      }
+      // Nil when there is nothing to report: no source yet, or connected sources with no accounts.
+      text =
+        if let followed {
+          if followed.snapshot.state == .signedOut || followed.account.state == .reconnect_required
+          {
+            "!"
+          } else if followed.snapshot.state != .connected {
+            "…"
+          } else {
+            followed.binding.map { Formatting.percentLeft($0.percentLeft) } ?? "Unknown"
+          }
+        } else if needsSignIn {
+          "!"
+        } else if anyOut {
+          "Out"
+        } else if model.sources.isEmpty {
+          nil
+        } else if !model.ready || model.sources.contains(where: { $0.state != .connected }) {
+          "…"
+        } else {
+          accounts.isEmpty ? nil : "Unknown"
+        }
     }
-    if needsSignIn { return "!" }
-    if anyOut { return "Out" }
-    if model.sources.isEmpty { return nil }
-    if !model.ready || model.sources.contains(where: { $0.state != .connected }) { return "…" }
-    return model.accounts.isEmpty ? nil : "Unknown"
+
+    private static func rank(_ binding: FeedAccount.limitsPayloadPayload) -> Double {
+      if binding.percentLeft == 0 { return 300 }
+      if binding.runsOutAt != nil { return 200 }
+      guard let left = binding.percentLeft else { return 100 }
+      return 100 - left
+    }
+
+    var tone: Color {
+      guard let followed else {
+        return pinned == nil && (needsSignIn || anyOut) ? HR.danger : .primary
+      }
+      if followed.snapshot.state == .signedOut || followed.account.state == .reconnect_required
+        || followed.binding?.percentLeft == 0
+      {
+        return HR.danger
+      }
+      if followed.binding?.runsOutAt != nil
+        || followed.binding?.percentLeft.map({ $0 <= 20 }) == true
+      {
+        return HR.warning
+      }
+      return .primary
+    }
+    /// The dot carries problems elsewhere (an account out or signed out) while the text follows
+    /// room.
+    var dotTone: Color { pinned == nil && (needsSignIn || anyOut) ? HR.danger : tone }
+    var problem: Bool { pinned == nil && (needsSignIn || anyOut) }
   }
-  private var shown: String? { text ?? (sample ? Formatting.percentLeft(64) : nil) }
-  private var tone: Color {
-    guard let followed else { return pinned == nil && (needsSignIn || anyOut) ? HR.danger : .primary }
-    if followed.snapshot.state == .signedOut || followed.account.state == .reconnect_required
-      || followed.binding?.percentLeft == 0
-    {
-      return HR.danger
-    }
-    if followed.binding?.runsOutAt != nil || followed.binding?.percentLeft.map({ $0 <= 20 }) == true
-    {
-      return HR.warning
-    }
-    return .primary
-  }
-  /// The dot carries problems elsewhere (an account out or signed out) while the text follows room.
-  private var dotTone: Color { pinned == nil && (needsSignIn || anyOut) ? HR.danger : tone }
+
   var body: some View {
+    let status = Status(model: model)
+    let shown = status.text ?? (sample ? Formatting.percentLeft(64) : nil)
+    let tone = status.tone
     HStack(spacing: 3) {
       if style != .percentage || shown == nil {
         HeadroomGlyph().frame(width: 23, height: 23)
           .overlay(alignment: .bottomTrailing) {
-            if model.unread > 0 || (pinned == nil && (needsSignIn || anyOut)) {
-              Circle().fill(dotTone).frame(width: 5, height: 5).offset(x: -2, y: -2)
+            if model.unread > 0 || status.problem {
+              Circle().fill(status.dotTone).frame(width: 5, height: 5).offset(x: -2, y: -2)
             }
           }
           // The glyph's 64 pt grid leaves 12 pt of air left of the bars; the dot ends 2 pt from the
@@ -129,14 +157,15 @@ struct MenuItemLabel: View {
       if style != .logoAndBadge, let shown {
         Text(shown).font(.system(size: 13, weight: .medium)).monospacedDigit()
       }
-      if style == .percentage && (model.unread > 0 || (pinned == nil && (needsSignIn || anyOut))) {
-        Circle().fill(dotTone).frame(width: 5, height: 5)
+      if style == .percentage && (model.unread > 0 || status.problem) {
+        Circle().fill(status.dotTone).frame(width: 5, height: 5)
       }
       if style == .pinned { Image(systemName: "pin").font(.system(size: 11)) }
     }
     .foregroundStyle(tone)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(
-      "Headroom, \(followed?.name ?? "all sources"), \(shown ?? "no readings yet"), \(model.unread) unread notifications")
+      "Headroom, \(status.followed?.name ?? "all sources"), \(shown ?? "no readings yet"), \(model.unread) unread notifications"
+    )
   }
 }

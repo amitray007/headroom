@@ -294,7 +294,7 @@ struct SettingsView: View {
     let address = url.host().map { host in url.port.map { "\(host):\($0)" } ?? host }
     return [
       address ?? url.absoluteString, snapshot.state.label,
-      "Updated \(Formatting.age(snapshot.cached?.readAt, now: model.now))",
+      "Updated \(Formatting.age(model.readAt(snapshot), now: model.now))",
       snapshot.cached?.feed.serverVersion,
     ].compactMap(\.self).joined(separator: " · ")
   }

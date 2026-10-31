@@ -117,7 +117,8 @@ private struct PopoverHeader: View {
                 Text("\(popoverUnread)").font(HR.popoverFont(12))
               }
             }
-          }.buttonStyle(PopoverToolStyle()).accessibilityLabel("Notifications, \(popoverUnread) unread")
+          }.buttonStyle(PopoverToolStyle()).accessibilityLabel(
+            "Notifications, \(popoverUnread) unread")
         }
         Button {
           model.openSettingsWindow(openSettings)
@@ -266,7 +267,7 @@ private struct AccountsPage: View {
   private func sourceNote(_ snapshot: SourceSnapshot) -> String {
     if snapshot.state == .offline {
       return
-        "\(snapshot.source.name) is offline. Kept readings from \(Formatting.age(snapshot.cached?.readAt, now: model.now))."
+        "\(snapshot.source.name) is offline. Kept readings from \(Formatting.age(model.readAt(snapshot), now: model.now))."
     }
     if snapshot.state == .signedOut {
       return "\(snapshot.source.name) is signed out. Open the dashboard to sign in."
@@ -362,7 +363,7 @@ private struct PopoverFooter: View {
         Text("Room and reset times appear after the first reading.")
       } else {
         Text(
-          "Updated \(Formatting.age(model.popoverSources.compactMap(\.cached?.readAt).max(), now: model.now))"
+          "Updated \(Formatting.age(model.popoverSources.compactMap(model.readAt).max(), now: model.now))"
         )
       }
       Spacer(minLength: 12)

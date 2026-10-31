@@ -68,7 +68,7 @@ struct LedgerRowView: View, Equatable {
           .background(expanded ? HR.muted : hovered ? HR.muted.opacity(0.55) : .clear)
           .animation(Motion.hover, value: hovered)
       }.buttonStyle(.plain).focused($summaryFocused).onHover { hovered = $0 }
-        .accessibilityLabel(row.column.text(now: model.now))
+        .accessibilityLabel(row.column.text(now: row.now))
         .accessibilityValue(expanded ? "Expanded" : "Collapsed")
         .accessibilityHint("Show other limits and account details")
       if expanded {
