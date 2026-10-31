@@ -108,6 +108,15 @@ public enum Formatting {
       date, pattern: date.timeIntervalSince(now) < 6 * 86400 ? "EEE" : "d MMM", timeZone: timeZone)
   }
 
+  /// The footer's last check: "just now", then seconds, then `age`. Meant to tick each second.
+  public static func checked(_ date: Date?, now: Date = Date()) -> String {
+    guard let date else { return "Unknown" }
+    let seconds = Int(max(0, now.timeIntervalSince(date)))
+    if seconds < 5 { return "just now" }
+    if seconds < 60 { return "\(seconds) sec ago" }
+    return age(date, now: now)
+  }
+
   public static func age(_ date: Date?, now: Date = Date()) -> String {
     guard let date else { return "Unknown" }
     let seconds = max(0, now.timeIntervalSince(date))

@@ -77,7 +77,21 @@ public actor Poller {
   }
 
   public func snapshots() -> [SourceSnapshot] { values }
-  public var interval: Duration { popoverOpen ? .seconds(30) : .seconds(120) }
+  private var backgroundSeconds = 120
+  public var interval: Duration {
+    .seconds(popoverOpen ? min(30, backgroundSeconds) : backgroundSeconds)
+  }
+
+  /// The owner's Check every setting. The current wait starts over on the new interval.
+  public func setBackgroundInterval(seconds: Int) {
+    let seconds = max(30, seconds)
+    guard seconds != backgroundSeconds else { return }
+    backgroundSeconds = seconds
+    guard running else { return }
+    loop?.cancel()
+    scheduleRevision &+= 1
+    loop = Task { [weak self] in await self?.runLoop() }
+  }
 
   public func updates() -> AsyncStream<[SourceSnapshot]> {
     let id = UUID()

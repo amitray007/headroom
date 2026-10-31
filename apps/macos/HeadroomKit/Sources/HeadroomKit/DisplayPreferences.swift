@@ -52,6 +52,10 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
   public var colorLowOut = true
   /// Live logo adds the figure of the slot with least room beside the glyph.
   public var liveRoom = false
+  /// How often this Mac reads its sources while the popover is closed, in seconds. While it is
+  /// open the app reads every 30 seconds, or sooner when this is shorter.
+  public var checkSeconds = 120
+  public static let checkOptions = [30, 60, 120, 300, 600]
   public var hiddenAccounts: Set<String> = []
   public var accountOrder: [String] = []
   public var appearance: Appearance = .system
@@ -80,6 +84,9 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
     providerLogos = try values.decodeIfPresent(Bool.self, forKey: .providerLogos) ?? true
     colorLowOut = try values.decodeIfPresent(Bool.self, forKey: .colorLowOut) ?? true
     liveRoom = try values.decodeIfPresent(Bool.self, forKey: .liveRoom) ?? false
+    checkSeconds =
+      try values.decodeIfPresent(Int.self, forKey: .checkSeconds)
+      .flatMap { Self.checkOptions.contains($0) ? $0 : nil } ?? 120
     hiddenAccounts = try values.decodeIfPresent(Set<String>.self, forKey: .hiddenAccounts) ?? []
     accountOrder = try values.decodeIfPresent([String].self, forKey: .accountOrder) ?? []
     appearance =

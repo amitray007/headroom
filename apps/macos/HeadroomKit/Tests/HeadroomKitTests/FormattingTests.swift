@@ -141,3 +141,12 @@ func durationsMatchTheMockup(_ seconds: Double, _ expected: String) {
   single.limits = [model]
   #expect(Presentation.limitLabel(model, in: single) == "Weekly")
 }
+
+@Test func lastCheckCountsSecondsThenMinutes() {
+  let now = Date(timeIntervalSince1970: 1_000_000)
+  #expect(Formatting.checked(now.addingTimeInterval(-2), now: now) == "just now")
+  #expect(Formatting.checked(now.addingTimeInterval(-12), now: now) == "12 sec ago")
+  #expect(Formatting.checked(now.addingTimeInterval(-59), now: now) == "59 sec ago")
+  #expect(Formatting.checked(now.addingTimeInterval(-61), now: now) == "1 min ago")
+  #expect(Formatting.checked(nil, now: now) == "Unknown")
+}

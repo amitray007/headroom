@@ -304,6 +304,8 @@ private struct AccountList: View {
         // row's empty lower edge, so the fade can stay put and nothing changes while scrolling.
         .padding(.bottom, listHeight > listCap ? 12 : 0)
       }.frame(height: min(max(listHeight, 44), listCap))
+        // The fade below already says the list goes on; a scroll bar would only add clutter.
+        .scrollIndicators(.never)
         // A fade over the cut row says the list goes on; at the end it covers only the room
         // left after the last row.
         .overlay(alignment: .bottom) {
@@ -354,9 +356,16 @@ private struct PopoverFooter: View {
       } else if model.popoverLoading {
         Text("Room and reset times appear after the first reading.")
       } else {
-        Text(
-          "Updated \(Formatting.age(model.refreshedAt ?? model.popoverSources.compactMap(model.readAt).max(), now: model.now))"
-        )
+        // When this Mac last checked the servers, counted live: only this text ticks each
+        // second, not the account rows. The tooltip says when the servers last refreshed.
+        let checked = model.popoverSources.compactMap(model.readAt).max()
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+          Text("Updated \(Formatting.checked(checked, now: context.date))")
+        }
+        .help(
+          model.refreshedAt.map {
+            "Servers last refreshed accounts \(Formatting.age($0, now: model.now))."
+          } ?? "")
       }
       Spacer(minLength: 12)
       if !model.displaySources.isEmpty {

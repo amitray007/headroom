@@ -40,6 +40,10 @@ final class AppModel {
     didSet {
       if preferences.appearance != oldValue.appearance { applyAppearance() }
       if preferences.demo != oldValue.demo { Task { await self.applyDemo() } }
+      if preferences.checkSeconds != oldValue.checkSeconds {
+        let seconds = preferences.checkSeconds
+        Task { await self.poller?.setBackgroundInterval(seconds: seconds) }
+      }
     }
   }
   var enabledKinds: [String: Bool] = [:]
@@ -191,6 +195,7 @@ final class AppModel {
         }
       }
     }
+    await poller.setBackgroundInterval(seconds: preferences.checkSeconds)
     await poller.start()
   }
 
@@ -201,10 +206,9 @@ final class AppModel {
     if times != readTimes { readTimes = times }
     if !SourceSnapshot.sameReadings(sources, snapshots) { sources = snapshots }
   }
-  /// The later of the last poll and the reading the snapshot carries.
-  /// When the server last refreshed the accounts the popover shows: the newest account
-  /// reading. The Mac reads the feed far more often than the server refreshes it, so the read
-  /// time would always say "1 min ago".
+
+  /// When the servers last refreshed the accounts the popover shows: the newest account reading.
+  /// The footer's tooltip; the footer itself counts from this Mac's last check.
   var refreshedAt: Date? {
     popoverSources.flatMap { $0.cached?.feed.accounts ?? [] }
       .compactMap { Formatting.date(milliseconds: $0.observedAt) }.max()
@@ -252,6 +256,7 @@ final class AppModel {
     await poller?.refresh()
   }
 
+  /// The later of the last poll and the reading the snapshot carries.
   func readAt(_ snapshot: SourceSnapshot) -> Date? {
     [readTimes[snapshot.id], snapshot.cached?.readAt].compactMap { $0 }.max()
   }

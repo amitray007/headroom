@@ -453,18 +453,18 @@ struct SettingsView: View {
     return minutes.first.map { "\($0) min" } ?? "Not set"
   }
 
+  private static func checkLabel(_ seconds: Int) -> String {
+    seconds < 60 ? "\(seconds) sec" : "\(seconds / 60) min"
+  }
+
+  /// One line: what the setting does, or which sources it cannot change. The full steps for a
+  /// read-only source are in the row's tooltip.
   private var refreshNote: String {
     guard !model.sources.isEmpty else { return "Add a source to set how often it refreshes." }
-    var note =
-      "How often each server refreshes your accounts. This Mac reads them every 2 minutes, every 30 seconds while open."
     let readOnly = model.sources.filter { model.refreshAccess[$0.id] == .readOnly }
       .map(\.source.name)
-    if !readOnly.isEmpty {
-      let names = ListFormatter.localizedString(byJoining: readOnly)
-      note +=
-        " \(names) \(readOnly.count == 1 ? "has" : "have") a read-only token, so \(readOnly.count == 1 ? "it keeps its" : "they keep their") own setting. To change it here, create a token with Can Change Refresh Every in Settings, Devices."
-    }
-    return note
+    guard !readOnly.isEmpty else { return "How often your servers refresh." }
+    return "\(ListFormatter.localizedString(byJoining: readOnly)): read-only token."
   }
 
   /// "Connected · every 10 min · read only": the state, the server's Refresh Every, and whether
@@ -583,7 +583,18 @@ struct SettingsView: View {
           .disabled(refreshWritable.isEmpty || model.settingRefresh)
           .opacity(refreshWritable.isEmpty ? 0.5 : 1)
         }
+        .help(
+          "To change a read-only source, create a token with Can Change Refresh Every in its dashboard, Settings, Devices."
+        )
         .task { await model.checkRefreshAccess() }
+        SettingsRow(title: "Check every", note: "How often this Mac reads your servers.") {
+          WebSelect(value: Self.checkLabel(model.preferences.checkSeconds)) {
+            ForEach(DisplayPreferences.checkOptions, id: \.self) { seconds in
+              Button(Self.checkLabel(seconds)) { model.preferences.checkSeconds = seconds }
+            }
+          }
+        }
+        .help("While the menu is open, it reads every 30 seconds, or sooner when this is shorter.")
         SettingsRow(title: "Appearance") {
           WebSegmented(
             selection: $model.preferences.appearance,
@@ -880,8 +891,8 @@ private struct SettingsWindowChrome: NSViewRepresentable {
   }
 }
 
-/// The menu bar item as it will look, beside stand-ins for the system items: 1.5x when it fits,
-/// smaller when three wide accounts and the clock would run past the pane.
+/// The menu bar item as it will look, beside stand-ins for the system items, on a bar the width
+/// of the card: 1.5x when it fits, smaller when three wide accounts and the clock would not.
 private struct MenuBarPreview: View {
   let status: MenuStatus
   @State private var size = CGSize.zero
@@ -894,22 +905,23 @@ private struct MenuBarPreview: View {
   }
 
   var body: some View {
-    // The clear row takes the pane's width and the scaled height; the strip draws over it, so
-    // its natural width never widens the pane.
-    Color.clear.frame(height: max(24, size.height) * scale)
+    // The bar spans the card like the real menu bar, with the items at its trailing edge. The
+    // items draw over it, so their natural width never widens the pane.
+    RoundedRectangle(cornerRadius: 5 * scale).fill(Self.bar)
+      .frame(height: max(24, size.height) * scale)
       .onGeometryChange(for: CGFloat.self) {
         $0.size.width
       } action: {
         room = $0
       }
-      .overlay(alignment: .leading) {
+      .overlay(alignment: .trailing) {
         strip.fixedSize()
           .onGeometryChange(for: CGSize.self) {
             $0.size
           } action: {
             size = $0
           }
-          .scaleEffect(scale, anchor: .leading)
+          .scaleEffect(scale, anchor: .trailing)
       }
       .padding(14).background(HR.muted, in: RoundedRectangle(cornerRadius: 12))
       .accessibilityElement(children: .ignore)
@@ -927,6 +939,5 @@ private struct MenuBarPreview: View {
     }
     .font(.system(size: 13, weight: .medium)).foregroundStyle(.primary)
     .padding(.horizontal, 10).frame(height: 24)
-    .background(Self.bar, in: RoundedRectangle(cornerRadius: 5))
   }
 }
