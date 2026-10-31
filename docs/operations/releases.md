@@ -69,6 +69,12 @@ Provenance: the `publish` job attests the archives with `actions/attest-build-pr
 
 To rebuild the assets of an existing release, open Actions > Binaries > Run workflow, type the version without the `v` and keep `publish` on. The workflow builds from the tag `vX.Y.Z` and replaces the assets on that release. Turn `publish` off to build and test without uploading.
 
+## Pushes to main
+
+The `Protect main` ruleset requires a pull request with passing checks for every change to `main`. Three workflows still commit to `main` directly: Homebrew (`Formula/headroom.rb`), the Mac release (`Casks/headroom-mac.rb`) and Release As. They check out with the `release bot` deploy key, stored as the `RELEASE_DEPLOY_KEY` secret, and the ruleset lets deploy keys bypass it. `GITHUB_TOKEN` cannot bypass a ruleset on a personal repository. Each bot commit carries `[skip ci]`, so it starts no other workflow.
+
+To rotate the key, make a new ed25519 key pair, add the public key under Settings > Deploy keys with write access, save the private key as `RELEASE_DEPLOY_KEY` and delete the old deploy key.
+
 ## The public site
 
 The `Pages` workflow runs `mise run site:build` and deploys `dist-site/` to GitHub Pages: the landing page from `site/index.html` at the root and the demo (D34) at `demo/`. It runs after each release and by hand from the Actions tab, so the site shows the released app, not `main`. The `site` job in CI builds it on every pull request. How the build works is in [site/README.md](../../site/README.md).
