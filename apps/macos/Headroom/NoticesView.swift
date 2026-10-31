@@ -48,7 +48,7 @@ struct NoticesView: View {
               await model.loadNotices()
             }
           }.buttonStyle(PopoverActionStyle())
-        }
+        }.frame(maxHeight: fill ? .infinity : nil)
       } else {
         filters
         Rectangle().fill(HR.borderSubtle).frame(height: 1)
@@ -182,19 +182,16 @@ struct NoticesView: View {
     }
   }
 
+  /// No notices at all, or none unread under the Unread filter. Centered in the space the
+  /// page has.
   private var empty: some View {
-    VStack(spacing: 6) {
-      Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold))
-        .foregroundStyle(HR.secondary).frame(width: 40, height: 40)
-        .background(HR.muted, in: RoundedRectangle(cornerRadius: 11)).padding(.bottom, 6)
-        .accessibilityHidden(true)
-      Text("Nothing new").font(HR.popoverFont(14, .medium)).accessibilityAddTraits(.isHeader)
-      Text(
-        unreadOnly && !all.isEmpty
-          ? "Every notice is read." : "Limits, resets and sign-in problems show up here."
-      ).font(HR.popoverFont(12)).foregroundStyle(HR.secondary)
-    }.multilineTextAlignment(.center).frame(maxWidth: .infinity)
-      .padding(.horizontal, 24).padding(.top, 56).padding(.bottom, 64)
+    let caughtUp = unreadOnly && !all.isEmpty
+    return PopoverState(
+      art: caughtUp ? "all-clear" : "no-notices", title: caughtUp ? "All caught up" : "Nothing new",
+      message: caughtUp
+        ? "Every notice is read." : "Limits, resets and sign-in problems show up here."
+    ) { EmptyView() }
+    .frame(maxHeight: fill ? .infinity : nil)
   }
 
   private func toggle(_ item: NoticeItem) {

@@ -500,7 +500,7 @@ struct PopoverState<Actions: View>: View {
       Text(message).font(HR.popoverFont(12)).foregroundStyle(HR.secondary).lineSpacing(3)
       actions.font(HR.popoverFont(12)).padding(.top, 12)
     }.multilineTextAlignment(.center).frame(maxWidth: .infinity)
-      .padding(.horizontal, 24).padding(.top, 24).padding(.bottom, 40)
+      .padding(.horizontal, 24).padding(.vertical, 32)
   }
 }
 
