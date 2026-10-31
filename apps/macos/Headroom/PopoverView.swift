@@ -318,10 +318,12 @@ struct PopoverView: View {
 
   /// The one way to the web dashboard: the shown source's, or a choice when several are shown.
   @ViewBuilder private var dashboardButton: some View {
-    let label = HStack(spacing: 4) {
-      Text("Open dashboard")
-      Image(systemName: "arrow.up.right").font(.system(size: 8, weight: .semibold))
-    }.foregroundStyle(HR.ink)
+    // The macOS "opens elsewhere" glyph, quieter than the label it follows.
+    let label = HStack(spacing: 5) {
+      Text("Open dashboard").foregroundStyle(HR.ink)
+      Image(systemName: "arrow.up.right.square").font(.system(size: 11, weight: .regular))
+        .foregroundStyle(HR.secondary)
+    }
     if model.popoverSources.count == 1, let source = model.popoverSources.first?.source {
       Button {
         model.openDashboard(source)
