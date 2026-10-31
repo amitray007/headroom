@@ -38,6 +38,31 @@ brew services start headroom   # start now and at every login
 
 This repository is the tap: the formula is `Formula/headroom.rb`. Homebrew finds a tap by itself only when its repository is named `homebrew-*`, so the first command gives the address once. Installing by the full name also trusts that one formula, as [Tap Trust](https://docs.brew.sh/Tap-Trust) requires. `brew services` runs `headroom start` and writes its log to `$(brew --prefix)/var/log/headroom.log`. Update with `brew upgrade headroom`.
 
+## Headroom for Mac
+
+The menu bar app needs macOS 15 Sequoia or later. It reads a Headroom server; it does not install or run the server. After the first Mac release is published:
+
+```sh
+brew tap amitray007/headroom https://github.com/amitray007/headroom
+brew install --cask amitray007/headroom/headroom-mac
+open /Applications/Headroom.app
+```
+
+Homebrew 6 and later require explicit trust for non-official taps. Installing the fully qualified cask name above trusts that cask only. If Homebrew asks about trust, check the tap address before accepting. See [Tap Trust](https://docs.brew.sh/Tap-Trust).
+
+In the dashboard, create a read-only token in Settings > Devices. Add the server URL and token in the Mac app's Settings. The app keeps all source tokens in one Keychain item. After each update, macOS asks for your **login password once** to let the changed app read that item.
+
+The app has an ad-hoc signature, with no Apple Developer ID or notarization, as chosen in [ADR 0004](../decisions/0004-mac-app.md#build-and-release). The cask's `postflight` runs `/usr/bin/xattr -dr com.apple.quarantine` on `/Applications/Headroom.app`. This removes the downloaded-file quarantine attribute from the app and its contents so Gatekeeper does not block it. It does not add an Apple signature or notarization. Install only from a source you trust. Homebrew checks the ZIP against the cask's SHA-256 checksum before installation.
+
+Quit the app before updating:
+
+```sh
+brew upgrade --cask amitray007/headroom/headroom-mac
+open /Applications/Headroom.app
+```
+
+There is no in-app updater. To uninstall, quit and run `brew uninstall --cask headroom-mac`. Add `--zap` to remove the client source list, feed caches, notices, display settings, preferences and widget container. The app keeps its files in `~/Library/Application Support/club.theblank.headroom.mac`, apart from the local server's `~/Library/Application Support/Headroom`, so a zap never touches server data or keys. It leaves the Keychain item; remove that item in Keychain Access if you want to erase stored tokens too. Before the first owner release, the bootstrap cask is disabled.
+
 ## Package runners
 
 These run the same binary without a manual download. The npm and PyPI packages are named `headroomhq`.
@@ -98,6 +123,7 @@ Run it from the installed binary, not from `bun`. On a headless Linux server als
 | --- | --- |
 | Installer | `headroom update`, or run the installer again |
 | Homebrew | `brew upgrade headroom` |
+| Mac app cask | `brew upgrade --cask amitray007/headroom/headroom-mac` |
 | npm | `npm i -g headroomhq@latest` |
 | uv or pipx | `uv tool upgrade headroomhq` or `pipx upgrade headroomhq` |
 | mise | `mise upgrade github:amitray007/headroom` |
@@ -116,3 +142,5 @@ A running server keeps the old version until it restarts. Restart a login servic
 ## Maintainers
 
 `release-please.yml` publishes a release and its archives. [homebrew.yml](../../.github/workflows/homebrew.yml) then renders `Formula/headroom.rb` with `scripts/render-formula.ts <version> <SHA256SUMS>` and commits it to `main` as `chore(brew): headroom <version>`, with the workflow's own token. The installer is `site/install.sh`; the site build publishes it at `/install`.
+
+The Mac package calls [macos.yml](../../.github/workflows/macos.yml) with its own version. It publishes `Headroom-<version>.zip` and `SHA256SUMS` on `macos-v<version>`, keeps server releases latest, renders the cask, smoke-tests its install and commits it to `main`. See [Mac releases and rollback](releases.md#headroom-for-mac).

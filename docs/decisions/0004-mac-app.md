@@ -65,6 +65,7 @@ A source is a Headroom server the app reads. The app authenticates with a read-o
 - Distribution: a Homebrew cask, `Casks/headroom-mac.rb`, in this repository, which is already its own tap. Its `postflight` runs `xattr -dr com.apple.quarantine` on the app. No Sparkle and no in-app updater: `brew upgrade` updates the app.
 - Versions: release-please gets a second package, `apps/macos`, with the component `macos`, its own changelog and `version.txt`, and tags `macos-vX.Y.Z`. The root package excludes `apps/macos`, so a Mac-only commit never bumps the server, and a web or server commit never bumps the Mac app. Each package gets its own release pull request.
 - CI: a `macOS` workflow builds and tests the app on GitHub's `macos-26` arm64 runner with a pinned Xcode, on pull requests and pushes that touch `apps/macos/` or the contract. A Mac release builds a universal app, zips it, writes `SHA256SUMS`, attaches both to the `macos-v*` release, renders the cask, installs it on the runner and starts the app as a smoke test.
+- Release staging: release-please creates a draft with `force-tag-creation`, so the workflow can check out the tag while assets remain private. The workflow publishes only after both assets download and verify, then commits the cask after its install smoke test. Xcode is pinned to 26.2 (17C52, Swift 6.2.3). Recovery preserves published assets and tags; see [Releases](../operations/releases.md#headroom-for-mac).
 
 ## Consequences
 
