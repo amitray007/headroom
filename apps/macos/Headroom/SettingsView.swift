@@ -37,8 +37,8 @@ struct SettingsView: View {
           case .general: general
           }
         }
-        // The pane title sits in the traffic lights' row.
-        .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 9).padding(.bottom, 24)
+        // The pane title sits in the traffic lights' row, 24 pt from the top.
+        .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 7).padding(.bottom, 24)
       }
       .scrollIndicators(.never).hidingTopScrollEdge().id(model.selectedPane)
       .transition(Motion.reveal(reduceMotion))
@@ -287,9 +287,12 @@ struct SettingsView: View {
     HStack(spacing: 10) {
       Image(systemName: "line.3.horizontal").font(.system(size: 12, weight: .medium))
         .foregroundStyle(HR.textMuted).frame(width: 16).accessibilityHidden(true)
-      SettingsRow(title: item.name, note: accountNote(item)) {
+      HStack(spacing: 40) {
+        AccountListLabel(item: item, privacy: model.preferences.privacy)
+          .frame(maxWidth: .infinity, alignment: .leading)
         Toggle("Show \(item.name)", isOn: shown(item)).toggleStyle(WebSwitchStyle())
       }
+      .padding(.vertical, 10)
     }
     .padding(.horizontal, 8).contentShape(Rectangle())
     .background(
@@ -313,12 +316,6 @@ struct SettingsView: View {
     }
     .accessibilityAction(named: "Move up") { model.moveAccount(item, by: -1) }
     .accessibilityAction(named: "Move down") { model.moveAccount(item, by: 1) }
-  }
-
-  private func accountNote(_ item: AccountItem) -> String {
-    let provider = Presentation.providerName(item.account.provider.rawValue)
-    return Presentation.needsSource(item, among: model.allAccounts)
-      ? "\(provider) · \(item.snapshot.source.name)" : provider
   }
 
   private func shown(_ item: AccountItem) -> Binding<Bool> {
@@ -601,6 +598,46 @@ private struct SidebarItem: View {
   }
 }
 
+/// A List row's account: the provider's mark, then "Codex Work" with the provider quiet, over
+/// the plan, email and source, so two accounts of one provider read apart. Privacy Mode blurs
+/// the email until the pointer is over it, as in the popover.
+private struct AccountListLabel: View {
+  let item: AccountItem
+  let privacy: Bool
+  @State private var hovered = false
+
+  var body: some View {
+    let account = item.account
+    let plan = account.plan.map { "\($0) · " } ?? ""
+    HStack(spacing: 10) {
+      ProviderMark(provider: account.provider.rawValue).frame(width: 16, height: 16)
+      VStack(alignment: .leading, spacing: 2) {
+        (Text(item.providerName + " ").foregroundStyle(HR.secondary)
+          + Text(account.name).foregroundStyle(HR.ink))
+          .font(HR.popoverFont(14, .medium))
+        // Plan · email · source; the email gives way first.
+        HStack(spacing: 0) {
+          Text(plan)
+          if let identity = account.identity {
+            if privacy && !hovered {
+              Text(identity).padding(4).blur(radius: 4).drawingGroup().padding(-4)
+                .layoutPriority(-1).accessibilityHidden(true)
+            } else {
+              Text(identity).layoutPriority(-1)
+            }
+            Text(" · ")
+          }
+          Text(item.snapshot.source.name)
+        }
+        .font(HR.popoverFont(12)).foregroundStyle(HR.textMuted)
+      }
+      .lineLimit(1).truncationMode(.middle)
+    }
+    .onHover { hovered = $0 }
+    .accessibilityElement(children: .combine)
+  }
+}
+
 struct SourceDraft: Identifiable {
   let id = UUID()
   var sourceID: UUID?
@@ -707,8 +744,8 @@ struct SourceEditor: View {
 }
 
 extension View {
-  /// The pane scrolls under the transparent toolbar. macOS 26 blurs content under a toolbar and
-  /// rules it off, which turned the pane title into a frosted band; the pane needs neither.
+  /// The pane scrolls under the transparent title bar. macOS 26 blurs content under window
+  /// chrome and rules it off, which turned the pane title into a frosted band.
   @ViewBuilder fileprivate func hidingTopScrollEdge() -> some View {
     if #available(macOS 26, *) {
       scrollEdgeEffectHidden(true, for: .top)
@@ -718,36 +755,122 @@ extension View {
   }
 }
 
-/// Gives the Settings window an empty unified toolbar. Without one, macOS uses the compact title
-/// bar and the close, minimize and zoom buttons sit tight in the window's rounded corner; with
-/// one they get the standard inset of a toolbar window. The content runs under the transparent
-/// toolbar, so it costs no height.
+/// Runs the Settings content under a transparent title bar and sets the close, minimize and zoom
+/// buttons in from the corner. Without help macOS puts them tight in the rounded corner; an empty
+/// toolbar moved them, but on macOS 26 it also frosted the pane under it on hover.
 private struct SettingsWindowChrome: NSViewRepresentable {
   func makeNSView(context: Context) -> NSView { ChromeView() }
   func updateNSView(_ view: NSView, context: Context) {}
 
   private final class ChromeView: NSView {
+    /// The title bar height and the leading edge of the close button.
+    static let barHeight: CGFloat = 48
+    static let leading: CGFloat = 18
+    private var observers: [NSObjectProtocol] = []
+    private var placing = false
+
     override func viewDidMoveToWindow() {
       super.viewDidMoveToWindow()
-      guard let window, window.toolbar == nil else { return }
-      window.toolbar = NSToolbar(identifier: "settings")
-      window.toolbarStyle = .unified
+      observers.forEach(NotificationCenter.default.removeObserver)
+      observers = []
+      guard let window else { return }
       window.titleVisibility = .hidden
       window.titlebarAppearsTransparent = true
       window.titlebarSeparatorStyle = .none
-      // Content fills the window, so the toolbar adds no empty band above the panes.
       window.styleMask.insert(.fullSizeContentView)
+      // AppKit lays the title bar out again on resize, key changes and full screen; each time
+      // it moves the buttons back, so place them again whenever their frames change.
+      var watched: [NSView] = [WindowButtons.container(of: window)].compactMap { $0 }
+      watched += WindowButtons.all(of: window)
+      for view in watched {
+        view.postsFrameChangedNotifications = true
+        observers.append(
+          NotificationCenter.default.addObserver(
+            forName: NSView.frameDidChangeNotification, object: view, queue: .main
+          ) { [weak self] _ in MainActor.assumeIsolated { self?.place() } })
+      }
+      for name in [NSWindow.didResizeNotification, NSWindow.didBecomeKeyNotification] {
+        observers.append(
+          NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) {
+            [weak self] _ in MainActor.assumeIsolated { self?.place() }
+          })
+      }
+      place()
+      Task { @MainActor [weak self] in self?.place() }
+    }
+
+    private func place() {
+      guard !placing, let window, let container = WindowButtons.container(of: window) else {
+        return
+      }
+      placing = true
+      defer { placing = false }
+      var frame = container.frame
+      frame.size.height = Self.barHeight
+      frame.origin.y = window.frame.height - Self.barHeight
+      if container.frame != frame { container.frame = frame }
+      let buttons = WindowButtons.all(of: window)
+      // Keep macOS's own spacing between the three buttons.
+      let step = buttons.count > 1 ? buttons[1].frame.minX - buttons[0].frame.minX : 20
+      for (index, button) in buttons.enumerated() {
+        let origin = NSPoint(
+          x: Self.leading + CGFloat(index) * step,
+          y: ((Self.barHeight - button.frame.height) / 2).rounded())
+        if button.frame.origin != origin { button.setFrameOrigin(origin) }
+      }
+    }
+  }
+
+  @MainActor private enum WindowButtons {
+    static func all(of window: NSWindow) -> [NSButton] {
+      [.closeButton, .miniaturizeButton, .zoomButton].compactMap {
+        window.standardWindowButton($0)
+      }
+    }
+    /// The title bar container: the close button sits in the title bar view inside it.
+    static func container(of window: NSWindow) -> NSView? {
+      window.standardWindowButton(.closeButton)?.superview?.superview
     }
   }
 }
 
-/// The menu bar item as it will look, beside stand-ins for the system items, at 1.5x.
+/// The menu bar item as it will look, beside stand-ins for the system items: 1.5x when it fits,
+/// smaller when three wide accounts and the clock would run past the pane.
 private struct MenuBarPreview: View {
   let status: MenuStatus
   @State private var size = CGSize.zero
+  @State private var room: CGFloat = 0
   private static let bar = HR.color(light: 0xE4E5E9, dark: 0x1D2030)
 
+  private var scale: CGFloat {
+    guard size.width > 0, room > 0 else { return 1.5 }
+    return min(1.5, room / size.width)
+  }
+
   var body: some View {
+    // The clear row takes the pane's width and the scaled height; the strip draws over it, so
+    // its natural width never widens the pane.
+    Color.clear.frame(height: max(24, size.height) * scale)
+      .onGeometryChange(for: CGFloat.self) {
+        $0.size.width
+      } action: {
+        room = $0
+      }
+      .overlay(alignment: .leading) {
+        strip.fixedSize()
+          .onGeometryChange(for: CGSize.self) {
+            $0.size
+          } action: {
+            size = $0
+          }
+          .scaleEffect(scale, anchor: .leading)
+      }
+      .padding(14).background(HR.muted, in: RoundedRectangle(cornerRadius: 12))
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel("Preview: \(status.summary)")
+  }
+
+  private var strip: some View {
     HStack(spacing: 14) {
       MenuItemLabel(status: status)
       Group {
@@ -759,17 +882,5 @@ private struct MenuBarPreview: View {
     .font(.system(size: 13, weight: .medium)).foregroundStyle(.primary)
     .padding(.horizontal, 10).frame(height: 24)
     .background(Self.bar, in: RoundedRectangle(cornerRadius: 5))
-    .fixedSize()
-    .onGeometryChange(for: CGSize.self) {
-      $0.size
-    } action: {
-      size = $0
-    }
-    .scaleEffect(1.5, anchor: .topLeading)
-    .frame(width: size.width * 1.5, height: size.height * 1.5, alignment: .topLeading)
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(14).background(HR.muted, in: RoundedRectangle(cornerRadius: 12))
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel("Preview: \(status.summary)")
   }
 }
