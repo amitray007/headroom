@@ -34,6 +34,19 @@ public struct ShareOptions: Codable, Equatable, Sendable {
     }
   }
   public enum Theme: String, Codable, CaseIterable, Sendable { case light, dark }
+  /// Which limit each account shows. Tightest shows every limit in Ledger and the one with
+  /// least room elsewhere; Session and Weekly show only that window, or every limit when an
+  /// account has none of it.
+  public enum Window: String, Codable, CaseIterable, Sendable {
+    case tightest, session, weekly
+    public var label: String {
+      switch self {
+      case .tightest: "Tightest"
+      case .session: "Session"
+      case .weekly: "Weekly"
+      }
+    }
+  }
   public enum Backdrop: String, Codable, CaseIterable, Sendable {
     case none, mist, ink
     public var label: String {
@@ -51,6 +64,7 @@ public struct ShareOptions: Codable, Equatable, Sendable {
   public var style: Style = .ledger
   public var size: Size = .fit
   public var theme: Theme = .light
+  public var window: Window = .tightest
   public var backdrop: Backdrop = .mist
   /// "Account 1" in place of each account's own name.
   public var hideNames = false
@@ -68,6 +82,7 @@ public struct ShareOptions: Codable, Equatable, Sendable {
     style = (try? values.decodeIfPresent(Style.self, forKey: .style)) ?? defaults.style
     size = (try? values.decodeIfPresent(Size.self, forKey: .size)) ?? defaults.size
     theme = (try? values.decodeIfPresent(Theme.self, forKey: .theme)) ?? defaults.theme
+    window = (try? values.decodeIfPresent(Window.self, forKey: .window)) ?? defaults.window
     backdrop =
       (try? values.decodeIfPresent(Backdrop.self, forKey: .backdrop)) ?? defaults.backdrop
     hideNames = (try? values.decodeIfPresent(Bool.self, forKey: .hideNames)) ?? defaults.hideNames
@@ -153,7 +168,9 @@ public struct ShareSnapshot: Equatable, Sendable {
       let email = options.hideEmails ? nil : account.identity
       let detail = [account.plan, email].compactMap { $0 }.filter { !$0.isEmpty }
         .joined(separator: " · ")
-      let meters = row.meters.map { options.hideMoney ? Self.withoutMoney($0) : $0 }
+      let meters = Self.pick(row.meters, window: options.window).map {
+        options.hideMoney ? Self.withoutMoney($0) : $0
+      }
       let extra = row.extra.flatMap { options.hideMoney && $0.isMoney ? nil : $0 }
       return Entry(
         id: row.id, provider: provider, providerName: Presentation.providerName(provider),
@@ -192,13 +209,25 @@ public struct ShareSnapshot: Equatable, Sendable {
     return parts.joined(separator: " · ")
   }
 
+  /// The meters in the chosen window. "Weekly" means the longer window, which is monthly for
+  /// some providers. An account with no meter in that window keeps all of them.
+  static func pick(_ meters: [LedgerRow.Meter], window: ShareOptions.Window) -> [LedgerRow.Meter] {
+    let picked =
+      switch window {
+      case .tightest: meters
+      case .session: meters.filter(\.session)
+      case .weekly: meters.filter { !$0.session }
+      }
+    return picked.isEmpty ? meters : picked
+  }
+
   /// A balance meter shows the share of what was bought, not the amount.
   static func withoutMoney(_ meter: LedgerRow.Meter) -> LedgerRow.Meter {
     guard meter.isMoney else { return meter }
     return LedgerRow.Meter(
       fill: meter.fill, value: meter.fill.map { Formatting.barePercent($0) } ?? "Hidden",
       label: meter.label, tone: meter.tone, note: meter.fill == nil ? "" : "of what was bought",
-      alarm: meter.alarm, runsOut: meter.runsOut)
+      alarm: meter.alarm, runsOut: meter.runsOut, session: meter.session)
   }
 
   /// Out first, then low, then the least room. In the used view the fill is the share used.

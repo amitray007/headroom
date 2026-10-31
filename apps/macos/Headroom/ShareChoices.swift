@@ -2,7 +2,7 @@ import AppKit
 import HeadroomKit
 import SwiftUI
 
-/// The Share window's sidebar: accounts, style, size, theme, backdrop and privacy.
+/// The Share window's sidebar: accounts, style, limit, size, theme, backdrop and privacy.
 struct ShareChoices: View {
   let rows: [LedgerRow]
   let session: ShareSession
@@ -14,6 +14,11 @@ struct ShareChoices: View {
     VStack(alignment: .leading, spacing: 18) {
       group("ACCOUNTS") { ShareTree(rows: rows, session: session) }
       group("STYLE") { styles }
+      group("LIMIT") {
+        ShareSegments(
+          name: "Limit", values: ShareOptions.Window.allCases, label: \.label,
+          selection: binding(\.window))
+      }
       HStack(alignment: .top, spacing: 12) {
         group("SIZE") {
           ShareSegments(

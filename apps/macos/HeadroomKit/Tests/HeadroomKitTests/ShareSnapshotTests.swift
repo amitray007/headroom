@@ -181,3 +181,22 @@ private func snapshot(
   #expect(ShareOptions.Size.square.canvas == CGSize(width: 720, height: 720))
   #expect(ShareOptions.Size.wide.canvas == CGSize(width: 960, height: 540))
 }
+
+@Test func limitChoiceShowsOnlyThatWindow() throws {
+  let (rows, now) = try rows()
+  let picked = ids(rows, "claude-side", "cursor")
+  let session = snapshot(rows, picked, now: now) { $0.window = .session }
+  let side = try #require(session.entries.first { $0.id.hasSuffix("/claude-side") })
+  #expect(side.meters.map(\.label) == ["Session"])
+  #expect(side.tightest?.label == "Session")
+  #expect(side.tone == .room)
+  // Cursor has no session window, so it keeps its monthly limit.
+  let cursor = try #require(session.entries.first { $0.id.hasSuffix("/cursor") })
+  #expect(cursor.meters.map(\.label) == ["Included, billing cycle"])
+  let weekly = snapshot(rows, picked, now: now) { $0.window = .weekly }
+  let sideWeekly = try #require(weekly.entries.first { $0.id.hasSuffix("/claude-side") })
+  #expect(sideWeekly.meters.map(\.label) == ["Weekly"])
+  #expect(sideWeekly.tone == .tight)
+  #expect(weekly.low == 1)
+  #expect(session.low == 0)
+}

@@ -16,6 +16,8 @@ public struct LedgerRow: Identifiable, Sendable {
     public let note: String
     public let alarm: Bool
     public let runsOut: Bool
+    /// A session window, as opposed to a weekly or longer one.
+    public var session = false
   }
 
   public struct Extra: Equatable, Sendable {
@@ -74,23 +76,24 @@ public struct LedgerRow: Identifiable, Sendable {
     let value = Formatting.barePercent(shown)
     let reset = Formatting.date(milliseconds: limit.resetsAt)
     let label = windowLabel(limit)
+    let session = limit.windowKind == .session
     if left == 0 {
       return Meter(
         fill: shown, value: value, label: label, tone: .out,
         note: "back \(Formatting.when(reset, now: now, timeZone: timeZone))", alarm: true,
-        runsOut: false)
+        runsOut: false, session: session)
     }
     if let runOut = RoomNow.projection(limit, now: now) {
       return Meter(
         fill: shown, value: value, label: label, tone: .tight,
         note: "out \(Formatting.when(runOut, now: now, timeZone: timeZone))", alarm: true,
-        runsOut: true)
+        runsOut: true, session: session)
     }
     return Meter(
       fill: shown, value: value, label: label,
       tone: left <= 20 ? .tight : .room,
       note: reset.map { Formatting.countdown(to: $0, now: now) } ?? "", alarm: false,
-      runsOut: false)
+      runsOut: false, session: session)
   }
 
   /// "Session" and "Weekly" say their window; other labels add it ("Included, billing cycle").

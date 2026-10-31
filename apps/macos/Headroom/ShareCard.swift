@@ -172,9 +172,9 @@ private struct ShareHeader: View {
         ProviderMark(provider: entry.provider).frame(width: 20, height: 20)
         (Text(entry.providerName + " ").font(HR.popoverFont(17)).foregroundStyle(HR.secondary)
           + Text(entry.name))
-      case .some(let count, let providers):
+      case .some(_, let providers):
+        // The tally on the right already counts the accounts.
         marks(providers)
-        Text("\(count) accounts")
       }
     }
   }
