@@ -39,7 +39,7 @@ struct NoticesView: View {
         skeletons
       } else if model.noticePhase == .failed {
         PopoverState(
-          art: "source-offline", title: "Notices could not load",
+          art: "source-offline", title: "Notifications could not load",
           message: "Account readings are still available."
         ) {
           Button("Try again") {
@@ -83,7 +83,7 @@ struct NoticesView: View {
           .contentShape(Rectangle())
       }.buttonStyle(.plain).help("Back to accounts").accessibilityLabel("Back to accounts")
       VStack(alignment: .leading, spacing: 1) {
-        Text("Notices").font(HR.popoverFont(16, .medium)).accessibilityAddTraits(.isHeader)
+        Text("Notifications").font(HR.popoverFont(16, .medium)).accessibilityAddTraits(.isHeader)
         Text(status).font(HR.popoverFont(12)).foregroundStyle(HR.secondary)
           .contentTransition(.numericText()).animation(Motion.data, value: unread)
       }
@@ -101,7 +101,7 @@ struct NoticesView: View {
 
   private var status: String {
     switch model.noticePhase {
-    case .loading: "Reading notices"
+    case .loading: "Reading notifications"
     case .failed: "Not available right now"
     case .ready:
       unread == 0
@@ -189,7 +189,7 @@ struct NoticesView: View {
     return PopoverState(
       art: caughtUp ? "all-clear" : "no-notices", title: caughtUp ? "All caught up" : "Nothing new",
       message: caughtUp
-        ? "Every notice is read." : "Limits, resets and sign-in problems show up here."
+        ? "Every notification is read." : "Limits, resets and sign-in problems show up here."
     ) { EmptyView() }
     .frame(maxHeight: fill ? .infinity : nil)
   }
@@ -221,7 +221,7 @@ struct NoticesView: View {
       }
     }.padding(.horizontal, 8).padding(.vertical, 8)
       .overlay(alignment: .top) { Rectangle().fill(HR.borderSubtle).frame(height: 1) }
-      .accessibilityElement(children: .ignore).accessibilityLabel("Reading notices")
+      .accessibilityElement(children: .ignore).accessibilityLabel("Reading notifications")
   }
 }
 

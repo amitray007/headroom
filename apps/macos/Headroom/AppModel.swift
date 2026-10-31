@@ -303,7 +303,7 @@ final class AppModel {
       try await noticeStore?.setRead(true, id: item.notice.id, sourceID: item.source.id)
       if let index = notices.firstIndex(where: { $0.id == id }) { notices[index].read = true }
       bannerNoticeID = id
-    } catch { self.error = "Could not save notice read state." }
+    } catch { self.error = "Could not save notification read state." }
   }
 
   func setRead(_ value: Bool, item: NoticeItem) async {
@@ -314,7 +314,7 @@ final class AppModel {
     do {
       try await noticeStore?.setRead(value, id: item.notice.id, sourceID: item.source.id)
       await loadNotices()
-    } catch { self.error = "Could not save notice read state." }
+    } catch { self.error = "Could not save notification read state." }
   }
   func markAllRead() async {
     if preferences.demo {
@@ -324,7 +324,7 @@ final class AppModel {
     do {
       try await noticeStore?.markAllRead()
       await loadNotices()
-    } catch { self.error = "Could not mark notices as read." }
+    } catch { self.error = "Could not mark notifications as read." }
   }
   func setKind(_ kind: NoticeKind, enabled: Bool) async {
     do {

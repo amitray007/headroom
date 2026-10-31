@@ -137,6 +137,6 @@ struct MenuItemLabel: View {
     .foregroundStyle(tone)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(
-      "Headroom, \(followed?.name ?? "all sources"), \(shown ?? "no readings yet"), \(model.unread) unread notices")
+      "Headroom, \(followed?.name ?? "all sources"), \(shown ?? "no readings yet"), \(model.unread) unread notifications")
   }
 }

@@ -58,7 +58,7 @@ struct SettingsView: View {
       Button("Cancel", role: .cancel) { remove = nil }
     } message: {
       Text(
-        "Its saved token, readings and notice history will be removed from this Mac. The server and its accounts stay linked."
+        "Its saved token, readings and notification history will be removed from this Mac. The server and its accounts stay linked."
       )
     }
     .alert(
@@ -194,8 +194,8 @@ struct SettingsView: View {
   @ViewBuilder private var notifications: some View {
     if model.sources.isEmpty {
       SettingsEmpty(
-        symbol: "bell", title: "No notices yet",
-        message: "Notices come from your sources. Add one, then choose which show as banners."
+        symbol: "bell", title: "No notifications yet",
+        message: "Notifications come from your sources. Add one, then choose which show as banners."
       ) {
         Button("Add a source", action: addSource).buttonStyle(WebButtonStyle(kind: .primary))
       }
@@ -373,7 +373,7 @@ struct SettingsView: View {
         SettingsRow(
           title: "Demo Mode",
           note:
-            "Show made-up accounts, figures and notices, for screenshots and screen sharing. Your sources keep reading in the background."
+            "Show made-up accounts, figures and notifications, for screenshots and screen sharing. Your sources keep reading in the background."
         ) {
           Toggle("Demo Mode", isOn: $model.preferences.demo).toggleStyle(WebSwitchStyle())
         }

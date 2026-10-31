@@ -58,7 +58,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
       // 4 pt each side, as a standard 16 pt menu bar icon sits in its 24 pt item.
       item.length = size.width + 8
       label?.frame = NSRect(x: 4, y: 0, width: size.width, height: 24)
-      item.button?.setAccessibilityLabel("Headroom, \(model.unread) unread notices")
+      item.button?.setAccessibilityLabel("Headroom, \(model.unread) unread notifications")
       if model.popoverPresented {
         if popover.isShown { Task { await model.presentBannerNotice() } } else { show() }
         // The flag is an open request. Closing the popover does not change the unread dot.

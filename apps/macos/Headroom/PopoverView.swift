@@ -117,7 +117,7 @@ private struct PopoverHeader: View {
                 Text("\(popoverUnread)").font(HR.popoverFont(12))
               }
             }
-          }.buttonStyle(PopoverToolStyle()).accessibilityLabel("Notices, \(popoverUnread) unread")
+          }.buttonStyle(PopoverToolStyle()).accessibilityLabel("Notifications, \(popoverUnread) unread")
         }
         Button {
           model.openSettingsWindow(openSettings)
