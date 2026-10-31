@@ -1,6 +1,6 @@
 # HTTP API
 
-**Status: implemented in `apps/server`. The web client in `apps/web` uses sessions; the app API uses read-only tokens.**
+**Status: implemented in `apps/server`. The web client in `apps/web` uses sessions; the app API uses tokens that read, and optionally change Refresh Every.**
 
 Every route lives under `/api`. Instants are epoch milliseconds. All routes except `/api/auth/*`, `/api/setup`, `/healthz` and `/api/app/v1/*` need a Better Auth session. Mutating routes also pass the cross-site guard. Error bodies are `{ "error": "<code>" }`.
 
@@ -26,18 +26,19 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 | `GET /api/exchange-rates`, `POST /api/exchange-rates/refresh` | The daily reference rates the Wallet converts with; the POST fetches them again now, at most once a minute, and touches no account |
 | `GET /api/tokens`, `POST /api/tokens`, `DELETE /api/tokens/:id` | Session-only device token management, see [API tokens](#api-tokens) |
 | `GET /api/app/v1/feed?tz=<minutes>` | Token-only account feed, notices and Wallet summary, see [App feed](#app-feed) |
-| `GET /api/app/v1/whoami` | Token-only API version, server version and token name |
+| `GET /api/app/v1/whoami` | Token-only API version, server version, token name and scopes |
+| `PUT /api/app/v1/settings/refresh` | Token-only, `refresh` scope: set Refresh Every, see [API tokens](#api-tokens) |
 | `/api/delivery/...` | Notification channels (Telegram, webhook), tests and Telegram chat discovery, see [Delivery](#delivery) |
 
 ## API tokens
 
-Settings, Devices lets the owner name, create and revoke a token. `POST /api/tokens` accepts only `{ name }`, trimmed to 1-40 characters. It returns `{ id, name, key }` once. `GET /api/tokens` returns `{ tokens }`; each entry has `id`, `name`, `prefix`, `start`, `createdAt`, `lastUsedAt` and `expiresAt`. The last two times can be null. It never returns the key or its hash. `DELETE /api/tokens/:id` returns `{ success: true }`, or 404 `not_found`. These routes require a session; mutations also pass the cross-site guard. Responses use `Cache-Control: no-store`.
+Settings, Devices lets the owner name, create and revoke a token. `POST /api/tokens` accepts only `{ name, refresh? }`, the name trimmed to 1-40 characters. `refresh: true` adds the `refresh` scope (D44). It returns `{ id, name, key }` once. `GET /api/tokens` returns `{ tokens }`; each entry has `id`, `name`, `prefix`, `start`, `createdAt`, `lastUsedAt`, `expiresAt` and `scopes`. The last two times can be null. It never returns the key or its hash. `DELETE /api/tokens/:id` returns `{ success: true }`, or 404 `not_found`. These routes require a session; mutations also pass the cross-site guard. Responses use `Cache-Control: no-store`.
 
-The Better Auth API key plugin stores a hash, assigns only `{ app: ["read"] }`, and has API key sessions disabled. Its HTTP management endpoints are blocked; only the Headroom routes above manage tokens. Tokens have no expiry by default. The plugin checks expiry, revocation and permission on each app request. Its per-key rate limit is off: its window resets only after a quiet minute, so steady polling would lock a valid token out. The address limit on failed guesses still applies.
+The Better Auth API key plugin stores a hash, assigns `{ app: ["read"] }`, or `{ app: ["read", "refresh"] }` when the owner opted in, and has API key sessions disabled. Its HTTP management endpoints are blocked; only the Headroom routes above manage tokens. Tokens have no expiry by default. The plugin checks expiry, revocation and permission on each app request. Its per-key rate limit is off: its window resets only after a quiet minute, so steady polling would lock a valid token out. The address limit on failed guesses still applies.
 
-`/api/app/v1/*` accepts only `Authorization: Bearer <token>`. A session cookie or `x-api-key` cannot authenticate it. GET and HEAD are allowed; other methods return 405 `method_not_allowed` with `Allow: GET, HEAD`. Missing, invalid, expired, revoked or unscoped keys return 401 `invalid_token`. Ten failed attempts from one client address within a minute block further attempts with 429 `rate_limited` and `Retry-After`. This bounded, in-memory limit resets on server restart and uses the same trusted-proxy policy as sign-in. A token cannot authenticate any session route or change server state.
+`/api/app/v1/*` accepts only `Authorization: Bearer <token>`. A session cookie or `x-api-key` cannot authenticate it. GET and HEAD are allowed, except on `/api/app/v1/settings/refresh`, which allows only PUT; other methods return 405 `method_not_allowed` with the matching `Allow`. Missing, invalid, expired, revoked or unscoped keys return 401 `invalid_token`. Ten failed attempts from one client address within a minute block further attempts with 429 `rate_limited` and `Retry-After`. This bounded, in-memory limit resets on server restart and uses the same trusted-proxy policy as sign-in. A token cannot authenticate any session route. The one state it can change is Refresh Every, and only with the `refresh` scope: `PUT /api/app/v1/settings/refresh` takes `{ refreshIntervalMinutes }`, one of the Refresh Every options, saves it and returns it. Any other key or value is 400 `invalid_body`. A valid token without the scope gets 403 `missing_permission`, which does not count as a failed attempt.
 
-`GET /api/app/v1/whoami` returns `{ apiVersion: 1, serverVersion, tokenName }`. Both app responses are validated against the Zod schemas in `packages/view-model/src/app-feed.ts`. Demo Mode hides the real token list and refuses token changes; the static demo returns an empty list and the usual demo refusal.
+`GET /api/app/v1/whoami` returns `{ apiVersion: 1, serverVersion, tokenName, scopes }`, so a client knows whether it may change Refresh Every. Both app responses are validated against the Zod schemas in `packages/view-model/src/app-feed.ts`. Demo Mode hides the real token list and refuses token changes; the static demo returns an empty list and the usual demo refusal.
 
 ## App feed
 
@@ -116,7 +117,7 @@ The response carries no provider account id or workspace id. The detail route is
 | --- | --- | --- |
 | `limitsView` | `used`, `left` | `used` |
 | `lowThresholdPercent` | 30, 20, 15 (percent left below which a limit reads "running low") | 30 |
-| `refreshIntervalMinutes` | 5, 10, 15, 30 | the option nearest to `HEADROOM_REFRESH_INTERVAL_SECONDS` |
+| `refreshIntervalMinutes` | 2, 5, 10, 15, 30 | the option nearest to `HEADROOM_REFRESH_INTERVAL_SECONDS` |
 | `timeStyle` | `countdown`, `exact` | `countdown` |
 | `clock` | `24h`, `12h` | `24h` |
 | `density` | `comfortable`, `compact` | `comfortable` |
