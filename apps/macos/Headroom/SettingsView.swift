@@ -30,7 +30,7 @@ struct SettingsView: View {
             model.selectedPane == pane ? .isSelected : [])
         }
         Spacer()
-      }.padding(.horizontal, 10).padding(.top, 8).frame(width: 165).background(
+      }.padding(.horizontal, 10).padding(.top, 14).frame(width: 165).background(
         HR.muted.opacity(0.6))
       ScrollView {
         VStack(alignment: .leading, spacing: 16) {
@@ -88,7 +88,7 @@ struct SettingsView: View {
             }
           } label: {
             VStack(alignment: .leading, spacing: 10) {
-              MenuItemLabel(model: model, style: style).frame(height: 23)
+              MenuItemLabel(model: model, style: style, sample: true).frame(height: 23)
               Text(style.label).font(HR.font(12))
             }.frame(maxWidth: .infinity, alignment: .leading).padding(10)
               .background(HR.muted, in: RoundedRectangle(cornerRadius: 7))
@@ -104,7 +104,7 @@ struct SettingsView: View {
           Text("Follow")
           Spacer()
           Picker("Follow", selection: $model.preferences.followedAccount) {
-            Text("Worst state across all sources").tag(String?.none)
+            Text("Tightest account with room").tag(String?.none)
             ForEach(model.allAccounts) { item in
               Text("\(item.name) · \(item.snapshot.source.name)").tag(Optional(item.id))
             }
@@ -112,7 +112,7 @@ struct SettingsView: View {
         }.padding(.vertical, 10)
       }
       hint(
-        "Follow one account, or show the worst state across all sources. Preferences stay on this Mac."
+        "Follow one account, or the tightest account that still has room. A dot marks unread notices, or an account that is out or signed out."
       )
     }
   }
@@ -164,6 +164,12 @@ struct SettingsView: View {
     }
   }
 
+  /// "almost_out" reads "Almost out": sentence case, as everywhere else in Settings.
+  private func kindLabel(_ kind: NoticeKind) -> String {
+    let words = kind.rawValue.replacingOccurrences(of: "_", with: " ")
+    return words.prefix(1).uppercased() + words.dropFirst()
+  }
+
   private var notifications: some View {
     VStack(alignment: .leading, spacing: 16) {
       hint("Delivery switches apply to this Mac. Collection and owner rules stay on each server.")
@@ -172,10 +178,10 @@ struct SettingsView: View {
         settingsGroup {
           ForEach(Array(group.1.enumerated()), id: \.element) { index, kind in
             HStack {
-              Text(kind.rawValue.replacingOccurrences(of: "_", with: " "))
+              Text(kindLabel(kind))
               Spacer()
               Toggle(
-                kind.rawValue.replacingOccurrences(of: "_", with: " "),
+                kindLabel(kind),
                 isOn: Binding(
                   get: { model.enabledKinds[kind.rawValue] != false },
                   set: { value in Task { await model.setKind(kind, enabled: value) } })

@@ -1,198 +1,211 @@
+import HeadroomAPI
 import HeadroomKit
 import SwiftUI
 
 struct ProviderSection: View {
   let provider: String
-  let items: [AccountItem]
+  let columns: [RoomColumn]
   let model: AppModel
-
   var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      HStack(spacing: 12) {
-        HStack(spacing: 8) {
-          ProviderMark(provider: provider).frame(width: 16, height: 16)
-          Text(Presentation.providerName(provider)).hrHeading().fixedSize()
-        }
-        Spacer(minLength: 0)
-        Text("Left").font(HR.font(11)).foregroundStyle(HR.secondary).frame(
-          width: 44, alignment: .trailing)
-        Text("Resets").font(HR.font(11)).foregroundStyle(HR.secondary).frame(
-          width: 74, alignment: .trailing)
-      }
-      // Each account uses exactly the provider header's four column widths and 12 pt gaps.
-      ForEach(items) { item in AccountBlock(item: item, allItems: model.accounts, model: model) }
-    }
-    .accessibilityElement(children: .contain)
-    .accessibilityLabel("\(Presentation.providerName(provider)) accounts")
+    VStack(alignment: .leading, spacing: 0) {
+      HStack(spacing: 7) {
+        ProviderMark(provider: provider).frame(width: 14, height: 14)
+        Text(Presentation.providerName(provider)).font(HR.popoverFont(12, .medium))
+      }.frame(height: 24).accessibilityAddTraits(.isHeader)
+      ForEach(columns) { column in AccountBlock(column: column, model: model) }
+    }.padding(.vertical, 8)
   }
 }
 
 struct AccountBlock: View {
-  let item: AccountItem
-  let allItems: [AccountItem]
+  let column: RoomColumn
   let model: AppModel
+  @State private var expanded = false
+  @FocusState private var summaryFocused: Bool
+  private var item: AccountItem { column.item }
   private var account: FeedAccount { item.account }
-  private var stale: Bool {
-    guard let last = Formatting.date(milliseconds: account.lastSuccessAt),
-      let feed = item.snapshot.cached?.feed
-    else { return true }
-    return model.now.timeIntervalSince(last) * 1000 > Double(feed.staleAfterMs)
-  }
-  private var signedOut: Bool {
-    account.state == .reconnect_required || item.snapshot.state == .signedOut
-  }
-  private var quiet: Bool { stale || signedOut || item.snapshot.state != .connected }
-  private var accountStatus: String? {
-    if signedOut { return "Sign in again" }
-    if stale { return "Stale" }
-    if item.binding?.percentLeft == 0 { return "Out" }
-    return nil
-  }
+  private var quiet: Bool { item.snapshot.state != .connected }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      HStack(spacing: 8) {
-        Text(account.name).font(HR.font(13, .semibold)).accessibilityAddTraits(.isHeader)
-        if let plan = account.plan { Text(plan).font(HR.font(11)).foregroundStyle(HR.secondary) }
-        Spacer(minLength: 0)
-        if let status = accountStatus {
-          Text(status).font(HR.font(11, .medium)).foregroundStyle(
-            signedOut || status == "Out" ? HR.danger : HR.secondary)
-        }
-        Menu {
-          Text("\(item.snapshot.source.name) · \(item.snapshot.state.label)")
-          Button("Open in web dashboard") {
-            model.openDashboard(item.snapshot.source, accountID: account.id)
+    VStack(alignment: .leading, spacing: 0) {
+      Button {
+        expanded.toggle()
+      } label: {
+        VStack(alignment: .leading, spacing: 0) {
+          HStack(spacing: 8) {
+            Image(systemName: expanded ? "chevron.down" : "chevron.right")
+              .font(.system(size: 9)).foregroundStyle(HR.secondary).frame(width: 8)
+            VStack(alignment: .leading, spacing: 0) {
+              Text(account.name).font(HR.popoverFont(12)).lineLimit(1)
+              Text(subtitle).font(HR.popoverFont(11)).foregroundStyle(HR.secondary).lineLimit(2)
+            }.frame(width: 84, alignment: .leading)
+            meter(column.limit, signIn: column.state == .signIn)
+              .frame(maxWidth: .infinity)
+            Text(value).font(HR.popoverFont(12)).foregroundStyle(valueTone)
+              .frame(width: 62, alignment: .trailing)
+            Text(reset).font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
+              .frame(width: 84, alignment: .trailing)
+          }.frame(minHeight: 38)
+          if let at = column.runsOutAt, !quiet && column.state != .signIn {
+            Text(Formatting.runOut(at, now: model.now)).font(HR.popoverFont(11))
+              .foregroundStyle(HR.popoverDanger).frame(height: 16, alignment: .leading).padding(
+                .leading, 16
+              ).padding(.bottom, 5)
           }
-          Divider()
-          Text("\(account.interface.rawValue.capitalized) interface")
-          Text(
-            "Reading \(Formatting.age(Formatting.date(milliseconds: account.observedAt), now: model.now))"
-          )
-        } label: {
-          Image(systemName: "ellipsis").frame(width: 24, height: 24).contentShape(Rectangle())
+        }.padding(.vertical, 3).contentShape(Rectangle())
+      }.buttonStyle(.plain).focused($summaryFocused)
+        .accessibilityLabel(column.text(now: model.now))
+        .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+        .accessibilityHint("Show other limits and account details")
+      if expanded { detail }
+    }
+    .foregroundStyle(quiet ? HR.secondary : HR.ink)
+    .onAppear {
+      if model.synthetic && model.captureState == "expanded" && account.id == "claude-max" {
+        expanded = true
+      }
+    }
+    .onKeyPress(.escape) {
+      guard expanded else { return .ignored }
+      expanded = false
+      summaryFocused = true
+      return .handled
+    }
+  }
+
+  private var subtitle: String {
+    let label =
+      column.limit.map { Presentation.limitLabel($0, in: account) }
+      ?? account.limits.first?.label
+      ?? (account.charges.contains { $0.kind == .balance } ? "Balance only" : "Quota unknown")
+    if quiet && column.state != .signIn { return "Kept · \(label)" }
+    if account.provider == .antigravity { return "Gemini weekly" }
+    return label
+  }
+  private var value: String {
+    switch column.state {
+    case .signIn: "Sign-in"
+    case .out: "Out"
+    default: Formatting.barePercent(column.percentLeft)
+    }
+  }
+  private var valueTone: Color {
+    if quiet { return HR.secondary }
+    switch column.state {
+    case .signIn, .out: return HR.popoverDanger
+    case .tight: return HR.popoverWarning
+    case .unknown, .kept: return HR.secondary
+    case .room: return HR.ink
+    }
+  }
+  private var reset: String {
+    if column.state == .signIn { return "Unknown" }
+    guard let limit = column.limit else { return "" }
+    return Formatting.when(Formatting.date(milliseconds: limit.resetsAt), now: model.now)
+  }
+
+  private func meter(_ limit: FeedAccount.limitsPayloadPayload?, signIn: Bool = false) -> some View
+  {
+    GeometryReader { geometry in
+      if quiet || signIn || limit?.percentLeft == nil {
+        Capsule().strokeBorder(
+          HR.secondary.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [1, 2]))
+        if quiet, !signIn, let left = limit?.percentLeft {
+          Capsule().fill(HR.secondary.opacity(0.45))
+            .frame(width: geometry.size.width * min(100, max(0, left)) / 100)
         }
-        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-        .accessibilityLabel("Menu for \(item.name), \(item.snapshot.source.name)")
-      }
-      if Presentation.needsSource(item, among: allItems) {
-        Text(
-          item.snapshot.source.name
-            + (item.snapshot.state == .connected ? "" : " · \(item.snapshot.state.label)")
+      } else if limit?.percentLeft == 0 {
+        Hatch().background(HR.popoverDanger.opacity(0.06))
+      } else {
+        Capsule().fill(HR.track)
+        Capsule().fill(
+          (limit?.percentLeft ?? 100) <= 20
+            || limit.flatMap({ RoomNow.projection($0, now: model.now) }) != nil
+            ? HR.popoverWarning : HR.fill
         )
-        .font(HR.font(11)).foregroundStyle(HR.secondary)
+        .frame(width: geometry.size.width * min(100, max(0, limit?.percentLeft ?? 0)) / 100)
       }
+    }.frame(height: 5).clipShape(Capsule()).accessibilityHidden(true)
+      .opacity(column.limit == nil && account.limits.isEmpty ? 0 : 1)
+  }
+
+  private var detail: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack {
+        Text(planLine)
+        Spacer(minLength: 4)
+        Text(
+          "Read \(Formatting.age(Formatting.date(milliseconds: account.observedAt), now: model.now))"
+        )
+      }.font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
       if quiet {
         Text(
-          "Readings from \(Formatting.age(Formatting.date(milliseconds: account.observedAt), now: model.now))."
-            + (signedOut ? " Sign in again in the web dashboard." : "")
+          "\(item.snapshot.source.name) is \(item.snapshot.state.label.lowercased()). These are kept readings."
         )
-        .font(HR.font(11)).foregroundStyle(HR.secondary).fixedSize(
-          horizontal: false, vertical: true)
+        .font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
       }
-      Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
-        ForEach(account.limits, id: \.key) { limit in
-          limitRow(limit)
-          if let at = Formatting.date(milliseconds: limit.runsOutAt), limit.percentLeft != 0,
-            limit.percentLeft != nil
-          {
-            GridRow {
-              Color.clear.frame(width: 78, height: 0)
-              Text(Formatting.runOut(at, now: model.now)).font(HR.font(11))
-                .foregroundStyle(HR.warning).gridCellColumns(3).frame(
-                  width: 298, alignment: .leading
-                ).fixedSize(horizontal: false, vertical: true)
-            }
-          }
-        }
-        ForEach(account.charges, id: \.key) { charge in
-          GridRow {
-            Text(displayLabel(charge.label)).lineLimit(1).truncationMode(.tail).help(
-              displayLabel(charge.label)
-            ).foregroundStyle(HR.secondary).frame(
-              width: 78, alignment: .leading)
-            if let value = charge.value, let cap = charge.cap, cap.value > 0,
-              cap.unit == charge.unit
-            {
-              GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                  Capsule().fill(HR.track)
-                  Capsule().fill(HR.fill.opacity(0.75))
-                    .frame(width: geometry.size.width * min(1, max(0, value / cap.value)))
-                }
-              }.frame(width: 156, height: 3)
-              Text(Formatting.charge(charge)).gridCellColumns(2).frame(
-                width: 130, alignment: .trailing)
-            } else {
-              Text(Formatting.charge(charge)).gridCellColumns(3).frame(
-                width: 298, alignment: .trailing)
-            }
-          }.accessibilityElement(children: .combine)
-            .accessibilityLabel(
-              "\(charge.label), \(Formatting.charge(charge)), \(charge.interface.rawValue) interface"
-            )
-        }
-        if let banked = account.banked {
-          GridRow {
-            Text("Banked").lineLimit(1).help("Banked").foregroundStyle(HR.secondary).frame(
-              width: 78, alignment: .leading)
-            Text(bankedText).lineLimit(1).truncationMode(.tail).help(bankedText)
-              .gridCellColumns(3).frame(width: 298, alignment: .leading)
-          }.accessibilityElement(children: .combine)
-            .accessibilityLabel("Banked, \(bankedText), \(banked.interface.rawValue) interface")
+      ForEach(
+        account.limits.filter { $0.key != column.limit?.key || column.state == .signIn }, id: \.key
+      ) { limit in
+        HStack(spacing: 8) {
+          Text(Presentation.limitLabel(limit, in: account)).font(HR.popoverFont(11))
+            .frame(width: 84, alignment: .leading)
+          meter(limit).frame(maxWidth: .infinity)
+          Text(limit.unlimited ? "Unlimited" : Formatting.barePercent(limit.percentLeft))
+            .font(HR.popoverFont(11)).frame(width: 62, alignment: .trailing)
+          Text(Formatting.when(Formatting.date(milliseconds: limit.resetsAt), now: model.now))
+            .font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
+            .frame(width: 84, alignment: .trailing)
+        }.accessibilityElement(children: .ignore)
+          .accessibilityLabel(
+            "\(limit.label), \(limit.unlimited ? "Unlimited" : Formatting.percentLeft(limit.percentLeft)), resets \(Formatting.when(Formatting.date(milliseconds: limit.resetsAt), now: model.now)), \(limit.interface.rawValue) interface"
+          )
+      }
+      if account.provider == .antigravity
+        && account.limits.contains(where: { $0.percentLeft == nil })
+      {
+        Text("Other limits unknown").font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
+      }
+      ForEach(account.charges, id: \.key) { charge in
+        HStack {
+          Text(charge.label).foregroundStyle(HR.secondary)
+          Spacer()
+          Text(Formatting.charge(charge))
+        }.font(HR.popoverFont(12)).accessibilityElement(children: .combine)
+          .accessibilityHint("\(charge.interface.rawValue) interface")
+      }
+      if let banked = account.banked {
+        HStack {
+          Text("Banked resets").foregroundStyle(HR.secondary)
+          Spacer()
+          Text(banked.count.map { String(format: "%.0f", $0) } ?? "Unknown")
+        }.font(HR.popoverFont(12))
+        if let date = Formatting.date(milliseconds: banked.expiries.first) {
+          Text("First expires \(Formatting.when(date, now: model.now))")
+            .font(HR.popoverFont(11)).foregroundStyle(HR.secondary).padding(.vertical, 4)
         }
       }
-      .font(HR.font(13)).monospacedDigit()
-      .foregroundStyle(quiet ? HR.secondary : HR.ink)
-    }
-    .padding(.vertical, 4)
-    .accessibilityElement(children: .contain).accessibilityLabel(item.name)
+      if column.state == .signIn {
+        Text(
+          "Last reading: \(Formatting.percentLeft(column.percentLeft)). Sign-in is managed in the dashboard."
+        )
+        .font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
+      }
+      Button("Open dashboard") {
+        model.openDashboard(item.snapshot.source, accountID: account.id)
+      }.buttonStyle(.plain).underline().font(HR.popoverFont(11)).padding(.vertical, 5)
+    }.padding(.leading, 16).padding(.top, 10).padding(.bottom, 4)
   }
 
-  private func limitRow(_ limit: FeedAccount.limitsPayloadPayload) -> some View {
-    let label = Presentation.limitLabel(limit, in: account)
-    let left = limit.percentLeft
-    let out = left == 0 && !limit.unlimited
-    let tight = !out && (limit.runsOutAt != nil || (left.map { $0 <= 20 } ?? false))
-    let value =
-      limit.unlimited
-      ? "Unlimited" : limit.notStarted ? "Not started" : Formatting.barePercent(left)
-    let time =
-      limit.notStarted
-      ? ""
-      : Formatting.date(milliseconds: limit.resetsAt).map { Formatting.when($0, now: model.now) }
-        ?? ""
-    return GridRow {
-      Text(label).lineLimit(1).truncationMode(.tail).help(label).foregroundStyle(HR.secondary)
-        .padding(.leading, limit.part ? 10 : 0).frame(width: 78, alignment: .leading)
-      RoomBar(
-        left: left, unlimited: limit.unlimited, quiet: quiet, projected: limit.runsOutAt != nil
-      )
-      .frame(width: 156)
-      Text(value).font(HR.font(13)).foregroundStyle(
-        quiet
-          ? HR.secondary
-          : out ? HR.danger : tight ? HR.warning : left == nil ? HR.secondary : HR.ink
-      )
-      .fixedSize().frame(width: 44, alignment: .trailing)
-      Text(time).font(HR.font(12)).foregroundStyle(out && !quiet ? HR.danger : HR.secondary)
-        .frame(width: 74, alignment: .trailing)
-    }
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel(
-      "\(label), \(value)\(left == nil || limit.unlimited ? "" : " left"), \(limit.resetWords == .cycle_end ? "cycle ends" : "resets") \(time.isEmpty ? "Unknown" : time), \(limit.interface.rawValue) interface"
-    )
-  }
-
-  private var bankedText: String {
-    guard let banked = account.banked else { return "Unknown" }
-    guard let count = banked.count else { return "Unknown" }
-    if count == 0 { return "None" }
-    let suffix =
-      Formatting.date(milliseconds: banked.expiries.first).map {
-        " · next expires \(Formatting.when($0, now: model.now))"
-      } ?? ""
-    return Formatting.inventory(count, unit: banked.unit) + suffix
+  private var planLine: String {
+    let sourceMatters =
+      Presentation.needsSource(item, among: model.accounts)
+      || model.accounts.contains {
+        $0.id != item.id && $0.account.provider == account.provider
+          && $0.account.name == account.name && $0.snapshot.id != item.snapshot.id
+      }
+    return [account.plan, sourceMatters ? item.snapshot.source.name : nil].compactMap { $0 }.joined(
+      separator: " · ")
   }
 }
 
@@ -206,10 +219,4 @@ extension SourceState {
     case .noData: "Starting"
     }
   }
-}
-
-private func displayLabel(_ label: String) -> String {
-  guard label.contains(".") || label.contains("_") else { return label }
-  return label.replacingOccurrences(of: ".", with: " ")
-    .replacingOccurrences(of: "_", with: " ").capitalized
 }

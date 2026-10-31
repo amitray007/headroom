@@ -56,27 +56,34 @@ final class HeadroomDelegate: NSObject, NSApplicationDelegate {
 struct MenuItemLabel: View {
   let model: AppModel
   let style: DisplayPreferences.ItemStyle
+  /// Settings previews show a sample figure while there is nothing real to show.
+  var sample = false
+  private var pinned: AccountItem? {
+    guard let id = model.preferences.followedAccount else { return nil }
+    return model.allAccounts.first(where: { $0.id == id })
+  }
+  /// Without a pinned account, the item follows the tightest account that still has room, so an
+  /// out or signed-out account never hides where work can continue; those show in the dot.
   private var followed: AccountItem? {
-    if let id = model.preferences.followedAccount {
-      return model.allAccounts.first(where: { $0.id == id })
+    if let pinned { return pinned }
+    return model.accounts
+      .filter { $0.snapshot.state == .connected && ($0.binding?.percentLeft ?? 0) > 0 }
+      .max { rank($0) < rank($1) }
+  }
+  private var anyOut: Bool { model.accounts.contains { $0.binding?.percentLeft == 0 } }
+  private var needsSignIn: Bool {
+    model.accounts.contains {
+      $0.snapshot.state == .signedOut || $0.account.state == .reconnect_required
     }
-    return model.accounts.max { rank($0) < rank($1) }
   }
   private func rank(_ item: AccountItem) -> Double {
-    if item.snapshot.state == .signedOut || item.account.state == .reconnect_required { return 600 }
-    if item.snapshot.state != .connected { return 500 }
-    if let last = Formatting.date(milliseconds: item.account.lastSuccessAt),
-      model.now.timeIntervalSince(last) * 1000
-        > Double(item.snapshot.cached?.feed.staleAfterMs ?? 0)
-    {
-      return 400
-    }
     if item.binding?.percentLeft == 0 { return 300 }
     if item.binding?.runsOutAt != nil { return 200 }
     guard let left = item.binding?.percentLeft else { return 100 }
     return 100 - left
   }
-  private var text: String {
+  /// Nil when there is nothing to report: no source yet, or connected sources with no accounts.
+  private var text: String? {
     if let followed {
       if followed.snapshot.state == .signedOut || followed.account.state == .reconnect_required {
         return "!"
@@ -84,12 +91,15 @@ struct MenuItemLabel: View {
       if followed.snapshot.state != .connected { return "…" }
       return followed.binding.map { Formatting.percentLeft($0.percentLeft) } ?? "Unknown"
     }
-    if model.sources.contains(where: { $0.state == .signedOut }) { return "!" }
+    if needsSignIn { return "!" }
+    if anyOut { return "Out" }
+    if model.sources.isEmpty { return nil }
     if !model.ready || model.sources.contains(where: { $0.state != .connected }) { return "…" }
-    return "Unknown"
+    return model.accounts.isEmpty ? nil : "Unknown"
   }
+  private var shown: String? { text ?? (sample ? Formatting.percentLeft(64) : nil) }
   private var tone: Color {
-    guard let followed else { return .primary }
+    guard let followed else { return pinned == nil && (needsSignIn || anyOut) ? HR.danger : .primary }
     if followed.snapshot.state == .signedOut || followed.account.state == .reconnect_required
       || followed.binding?.percentLeft == 0
     {
@@ -101,27 +111,29 @@ struct MenuItemLabel: View {
     }
     return .primary
   }
+  /// The dot carries problems elsewhere (an account out or signed out) while the text follows room.
+  private var dotTone: Color { pinned == nil && (needsSignIn || anyOut) ? HR.danger : tone }
   var body: some View {
     HStack(spacing: 3) {
-      if style != .percentage {
+      if style != .percentage || shown == nil {
         HeadroomGlyph().frame(width: 23, height: 23)
           .overlay(alignment: .bottomTrailing) {
-            if model.unread > 0 {
-              Circle().fill(tone).frame(width: 5, height: 5).offset(x: -2, y: -2)
+            if model.unread > 0 || (pinned == nil && (needsSignIn || anyOut)) {
+              Circle().fill(dotTone).frame(width: 5, height: 5).offset(x: -2, y: -2)
             }
           }
       }
-      if style != .logoAndBadge {
-        Text(text).font(.system(size: 13, weight: .medium)).monospacedDigit()
+      if style != .logoAndBadge, let shown {
+        Text(shown).font(.system(size: 13, weight: .medium)).monospacedDigit()
       }
-      if style == .percentage && model.unread > 0 {
-        Circle().frame(width: 5, height: 5)
+      if style == .percentage && (model.unread > 0 || (pinned == nil && (needsSignIn || anyOut))) {
+        Circle().fill(dotTone).frame(width: 5, height: 5)
       }
       if style == .pinned { Image(systemName: "pin").font(.system(size: 11)) }
     }
     .foregroundStyle(tone)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(
-      "Headroom, \(followed?.name ?? "all sources"), \(text), \(model.unread) unread notices")
+      "Headroom, \(followed?.name ?? "all sources"), \(shown ?? "no readings yet"), \(model.unread) unread notices")
   }
 }
