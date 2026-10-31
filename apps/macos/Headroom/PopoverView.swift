@@ -107,33 +107,40 @@ struct PopoverView: View {
       HeadroomGlyph().frame(width: 23, height: 23)
       Text("Headroom").font(HR.popoverFont(16, .medium)).accessibilityAddTraits(.isHeader)
       Spacer()
-      if !loading && !model.displaySources.isEmpty {
-        Button {
-          Task { await model.readSources() }
-        } label: {
-          Image(systemName: "arrow.clockwise").font(.system(size: 16))
-            .symbolEffect(
-              .rotate.byLayer, options: .repeat(.continuous),
-              isActive: model.refreshing && !reduceMotion
-            )
-            .opacity(model.refreshing && reduceMotion ? 0.4 : 1)
-        }.buttonStyle(PopoverToolStyle()).help("Read sources").disabled(model.refreshing)
-          .accessibilityLabel(model.refreshing ? "Reading sources" : "Read sources")
-        Button {
-          showNotices(true)
-        } label: {
-          HStack(spacing: 5) {
-            Image(systemName: "bell").font(.system(size: 16))
-            if model.noticePhase == .ready && !model.popoverNotices.isEmpty {
-              Text("\(popoverUnread)").font(HR.popoverFont(12))
+      // The tool buttons carry their own 8 pt hover inset, so they sit 2 pt apart: about
+      // 18 pt between glyphs.
+      HStack(spacing: 2) {
+        if !loading && !model.displaySources.isEmpty {
+          Button {
+            Task { await model.readSources() }
+          } label: {
+            ZStack {
+              if model.refreshing {
+                AtomSpinner(size: 16)
+              } else {
+                Image(systemName: "arrow.clockwise").font(.system(size: 16))
+              }
+            }.frame(width: 18, height: 18)
+          }.buttonStyle(PopoverToolStyle()).help("Read sources").disabled(model.refreshing)
+            .accessibilityLabel(model.refreshing ? "Reading sources" : "Read sources")
+          Button {
+            showNotices(true)
+          } label: {
+            HStack(spacing: 5) {
+              Image(systemName: "bell").font(.system(size: 16))
+              if model.noticePhase == .ready && !model.popoverNotices.isEmpty {
+                Text("\(popoverUnread)").font(HR.popoverFont(12))
+              }
             }
-          }
-        }.buttonStyle(PopoverToolStyle()).accessibilityLabel("Notices, \(popoverUnread) unread")
+          }.buttonStyle(PopoverToolStyle()).accessibilityLabel("Notices, \(popoverUnread) unread")
+        }
+        Button(action: settings) { Image(systemName: "gearshape").font(.system(size: 16)) }
+          .buttonStyle(PopoverToolStyle()).help("Open Settings").accessibilityLabel(
+            "Open Settings"
+          )
+          .contextMenu { Button("Quit Headroom") { NSApp.terminate(nil) } }
       }
-      Button(action: settings) { Image(systemName: "gearshape").font(.system(size: 16)) }
-        .buttonStyle(PopoverToolStyle()).help("Open Settings").accessibilityLabel("Open Settings")
-        .contextMenu { Button("Quit Headroom") { NSApp.terminate(nil) } }
-    }.padding(.horizontal, 16).frame(height: 52)
+    }.padding(.leading, 16).padding(.trailing, 8).frame(height: 52)
   }
 
   private var popoverUnread: Int { model.popoverNotices.filter { !$0.read }.count }
