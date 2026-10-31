@@ -73,6 +73,8 @@ public actor NoticeStore {
     try persist()
   }
 
+  public func enabledKinds() -> [String: Bool] { state.kinds }
+
   public func setEnabled(_ enabled: Bool, kind: NoticeKind) throws {
     state.kinds[kind.rawValue] = enabled
     try persist()

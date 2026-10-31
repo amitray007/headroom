@@ -5,7 +5,19 @@ public enum Formatting {
 
   public static func percentLeft(_ value: Double?) -> String {
     guard let value, value.isFinite else { return "Unknown" }
-    return "\(number(value))% left"
+    return "\(barePercent(value)) left"
+  }
+
+  public static func barePercent(_ value: Double?) -> String {
+    guard let value, value.isFinite else { return "Unknown" }
+    let rounded = value > 0 && value < 100 ? min(99, max(1, value.rounded())) : value.rounded()
+    return String(format: "%.0f%%", locale: Locale(identifier: "en_GB"), rounded)
+  }
+
+  public static func unitTotal(_ values: [Double?], unit: String) -> String {
+    let label = unitLabel(unit)
+    return values.contains { $0 == nil || $0?.isFinite == false }
+      ? "\(label) unknown" : money(values.compactMap { $0 }.reduce(0, +), unit: label)
   }
 
   private static func number(_ value: Double) -> String {
@@ -16,6 +28,15 @@ public enum Formatting {
   public static func money(_ value: Double?, unit: String) -> String {
     guard let value, value.isFinite else { return "Unknown" }
     return "\(String(format: "%.2f", locale: Locale(identifier: "en_GB"), value)) \(unit)"
+  }
+
+  public static func unitLabel(_ unit: String) -> String {
+    switch unit {
+    case "codex_credits": "Codex credits"
+    case "grok_credits": "Grok credits"
+    case "gateway_credits": "Gateway credits"
+    default: unit
+    }
   }
 
   public static func charge(_ charge: FeedCharge) -> String {
@@ -30,10 +51,11 @@ public enum Formatting {
       return number(value)
     }
     let text = amount(value, charge.unit)
-    guard let cap = charge.cap else { return "\(text) \(charge.unit)" }
+    guard let cap = charge.cap else { return "\(text) \(unitLabel(charge.unit))" }
     let capText = amount(cap.value, cap.unit)
     return cap.unit == charge.unit
-      ? "\(text) / \(capText) \(charge.unit)" : "\(text) \(charge.unit) / \(capText) \(cap.unit)"
+      ? "\(text) / \(capText) \(unitLabel(charge.unit))"
+      : "\(text) \(unitLabel(charge.unit)) / \(capText) \(unitLabel(cap.unit))"
   }
 
   public static func inventory(_ count: Double?, unit: String) -> String {
