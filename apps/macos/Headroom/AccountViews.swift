@@ -5,19 +5,39 @@ import SwiftUI
 /// One provider's rows. Providers are separated by a rule; accounts inside one are not.
 struct LedgerGroup: View {
   let rows: [LedgerRow]
+  /// Rows whose subtitle names their source, worked out once for the whole list.
+  let withSource: Set<String>
   let model: AppModel
   var body: some View {
     VStack(spacing: 0) {
-      ForEach(rows) { row in LedgerRowView(row: row, model: model) }
+      ForEach(rows) { row in
+        LedgerRowView(row: row, showsSource: withSource.contains(row.id), model: model)
+          .equatable()
+      }
     }.padding(.vertical, 4)
   }
 }
 
-struct LedgerRowView: View {
+/// Equatable on what it shows, so a list redraw skips every row whose reading is unchanged.
+/// Values it reads from the model itself (now, Privacy Mode) still redraw it through
+/// observation.
+struct LedgerRowView: View, Equatable {
+  nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.row.id == rhs.row.id && lhs.showsSource == rhs.showsSource
+      && lhs.row.meters == rhs.row.meters && lhs.row.extra == rhs.row.extra
+      && lhs.row.column.state == rhs.row.column.state
+      && lhs.row.item.snapshot.state == rhs.row.item.snapshot.state
+      && lhs.row.item.snapshot.source.name == rhs.row.item.snapshot.source.name
+      && lhs.row.item.account == rhs.row.item.account
+  }
+
   let row: LedgerRow
+  let showsSource: Bool
   let model: AppModel
   @State private var expanded = false
+  @State private var hovered = false
   @FocusState private var summaryFocused: Bool
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   private var item: AccountItem { row.item }
   private var account: FeedAccount { item.account }
   private var quiet: Bool { item.snapshot.state != .connected }
@@ -25,7 +45,7 @@ struct LedgerRowView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       Button {
-        expanded.toggle()
+        withAnimation(Motion.expand(reduceMotion)) { expanded.toggle() }
       } label: {
         HStack(spacing: 14) {
           who.frame(width: 164, alignment: .leading)
@@ -45,12 +65,16 @@ struct LedgerRowView: View {
             }.lineLimit(1).fixedSize()
           }
         }.frame(height: 44).padding(.horizontal, 16).contentShape(Rectangle())
-          .background(expanded ? HR.muted : .clear)
-      }.buttonStyle(.plain).focused($summaryFocused)
-        .accessibilityLabel(row.column.text(now: model.now))
+          .background(expanded ? HR.muted : hovered ? HR.muted.opacity(0.55) : .clear)
+          .animation(Motion.hover, value: hovered)
+      }.buttonStyle(.plain).focused($summaryFocused).onHover { hovered = $0 }
+        .accessibilityLabel(row.column.text(now: row.now))
         .accessibilityValue(expanded ? "Expanded" : "Collapsed")
         .accessibilityHint("Show other limits and account details")
-      if expanded { AccountDetail(row: row, model: model).background(HR.muted) }
+      if expanded {
+        AccountDetail(row: row, model: model).background(HR.muted)
+          .transition(Motion.reveal(reduceMotion))
+      }
     }
     .foregroundStyle(quiet ? HR.secondary : HR.ink)
     .onAppear {
@@ -60,7 +84,7 @@ struct LedgerRowView: View {
     }
     .onKeyPress(.escape) {
       guard expanded else { return .ignored }
-      expanded = false
+      withAnimation(Motion.expand(reduceMotion)) { expanded = false }
       summaryFocused = true
       return .handled
     }
@@ -77,7 +101,20 @@ struct LedgerRowView: View {
             + Text(account.name).font(HR.popoverFont(13, .medium)))
             .font(HR.popoverFont(13))
         }
-        Text(subtitle).font(HR.popoverFont(11))
+        HStack(spacing: 0) {
+          Text(subtitle)
+          if let identity = shownIdentity {
+            Text(subtitle.isEmpty ? "" : " · ")
+            // Privacy Mode blurs the email until the pointer is over the row. The blur is drawn
+            // once into a flat image; a live blur filter is redrawn on every scroll frame.
+            if hidesIdentity {
+              Text(identity).padding(4).blur(radius: 4).drawingGroup().padding(-4)
+                .layoutPriority(-1).accessibilityHidden(true)
+            } else {
+              Text(identity).layoutPriority(-1)
+            }
+          }
+        }.font(HR.popoverFont(11))
           .foregroundStyle(row.column.state == .signIn ? HR.popoverDanger : HR.textMuted)
       }.lineLimit(1).truncationMode(.tail)
     }
@@ -88,14 +125,19 @@ struct LedgerRowView: View {
   // provider takes the first line and the account name moves to the second.
   private var nameBelow: Bool { account.identity == nil || providerName.count > 12 }
 
+  private var shownIdentity: String? {
+    row.column.state == .signIn || quiet ? nil : account.identity
+  }
+  private var hidesIdentity: Bool { model.preferences.privacy && !hovered && !expanded }
+
   private var subtitle: String {
     if row.column.state == .signIn { return "Sign in again in the dashboard" }
     if quiet {
       return "Kept · \(item.snapshot.source.name) \(item.snapshot.state.label.lowercased())"
     }
     return [
-      nameBelow ? account.name : nil, account.plan, account.identity,
-      Presentation.needsSource(item, among: model.accounts) ? item.snapshot.source.name : nil,
+      nameBelow ? account.name : nil, account.plan,
+      showsSource ? item.snapshot.source.name : nil,
     ].compactMap { $0 }.joined(separator: " · ")
   }
 }
@@ -107,6 +149,7 @@ struct LedgerMeterView: View {
     VStack(spacing: 5) {
       HStack(alignment: .firstTextBaseline, spacing: 6) {
         Text(meter.value).font(HR.popoverFont(13, .medium)).foregroundStyle(tone).fixedSize()
+          .contentTransition(.numericText()).animation(Motion.data, value: meter.value)
         // The window name gives way first; the value and the right-edge note stay whole.
         Text(meter.label).font(HR.popoverFont(11.5)).foregroundStyle(HR.textMuted)
           .truncationMode(.tail).layoutPriority(-1)
@@ -132,26 +175,20 @@ struct LedgerMeterView: View {
   }
 }
 
-/// Ten Forecast cells, one per 10% left. Out is hatched red; low is amber.
+/// Ten Forecast cells, one per 10% left. Out is hatched red; low is amber. Drawn as two
+/// shapes, not ten stacks of views, and the fill animates as one value.
 struct Cells: View {
   let fill: Double?
   let tone: LedgerRow.Tone
   var body: some View {
-    HStack(spacing: 3) {
-      ForEach(0..<10, id: \.self) { index in
-        let part = min(1, max(0, ((fill ?? 0) - Double(index) * 10) / 10))
-        ZStack(alignment: .leading) {
-          if tone == .out {
-            Hatch()
-          } else {
-            Rectangle().fill(HR.track)
-            GeometryReader { geometry in
-              Rectangle().fill(color).frame(width: geometry.size.width * part)
-            }
-          }
-        }.clipShape(RoundedRectangle(cornerRadius: 1.5))
+    ZStack {
+      if tone == .out {
+        Hatch().mask(CellShape(fill: 100))
+      } else {
+        CellShape(fill: 100).fill(HR.track)
+        CellShape(fill: fill ?? 0).fill(color)
       }
-    }.frame(height: 7)
+    }.frame(height: 7).animation(Motion.data, value: fill)
   }
 
   private var color: Color {
@@ -160,6 +197,30 @@ struct Cells: View {
     case .unknown: HR.secondary.opacity(0.45)
     default: HR.fill
     }
+  }
+}
+
+/// The first `fill` percent of ten rounded cells with 3 pt gaps.
+private struct CellShape: Shape {
+  var fill: Double
+  var animatableData: Double {
+    get { fill }
+    set { fill = newValue }
+  }
+  func path(in rect: CGRect) -> Path {
+    let gap: CGFloat = 3
+    let width = (rect.width - gap * 9) / 10
+    var path = Path()
+    for index in 0..<10 {
+      let part = CGFloat(min(1, max(0, (fill - Double(index) * 10) / 10)))
+      guard part > 0 else { break }
+      let cell = CGRect(
+        x: rect.minX + CGFloat(index) * (width + gap), y: rect.minY, width: width * part,
+        height: rect.height)
+      path.addRoundedRect(
+        in: cell, cornerSize: CGSize(width: min(1.5, cell.width / 2), height: 1.5))
+    }
+    return path
   }
 }
 
@@ -176,7 +237,7 @@ struct Hatch: View {
   }
 }
 
-/// Everything the row leaves out: the other limits, every charge, banked resets and a link.
+/// Everything the row leaves out: the other limits, every charge and banked resets.
 struct AccountDetail: View {
   let row: LedgerRow
   let model: AppModel
@@ -235,9 +296,6 @@ struct AccountDetail: View {
             .font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
         }
       }
-      Button("Open dashboard") {
-        model.openDashboard(item.snapshot.source, accountID: account.id)
-      }.buttonStyle(.plain).underline().font(HR.popoverFont(11)).padding(.vertical, 4)
     }.padding(.leading, 40).padding(.trailing, 16).padding(.top, 4).padding(.bottom, 10)
   }
 }

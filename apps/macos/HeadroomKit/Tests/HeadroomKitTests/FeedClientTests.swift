@@ -224,3 +224,57 @@ func verificationRejectsFailures(_ status: Int, _ expected: SourceSetupError) as
   StubProtocol.state.withLock { $0.stubs["127.0.0.1"] = Stub(status: 404) }
   #expect(await client.thisMacAvailable() == false)
 }
+
+@Test func refreshAccessFollowsTheTokenScopes() async throws {
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  func whoami(_ scopes: String?) throws -> Source {
+    let field = scopes.map { #","scopes":\#($0)"# } ?? ""
+    return try StubProtocol.register(
+      Stub(
+        body: Data(
+          #"{"apiVersion":1,"serverVersion":"0.1.16","tokenName":"Mac"\#(field)}"#.utf8)))
+  }
+  #expect(
+    await client.refreshAccess(source: try whoami(#"["read","refresh"]"#), token: "t") == .allowed)
+  #expect(await client.refreshAccess(source: try whoami(#"["read"]"#), token: "t") == .readOnly)
+  // A server from before the refresh scope sends no scopes; its tokens only read.
+  #expect(await client.refreshAccess(source: try whoami(nil), token: "t") == .readOnly)
+  let offline = try StubProtocol.register(Stub(error: .notConnectedToInternet))
+  #expect(await client.refreshAccess(source: offline, token: "t") == .unknown)
+  let revoked = try StubProtocol.register(Stub(status: 401))
+  #expect(await client.refreshAccess(source: revoked, token: "t") == .unknown)
+}
+
+@Test func setRefreshSendsOnePutWithTheIntervalAndBearer() async throws {
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  let source = try StubProtocol.register(
+    Stub(body: Data(#"{"refreshIntervalMinutes":2}"#.utf8)))
+  #expect(await client.setRefresh(source: source, token: "synthetic", minutes: 2))
+  let request = try #require(StubProtocol.requests(for: source).first)
+  #expect(request.httpMethod == "PUT")
+  #expect(request.url?.path == "/api/app/v1/settings/refresh")
+  #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic")
+  let body = try #require(request.httpBody ?? request.httpBodyStream.map(Data.init(reading:)))
+  #expect(String(decoding: body, as: UTF8.self) == #"{"refreshIntervalMinutes":2}"#)
+
+  // An interval the server does not offer never leaves the Mac; a refusal reports failure.
+  let unused = try StubProtocol.register(Stub())
+  #expect(!(await client.setRefresh(source: unused, token: "synthetic", minutes: 7)))
+  #expect(StubProtocol.requests(for: unused).isEmpty)
+  let readOnly = try StubProtocol.register(Stub(status: 403))
+  #expect(!(await client.setRefresh(source: readOnly, token: "synthetic", minutes: 5)))
+}
+
+extension Data {
+  fileprivate init(reading stream: InputStream) {
+    self.init()
+    stream.open()
+    defer { stream.close() }
+    var buffer = [UInt8](repeating: 0, count: 1024)
+    while stream.hasBytesAvailable {
+      let count = stream.read(&buffer, maxLength: buffer.count)
+      guard count > 0 else { break }
+      append(buffer, count: count)
+    }
+  }
+}

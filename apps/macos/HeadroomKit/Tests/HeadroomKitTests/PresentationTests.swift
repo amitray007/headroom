@@ -25,6 +25,9 @@ import Testing
   #expect(!visible.contains { $0.id == firstAccount.id })
   #expect(Presentation.needsSource(firstAccount, among: all))
   #expect(!Presentation.needsSource(firstAccount, among: Array(all.prefix(feed.accounts.count))))
+  let offline = SourceSnapshot(source: first, state: .offline, cached: cached)
+  let alone = Presentation.accounts([offline], preferences: DisplayPreferences())
+  #expect(!Presentation.needsSource(try #require(alone.first), among: alone))
 }
 
 @Test func bindingPreservesUnknownAndIgnoresSubPools() throws {
@@ -45,8 +48,14 @@ import Testing
   #expect(try await store.load() == DisplayPreferences())
   var preferences = DisplayPreferences()
   preferences.appearance = .dark
-  preferences.itemStyle = .pinned
-  preferences.followedAccount = "source-a/account-a"
+  preferences.itemStyle = .accounts
+  preferences.slots = [
+    .init(account: "source-a/account-a", look: .ring), .init(look: .bars), .init(), .init(),
+  ]
+  #expect(preferences.slots.count == DisplayPreferences.maxSlots)
+  preferences.providerLogos = false
+  preferences.colorLowOut = false
+  preferences.liveRoom = true
   preferences.hiddenAccounts = ["source-b/account-a"]
   preferences.accountOrder = ["source-a/account-a", "source-b/account-a"]
   try await store.save(preferences)

@@ -15,7 +15,7 @@ extension HR {
   static let pressed = color(light: 0xEDEDED, dark: 0x2A2A2A)
 }
 
-/// `.btn`: 36 pt (30 pt small) pills, 14/500 labels, a press scale that releases on a spring.
+/// `.btn`: 36 pt (30 pt small) pills, 14/500 labels, a short press scale.
 struct WebButtonStyle: ButtonStyle {
   enum Kind { case secondary, primary, quiet, danger }
   var kind: Kind = .secondary
@@ -46,13 +46,9 @@ struct WebButtonStyle: ButtonStyle {
           y: 1
         )
         .opacity(enabled ? (kind == .primary && configuration.isPressed ? 0.84 : 1) : 0.52)
-        .scaleEffect(configuration.isPressed && enabled ? 0.97 : 1)
-        .animation(
-          configuration.isPressed
-            ? .easeOut(duration: 0.12) : .spring(response: 0.45, dampingFraction: 0.62),
-          value: configuration.isPressed
-        )
-        .animation(.easeOut(duration: 0.16), value: hovered)
+        .scaleEffect(configuration.isPressed && enabled ? 0.98 : 1)
+        .animation(Motion.press(configuration.isPressed), value: configuration.isPressed)
+        .animation(Motion.hover, value: hovered)
         .contentShape(Capsule())
         .onHover { hovered = $0 }
     }
@@ -78,31 +74,6 @@ struct WebButtonStyle: ButtonStyle {
       case .danger: live ? HR.danger : HR.border
       case .secondary: live ? HR.borderStrong : HR.border
       }
-    }
-  }
-}
-
-/// A square quiet button for one glyph, such as move up or down.
-struct WebIconButtonStyle: ButtonStyle {
-  func makeBody(configuration: Configuration) -> some View {
-    WebIcon(configuration: configuration)
-  }
-  private struct WebIcon: View {
-    let configuration: Configuration
-    @Environment(\.isEnabled) private var enabled
-    @State private var hovered = false
-    var body: some View {
-      configuration.label.font(.system(size: 12, weight: .medium))
-        .frame(width: 30, height: 30)
-        .foregroundStyle(enabled && hovered ? HR.ink : HR.secondary)
-        .background(
-          configuration.isPressed ? HR.pressed : enabled && hovered ? HR.muted : .clear,
-          in: Circle()
-        )
-        .opacity(enabled ? 1 : 0.4)
-        .scaleEffect(configuration.isPressed && enabled ? 0.96 : 1)
-        .animation(.spring(response: 0.4, dampingFraction: 0.65), value: configuration.isPressed)
-        .contentShape(Circle()).onHover { hovered = $0 }
     }
   }
 }
@@ -141,19 +112,22 @@ struct WebSwitchStyle: ToggleStyle {
 struct WebSegmented<Value: Hashable>: View {
   @Binding var selection: Value
   let options: [(Value, String)]
+  /// 12 pt labels on a 24 pt track, for a control inside a row.
+  var compact = false
   var body: some View {
-    HStack(spacing: 3) {
+    HStack(spacing: compact ? 2 : 3) {
       ForEach(options, id: \.0) { value, label in
         let chosen = selection == value
         Button {
           selection = value
         } label: {
-          Text(label).font(HR.popoverFont(13, .medium))
+          Text(label).font(HR.popoverFont(compact ? 12 : 13, .medium))
             .foregroundStyle(chosen ? HR.ink : HR.secondary)
-            .padding(.horizontal, 12).frame(height: 28)
+            .padding(.horizontal, compact ? 10 : 12).frame(height: compact ? 24 : 28)
             .background {
               if chosen {
-                Capsule().fill(HR.raisedSurface).shadow(color: .black.opacity(0.18), radius: 1, y: 1)
+                Capsule().fill(HR.raisedSurface).shadow(
+                  color: .black.opacity(0.18), radius: 1, y: 1)
               }
             }
             .contentShape(Capsule())
@@ -161,7 +135,7 @@ struct WebSegmented<Value: Hashable>: View {
         .buttonStyle(.plain).accessibilityAddTraits(chosen ? .isSelected : [])
       }
     }
-    .padding(3).background(HR.muted, in: Capsule())
+    .padding(compact ? 2 : 3).background(HR.muted, in: Capsule())
     .animation(.easeOut(duration: 0.16), value: selection)
   }
 }
@@ -266,13 +240,25 @@ struct WebField<Input: View>: View {
 /// The select trigger: a pill with the chosen value and a chevron, opening a native menu.
 struct WebSelect<Content: View>: View {
   let value: String
+  /// A provider mark, or failing that a symbol, before the value.
+  var mark: String? = nil
+  var symbol: String? = nil
+  /// Takes the row's free width, with the chevron at the trailing edge.
+  var fill = false
   @ViewBuilder var content: Content
   var body: some View {
     Menu {
       content
     } label: {
       HStack(spacing: 8) {
+        if let mark {
+          ProviderMark(provider: mark).frame(width: 14, height: 14)
+        } else if let symbol {
+          Image(systemName: symbol).font(.system(size: 12, weight: .medium))
+            .foregroundStyle(HR.secondary).frame(width: 14)
+        }
         Text(value).font(HR.popoverFont(13, .medium)).lineLimit(1)
+        if fill { Spacer(minLength: 8) }
         Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .semibold))
           .foregroundStyle(HR.secondary)
       }
@@ -281,6 +267,8 @@ struct WebSelect<Content: View>: View {
       .overlay(Capsule().strokeBorder(HR.border))
       .contentShape(Capsule())
     }
-    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
+    .fixedSize(horizontal: !fill, vertical: true)
+    .frame(maxWidth: fill ? .infinity : nil)
   }
 }

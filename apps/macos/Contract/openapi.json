@@ -592,7 +592,7 @@
             "type": ["string", "null"]
           }
         },
-        "required": ["apiVersion", "serverVersion", "tokenName", "scopes"],
+        "required": ["apiVersion", "serverVersion", "tokenName"],
         "type": "object"
       },
       "Error": {

@@ -26,11 +26,14 @@ public struct LedgerRow: Identifiable, Sendable {
   public let column: RoomColumn
   public let meters: [Meter]
   public let extra: Extra?
+  /// The time the row was built for, so a view can describe it without reading the clock.
+  public let now: Date
   public var item: AccountItem { column.item }
   public var id: String { column.id }
 
   public init(column: RoomColumn, now: Date, timeZone: TimeZone = .current) {
     self.column = column
+    self.now = now
     let account = column.item.account
     let known = account.limits.filter {
       !$0.part && !$0.unlimited && !$0.notStarted && $0.percentLeft?.isFinite == true

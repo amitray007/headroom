@@ -69,8 +69,11 @@ export const appWhoamiSchema = z.strictObject({
   apiVersion: z.literal(1),
   serverVersion: z.string(),
   tokenName: z.string().nullable(),
-  /** `read` always; `refresh` when the owner let this token change Refresh Every. */
-  scopes: z.array(apiTokenScopeSchema),
+  /**
+   * `read` always; `refresh` when the owner let this token change Refresh Every. Optional in the
+   * contract because servers before D44 omit it, and a client must still accept them.
+   */
+  scopes: z.array(apiTokenScopeSchema).optional(),
 });
 
 /** The body and the response of `PUT /api/app/v1/settings/refresh`. */

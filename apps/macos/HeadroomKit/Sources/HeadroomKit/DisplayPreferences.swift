@@ -3,23 +3,98 @@ import HeadroomAPI
 
 public struct DisplayPreferences: Codable, Equatable, Sendable {
   public enum ItemStyle: String, Codable, CaseIterable, Sendable {
-    case logoAndPercentage, percentage, logoAndBadge, pinned
+    case logo, logoAndRoom, liveLogo, dots, accounts
     public var label: String {
       switch self {
-      case .logoAndPercentage: "Logo and percentage"
-      case .percentage: "Percentage only"
-      case .logoAndBadge: "Logo and badge"
-      case .pinned: "Pinned account"
+      case .logo: "Logo"
+      case .logoAndRoom: "Logo and room"
+      case .liveLogo: "Live logo"
+      case .dots: "Dots"
+      case .accounts: "Accounts"
+      }
+    }
+    /// Live logo, Dots and Accounts show every slot; Logo and room follows the first one.
+    public var showsSlots: Bool { self == .liveLogo || self == .dots || self == .accounts }
+
+    /// Styles saved before round 8: the percentage styles become Logo and room, the badge
+    /// becomes Logo and a pinned account becomes one Accounts slot.
+    init(saved: String) {
+      switch saved {
+      case "logoAndBadge": self = .logo
+      case "pinned": self = .accounts
+      default: self = ItemStyle(rawValue: saved) ?? .logoAndRoom
       }
     }
   }
+
+  /// One account in the menu bar item, with the look it takes in the Accounts style.
+  public struct MenuSlot: Codable, Equatable, Sendable {
+    public enum Look: String, Codable, CaseIterable, Sendable { case percent, ring, bars }
+    /// An account key, or nil for the tightest account with room that no other slot shows.
+    public var account: String?
+    public var look: Look
+    public init(account: String? = nil, look: Look = .percent) {
+      self.account = account
+      self.look = look
+    }
+  }
+  public static let maxSlots = 3
+
   public enum Appearance: String, Codable, CaseIterable, Sendable { case system, light, dark }
-  public var itemStyle: ItemStyle = .logoAndPercentage
-  public var followedAccount: String?
+  public var itemStyle: ItemStyle = .logoAndRoom
+  /// One to three slots, left to right in the menu bar and top to bottom in a one-icon style.
+  public var slots: [MenuSlot] = [MenuSlot()] {
+    didSet { if slots.count > Self.maxSlots { slots = Array(slots.prefix(Self.maxSlots)) } }
+  }
+  /// Each Accounts slot starts with its provider's mark.
+  public var providerLogos = true
+  /// Yellow when an account runs low, red when it is out; off keeps the menu bar's color.
+  public var colorLowOut = true
+  /// Live logo adds the figure of the slot with least room beside the glyph.
+  public var liveRoom = false
+  /// How often this Mac reads its sources while the popover is closed, in seconds. While it is
+  /// open the app reads every 30 seconds, or sooner when this is shorter.
+  public var checkSeconds = 120
+  public static let checkOptions = [30, 60, 120, 300, 600]
   public var hiddenAccounts: Set<String> = []
   public var accountOrder: [String] = []
   public var appearance: Appearance = .system
+  /// Blur account emails until the pointer is over the row.
+  public var privacy = false
+  /// Show made-up accounts and notices, for screenshots and screen sharing.
+  public var demo = false
+  /// The popover shows only this source; nil, or a source that no longer exists, shows all.
+  public var sourceFilter: UUID?
   public init() {}
+
+  private enum Saved: String, CodingKey { case followedAccount }
+
+  // Files saved before a field existed still load, with that field at its default.
+  public init(from decoder: any Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    let saved = try decoder.container(keyedBy: Saved.self)
+    let defaults = DisplayPreferences()
+    itemStyle =
+      try values.decodeIfPresent(String.self, forKey: .itemStyle).map(ItemStyle.init(saved:))
+      ?? defaults.itemStyle
+    let followed = try saved.decodeIfPresent(String.self, forKey: .followedAccount)
+    let slots = try values.decodeIfPresent([MenuSlot].self, forKey: .slots) ?? []
+    self.slots =
+      slots.isEmpty ? [MenuSlot(account: followed)] : Array(slots.prefix(Self.maxSlots))
+    providerLogos = try values.decodeIfPresent(Bool.self, forKey: .providerLogos) ?? true
+    colorLowOut = try values.decodeIfPresent(Bool.self, forKey: .colorLowOut) ?? true
+    liveRoom = try values.decodeIfPresent(Bool.self, forKey: .liveRoom) ?? false
+    checkSeconds =
+      try values.decodeIfPresent(Int.self, forKey: .checkSeconds)
+      .flatMap { Self.checkOptions.contains($0) ? $0 : nil } ?? 120
+    hiddenAccounts = try values.decodeIfPresent(Set<String>.self, forKey: .hiddenAccounts) ?? []
+    accountOrder = try values.decodeIfPresent([String].self, forKey: .accountOrder) ?? []
+    appearance =
+      try values.decodeIfPresent(Appearance.self, forKey: .appearance) ?? defaults.appearance
+    privacy = try values.decodeIfPresent(Bool.self, forKey: .privacy) ?? false
+    demo = try values.decodeIfPresent(Bool.self, forKey: .demo) ?? false
+    sourceFilter = try values.decodeIfPresent(UUID.self, forKey: .sourceFilter)
+  }
 }
 
 public actor DisplayPreferenceStore {
@@ -109,12 +184,13 @@ public enum Presentation {
     }.map(\.element)
   }
 
+  /// The source name only tells accounts apart when the same account name and plan appear on
+  /// another source. With one source it adds nothing, and offline rows already say so.
   public static func needsSource(_ item: AccountItem, among items: [AccountItem]) -> Bool {
-    item.snapshot.state != .connected
-      || items.contains {
-        $0.id != item.id && $0.account.provider == item.account.provider
-          && $0.account.name == item.account.name && $0.account.plan == item.account.plan
-      }
+    items.contains {
+      $0.snapshot.id != item.snapshot.id && $0.account.provider == item.account.provider
+        && $0.account.name == item.account.name && $0.account.plan == item.account.plan
+    }
   }
 
   /// Dashboard navigation always stays on the configured source. Feed URLs cannot redirect a token

@@ -102,3 +102,84 @@ private func row(_ rows: [LedgerRow], _ id: String) throws -> LedgerRow {
   #expect(Formatting.amount(20, unit: "USD") == "$20")
   #expect(Formatting.amount(579.74, unit: "credits") == "579.74")
 }
+
+@Test func demoFeedMovesEveryInstantByTheSameAmount() throws {
+  let url = try #require(
+    Bundle.module.url(forResource: "demo", withExtension: "json", subdirectory: "Fixtures"))
+  let data = try Data(contentsOf: url)
+  let original = try JSONDecoder().decode(AppFeed.self, from: data)
+  let now = Date(timeIntervalSince1970: 1_900_000_000)
+  let demo = try DemoFeed.current(data, now: now)
+  let shift = 1_900_000_000_000 - original.generatedAt
+  #expect(demo.generatedAt == 1_900_000_000_000)
+  #expect(demo.accounts.count == original.accounts.count)
+  for (moved, source) in zip(demo.accounts, original.accounts) {
+    for (a, b) in zip(moved.limits, source.limits) {
+      #expect(a.resetsAt == b.resetsAt.map { $0 + shift })
+      #expect(a.percentLeft == b.percentLeft)
+    }
+  }
+  #expect(demo.notices.first?.occurredAt == original.notices.first.map { $0.occurredAt + shift })
+}
+
+@Test func displayPreferencesLoadFilesSavedBeforeNewFields() throws {
+  let old = Data(#"{"itemStyle":"percentage","hiddenAccounts":[],"accountOrder":[]}"#.utf8)
+  let value = try JSONDecoder().decode(DisplayPreferences.self, from: old)
+  #expect(value.itemStyle == .logoAndRoom)
+  #expect(value.slots == [.init()])
+  #expect(value.providerLogos && value.colorLowOut)
+  #expect(value.checkSeconds == 120)
+  let unknown = Data(#"{"checkSeconds":7}"#.utf8)
+  #expect(try JSONDecoder().decode(DisplayPreferences.self, from: unknown).checkSeconds == 120)
+  #expect(value.appearance == .system)
+  #expect(!value.privacy)
+  #expect(!value.demo)
+  #expect(value.sourceFilter == nil)
+}
+
+@Test func pinnedMenuStyleBecomesOneAccountSlot() throws {
+  let old = Data(#"{"itemStyle":"pinned","followedAccount":"source-a/account-a"}"#.utf8)
+  let value = try JSONDecoder().decode(DisplayPreferences.self, from: old)
+  #expect(value.itemStyle == .accounts)
+  #expect(value.slots == [.init(account: "source-a/account-a")])
+  let badge = Data(#"{"itemStyle":"logoAndBadge"}"#.utf8)
+  #expect(try JSONDecoder().decode(DisplayPreferences.self, from: badge).itemStyle == .logo)
+}
+
+@Test func noticesGroupByCalendarDayAndShowElapsedTime() throws {
+  var calendar = Calendar(identifier: .gregorian)
+  calendar.timeZone = try #require(TimeZone(identifier: "UTC"))
+  let now = Date(timeIntervalSince1970: 86400 * 10 + 3600 * 2)
+  #expect(NoticeDay(now.addingTimeInterval(-3600), now: now, calendar: calendar) == .today)
+  #expect(NoticeDay(now.addingTimeInterval(-3 * 3600), now: now, calendar: calendar) == .yesterday)
+  #expect(NoticeDay(now.addingTimeInterval(-2 * 86400), now: now, calendar: calendar) == .earlier)
+  #expect(Formatting.elapsed(now.addingTimeInterval(-90), now: now) == "2 min")
+  #expect(Formatting.elapsed(now.addingTimeInterval(-9 * 3600), now: now) == "9 h")
+  #expect(Formatting.elapsed(now.addingTimeInterval(-5 * 86400), now: now) == "5 d")
+}
+
+@Test func pollsDifferingOnlyInReadTimeShowTheSameReadings() throws {
+  let feed = try fixture("popover")
+  let source = try source()
+  let first = [
+    SourceSnapshot(
+      source: source, state: .connected,
+      cached: CachedFeed(feed: feed, etag: nil, readAt: Date(timeIntervalSince1970: 0)))
+  ]
+  let later = [
+    SourceSnapshot(
+      source: source, state: .connected,
+      cached: CachedFeed(feed: feed, etag: nil, readAt: Date(timeIntervalSince1970: 60)))
+  ]
+  #expect(SourceSnapshot.sameReadings(first, later))
+  var changed = feed
+  changed.accounts[0].name = "Renamed"
+  let renamed = [
+    SourceSnapshot(
+      source: source, state: .connected,
+      cached: CachedFeed(feed: changed, etag: nil, readAt: Date()))
+  ]
+  #expect(!SourceSnapshot.sameReadings(first, renamed))
+  let offline = [SourceSnapshot(source: source, state: .offline, cached: first[0].cached)]
+  #expect(!SourceSnapshot.sameReadings(first, offline))
+}
