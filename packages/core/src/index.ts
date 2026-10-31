@@ -29,6 +29,7 @@ export {
 } from "./http.ts";
 export { decodeJwt, expiryOf, parseDate } from "./connector-util.ts";
 export { splitLabel, type SplitLabel } from "./label.ts";
+export { NoticeReadStore, noticeReadRetentionMs } from "./notice-reads.ts";
 export {
   OrderStore,
   InvalidOrderError,

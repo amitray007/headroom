@@ -8,6 +8,7 @@ import {
   appFeedSchema,
   appRefreshSchema,
   appWhoamiSchema,
+  noticeReadBodySchema,
 } from "../packages/view-model/src/app-feed.ts";
 
 const contractPath = fileURLToPath(new URL("../apps/macos/Contract/openapi.json", import.meta.url));
@@ -102,6 +103,32 @@ const putRefresh = {
   },
 };
 
+/** The read marks: allowed for every valid token, because they change only Headroom's own state. */
+const putNoticesRead = {
+  operationId: "putAppNoticesRead",
+  security: [{ appToken: [] }],
+  requestBody: {
+    required: true,
+    content: { "application/json": { schema: { $ref: "#/components/schemas/NoticeRead" } } },
+  },
+  responses: {
+    "200": {
+      description: "The ids and state now saved. A notice in the feed carries its own `read` flag.",
+      content: { "application/json": { schema: { $ref: "#/components/schemas/NoticeRead" } } },
+    },
+    "400": error("The body is not { ids, read } with at most 500 ids: invalid_body."),
+    "401": error("Missing, expired, revoked or invalid token: invalid_token."),
+    "405": {
+      ...error("Only PUT is allowed: method_not_allowed."),
+      headers: { Allow: { schema: { type: "string", const: "PUT" } } },
+    },
+    "429": {
+      ...error("Too many authentication attempts: rate_limited."),
+      headers: { "Retry-After": { schema: { type: "string" } } },
+    },
+  },
+};
+
 export async function appContract(): Promise<string> {
   const document = {
     openapi: "3.1.0",
@@ -123,6 +150,7 @@ export async function appContract(): Promise<string> {
         },
       },
       "/api/app/v1/whoami": { get: operation("getAppWhoami", "AppWhoami") },
+      "/api/app/v1/notices/read": { put: putNoticesRead },
       "/api/app/v1/settings/refresh": { put: putRefresh },
     },
     components: {
@@ -133,6 +161,7 @@ export async function appContract(): Promise<string> {
         AppFeed: json(appFeedSchema),
         AppRefresh: json(appRefreshSchema),
         AppWhoami: json(appWhoamiSchema),
+        NoticeRead: json(noticeReadBodySchema),
         Error: json(errorSchema),
       },
     },
