@@ -11,7 +11,7 @@ import { EmptyState } from "../ui/empty-state.tsx";
 import { ErrorNotice } from "../ui/error-notice.tsx";
 import { Sk } from "../ui/skeleton.tsx";
 import { Switch } from "../ui/switch.tsx";
-import { Section } from "./settings-rows.tsx";
+import { Body, Section } from "./settings-rows.tsx";
 import "./devices.css";
 
 /** The token's visible start, what it may do, its last use and, when set, its expiry. */
@@ -129,13 +129,11 @@ export function DevicesTab() {
               </Button>
             </div>
             {/* oxlint-disable-next-line jsx-a11y/label-has-associated-control -- the Switch component renders the input */}
-            <label className="device-scope">
-              <span className="sbody">
-                <b>Can Change Refresh Every</b>
-                <span className="muted">
-                  The Mac can set how often this server refreshes. It can change nothing else.
-                </span>
-              </span>
+            <label className="srow device-scope">
+              <Body
+                title="Can Change Refresh Every"
+                note="The Mac can set how often this server refreshes. It can change nothing else."
+              />
               <Switch checked={refresh} onChange={setRefresh} />
             </label>
           </form>
