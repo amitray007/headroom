@@ -1,15 +1,22 @@
-import { useContext, useId, useState } from "react";
+import { useContext, useId, useState, useSyncExternalStore } from "react";
 
-import type { NotificationKind, Provider } from "@headroom/core/contracts";
+import {
+  historyRetentionOptions,
+  refreshIntervalOptions,
+  type NotificationKind,
+  type Provider,
+} from "@headroom/core/contracts";
 import type { OverviewConnection } from "@headroom/view-model/overview";
 
 import { useDevicePrefs } from "../lib/device-prefs.ts";
 import { isDemoSite } from "../lib/site.ts";
 import { useSettings } from "../lib/settings.tsx";
 import type { SettingsPatch } from "../lib/settings-store.ts";
+import { BellIcon, EyeIcon, GearIcon, KeyIcon, LinkIcon, PlugIcon, ResetIcon } from "../icons.tsx";
 import { Dialog } from "../ui/dialog.tsx";
 import { ErrorNotice } from "../ui/error-notice.tsx";
 import { Segmented } from "../ui/segmented.tsx";
+import { Select } from "../ui/select.tsx";
 import { Sk } from "../ui/skeleton.tsx";
 import { SlideSwap, type SwapDirection } from "../ui/slide-swap.tsx";
 import { Tabs } from "../ui/tabs.tsx";
@@ -78,22 +85,83 @@ function NumberRow<T extends number>(props: {
   );
 }
 
-const thresholds = [30, 20, 15] as const;
-const intervals = [5, 10, 15, 30] as const;
-const retentions = [30, 90, 180, 365] as const;
+/** A choice among numbers in a dropdown, for lists too long to read well as segments. */
+function SelectRow<T extends number>(props: {
+  readonly title: string;
+  readonly note: string;
+  readonly value: T;
+  readonly values: readonly T[];
+  readonly format: (value: T) => string;
+  readonly onChange: (value: T) => void;
+}) {
+  const waiting = useContext(WaitingContext);
+  return (
+    <div className="srow srow-choice">
+      <Body title={props.title} note={props.note} />
+      {waiting ? (
+        <Sk width={150} height={32} className="sk-pill" />
+      ) : (
+        <div className="srow-select">
+          <Select
+            label={props.title}
+            hideLabel
+            size="sm"
+            value={String(props.value)}
+            options={props.values.map((value) => ({
+              value: String(value),
+              label: props.format(value),
+            }))}
+            onChange={(text) => {
+              const next = props.values.find((value) => String(value) === text);
+              if (next !== undefined) props.onChange(next);
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
-const tabs = [
-  { value: "general", label: "General" },
-  { value: "providers", label: "Providers" },
-  { value: "notifications", label: "Notifications" },
-  { value: "automations", label: "Automations" },
-  { value: "channels", label: "Channels" },
-  { value: "devices", label: "Devices" },
-  { value: "privacy", label: "Privacy" },
+const thresholds = [30, 20, 15] as const;
+
+const sections = [
+  { value: "general", label: "General", icon: <GearIcon /> },
+  { value: "providers", label: "Providers", icon: <PlugIcon /> },
+  { value: "notifications", label: "Notifications", icon: <BellIcon /> },
+  { value: "automations", label: "Automations", icon: <ResetIcon /> },
+  { value: "channels", label: "Channels", icon: <LinkIcon /> },
+  { value: "devices", label: "Devices", icon: <KeyIcon /> },
+  { value: "privacy", label: "Privacy", icon: <EyeIcon /> },
 ] as const;
 
+const tabs = sections.map((section) => ({
+  value: section.value,
+  label: (
+    <>
+      <span className="stab-icon" aria-hidden="true">
+        {section.icon}
+      </span>
+      {section.label}
+    </>
+  ),
+}));
+
 /** The tabs of the dialog. */
-export type SettingsTab = (typeof tabs)[number]["value"];
+export type SettingsTab = (typeof sections)[number]["value"];
+
+/** Phones keep the sections as a row of tabs above the rows; wider windows list them in a sidebar. */
+const narrowQuery = "(max-width: 680px)";
+function useNarrow(): boolean {
+  return useSyncExternalStore(
+    (notify) => {
+      const query = window.matchMedia(narrowQuery);
+      query.addEventListener("change", notify);
+      return () => query.removeEventListener("change", notify);
+    },
+    () => window.matchMedia(narrowQuery).matches,
+    () => false,
+  );
+}
 
 function General(props: { readonly change: (patch: SettingsPatch) => void }) {
   const { settings } = useSettings();
@@ -111,21 +179,21 @@ function General(props: { readonly change: (patch: SettingsPatch) => void }) {
         />
       </Section>
       <Section title="Refresh">
-        <NumberRow
+        <SelectRow
           title="Refresh Every"
           note="How often your accounts update."
           value={settings.refreshIntervalMinutes}
-          values={intervals}
+          values={refreshIntervalOptions}
           format={(value) => `${value} min`}
           onChange={(refreshIntervalMinutes) => change({ refreshIntervalMinutes })}
         />
       </Section>
       <Section title="Data">
-        <NumberRow
+        <SelectRow
           title="History"
           note="Older refresh history is deleted. The latest reading of each account is always kept."
           value={settings.historyRetentionDays}
-          values={retentions}
+          values={historyRetentionOptions}
           format={(value) => (value === 365 ? "1 year" : `${value} days`)}
           onChange={(historyRetentionDays) => change({ historyRetentionDays })}
         />
@@ -404,6 +472,8 @@ export function SettingsDialog(props: {
   const [direction, setDirection] = useState<SwapDirection>("swap");
   const [wasOpen, setWasOpen] = useState(props.open);
   const panelId = useId();
+  const narrow = useNarrow();
+  const { demo } = useDevicePrefs();
   // The dialog opens on General every time.
   if (props.open !== wasOpen) {
     setWasOpen(props.open);
@@ -434,6 +504,7 @@ export function SettingsDialog(props: {
             className="stabs"
             tabClassName="stab"
             indicator
+            orientation={narrow ? "horizontal" : "vertical"}
             panelId={panelId}
             tabs={tabs}
             value={tab}
@@ -442,7 +513,8 @@ export function SettingsDialog(props: {
           <div
             id={panelId}
             role="tabpanel"
-            aria-label={tabs.find((t) => t.value === tab)?.label}
+            className="spanel"
+            aria-label={sections.find((section) => section.value === tab)?.label}
             aria-busy={!loaded}
           >
             {store.error === null ? null : (
@@ -467,7 +539,7 @@ export function SettingsDialog(props: {
                 />
               ) : null}
               {tab === "channels" ? <ChannelsTab /> : null}
-              {props.open && tab === "devices" ? <DevicesTab /> : null}
+              {props.open && tab === "devices" ? <DevicesTab key={String(demo)} /> : null}
               {tab === "privacy" ? <Privacy /> : null}
             </SlideSwap>
           </div>

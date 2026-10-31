@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { Hono } from "hono";
 
-import { appWhoamiSchema, buildAppFeed } from "@headroom/view-model/app-feed";
+import { appRefreshSchema, appWhoamiSchema, buildAppFeed } from "@headroom/view-model/app-feed";
 
 import type { AppContext } from "../bootstrap.ts";
 import type { Env } from "../middleware/session.ts";
@@ -23,9 +23,21 @@ export function appRoutes(ctx: AppContext): Hono<Env> {
         apiVersion: 1,
         serverVersion: version,
         tokenName: c.get("apiTokenName"),
+        scopes: [...c.get("apiTokenScopes")],
       }),
     ),
   );
+  // requireApiToken admits this PUT only for a token with the `refresh` scope. It changes Refresh
+  // Every and nothing else; the scheduler reads the setting on its next tick.
+  app.put("/settings/refresh", async (c) => {
+    const body = appRefreshSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "invalid_body" }, 400);
+    const saved = ctx.settings.put({
+      ...ctx.settings.get(),
+      refreshIntervalMinutes: body.data.refreshIntervalMinutes,
+    });
+    return c.json(appRefreshSchema.parse({ refreshIntervalMinutes: saved.refreshIntervalMinutes }));
+  });
   app.get("/feed", (c) => {
     const tz = parseTz(c.req.query("tz"));
     if (tz === null) return c.json({ error: "invalid_tz" }, 400);

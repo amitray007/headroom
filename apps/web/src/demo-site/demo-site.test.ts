@@ -91,7 +91,7 @@ describe("demo site API writes", () => {
   test("every other change gets the demo refusal", async () => {
     expect(await refused(api.beginAttempt("codex", "cli_login"))).toBe(true);
     expect(await refused(api.rename("a", "b"))).toBe(true);
-    expect(await refused(api.createToken("Test Mac"))).toBe(true);
+    expect(await refused(api.createToken("Test Mac", false))).toBe(true);
     expect(await refused(api.revokeToken("synthetic-id"))).toBe(true);
     expect(await refused(api.clearCost("a"))).toBe(true);
     expect(await refused(api.updateChannel("c", { enabled: true }))).toBe(true);

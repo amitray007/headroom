@@ -16,6 +16,7 @@ const listSchema = z.object({
         createdAt: z.number(),
         lastUsedAt: z.number().nullable(),
         expiresAt: z.number().nullable(),
+        scopes: z.array(z.enum(["read", "refresh"])),
       })
       .strict(),
   ),
@@ -47,6 +48,7 @@ describe("read-only API tokens", () => {
       apiVersion: 1,
       serverVersion: version,
       tokenName: "Test Mac",
+      scopes: ["read"],
     });
     const head = await app.request(url(ctx, "/api/app/v1/whoami"), { method: "HEAD", headers });
     expect(head.status).toBe(200);
@@ -166,6 +168,7 @@ describe("read-only API tokens", () => {
       prefix: "hr_",
       start: token.key.slice(0, 11),
       expiresAt: null,
+      scopes: ["read"],
     });
     expect(listed?.lastUsedAt).toBeNumber();
     expect(
