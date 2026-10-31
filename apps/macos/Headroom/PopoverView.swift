@@ -8,8 +8,9 @@ import SwiftUI
 struct PopoverView: View {
   let model: AppModel
   @State private var showingNotices = false
-  /// The More menu under the header's ⋯ button, drawn in the popover itself.
-  @State private var showingMore = false
+  /// The open menu, drawn in the popover itself: More in the header, or a footer menu.
+  @State private var openMenu: PopoverMenu?
+  @Environment(\.openSettings) private var openSettings
   /// The account page's height. Notices take the same height so switching pages never
   /// resizes the popover.
   @State private var pageHeight: CGFloat = 0
@@ -30,7 +31,7 @@ struct PopoverView: View {
             .transition(Motion.page(.trailing, reduceMotion))
         } else {
           VStack(spacing: 0) {
-            PopoverHeader(model: model, showingMore: $showingMore) { showNotices(true) }
+            PopoverHeader(model: model, openMenu: $openMenu) { showNotices(true) }
             AccountsPage(model: model)
           }
           .onGeometryChange(for: CGFloat.self) {
@@ -42,28 +43,36 @@ struct PopoverView: View {
         }
       }.frame(
         height: pageHeight > 0 ? max(pageHeight, showingNotices ? 400 : 0) : nil, alignment: .top)
-      PopoverFooter(model: model)
+      PopoverFooter(model: model, openMenu: $openMenu)
     }
     .font(HR.popoverFont()).monospacedDigit().foregroundStyle(HR.ink).background(HR.surface)
     .frame(width: 600)
-    .overlay(alignment: .topTrailing) {
-      if showingMore {
-        // An explicit stack: inside an `if`, the overlay's alignment does not reach the menu,
-        // which then sat in the middle of the popover.
-        ZStack(alignment: .topTrailing) {
-          // A click anywhere else closes the menu, as a menu does.
-          Color.clear.contentShape(Rectangle()).onTapGesture { setMore(false) }
-            .accessibilityHidden(true)
-          MoreMenu(model: model) { setMore(false) }
-            .padding(.top, 46).padding(.trailing, 8)
+    // Each menu opens from the button that anchors it: down from the header, up from the
+    // footer, with its trailing edge on the button's.
+    .overlayPreferenceValue(PopoverMenuAnchors.self) { anchors in
+      GeometryReader { proxy in
+        if let menu = openMenu, let anchor = anchors[menu] {
+          let button = proxy[anchor]
+          let up = menu != .more
+          ZStack(alignment: up ? .bottomTrailing : .topTrailing) {
+            // A click anywhere else closes the menu, as a menu does.
+            Color.clear.contentShape(Rectangle()).onTapGesture { closeMenu() }
+              .accessibilityHidden(true)
+            PopoverMenuCard(label: menu.label) { items(menu) }
+              .padding(.trailing, proxy.size.width - button.maxX)
+              .padding(
+                up ? .bottom : .top, up ? proxy.size.height - button.minY + 4 : button.maxY + 4)
+          }
+          .frame(width: proxy.size.width, height: proxy.size.height)
+          .transition(
+            .opacity.combined(
+              with: .scale(scale: 0.96, anchor: up ? .bottomTrailing : .topTrailing)))
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-        .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .topTrailing)))
       }
     }
     .onKeyPress(.escape) {
-      guard showingMore else { return .ignored }
-      setMore(false)
+      guard openMenu != nil else { return .ignored }
+      closeMenu()
       return .handled
     }
     .clipped()
@@ -81,8 +90,44 @@ struct PopoverView: View {
     }
   }
 
-  private func setMore(_ value: Bool) {
-    withAnimation(Motion.expand(reduceMotion)) { showingMore = value }
+  private func closeMenu() {
+    withAnimation(Motion.expand(reduceMotion)) { openMenu = nil }
+  }
+
+  @ViewBuilder private func items(_ menu: PopoverMenu) -> some View {
+    switch menu {
+    case .more:
+      PopoverMenuItem(title: "Settings…", symbol: "gearshape", shortcut: "⌘,") {
+        closeMenu()
+        model.openSettingsWindow(openSettings)
+      }
+      PopoverMenuDivider()
+      PopoverMenuItem(title: "Quit Headroom", symbol: "power", shortcut: "⌘Q") {
+        NSApp.terminate(nil)
+      }
+    case .dashboard:
+      ForEach(model.popoverSources) { snapshot in
+        PopoverMenuItem(title: snapshot.source.name, symbol: "arrow.up.right.square") {
+          closeMenu()
+          model.openDashboard(snapshot.source)
+        }
+      }
+    case .sources:
+      let shown = model.popoverSources.count == 1 ? model.preferences.sourceFilter : nil
+      PopoverMenuItem(title: "All sources", checked: shown == nil) { showSource(nil) }
+      PopoverMenuDivider()
+      ForEach(model.displaySources) { snapshot in
+        PopoverMenuItem(title: snapshot.source.name, checked: shown == snapshot.id) {
+          showSource(snapshot.id)
+        }
+      }
+    }
+  }
+
+  private func showSource(_ id: UUID?) {
+    closeMenu()
+    withAnimation(Motion.view(reduceMotion)) { model.preferences.sourceFilter = id }
+    model.saveDisplay()
   }
 
   private func showNotices(_ value: Bool) {
@@ -114,7 +159,7 @@ extension AppModel {
 /// The title and the refresh, notices and settings buttons.
 private struct PopoverHeader: View {
   let model: AppModel
-  @Binding var showingMore: Bool
+  @Binding var openMenu: PopoverMenu?
   let openNotices: () -> Void
   @Environment(\.openSettings) private var openSettings
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -158,12 +203,13 @@ private struct PopoverHeader: View {
         }
         // Settings and Quit in one menu, so quitting is not hidden behind a right-click.
         Button {
-          withAnimation(Motion.expand(reduceMotion)) { showingMore.toggle() }
+          withAnimation(Motion.expand(reduceMotion)) { openMenu = openMenu == .more ? nil : .more }
         } label: {
           Image(systemName: "ellipsis").font(.system(size: 16)).frame(width: 18, height: 18)
         }
-        .buttonStyle(PopoverToolStyle(on: showingMore)).help("More").accessibilityLabel("More")
-        .accessibilityValue(showingMore ? "Open" : "Closed")
+        .buttonStyle(PopoverToolStyle(on: openMenu == .more)).help("More")
+        .accessibilityLabel("More").accessibilityValue(openMenu == .more ? "Open" : "Closed")
+        .popoverMenuAnchor(.more)
       }
     }.padding(.leading, 16).padding(.trailing, 8).frame(height: 52)
       // The menu's shortcuts work while it is closed, as a menu bar menu's do.
@@ -178,52 +224,86 @@ private struct PopoverHeader: View {
   }
 }
 
-/// The header's More menu, drawn like the popover rather than as a system menu: Settings, then
-/// Quit, each with its shortcut.
-private struct MoreMenu: View {
-  let model: AppModel
-  let close: () -> Void
-  @Environment(\.openSettings) private var openSettings
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      MoreMenuItem(title: "Settings…", symbol: "gearshape", shortcut: "⌘,") {
-        close()
-        model.openSettingsWindow(openSettings)
-      }
-      Rectangle().fill(HR.border).frame(height: 1).padding(.vertical, 4).padding(.horizontal, 6)
-      MoreMenuItem(title: "Quit Headroom", symbol: "power", shortcut: "⌘Q") {
-        NSApp.terminate(nil)
-      }
+/// The popover's own menus. A system menu looked out of place in the popover.
+enum PopoverMenu: Hashable {
+  case more, dashboard, sources
+  var label: String {
+    switch self {
+    case .more: "More"
+    case .dashboard: "Open dashboard"
+    case .sources: "Sources shown"
     }
-    .padding(5).frame(width: 200)
-    .background(HR.raised, in: RoundedRectangle(cornerRadius: 10))
-    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(HR.border))
-    .shadow(color: .black.opacity(0.16), radius: 14, y: 6)
-    .accessibilityElement(children: .contain).accessibilityLabel("More")
   }
 }
 
-private struct MoreMenuItem: View {
+/// Where each menu's button sits, so the open menu lines up with it.
+struct PopoverMenuAnchors: PreferenceKey {
+  static let defaultValue: [PopoverMenu: Anchor<CGRect>] = [:]
+  static func reduce(
+    value: inout [PopoverMenu: Anchor<CGRect>], nextValue: () -> [PopoverMenu: Anchor<CGRect>]
+  ) {
+    value.merge(nextValue()) { $1 }
+  }
+}
+
+extension View {
+  func popoverMenuAnchor(_ menu: PopoverMenu) -> some View {
+    anchorPreference(key: PopoverMenuAnchors.self, value: .bounds) { [menu: $0] }
+  }
+}
+
+/// A menu card in the popover style: raised surface, thin border, soft shadow.
+private struct PopoverMenuCard<Content: View>: View {
+  let label: String
+  @ViewBuilder var content: Content
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) { content }
+      .padding(5).frame(minWidth: 200, alignment: .leading).fixedSize()
+      .background(HR.raised, in: RoundedRectangle(cornerRadius: 10))
+      .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(HR.border))
+      .shadow(color: .black.opacity(0.16), radius: 14, y: 6)
+      .accessibilityElement(children: .contain).accessibilityLabel(label)
+  }
+}
+
+/// One menu row: a symbol or a checkmark, the title, and a shortcut hint.
+private struct PopoverMenuItem: View {
   let title: String
-  let symbol: String
-  let shortcut: String
+  var symbol: String? = nil
+  var shortcut: String? = nil
+  var checked = false
   let action: () -> Void
 
   var body: some View {
     Button(action: action) {
       HStack(spacing: 8) {
-        Image(systemName: symbol).font(.system(size: 12, weight: .medium))
-          .foregroundStyle(HR.secondary).frame(width: 16)
-        Text(title).font(HR.popoverFont(13)).foregroundStyle(HR.ink)
+        Group {
+          if checked {
+            Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold))
+              .foregroundStyle(HR.ink)
+          } else if let symbol {
+            Image(systemName: symbol).font(.system(size: 12, weight: .medium))
+              .foregroundStyle(HR.secondary)
+          }
+        }.frame(width: 16)
+        Text(title).font(HR.popoverFont(13)).foregroundStyle(HR.ink).lineLimit(1)
         Spacer(minLength: 12)
-        Text(shortcut).font(HR.popoverFont(12)).foregroundStyle(HR.textMuted)
+        if let shortcut {
+          Text(shortcut).font(HR.popoverFont(12)).foregroundStyle(HR.textMuted)
+        }
       }.padding(.horizontal, 8).frame(height: 28)
-    }.buttonStyle(MoreMenuItemStyle()).accessibilityLabel(title)
+    }.buttonStyle(PopoverMenuItemStyle()).accessibilityLabel(title)
+      .accessibilityAddTraits(checked ? .isSelected : [])
   }
 }
 
-private struct MoreMenuItemStyle: ButtonStyle {
+private struct PopoverMenuDivider: View {
+  var body: some View {
+    Rectangle().fill(HR.border).frame(height: 1).padding(.vertical, 4).padding(.horizontal, 6)
+  }
+}
+
+private struct PopoverMenuItemStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
     HoverSurface(pressed: configuration.isPressed, bordered: false) { configuration.label }
   }
@@ -442,6 +522,7 @@ private struct AccountList: View {
 /// Last read, Open dashboard and the source selector.
 private struct PopoverFooter: View {
   let model: AppModel
+  @Binding var openMenu: PopoverMenu?
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
@@ -490,15 +571,17 @@ private struct PopoverFooter: View {
         label
       }.buttonStyle(PopoverFooterStyle()).help("Open the \(source.name) dashboard")
     } else {
-      Menu {
-        ForEach(model.popoverSources) { snapshot in
-          Button(snapshot.source.name) { model.openDashboard(snapshot.source) }
-        }
+      Button {
+        toggle(.dashboard)
       } label: {
         label
-      }.menuStyle(.button).buttonStyle(PopoverFooterStyle()).menuIndicator(.hidden).fixedSize()
-        .help("Choose a dashboard to open")
+      }.buttonStyle(PopoverFooterStyle(on: openMenu == .dashboard)).fixedSize()
+        .help("Choose a dashboard to open").popoverMenuAnchor(.dashboard)
     }
+  }
+
+  private func toggle(_ menu: PopoverMenu) {
+    withAnimation(Motion.expand(reduceMotion)) { openMenu = openMenu == menu ? nil : menu }
   }
 
   private var shareButton: some View {
@@ -518,38 +601,28 @@ private struct PopoverFooter: View {
   /// Which sources the popover shows: all of them, or one.
   private var sourcePicker: some View {
     let selected = model.popoverSources.count == 1 && model.displaySources.count > 1
-    return Menu {
-      Picker("Show", selection: sourceFilter) {
-        Text("All sources").tag(UUID?.none)
-        ForEach(model.displaySources) { snapshot in
-          Text(snapshot.source.name).tag(UUID?.some(snapshot.id))
-        }
-      }.pickerStyle(.inline)
+    return Button {
+      toggle(.sources)
     } label: {
       HStack(spacing: 4) {
         Text(selected ? model.popoverSources[0].source.name : "All sources")
         Image(systemName: "chevron.up.chevron.down").font(.system(size: 8, weight: .semibold))
       }.foregroundStyle(HR.ink)
-    }.menuStyle(.button).buttonStyle(PopoverFooterStyle()).menuIndicator(.hidden).fixedSize()
+    }.buttonStyle(PopoverFooterStyle(on: openMenu == .sources)).fixedSize()
       .help("Choose which sources to show").accessibilityLabel("Sources shown")
-  }
-
-  private var sourceFilter: Binding<UUID?> {
-    Binding(
-      get: { model.popoverSources.count == 1 ? model.preferences.sourceFilter : nil },
-      set: { value in
-        withAnimation(Motion.view(reduceMotion)) { model.preferences.sourceFilter = value }
-        model.saveDisplay()
-      })
+      .accessibilityValue(selected ? model.popoverSources[0].source.name : "All sources")
+      .popoverMenuAnchor(.sources)
   }
 }
 
 struct PopoverFooterStyle: ButtonStyle {
+  /// Holds the hover fill while its menu is open.
+  var on = false
   func makeBody(configuration: Configuration) -> some View {
     HoverSurface(pressed: configuration.isPressed, bordered: true) {
       configuration.label.font(HR.popoverFont(11, .medium)).padding(.horizontal, 8)
         .frame(height: 22)
-    }
+    }.background(on ? HR.muted : .clear, in: RoundedRectangle(cornerRadius: 6))
   }
 }
 
