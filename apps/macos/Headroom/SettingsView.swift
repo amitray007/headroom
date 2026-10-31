@@ -556,6 +556,27 @@ struct SettingsView: View {
 
   // MARK: General
 
+  /// The running version, what the last check found and when.
+  private var updateNote: String {
+    let updates = model.updates
+    var parts = ["Headroom \(updates.running)"]
+    if updates.checking {
+      parts.append("Checking…")
+    } else if let found = updates.available {
+      parts.append("\(found.version) available")
+    } else if updates.result == .upToDate {
+      parts.append("Up to date")
+    } else if !model.preferences.checkForUpdates {
+      parts.append("Automatic checks are off")
+    }
+    if updates.lastCheckFailed && !updates.checking {
+      parts.append("Could not check")
+    } else if let at = updates.checkedAt, !updates.checking {
+      parts.append("Checked \(Formatting.checked(at, now: model.now))")
+    }
+    return parts.joined(separator: " · ")
+  }
+
   private var general: some View {
     SettingsSections {
       SettingsSection("General") {
@@ -597,6 +618,15 @@ struct SettingsView: View {
           }
         }
         .help("While the menu is open, it reads every 30 seconds, or sooner when this is shorter.")
+        SettingsRow(title: "Updates", note: updateNote) {
+          HStack(spacing: 12) {
+            Toggle("Check for updates", isOn: $model.preferences.checkForUpdates)
+              .toggleStyle(WebSwitchStyle())
+            Button("Check now") { Task { await model.updates.check() } }
+              .buttonStyle(WebButtonStyle(small: true)).disabled(model.updates.checking)
+          }
+        }
+        .help("Looks for a new version at launch and every 6 hours. Updating needs your press.")
         SettingsRow(
           title: "Show limits as", note: "Room left, or the share used, as on the web."
         ) {

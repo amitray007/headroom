@@ -136,6 +136,18 @@ The window is a normal window. The left side shows the exact picture, scaled to 
 
 The picture uses the popover's grammar: ten cells at 10% each, grey room, amber low, hatched red out, and a red dot for a projected run-out. Spotlight fits three accounts; a longer pick falls back to Ledger. Emails stay hidden unless the owner shows them. When Privacy Mode is on, the window opens with names, emails and money hidden for that session, and it does not save those forced values. `ShareSnapshot` in `HeadroomKit` applies the hide choices before any view lays the picture out, and `ShareOptions` in the display preferences keeps the look. The account pick is not kept.
 
+## Updates
+
+The app tells the owner when a new version exists and starts the Homebrew update on a press. It has no Sparkle and never installs on its own.
+
+| Part | Behavior |
+| --- | --- |
+| Check | `UpdateClient` in `HeadroomKit` reads `GET /repos/amitray007/headroom/releases?per_page=30` with the app's redirect-refusing session and the last ETag, so a 304 costs no rate limit. `UpdateCheck` picks the newest non-draft, non-prerelease `macos-v*` release by version number and compares it with `CFBundleShortVersionString`. A failed check keeps the last result and shows nothing |
+| Cadence | About 8 seconds after launch, then every 6 hours. Settings, General has a "Check for updates" switch (`checkForUpdates` in the display preferences, default on) and a "Check now" button. The More menu has "Check for Updates…" |
+| Notice | A bordered capsule in the popover header ("0.2.0 available") opens a card with the release date, "What's new" (the release page) and the action |
+| Update | With Homebrew at `/opt/homebrew/bin/brew` or `/usr/local/bin/brew`, "Update now" runs `brew upgrade --cask amitray007/headroom/headroom-mac` in a background process (`HOMEBREW_NO_ENV_HINTS=1`, output captured). On success a detached `sh` waits one second and runs `open -b <bundle id>`, then the app quits. On failure the card shows the last output line and a "Copy command" button. Without Homebrew the card offers "Download" (the release page) |
+| Password | The card says that macOS asks for the login password once after the update, to unlock the saved tokens ([ADR 0004](../decisions/0004-mac-app.md)) |
+
 ## Release
 
 | Step | Detail |
@@ -163,4 +175,4 @@ Each phase is one pull request or a short stack. Phase 1 ships in a server relea
 | 3. Widgets and notices | Widget configuration and banners (the notice store and list already exist) | All 17 kinds bannered once; widgets update at resets |
 | 4. Release | release-please package, `macos.yml`, cask, latest guard, install docs | A test tag installs through the cask on a clean runner |
 
-Out of scope for the first release: installing the local server from the app, a `headroom token create` command for one-step pairing with This Mac, and an in-app updater.
+Out of scope for the first release: installing the local server from the app, a `headroom token create` command for one-step pairing with This Mac, and a Sparkle-style in-app updater. The app checks for a new version and starts a Homebrew update when the owner presses Update; see [Updates](#updates).

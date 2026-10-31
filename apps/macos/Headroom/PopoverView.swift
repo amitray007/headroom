@@ -10,6 +10,8 @@ struct PopoverView: View {
   @State private var showingNotices = false
   /// The open menu, drawn in the popover itself: More in the header, or a footer menu.
   @State private var openMenu: PopoverMenu?
+  /// What the More menu's update row says for a moment after a check that found nothing.
+  @State private var updateNote: String?
   @Environment(\.openSettings) private var openSettings
   /// The account page's height. Notices take the same height so switching pages never
   /// resizes the popover.
@@ -53,7 +55,7 @@ struct PopoverView: View {
       GeometryReader { proxy in
         if let menu = openMenu, let anchor = anchors[menu] {
           let button = proxy[anchor]
-          let up = menu != .more
+          let up = !menu.opensDown
           ZStack(alignment: up ? .bottomTrailing : .topTrailing) {
             // A click anywhere else closes the menu, as a menu does.
             Color.clear.contentShape(Rectangle()).onTapGesture { closeMenu() }
@@ -97,6 +99,10 @@ struct PopoverView: View {
   @ViewBuilder private func items(_ menu: PopoverMenu) -> some View {
     switch menu {
     case .more:
+      PopoverMenuItem(
+        title: model.updates.checking ? "Checking…" : updateNote ?? "Check for Updates…",
+        symbol: "arrow.triangle.2.circlepath"
+      ) { checkForUpdates() }
       PopoverMenuItem(title: "Settings…", symbol: "gearshape", shortcut: "⌘,") {
         closeMenu()
         model.openSettingsWindow(openSettings)
@@ -105,6 +111,8 @@ struct PopoverView: View {
       PopoverMenuItem(title: "Quit Headroom", symbol: "power", shortcut: "⌘Q") {
         NSApp.terminate(nil)
       }
+    case .update:
+      UpdateCardContent(updater: model.updates)
     case .dashboard:
       ForEach(model.popoverSources) { snapshot in
         PopoverMenuItem(title: snapshot.source.name, symbol: "arrow.up.right.square") {
@@ -122,6 +130,24 @@ struct PopoverView: View {
         }
       }
     }
+  }
+
+  /// A check the owner asked for. A found update opens its card; anything else says so in the row.
+  private func checkForUpdates() {
+    guard !model.updates.checking else { return }
+    Task {
+      switch await model.updates.check() {
+      case .available: withAnimation(Motion.expand(reduceMotion)) { openMenu = .update }
+      case .upToDate: await flash("Headroom is up to date")
+      case .failed: await flash("Could not check")
+      }
+    }
+  }
+
+  private func flash(_ text: String) async {
+    updateNote = text
+    try? await Task.sleep(for: .seconds(2.5))
+    updateNote = nil
   }
 
   private func showSource(_ id: UUID?) {
@@ -173,6 +199,11 @@ private struct PopoverHeader: View {
       HeadroomGlyph().frame(width: 23, height: 23)
       Text("Headroom").font(HR.popoverFont(16, .medium)).accessibilityAddTraits(.isHeader)
       Spacer()
+      UpdateCapsule(updater: model.updates, on: openMenu == .update) {
+        withAnimation(Motion.expand(reduceMotion)) {
+          openMenu = openMenu == .update ? nil : .update
+        }
+      }
       // The tool buttons carry their own 8 pt hover inset, so they sit 2 pt apart: about
       // 18 pt between glyphs.
       HStack(spacing: 2) {
@@ -226,14 +257,17 @@ private struct PopoverHeader: View {
 
 /// The popover's own menus. A system menu looked out of place in the popover.
 enum PopoverMenu: Hashable {
-  case more, dashboard, sources
+  case more, dashboard, sources, update
   var label: String {
     switch self {
     case .more: "More"
     case .dashboard: "Open dashboard"
     case .sources: "Sources shown"
+    case .update: "Update"
     }
   }
+  /// Header menus open down from their button; footer menus open up.
+  var opensDown: Bool { self == .more || self == .update }
 }
 
 /// Where each menu's button sits, so the open menu lines up with it.
@@ -267,7 +301,7 @@ private struct PopoverMenuCard<Content: View>: View {
 }
 
 /// One menu row: a symbol or a checkmark, the title, and a shortcut hint.
-private struct PopoverMenuItem: View {
+struct PopoverMenuItem: View {
   let title: String
   var symbol: String? = nil
   var shortcut: String? = nil
@@ -297,7 +331,7 @@ private struct PopoverMenuItem: View {
   }
 }
 
-private struct PopoverMenuDivider: View {
+struct PopoverMenuDivider: View {
   var body: some View {
     Rectangle().fill(HR.border).frame(height: 1).padding(.vertical, 4).padding(.horizontal, 6)
   }

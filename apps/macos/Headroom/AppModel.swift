@@ -47,6 +47,9 @@ final class AppModel {
         let seconds = preferences.checkSeconds
         Task { await self.poller?.setBackgroundInterval(seconds: seconds) }
       }
+      if preferences.checkForUpdates != oldValue.checkForUpdates, ready, !synthetic {
+        updates.schedule(enabled: preferences.checkForUpdates)
+      }
     }
   }
   var enabledKinds: [String: Bool] = [:]
@@ -70,6 +73,7 @@ final class AppModel {
   private var pendingBannerContent: NativeNotice?
   private var popoverVisible = false
   let banners = NotificationBanners()
+  let updates = AppUpdater()
   private var poller: Poller?
   private var observer: Task<Void, Never>?
   private var clockTask: Task<Void, Never>?
@@ -143,6 +147,7 @@ final class AppModel {
       enabledKinds = await noticeStore?.enabledKinds() ?? [:]
       try await connect(try await sourceStore.load())
       ready = true
+      updates.schedule(enabled: preferences.checkForUpdates)
       await checkLocal()
       let monitor = NWPathMonitor()
       monitor.pathUpdateHandler = { [weak self] _ in

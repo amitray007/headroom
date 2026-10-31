@@ -67,6 +67,8 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
   public var privacy = false
   /// Show made-up accounts and notices, for screenshots and screen sharing.
   public var demo = false
+  /// Look for a new Mac release at launch and every six hours. Updating always needs a press.
+  public var checkForUpdates = true
   /// The popover shows only this source; nil, or a source that no longer exists, shows all.
   public var sourceFilter: UUID?
   /// The Share window's last look: style, size, theme, backdrop and what it hides.
@@ -103,6 +105,8 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
       try values.decodeIfPresent(Appearance.self, forKey: .appearance) ?? defaults.appearance
     privacy = try values.decodeIfPresent(Bool.self, forKey: .privacy) ?? defaults.privacy
     demo = try values.decodeIfPresent(Bool.self, forKey: .demo) ?? defaults.demo
+    checkForUpdates =
+      try values.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? defaults.checkForUpdates
     sourceFilter = try values.decodeIfPresent(UUID.self, forKey: .sourceFilter)
     share = (try? values.decodeIfPresent(ShareOptions.self, forKey: .share)) ?? defaults.share
   }
