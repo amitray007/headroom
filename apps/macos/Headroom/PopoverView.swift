@@ -7,6 +7,9 @@ struct PopoverView: View {
   @Environment(\.openSettings) private var openSettings
   @State private var showingNotices = false
   @State private var listHeight: CGFloat = 0
+  /// The account page's height. Notices take the same height so switching pages never
+  /// resizes the popover.
+  @State private var pageHeight: CGFloat = 0
 
   init(model: AppModel, notices: Bool = false) {
     self.model = model
@@ -23,40 +26,23 @@ struct PopoverView: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      if showingNotices {
-        NoticesView(model: model) {
-          withAnimation(Motion.view(reduceMotion)) { showingNotices = false }
+      // Both pages share one layer during the switch; a VStack would stack them and grow the
+      // popover to their sum for the length of the animation.
+      ZStack(alignment: .top) {
+        if showingNotices {
+          NoticesView(model: model, fill: pageHeight > 0) { showNotices(false) }
+            .transition(Motion.page(.trailing, reduceMotion))
+        } else {
+          mainPage
+            .onGeometryChange(for: CGFloat.self) {
+              $0.size.height
+            } action: {
+              pageHeight = $0
+            }
+            .transition(Motion.page(.leading, reduceMotion))
         }
-        .transition(Motion.push(.trailing, reduceMotion))
-      } else {
-        VStack(spacing: 0) {
-          header
-          if loading {
-            loadingContent
-          } else if model.displaySources.isEmpty {
-            PopoverState(
-              art: "no-sources", title: "No sources yet",
-              message: "Add a Headroom server to see its accounts here."
-            ) {
-              Button("Add a source") {
-                model.selectedPane = .sources
-                settings()
-              }.buttonStyle(PopoverActionStyle())
-            }
-          } else if model.popoverAccounts.isEmpty {
-            emptyAccounts
-          } else {
-            summaryLine
-            ForEach(model.popoverSources.filter { $0.state != .connected }) { snapshot in
-              Text(sourceNote(snapshot)).font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
-                .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 10).padding(.horizontal, 16)
-              Divider().overlay(HR.border)
-            }
-            accountList
-          }
-        }.transition(Motion.push(.leading, reduceMotion))
-      }
+      }.frame(
+        height: pageHeight > 0 ? max(pageHeight, showingNotices ? 400 : 0) : nil, alignment: .top)
       footer
     }
     .font(HR.popoverFont()).monospacedDigit().foregroundStyle(HR.ink).background(HR.surface)
@@ -64,7 +50,7 @@ struct PopoverView: View {
     .clipped()
     .task { if model.bannerNoticeID != nil { showingNotices = true } }
     .onChange(of: model.bannerNoticeID) { _, id in
-      if id != nil { withAnimation(Motion.view(reduceMotion)) { showingNotices = true } }
+      if id != nil { showNotices(true) }
     }
     .alert(
       "Headroom",
@@ -74,6 +60,41 @@ struct PopoverView: View {
     } message: {
       Text(model.error ?? "")
     }
+  }
+
+  private var mainPage: some View {
+    VStack(spacing: 0) {
+      header
+      if loading {
+        loadingContent
+      } else if model.displaySources.isEmpty {
+        PopoverState(
+          art: "no-sources", title: "No sources yet",
+          message: "Add a Headroom server to see its accounts here."
+        ) {
+          Button("Add a source") {
+            model.selectedPane = .sources
+            settings()
+          }.buttonStyle(PopoverActionStyle())
+        }
+      } else if model.popoverAccounts.isEmpty {
+        emptyAccounts
+      } else {
+        summaryLine
+        ForEach(model.popoverSources.filter { $0.state != .connected }) { snapshot in
+          Text(sourceNote(snapshot)).font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
+            .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 10).padding(.horizontal, 16)
+          Divider().overlay(HR.border)
+        }
+        accountList
+      }
+    }
+  }
+
+  private func showNotices(_ value: Bool) {
+    guard showingNotices != value else { return }
+    withAnimation(Motion.view(reduceMotion)) { showingNotices = value }
   }
 
   private var header: some View {
@@ -94,7 +115,7 @@ struct PopoverView: View {
         }.buttonStyle(PopoverToolStyle()).help("Read sources").disabled(model.refreshing)
           .accessibilityLabel(model.refreshing ? "Reading sources" : "Read sources")
         Button {
-          withAnimation(Motion.view(reduceMotion)) { showingNotices = true }
+          showNotices(true)
         } label: {
           HStack(spacing: 5) {
             Image(systemName: "bell").font(.system(size: 16))

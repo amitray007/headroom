@@ -5,6 +5,8 @@ import SwiftUI
 /// rows grouped by day. Clicking a row marks it read; clicking it again marks it unread.
 struct NoticesView: View {
   @Bindable var model: AppModel
+  /// Fill the height the popover gives, the account page's, instead of sizing to the list.
+  var fill = false
   var back: () -> Void
   @State private var unreadOnly = false
   /// Rows read while Unread is shown stay put until the filter changes, so a click never
@@ -54,6 +56,7 @@ struct NoticesView: View {
         }
       }
     }
+    .frame(maxHeight: fill ? .infinity : nil, alignment: .top)
     .onAppear {
       if model.synthetic && model.captureState == "notice-expanded", let first = all.first {
         toggle(first)
@@ -162,7 +165,8 @@ struct NoticesView: View {
           } action: {
             listHeight = $0
           }
-      }.frame(height: min(max(listHeight, 120), 588))
+      }.frame(height: fill ? nil : min(max(listHeight, 120), 588))
+        .frame(maxHeight: fill ? .infinity : nil)
         .onChange(of: model.bannerNoticeID) { _, id in
           if let id { proxy.scrollTo(id, anchor: .top) }
         }

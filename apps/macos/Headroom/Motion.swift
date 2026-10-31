@@ -14,8 +14,10 @@ enum Motion {
   static let data = Animation.smooth(duration: 0.45)
   static let hover = Animation.easeOut(duration: 0.12)
 
-  static func push(_ edge: Edge, _ reduce: Bool) -> AnyTransition {
-    reduce ? .opacity : .move(edge: edge).combined(with: .opacity)
+  /// A page switch: a short slide from the side it lives on, crossfaded. Never a full-width
+  /// move, which repaints the whole popover on every frame.
+  static func page(_ edge: Edge, _ reduce: Bool) -> AnyTransition {
+    reduce ? .opacity : .opacity.combined(with: .offset(x: edge == .trailing ? 16 : -16))
   }
   static func reveal(_ reduce: Bool) -> AnyTransition {
     reduce ? .opacity : .opacity.combined(with: .offset(y: -6))
