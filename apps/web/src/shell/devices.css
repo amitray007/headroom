@@ -49,17 +49,31 @@
   color: var(--foreground);
   user-select: all;
 }
-/* The token's one optional write, as a checkbox under the name it belongs to. */
-.device-check {
+/* Access Type: the note gives way, the choices stay on one line each. */
+.device-access {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding-inline-start: 16px;
-  font-size: var(--text-sm);
-  cursor: pointer;
+  justify-content: space-between;
+  gap: 24px;
+  padding-top: 6px;
 }
-.device-check input {
-  accent-color: var(--accent);
+.device-access .sbody {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.device-access .sbody b {
+  font-weight: 500;
+}
+.device-access .sbody .muted {
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+.device-access .seg {
+  flex: none;
+}
+.device-access .seg button {
+  white-space: nowrap;
 }
 .device-row .sbody {
   max-width: none;
@@ -86,4 +100,17 @@
 .device-key > .sbody .muted {
   font-size: var(--text-xs);
   line-height: 1.35;
+}
+/* Phones: the choices drop under the note at full width. */
+@media (max-width: 560px) {
+  .device-access {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .device-access .seg {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
 }

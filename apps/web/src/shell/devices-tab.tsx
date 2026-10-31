@@ -9,6 +9,7 @@ import { Button } from "../ui/button.tsx";
 import { CopyButton } from "../ui/copy-button.tsx";
 import { EmptyState } from "../ui/empty-state.tsx";
 import { ErrorNotice } from "../ui/error-notice.tsx";
+import { Segmented } from "../ui/segmented.tsx";
 import { Sk } from "../ui/skeleton.tsx";
 import { Section } from "./settings-rows.tsx";
 import "./devices.css";
@@ -127,17 +128,23 @@ export function DevicesTab() {
                 Create Token
               </Button>
             </div>
-            <label className="device-check">
-              <input
-                type="checkbox"
-                checked={refresh}
-                onChange={(event) => setRefresh(event.currentTarget.checked)}
-              />
-              <span>
-                Also let it change Refresh Every
-                <span className="muted"> · nothing else</span>
+            <div className="device-access">
+              <span className="sbody">
+                <b>Access Type</b>
+                <span className="muted">
+                  Read + Refresh Every also lets the Mac set how often this server refreshes.
+                </span>
               </span>
-            </label>
+              <Segmented
+                label="Access Type"
+                value={refresh ? "refresh" : "read"}
+                options={[
+                  { value: "read", label: "Read Only" },
+                  { value: "refresh", label: "Read + Refresh Every" },
+                ]}
+                onChange={(value) => setRefresh(value === "refresh")}
+              />
+            </div>
           </form>
         ) : (
           <div className="device-key">
