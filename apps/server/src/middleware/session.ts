@@ -1,11 +1,16 @@
 import type { MiddlewareHandler } from "hono";
 
-import type { SessionInfo } from "@headroom/core";
+import type { ApiTokenScope, SessionInfo } from "@headroom/core";
 
 import type { AppContext } from "../bootstrap.ts";
 
 export type Env = {
-  Variables: { session: SessionInfo; apiTokenName: string | null };
+  Variables: {
+    session: SessionInfo;
+    apiTokenName: string | null;
+    /** The app token's scopes; set by requireApiToken. */
+    apiTokenScopes: readonly ApiTokenScope[];
+  };
 };
 
 /**
