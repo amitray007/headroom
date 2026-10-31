@@ -73,6 +73,9 @@ final class AppModel {
   private var feedCache = FeedCache()
 
   var refreshing = false
+  /// What this Mac may do to each source's Refresh Every. Asked when Settings, General opens.
+  var refreshAccess: [UUID: RefreshAccess] = [:]
+  var settingRefresh = false
   /// Each source's last read. Kept apart from `sources` so a poll that only moves the read time
   /// updates the "Updated" line instead of every account row.
   private(set) var readTimes: [UUID: Date] = [:]
@@ -199,6 +202,56 @@ final class AppModel {
     if !SourceSnapshot.sameReadings(sources, snapshots) { sources = snapshots }
   }
   /// The later of the last poll and the reading the snapshot carries.
+  /// When the server last refreshed the accounts the popover shows: the newest account
+  /// reading. The Mac reads the feed far more often than the server refreshes it, so the read
+  /// time would always say "1 min ago".
+  var refreshedAt: Date? {
+    popoverSources.flatMap { $0.cached?.feed.accounts ?? [] }
+      .compactMap { Formatting.date(milliseconds: $0.observedAt) }.max()
+  }
+
+  /// Each source's Refresh Every in minutes, from its last feed.
+  func serverRefreshMinutes(_ snapshot: SourceSnapshot) -> Int? {
+    snapshot.cached.map { $0.feed.refreshIntervalMs / 60_000 }
+  }
+
+  func checkRefreshAccess() async {
+    guard !synthetic else { return }
+    let client = FeedClient()
+    var access: [UUID: RefreshAccess] = [:]
+    for snapshot in sources {
+      if let token = try? await vault.token(for: snapshot.id) {
+        access[snapshot.id] = await client.refreshAccess(source: snapshot.source, token: token)
+      } else {
+        access[snapshot.id] = .unknown
+      }
+    }
+    if access != refreshAccess { refreshAccess = access }
+  }
+
+  /// Sets Refresh Every on each source whose token may change it. Read-only sources keep theirs.
+  func setRefresh(minutes: Int) async {
+    guard !settingRefresh else { return }
+    settingRefresh = true
+    defer { settingRefresh = false }
+    let client = FeedClient()
+    var failed: [String] = []
+    for snapshot in sources where refreshAccess[snapshot.id] == .allowed {
+      guard let token = try? await vault.token(for: snapshot.id),
+        await client.setRefresh(source: snapshot.source, token: token, minutes: minutes)
+      else {
+        failed.append(snapshot.source.name)
+        continue
+      }
+    }
+    if !failed.isEmpty {
+      error =
+        "Could not change Refresh Every on \(failed.joined(separator: ", ")). Check that the source is online."
+    }
+    // Read again so each feed reports its new interval.
+    await poller?.refresh()
+  }
+
   func readAt(_ snapshot: SourceSnapshot) -> Date? {
     [readTimes[snapshot.id], snapshot.cached?.readAt].compactMap { $0 }.max()
   }

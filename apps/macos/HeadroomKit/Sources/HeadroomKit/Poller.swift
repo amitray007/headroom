@@ -26,8 +26,8 @@ public struct SourceSnapshot: Identifiable, Sendable {
 }
 
 extension SourceSnapshot {
-  /// True when two polls show the same thing: same sources, states, accounts, notices and
-  /// summary. Only the read time differs, and redrawing every view for that is wasted work.
+  /// True when two polls show the same thing: same sources, states, accounts, notices, summary
+  /// and refresh interval. Only the read time differs, and redrawing every view for that is wasted work.
   public static func sameReadings(_ a: [SourceSnapshot], _ b: [SourceSnapshot]) -> Bool {
     a.count == b.count
       && zip(a, b).allSatisfy { old, new in
@@ -35,6 +35,7 @@ extension SourceSnapshot {
           && old.cached?.feed.accounts == new.cached?.feed.accounts
           && old.cached?.feed.notices == new.cached?.feed.notices
           && old.cached?.feed.summary == new.cached?.feed.summary
+          && old.cached?.feed.refreshIntervalMs == new.cached?.feed.refreshIntervalMs
       }
   }
 }

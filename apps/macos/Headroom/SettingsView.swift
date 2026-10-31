@@ -410,7 +410,10 @@ struct SettingsView: View {
         }
       }
     }
-    .task { await model.checkLocal() }
+    .task {
+      await model.checkLocal()
+      await model.checkRefreshAccess()
+    }
   }
 
   /// The name with its state, then one line of address, version and last read. The address
@@ -422,7 +425,7 @@ struct SettingsView: View {
           Text(snapshot.source.name).font(HR.popoverFont(14, .medium)).foregroundStyle(HR.ink)
           HStack(spacing: 5) {
             Circle().fill(stateColor(snapshot.state)).frame(width: 6, height: 6)
-            Text(snapshot.state.label)
+            Text(sourceState(snapshot))
           }.font(HR.popoverFont(12)).foregroundStyle(HR.secondary)
         }
         HStack(spacing: 0) {
@@ -435,6 +438,42 @@ struct SettingsView: View {
       sourceActions(snapshot, index: index)
     }
     .padding(.vertical, 10)
+  }
+
+  /// Sources whose token may change Refresh Every.
+  private var refreshWritable: [SourceSnapshot] {
+    model.sources.filter { model.refreshAccess[$0.id] == .allowed }
+  }
+
+  /// The interval the sources this Mac can change share, or "Mixed".
+  private var refreshValue: String {
+    let shown = refreshWritable.isEmpty ? model.sources : refreshWritable
+    let minutes = Set(shown.compactMap(model.serverRefreshMinutes))
+    if minutes.count > 1 { return "Mixed" }
+    return minutes.first.map { "\($0) min" } ?? "Not set"
+  }
+
+  private var refreshNote: String {
+    guard !model.sources.isEmpty else { return "Add a source to set how often it refreshes." }
+    var note =
+      "How often each server refreshes your accounts. This Mac reads them every 2 minutes, every 30 seconds while open."
+    let readOnly = model.sources.filter { model.refreshAccess[$0.id] == .readOnly }
+      .map(\.source.name)
+    if !readOnly.isEmpty {
+      let names = ListFormatter.localizedString(byJoining: readOnly)
+      note +=
+        " \(names) \(readOnly.count == 1 ? "has" : "have") a read-only token, so \(readOnly.count == 1 ? "it keeps its" : "they keep their") own setting. To change it here, create a token with Can Change Refresh Every in Settings, Devices."
+    }
+    return note
+  }
+
+  /// "Connected · every 10 min · read only": the state, the server's Refresh Every, and whether
+  /// this Mac's token may change it.
+  private func sourceState(_ snapshot: SourceSnapshot) -> String {
+    var parts = [snapshot.state.label]
+    if let minutes = model.serverRefreshMinutes(snapshot) { parts.append("every \(minutes) min") }
+    if model.refreshAccess[snapshot.id] == .readOnly { parts.append("read only") }
+    return parts.joined(separator: " · ")
   }
 
   /// " · v0.1.13 · Updated 2 min ago", after the address.
@@ -535,9 +574,16 @@ struct SettingsView: View {
               }
             }
         }
-        SettingsRow(title: "Read sources", note: "Every 2 minutes, every 30 seconds while open.") {
-          EmptyView()
+        SettingsRow(title: "Refresh every", note: refreshNote) {
+          WebSelect(value: refreshValue) {
+            ForEach(RefreshInterval.options, id: \.self) { minutes in
+              Button("\(minutes) min") { Task { await model.setRefresh(minutes: minutes) } }
+            }
+          }
+          .disabled(refreshWritable.isEmpty || model.settingRefresh)
+          .opacity(refreshWritable.isEmpty ? 0.5 : 1)
         }
+        .task { await model.checkRefreshAccess() }
         SettingsRow(title: "Appearance") {
           WebSegmented(
             selection: $model.preferences.appearance,

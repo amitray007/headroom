@@ -355,7 +355,7 @@ private struct PopoverFooter: View {
         Text("Room and reset times appear after the first reading.")
       } else {
         Text(
-          "Updated \(Formatting.age(model.popoverSources.compactMap(model.readAt).max(), now: model.now))"
+          "Updated \(Formatting.age(model.refreshedAt ?? model.popoverSources.compactMap(model.readAt).max(), now: model.now))"
         )
       }
       Spacer(minLength: 12)
