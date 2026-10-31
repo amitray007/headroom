@@ -22,11 +22,13 @@ struct NoticesView: View {
   private var items: [NoticeItem] {
     all.filter { !unreadOnly || !$0.read || kept.contains($0.id) }
   }
+  /// One pass over the list: each notice's day is worked out once.
   private var days: [(day: NoticeDay, items: [NoticeItem])] {
-    NoticeDay.allCases.compactMap { day in
-      let group = items.filter { NoticeDay($0.notice.occurredAt, now: model.now) == day }
-      return group.isEmpty ? nil : (day, group)
+    var byDay: [NoticeDay: [NoticeItem]] = [:]
+    for item in items {
+      byDay[NoticeDay(item.notice.occurredAt, now: model.now), default: []].append(item)
     }
+    return NoticeDay.allCases.compactMap { day in byDay[day].map { (day, $0) } }
   }
 
   var body: some View {

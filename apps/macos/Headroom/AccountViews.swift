@@ -153,24 +153,18 @@ struct LedgerMeterView: View {
   }
 }
 
-/// Ten Forecast cells, one per 10% left. Out is hatched red; low is amber.
+/// Ten Forecast cells, one per 10% left. Out is hatched red; low is amber. Drawn as two
+/// shapes, not ten stacks of views, and the fill animates as one value.
 struct Cells: View {
   let fill: Double?
   let tone: LedgerRow.Tone
   var body: some View {
-    HStack(spacing: 3) {
-      ForEach(0..<10, id: \.self) { index in
-        let part = min(1, max(0, ((fill ?? 0) - Double(index) * 10) / 10))
-        ZStack(alignment: .leading) {
-          if tone == .out {
-            Hatch()
-          } else {
-            Rectangle().fill(HR.track)
-            GeometryReader { geometry in
-              Rectangle().fill(color).frame(width: geometry.size.width * part)
-            }
-          }
-        }.clipShape(RoundedRectangle(cornerRadius: 1.5))
+    ZStack {
+      if tone == .out {
+        Hatch().mask(CellShape(fill: 100))
+      } else {
+        CellShape(fill: 100).fill(HR.track)
+        CellShape(fill: fill ?? 0).fill(color)
       }
     }.frame(height: 7).animation(Motion.data, value: fill)
   }
@@ -181,6 +175,30 @@ struct Cells: View {
     case .unknown: HR.secondary.opacity(0.45)
     default: HR.fill
     }
+  }
+}
+
+/// The first `fill` percent of ten rounded cells with 3 pt gaps.
+private struct CellShape: Shape {
+  var fill: Double
+  var animatableData: Double {
+    get { fill }
+    set { fill = newValue }
+  }
+  func path(in rect: CGRect) -> Path {
+    let gap: CGFloat = 3
+    let width = (rect.width - gap * 9) / 10
+    var path = Path()
+    for index in 0..<10 {
+      let part = CGFloat(min(1, max(0, (fill - Double(index) * 10) / 10)))
+      guard part > 0 else { break }
+      let cell = CGRect(
+        x: rect.minX + CGFloat(index) * (width + gap), y: rect.minY, width: width * part,
+        height: rect.height)
+      path.addRoundedRect(
+        in: cell, cornerSize: CGSize(width: min(1.5, cell.width / 2), height: 1.5))
+    }
+    return path
   }
 }
 

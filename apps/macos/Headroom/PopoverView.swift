@@ -17,11 +17,11 @@ struct PopoverView: View {
   }
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
-  private var room: RoomNow { RoomNow(items: model.popoverAccounts, now: model.now) }
   private var loading: Bool {
+    // The source check is cheap and usually false, so the account list is rarely built here.
     model.displaySources.isEmpty
       ? !model.ready
-      : model.popoverAccounts.isEmpty && model.popoverSources.contains { $0.state == .noData }
+      : model.popoverSources.contains { $0.state == .noData } && model.popoverAccounts.isEmpty
   }
 
   var body: some View {
@@ -63,7 +63,11 @@ struct PopoverView: View {
   }
 
   private var mainPage: some View {
-    VStack(spacing: 0) {
+    // Build the rows once per render; the summary and every provider group share them.
+    let rows = RoomNow(items: model.popoverAccounts, now: model.now).columns.map {
+      LedgerRow(column: $0, now: model.now)
+    }
+    return VStack(spacing: 0) {
       header
       if loading {
         loadingContent
@@ -77,17 +81,17 @@ struct PopoverView: View {
             settings()
           }.buttonStyle(PopoverActionStyle())
         }
-      } else if model.popoverAccounts.isEmpty {
+      } else if rows.isEmpty {
         emptyAccounts
       } else {
-        summaryLine
+        summaryLine(rows)
         ForEach(model.popoverSources.filter { $0.state != .connected }) { snapshot in
           Text(sourceNote(snapshot)).font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
             .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 10).padding(.horizontal, 16)
           Divider().overlay(HR.border)
         }
-        accountList
+        accountList(groups(rows))
       }
     }
   }
@@ -138,9 +142,7 @@ struct PopoverView: View {
     openSettings()
   }
 
-  private var rows: [LedgerRow] { room.columns.map { LedgerRow(column: $0, now: model.now) } }
-
-  private var summaryLine: some View {
+  private func summaryLine(_ rows: [LedgerRow]) -> some View {
     let summary = LedgerSummary(rows: rows, feeds: model.popoverSources.compactMap(\.cached?.feed))
     return HStack(spacing: 14) {
       if let plans = summary.plans { Text("**\(plans)** a month in plans") }
@@ -160,15 +162,13 @@ struct PopoverView: View {
       .overlay(alignment: .bottom) { Rectangle().fill(HR.border).frame(height: 1) }
   }
 
-  private var accountList: some View {
+  private func accountList(_ groups: [(provider: String, rows: [LedgerRow])]) -> some View {
     ScrollViewReader { proxy in
       ScrollView {
         VStack(spacing: 0) {
-          ForEach(providers, id: \.self) { provider in
-            LedgerGroup(
-              rows: rows.filter { $0.item.account.provider.rawValue == provider }, model: model
-            ).id(provider)
-            if provider != providers.last { Divider().overlay(HR.border) }
+          ForEach(groups, id: \.provider) { group in
+            LedgerGroup(rows: group.rows, model: model).id(group.provider)
+            if group.provider != groups.last?.provider { Divider().overlay(HR.border) }
           }
         }.onGeometryChange(for: CGFloat.self) {
           $0.size.height
@@ -178,16 +178,21 @@ struct PopoverView: View {
       }.frame(height: min(max(listHeight, 44), 640))
         .onAppear {
           if model.synthetic && model.captureState == "lower" {
-            proxy.scrollTo(providers.last, anchor: .bottom)
+            proxy.scrollTo(groups.last?.provider, anchor: .bottom)
           }
         }
     }
   }
-  private var providers: [String] {
-    room.columns.reduce(into: []) { result, column in
-      let provider = column.item.account.provider.rawValue
-      if !result.contains(provider) { result.append(provider) }
+  /// Rows by provider, in the order providers first appear, in one pass.
+  private func groups(_ rows: [LedgerRow]) -> [(provider: String, rows: [LedgerRow])] {
+    var order: [String] = []
+    var byProvider: [String: [LedgerRow]] = [:]
+    for row in rows {
+      let provider = row.item.account.provider.rawValue
+      if byProvider[provider] == nil { order.append(provider) }
+      byProvider[provider, default: []].append(row)
     }
+    return order.map { ($0, byProvider[$0] ?? []) }
   }
 
   private var loadingContent: some View {
