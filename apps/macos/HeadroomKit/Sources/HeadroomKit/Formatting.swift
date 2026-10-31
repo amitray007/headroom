@@ -177,7 +177,7 @@ public enum Formatting {
 
   private static let formatters = FormatterCache()
 
-  private static func format(_ date: Date, pattern: String, timeZone: TimeZone) -> String {
+  static func format(_ date: Date, pattern: String, timeZone: TimeZone) -> String {
     formatters.string(date, pattern: pattern, timeZone: timeZone)
   }
 

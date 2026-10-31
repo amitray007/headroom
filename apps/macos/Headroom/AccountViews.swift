@@ -28,7 +28,8 @@ struct LedgerGroup: View {
       let privacy = model.preferences.privacy
       ForEach(rows) { row in
         LedgerRowView(
-          row: row, showsSource: withSource.contains(row.id), privacy: privacy, model: model
+          row: row, showsSource: withSource.contains(row.id), privacy: privacy,
+          siblings: rows.map(\.id), model: model
         )
         .equatable()
       }
@@ -40,7 +41,7 @@ struct LedgerGroup: View {
 struct LedgerRowView: View, Equatable {
   nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
     lhs.row.id == rhs.row.id && lhs.showsSource == rhs.showsSource
-      && lhs.privacy == rhs.privacy
+      && lhs.privacy == rhs.privacy && lhs.siblings == rhs.siblings
       && lhs.row.meters == rhs.row.meters && lhs.row.extra == rhs.row.extra
       && lhs.row.column.state == rhs.row.column.state
       && lhs.row.item.snapshot.state == rhs.row.item.snapshot.state
@@ -51,6 +52,8 @@ struct LedgerRowView: View, Equatable {
   let row: LedgerRow
   let showsSource: Bool
   let privacy: Bool
+  /// The keys of the provider's accounts in the list, for "Share All".
+  let siblings: [String]
   let model: AppModel
   @State private var expanded = false
   @State private var hovered = false
@@ -95,6 +98,12 @@ struct LedgerRowView: View, Equatable {
       }
     }
     .foregroundStyle(quiet ? HR.secondary : HR.ink)
+    .contextMenu {
+      Button("Share \(providerName) \(account.name)…") { model.requestShare([row.id]) }
+      if siblings.count > 1 {
+        Button("Share All \(providerName)…") { model.requestShare(Set(siblings)) }
+      }
+    }
     .onAppear {
       if model.synthetic && model.captureState == "expanded" && account.id == "claude-max" {
         expanded = true

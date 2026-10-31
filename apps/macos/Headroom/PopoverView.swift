@@ -74,6 +74,11 @@ extension AppModel {
       : popoverSources.contains { $0.state == .noData } && popoverAccounts.isEmpty
   }
 
+  /// Whether any shown source has an account, cheap enough for the header to ask on every draw.
+  var popoverHasAccounts: Bool {
+    popoverSources.contains { $0.cached?.feed.accounts.isEmpty == false }
+  }
+
   func openSettingsWindow(_ open: OpenSettingsAction) {
     NSApp.activate()
     open()
@@ -99,6 +104,16 @@ private struct PopoverHeader: View {
       // 18 pt between glyphs.
       HStack(spacing: 2) {
         if !loading && !model.displaySources.isEmpty {
+          if model.popoverHasAccounts {
+            Button {
+              model.requestShare(Set(model.popoverAccounts.map(\.id)))
+            } label: {
+              Image(systemName: "square.and.arrow.up").font(.system(size: 16)).frame(
+                width: 18, height: 18)
+            }.buttonStyle(PopoverToolStyle()).help("Share a snapshot")
+              .keyboardShortcut("s", modifiers: [.command, .shift])
+              .accessibilityLabel("Share a snapshot")
+          }
           Button {
             Task { await model.readSources() }
           } label: {

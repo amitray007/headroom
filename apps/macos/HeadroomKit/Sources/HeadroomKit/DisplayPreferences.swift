@@ -69,6 +69,8 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
   public var demo = false
   /// The popover shows only this source; nil, or a source that no longer exists, shows all.
   public var sourceFilter: UUID?
+  /// The Share window's last look: style, size, theme, backdrop and what it hides.
+  public var share = ShareOptions()
   public init() {}
 
   private enum Saved: String, CodingKey { case followedAccount }
@@ -102,6 +104,7 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
     privacy = try values.decodeIfPresent(Bool.self, forKey: .privacy) ?? defaults.privacy
     demo = try values.decodeIfPresent(Bool.self, forKey: .demo) ?? defaults.demo
     sourceFilter = try values.decodeIfPresent(UUID.self, forKey: .sourceFilter)
+    share = (try? values.decodeIfPresent(ShareOptions.self, forKey: .share)) ?? defaults.share
   }
 }
 
@@ -135,6 +138,9 @@ public struct AccountItem: Identifiable, Sendable {
 }
 
 public enum Presentation {
+  /// Provider marks drawn in their own color; the rest draw in one color.
+  public static let coloredMarks: Set<String> = ["claude", "antigravity"]
+
   public static func providerName(_ id: String) -> String {
     switch id {
     case "claude": "Claude"

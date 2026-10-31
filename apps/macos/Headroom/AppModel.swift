@@ -62,6 +62,9 @@ final class AppModel {
   var synthetic = false
   var captureState: String?
   var popoverPresented = false
+  /// A request to open the Share window with these account keys picked. The menu bar controller
+  /// opens it and clears it, as it does for `popoverPresented`.
+  var shareRequest: Set<String>?
   var bannerNoticeID: String?
   private var pendingBannerNoticeID: String?
   private var pendingBannerContent: NativeNotice?
@@ -286,6 +289,7 @@ final class AppModel {
     if open { await presentBannerNotice() }
     await poller?.setPopoverOpen(open)
   }
+  func requestShare(_ accounts: Set<String>) { shareRequest = accounts }
   func requestBannerNotice(sourceID: UUID, noticeID: String, content: NativeNotice? = nil) {
     pendingBannerNoticeID = "\(sourceID)/\(noticeID)"
     pendingBannerContent = content

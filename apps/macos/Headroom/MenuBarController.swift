@@ -1,4 +1,5 @@
 import AppKit
+import HeadroomKit
 import Observation
 import SwiftUI
 
@@ -9,6 +10,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
   private let model: AppModel
   private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
   private let popover = NSPopover()
+  private let shareWindow = ShareWindowController()
   private var appearance: NSKeyValueObservation?
   /// What the label image last showed. Most observed changes (the minute tick, a preference
   /// the label does not use) leave it the same, and drawing it again would be wasted work.
@@ -53,6 +55,11 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     popover.contentViewController?.view.window?.makeKey()
   }
+  /// The Share window is a normal window, so the transient popover gives way to it.
+  private func openShare(_ accounts: Set<String>) {
+    if popover.isShown { popover.performClose(nil) }
+    shareWindow.show(model: model, accounts: accounts)
+  }
   private func observe() {
     withObservationTracking {
       _ = model.sources
@@ -61,11 +68,19 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
       _ = model.now
       _ = model.ready
       _ = model.popoverPresented
+      _ = model.shareRequest
       drawLabel()
       if model.popoverPresented {
         if popover.isShown { Task { await model.presentBannerNotice() } } else { show() }
         // The flag is an open request. Closing the popover does not change the unread dot.
         Task { self.model.popoverPresented = false }
+      }
+      if let accounts = model.shareRequest {
+        // Outside the tracking closure, so opening the window does not subscribe to what it reads.
+        Task { @MainActor in
+          self.model.shareRequest = nil
+          self.openShare(accounts)
+        }
       }
     } onChange: { [weak self] in
       Task { @MainActor in self?.observe() }

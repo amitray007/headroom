@@ -1,9 +1,10 @@
+import HeadroomKit
 import SwiftUI
 
 struct ProviderMark: View {
   let provider: String
   /// Marks drawn in their own color; the rest draw in one color.
-  static let colored: Set<String> = ["claude", "antigravity"]
+  static let colored = Presentation.coloredMarks
   @Environment(\.colorScheme) private var scheme
   var body: some View {
     // Claude and Antigravity keep their color. The other marks are one color, so they draw as
