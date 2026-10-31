@@ -48,12 +48,17 @@ struct PopoverView: View {
     .frame(width: 600)
     .overlay(alignment: .topTrailing) {
       if showingMore {
-        // A click anywhere else closes the menu, as a menu does.
-        Color.clear.contentShape(Rectangle()).onTapGesture { setMore(false) }
-          .accessibilityHidden(true)
-        MoreMenu(model: model) { setMore(false) }
-          .padding(.top, 46).padding(.trailing, 8)
-          .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .topTrailing)))
+        // An explicit stack: inside an `if`, the overlay's alignment does not reach the menu,
+        // which then sat in the middle of the popover.
+        ZStack(alignment: .topTrailing) {
+          // A click anywhere else closes the menu, as a menu does.
+          Color.clear.contentShape(Rectangle()).onTapGesture { setMore(false) }
+            .accessibilityHidden(true)
+          MoreMenu(model: model) { setMore(false) }
+            .padding(.top, 46).padding(.trailing, 8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+        .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .topTrailing)))
       }
     }
     .onKeyPress(.escape) {
