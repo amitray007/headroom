@@ -560,12 +560,50 @@
         ],
         "type": "object"
       },
+      "AppRefresh": {
+        "additionalProperties": false,
+        "properties": {
+          "refreshIntervalMinutes": {
+            "anyOf": [
+              {
+                "const": 2,
+                "type": "number"
+              },
+              {
+                "const": 5,
+                "type": "number"
+              },
+              {
+                "const": 10,
+                "type": "number"
+              },
+              {
+                "const": 15,
+                "type": "number"
+              },
+              {
+                "const": 30,
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "required": ["refreshIntervalMinutes"],
+        "type": "object"
+      },
       "AppWhoami": {
         "additionalProperties": false,
         "properties": {
           "apiVersion": {
             "const": 1,
             "type": "number"
+          },
+          "scopes": {
+            "items": {
+              "enum": ["read", "refresh"],
+              "type": "string"
+            },
+            "type": "array"
           },
           "serverVersion": {
             "type": "string"
@@ -574,7 +612,7 @@
             "type": ["string", "null"]
           }
         },
-        "required": ["apiVersion", "serverVersion", "tokenName"],
+        "required": ["apiVersion", "serverVersion", "tokenName", "scopes"],
         "type": "object"
       },
       "Error": {
@@ -590,7 +628,7 @@
     },
     "securitySchemes": {
       "appToken": {
-        "bearerFormat": "Headroom read token",
+        "bearerFormat": "Headroom app token",
         "scheme": "bearer",
         "type": "http"
       }
@@ -689,6 +727,103 @@
               "Allow": {
                 "schema": {
                   "const": "GET, HEAD",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many authentication attempts: rate_limited.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "appToken": []
+          }
+        ]
+      }
+    },
+    "/api/app/v1/settings/refresh": {
+      "put": {
+        "operationId": "putAppRefresh",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppRefresh"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppRefresh"
+                }
+              }
+            },
+            "description": "The saved interval. The server collects on the new interval from its next tick."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The body is not one of the allowed intervals: invalid_body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing, expired, revoked or invalid token: invalid_token."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The token was created without the refresh scope: missing_permission."
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Only PUT is allowed: method_not_allowed.",
+            "headers": {
+              "Allow": {
+                "schema": {
+                  "const": "PUT",
                   "type": "string"
                 }
               }

@@ -36,14 +36,14 @@ No third-party Swift dependency ships in the app apart from the OpenAPI runtime 
 A source is a Headroom server the app reads. The app authenticates with a read-only API token, never a session cookie:
 
 - The owner creates a token in the dashboard (Settings, Devices) and names it. The dashboard shows the token once. The owner pastes it, with the server URL, into the Mac app. The app keeps it in the Keychain.
-- The server stores only a hash. A token has one scope, `read`, and can reach only the app routes under `/api/app/v1/`. A token cannot change settings, refresh an account, run an action or read credentials.
+- The server stores only a hash. A token has the scope `read` and can reach only the app routes under `/api/app/v1/`. The owner can also give it `refresh` when creating it (D44): that token can change Refresh Every and nothing else. A token cannot change other settings, refresh an account, run an action or read credentials.
 - The dashboard lists each token with its name, creation time and last use, and revokes it with one press. A revoked token gets 401 and the app shows the source as signed out with a link to the dashboard.
 - Tokens use the Better Auth API key plugin at the same pinned version as `better-auth`, with sessions for API keys off. Its hashing, prefix, expiry and rate limit replace hand-written code. A Hono middleware on `/api/app/v1/*` verifies the token with the `read` permission. Every other route keeps the session check.
 
 ### Data: one feed, polled
 
 - The app reads one route per source, `GET /api/app/v1/feed`. It carries every account with its limits, charges and banked resets, the run-out time where a pace exists, the derived notices, and the server's refresh interval. The server shapes it from the same view-model code the dashboard uses, so the Mac app does not reimplement percent, pace or notice rules in Swift.
-- The app polls. The server collects every 5 to 30 minutes, so its data changes slowly. The app reads each source every 2 minutes in the background, every 30 seconds while the popover is open, at once on open when the last read is older than 30 seconds, and on wake and on network change. The feed has an `ETag`, so an unchanged feed costs a 304.
+- The app polls. The server collects every 2 to 30 minutes, so its data changes slowly. The app reads each source every 2 minutes in the background, every 30 seconds while the popover is open, at once on open when the last read is older than 30 seconds, and on wake and on network change. The feed has an `ETag`, so an unchanged feed costs a 304.
 - The app keeps the last good feed of each source on disk. It opens with that feed and shows its age. A source that fails keeps its last feed, marked with its age and the failure.
 - Server-sent events were rejected: they need a held connection per source and per sleep cycle for data that changes every few minutes.
 

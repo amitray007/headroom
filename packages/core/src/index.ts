@@ -38,6 +38,11 @@ export {
 } from "./order.ts";
 export { SettingsStore, defaultSettings, settingsSchema, type Settings } from "./settings.ts";
 export {
+  historyRetentionOptions,
+  refreshIntervalMinutesSchema,
+  refreshIntervalOptions,
+} from "./settings-schema.ts";
+export {
   WalletStore,
   UnknownConnectionError,
   UnknownTopUpError,
@@ -161,4 +166,4 @@ export {
 } from "./notifications/deliveries.ts";
 export { cliAvailability } from "./cli-availability.ts";
 
-export { ApiTokenStore } from "./api-tokens.ts";
+export { ApiTokenStore, apiTokenScopesOf } from "./api-tokens.ts";
