@@ -23,7 +23,7 @@ Headroom for Mac is a menu bar app with desktop widgets and notifications. It re
 
 | Part | Owns |
 | --- | --- |
-| `apps/macos/Headroom` | App target with a 420 pt SwiftUI popover presented by `NSStatusItem` and `NSPopover`, Room now chart, compact account disclosures, inline notices, five Settings panes and notification banners |
+| `apps/macos/Headroom` | App target with a 600 pt SwiftUI popover presented by `NSStatusItem` and `NSPopover`, a summary line, one ledger row per account with disclosures, inline notices, five Settings panes and notification banners |
 | `apps/macos/Widgets` | Sandboxed widget extension with App Intent account and limit configuration. Small offers Account or Overall, Medium shows up to three chosen accounts, Large shows eight, and Extra Large adds secondary limits. It reads its own cache only |
 | `apps/macos/HeadroomKit` | Swift 6.2 package: `HeadroomAPI` generates public types and a GET client; `HeadroomKit` owns sources, one Keychain token map, polling, feed and notice stores, formatting and widget-cache writing |
 | `apps/macos/Shared` | The app and widget views share Geist, provider marks, artwork and surface tokens |
@@ -124,7 +124,7 @@ Widget configuration uses WidgetKit's native editor. Account and limit entities 
 
 A Debug build accepts `--synthetic`. It uses the committed round 6 popover fixture, three synthetic sources, an in-memory token vault and temporary stores. No server or production store is used. Add `--capture <directory>` to capture the real SwiftUI views in light and dark appearance, all five Settings panes, inline notices and the source states. The capture run checks read, unread and mark-all-read behavior before exiting. Release builds exclude this mode.
 
-The Room now chart uses one binding limit per account in provider order. Known kept readings retain their height; sign-in and unknown quota use dotted columns. The headline counts known room, including kept readings. The next-back line excludes offline sources. Account disclosures hold other limits, money and banked resets. Notices expand in place and mark read through the local notice store.
+The popover shows one ledger row per account in provider order. A row holds up to two limits: the lowest session window, then the binding longer window. Each limit is ten cells, one per 10% left, with the % and window name on the left and the countdown, return time or projected run-out on the right. A row with no extra lets its limits take the full width; otherwise one extra sits on the right edge, in this order: banked resets, capped spend, credit balance. An account with no quota shows its balance, measured against balance plus total used when the feed reports both. The summary line shows the plan total, extra spend, banked resets and the out and running-low counts. Kept readings and sign-in rows are dimmed. Account disclosures hold every limit, money and banked resets. Notices expand in place and mark read through the local notice store.
 
 Settings keeps Menu Bar, List, Notifications, Sources and General from round 5. The per-kind switches persist in `NoticeStore` for layer 5; they do not request banner permission. Source edits use a sheet so verification happens before saving. General shows the fixed feed polling cadence instead of changing server collection. Account links open the source's Detailed dashboard; the web app has no per-account or Devices deep link.
 
