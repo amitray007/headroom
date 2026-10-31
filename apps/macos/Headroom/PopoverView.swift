@@ -310,7 +310,7 @@ private struct AccountList: View {
           LinearGradient(
             colors: [HR.surface.opacity(0), HR.surface], startPoint: .top, endPoint: .bottom
           )
-          .frame(height: 24).allowsHitTesting(false)
+          .frame(height: 40).allowsHitTesting(false)
           .opacity(listHeight > listCap && !listAtEnd ? 1 : 0)
           .animation(Motion.hover, value: listAtEnd)
         }
@@ -323,10 +323,23 @@ private struct AccountList: View {
   }
 
   /// About nine rows, then the list scrolls. A short screen lowers it so the popover keeps clear
-  /// of the menu bar and the Dock: header, summary, footer and margins take about 180 pt.
+  /// of the menu bar and the Dock: header, summary, footer and margins take about 180 pt. A
+  /// list taller than that stops through the middle of a row, so the cut row says there is more.
   private var listCap: CGFloat {
     let screen = NSScreen.main?.visibleFrame.height ?? 900
-    return max(176, min(440, screen - 180))
+    let limit = max(176, min(440, screen - 180))
+    // Collapsed rows are 44 pt; each provider group adds 4 pt above and below and a 1 pt rule.
+    var y: CGFloat = 0
+    var cut: CGFloat?
+    for (index, group) in groups.enumerated() {
+      y += 4
+      for _ in group.rows {
+        if y + 22 <= limit { cut = y + 22 }
+        y += 44
+      }
+      y += index < groups.count - 1 ? 5 : 4
+    }
+    return y <= limit ? limit : cut ?? limit
   }
 }
 
