@@ -8,6 +8,8 @@ import SwiftUI
 struct PopoverView: View {
   let model: AppModel
   @State private var showingNotices = false
+  /// The More menu under the header's ⋯ button, drawn in the popover itself.
+  @State private var showingMore = false
   /// The account page's height. Notices take the same height so switching pages never
   /// resizes the popover.
   @State private var pageHeight: CGFloat = 0
@@ -28,7 +30,7 @@ struct PopoverView: View {
             .transition(Motion.page(.trailing, reduceMotion))
         } else {
           VStack(spacing: 0) {
-            PopoverHeader(model: model) { showNotices(true) }
+            PopoverHeader(model: model, showingMore: $showingMore) { showNotices(true) }
             AccountsPage(model: model)
           }
           .onGeometryChange(for: CGFloat.self) {
@@ -44,6 +46,21 @@ struct PopoverView: View {
     }
     .font(HR.popoverFont()).monospacedDigit().foregroundStyle(HR.ink).background(HR.surface)
     .frame(width: 600)
+    .overlay(alignment: .topTrailing) {
+      if showingMore {
+        // A click anywhere else closes the menu, as a menu does.
+        Color.clear.contentShape(Rectangle()).onTapGesture { setMore(false) }
+          .accessibilityHidden(true)
+        MoreMenu(model: model) { setMore(false) }
+          .padding(.top, 46).padding(.trailing, 8)
+          .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .topTrailing)))
+      }
+    }
+    .onKeyPress(.escape) {
+      guard showingMore else { return .ignored }
+      setMore(false)
+      return .handled
+    }
     .clipped()
     .task { if model.bannerNoticeID != nil { showingNotices = true } }
     .onChange(of: model.bannerNoticeID) { _, id in
@@ -57,6 +74,10 @@ struct PopoverView: View {
     } message: {
       Text(model.error ?? "")
     }
+  }
+
+  private func setMore(_ value: Bool) {
+    withAnimation(Motion.expand(reduceMotion)) { showingMore = value }
   }
 
   private func showNotices(_ value: Bool) {
@@ -88,8 +109,10 @@ extension AppModel {
 /// The title and the refresh, notices and settings buttons.
 private struct PopoverHeader: View {
   let model: AppModel
+  @Binding var showingMore: Bool
   let openNotices: () -> Void
   @Environment(\.openSettings) private var openSettings
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
     let loading = model.popoverLoading
@@ -129,19 +152,75 @@ private struct PopoverHeader: View {
             "Notifications, \(unread) unread")
         }
         // Settings and Quit in one menu, so quitting is not hidden behind a right-click.
-        Menu {
-          Button("Settings…") { model.openSettingsWindow(openSettings) }
-            .keyboardShortcut(",", modifiers: .command)
-          Divider()
-          Button("Quit Headroom") { NSApp.terminate(nil) }
-            .keyboardShortcut("q", modifiers: .command)
+        Button {
+          withAnimation(Motion.expand(reduceMotion)) { showingMore.toggle() }
         } label: {
           Image(systemName: "ellipsis").font(.system(size: 16)).frame(width: 18, height: 18)
         }
-        .menuStyle(.button).buttonStyle(PopoverToolStyle()).menuIndicator(.hidden).fixedSize()
-        .help("More").accessibilityLabel("More")
+        .buttonStyle(PopoverToolStyle(on: showingMore)).help("More").accessibilityLabel("More")
+        .accessibilityValue(showingMore ? "Open" : "Closed")
       }
     }.padding(.leading, 16).padding(.trailing, 8).frame(height: 52)
+      // The menu's shortcuts work while it is closed, as a menu bar menu's do.
+      .background {
+        Group {
+          Button("Settings") { model.openSettingsWindow(openSettings) }
+            .keyboardShortcut(",", modifiers: .command)
+          Button("Quit Headroom") { NSApp.terminate(nil) }
+            .keyboardShortcut("q", modifiers: .command)
+        }.opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
+      }
+  }
+}
+
+/// The header's More menu, drawn like the popover rather than as a system menu: Settings, then
+/// Quit, each with its shortcut.
+private struct MoreMenu: View {
+  let model: AppModel
+  let close: () -> Void
+  @Environment(\.openSettings) private var openSettings
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      MoreMenuItem(title: "Settings…", symbol: "gearshape", shortcut: "⌘,") {
+        close()
+        model.openSettingsWindow(openSettings)
+      }
+      Rectangle().fill(HR.border).frame(height: 1).padding(.vertical, 4).padding(.horizontal, 6)
+      MoreMenuItem(title: "Quit Headroom", symbol: "power", shortcut: "⌘Q") {
+        NSApp.terminate(nil)
+      }
+    }
+    .padding(5).frame(width: 200)
+    .background(HR.raised, in: RoundedRectangle(cornerRadius: 10))
+    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(HR.border))
+    .shadow(color: .black.opacity(0.16), radius: 14, y: 6)
+    .accessibilityElement(children: .contain).accessibilityLabel("More")
+  }
+}
+
+private struct MoreMenuItem: View {
+  let title: String
+  let symbol: String
+  let shortcut: String
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      HStack(spacing: 8) {
+        Image(systemName: symbol).font(.system(size: 12, weight: .medium))
+          .foregroundStyle(HR.secondary).frame(width: 16)
+        Text(title).font(HR.popoverFont(13)).foregroundStyle(HR.ink)
+        Spacer(minLength: 12)
+        Text(shortcut).font(HR.popoverFont(12)).foregroundStyle(HR.textMuted)
+      }.padding(.horizontal, 8).frame(height: 28)
+    }.buttonStyle(MoreMenuItemStyle()).accessibilityLabel(title)
+  }
+}
+
+private struct MoreMenuItemStyle: ButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    HoverSurface(pressed: configuration.isPressed, bordered: false) { configuration.label }
   }
 }
 
@@ -470,12 +549,14 @@ struct PopoverFooterStyle: ButtonStyle {
 }
 
 struct PopoverToolStyle: ButtonStyle {
+  /// Holds the hover fill while what the button opens is showing.
+  var on = false
   func makeBody(configuration: Configuration) -> some View {
     HoverSurface(pressed: configuration.isPressed, bordered: false) {
       // Even side padding, so a label wider than its icon (the bell and its count) keeps
       // the same inset as the icon-only buttons.
       configuration.label.padding(.horizontal, 8).frame(minWidth: 32, minHeight: 32)
-    }
+    }.background(on ? HR.muted : .clear, in: RoundedRectangle(cornerRadius: 6))
   }
 }
 
