@@ -88,6 +88,9 @@ private struct PopoverHeader: View {
 
   var body: some View {
     let loading = model.popoverLoading
+    // Filtered once per draw; the badge and its label both read it.
+    let notices = model.popoverNotices
+    let unread = notices.filter { !$0.read }.count
     HStack(spacing: 8) {
       HeadroomGlyph().frame(width: 23, height: 23)
       Text("Headroom").font(HR.popoverFont(16, .medium)).accessibilityAddTraits(.isHeader)
@@ -113,12 +116,12 @@ private struct PopoverHeader: View {
           } label: {
             HStack(spacing: 5) {
               Image(systemName: "bell").font(.system(size: 16))
-              if model.noticePhase == .ready && !model.popoverNotices.isEmpty {
-                Text("\(popoverUnread)").font(HR.popoverFont(12))
+              if model.noticePhase == .ready && !notices.isEmpty {
+                Text("\(unread)").font(HR.popoverFont(12))
               }
             }
           }.buttonStyle(PopoverToolStyle()).accessibilityLabel(
-            "Notifications, \(popoverUnread) unread")
+            "Notifications, \(unread) unread")
         }
         Button {
           model.openSettingsWindow(openSettings)
@@ -132,8 +135,6 @@ private struct PopoverHeader: View {
       }
     }.padding(.leading, 16).padding(.trailing, 8).frame(height: 52)
   }
-
-  private var popoverUnread: Int { model.popoverNotices.filter { !$0.read }.count }
 }
 
 /// The summary line and the account list, or the loading and empty states.
@@ -169,7 +170,7 @@ private struct AccountsPage: View {
             .padding(.vertical, 10).padding(.horizontal, 16)
           Divider().overlay(HR.border)
         }
-        // Each row used to rebuild every account to decide this, on every hover.
+        // Worked out once for the whole list, not per row.
         let all = model.accounts
         AccountList(
           groups: groups(rows),
@@ -286,6 +287,8 @@ private struct AccountList: View {
   @State private var listHeight: CGFloat = 0
 
   var body: some View {
+    // Measured once per draw: it reads the screen and walks every row.
+    let cap = listCap
     ScrollViewReader { proxy in
       ScrollView {
         VStack(spacing: 0) {
@@ -302,8 +305,8 @@ private struct AccountList: View {
         }
         // A little room after the last row: at the end the fade's clear top half lies over the
         // row's empty lower edge, so the fade can stay put and nothing changes while scrolling.
-        .padding(.bottom, listHeight > listCap ? 12 : 0)
-      }.frame(height: min(max(listHeight, 44), listCap))
+        .padding(.bottom, listHeight > cap ? 12 : 0)
+      }.frame(height: min(max(listHeight, 44), cap))
         // The fade below already says the list goes on; a scroll bar would only add clutter.
         .scrollIndicators(.never)
         // A fade over the cut row says the list goes on; at the end it covers only the room
@@ -313,7 +316,7 @@ private struct AccountList: View {
             colors: [HR.surface.opacity(0), HR.surface], startPoint: .top, endPoint: .bottom
           )
           .frame(height: 24).allowsHitTesting(false)
-          .opacity(listHeight > listCap ? 1 : 0)
+          .opacity(listHeight > cap ? 1 : 0)
         }
         .onAppear {
           if model.synthetic && model.captureState == "lower" {

@@ -70,13 +70,13 @@ public struct LedgerRow: Identifiable, Sendable {
   ) -> Meter {
     let left = min(100, max(0, limit.percentLeft ?? 0))
     // The figure and the cells follow the view; the tone and notes follow room left.
-    let shown = view == .left ? left : 100 - left
+    let shown = Formatting.shown(left, view: view) ?? left
     let value = Formatting.barePercent(shown)
     let reset = Formatting.date(milliseconds: limit.resetsAt)
     let label = windowLabel(limit)
     if left == 0 {
       return Meter(
-        fill: view == .left ? 0 : 100, value: value, label: label, tone: .out,
+        fill: shown, value: value, label: label, tone: .out,
         note: "back \(Formatting.when(reset, now: now, timeZone: timeZone))", alarm: true,
         runsOut: false)
     }

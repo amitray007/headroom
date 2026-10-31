@@ -10,11 +10,14 @@ struct NoticeItem: Identifiable {
   var read: Bool
   var id: String { "\(source.id)/\(notice.id)" }
 
-  /// Same notice, read state and source state: nothing on screen would change.
+  /// Same notice, read state and source state: nothing on screen would change. Every field a
+  /// row shows is compared, so a renamed account or a moved time still redraws.
   func shows(like other: NoticeItem) -> Bool {
     id == other.id && read == other.read && source.state == other.source.state
       && source.source.name == other.source.source.name && notice.title == other.notice.title
-      && notice.message == other.notice.message
+      && notice.message == other.notice.message && notice.occurredAt == other.notice.occurredAt
+      && notice.accountLabel == other.notice.accountLabel
+      && notice.provider == other.notice.provider && notice.tone == other.notice.tone
   }
 }
 
@@ -223,12 +226,20 @@ final class AppModel {
     guard !synthetic else { return }
     let client = FeedClient()
     var access: [UUID: RefreshAccess] = [:]
+    var asks: [(UUID, Source, String)] = []
     for snapshot in sources {
       if let token = try? await vault.token(for: snapshot.id) {
-        access[snapshot.id] = await client.refreshAccess(source: snapshot.source, token: token)
+        asks.append((snapshot.id, snapshot.source, token))
       } else {
         access[snapshot.id] = .unknown
       }
+    }
+    // Sources answer in parallel, so one slow server does not hold up the rest.
+    await withTaskGroup(of: (UUID, RefreshAccess).self) { group in
+      for (id, source, token) in asks {
+        group.addTask { (id, await client.refreshAccess(source: source, token: token)) }
+      }
+      for await (id, result) in group { access[id] = result }
     }
     if access != refreshAccess { refreshAccess = access }
   }
@@ -239,15 +250,24 @@ final class AppModel {
     settingRefresh = true
     defer { settingRefresh = false }
     let client = FeedClient()
-    var failed: [String] = []
-    for snapshot in sources where refreshAccess[snapshot.id] == .allowed {
-      guard let token = try? await vault.token(for: snapshot.id),
-        await client.setRefresh(source: snapshot.source, token: token, minutes: minutes)
-      else {
-        failed.append(snapshot.source.name)
-        continue
+    let targets = sources.filter { refreshAccess[$0.id] == .allowed }
+    var writes: [(UUID, Source, String)] = []
+    var saved: Set<UUID> = []
+    for snapshot in targets {
+      if let token = try? await vault.token(for: snapshot.id) {
+        writes.append((snapshot.id, snapshot.source, token))
       }
     }
+    await withTaskGroup(of: (UUID, Bool).self) { group in
+      for (id, source, token) in writes {
+        group.addTask {
+          (id, await client.setRefresh(source: source, token: token, minutes: minutes))
+        }
+      }
+      for await (id, ok) in group where ok { saved.insert(id) }
+    }
+    // Named in source order, whatever order the servers answered in.
+    let failed = targets.filter { !saved.contains($0.id) }.map(\.source.name)
     if !failed.isEmpty {
       error =
         "Could not change Refresh Every on \(failed.joined(separator: ", ")). Check that the source is online."
@@ -421,8 +441,7 @@ final class AppModel {
       return
     }
     ids.swapAt(index, index + offset)
-    preferences.accountOrder = ids
-    saveDisplay()
+    saveOrder(ids)
   }
   /// A drag in Settings, List: the dragged account takes the place of the one it was dropped on.
   func moveAccount(id: String, onto target: String) {
@@ -430,7 +449,13 @@ final class AppModel {
     guard let from = ids.firstIndex(of: id), let to = ids.firstIndex(of: target), from != to
     else { return }
     ids.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
-    preferences.accountOrder = ids
+    saveOrder(ids)
+  }
+  /// Saves the shown accounts' order and keeps every other saved position after them. In Demo
+  /// Mode the list holds only made-up accounts, so the owner's real order must survive.
+  private func saveOrder(_ ids: [String]) {
+    let shown = Set(ids)
+    preferences.accountOrder = ids + preferences.accountOrder.filter { !shown.contains($0) }
     saveDisplay()
   }
   func saveSource(id: UUID?, name: String, url: String, token: String) async throws {
@@ -503,8 +528,8 @@ final class AppModel {
     }
   }
 
-  func openDashboard(_ source: Source, accountID: String? = nil) {
-    NSWorkspace.shared.open(Presentation.dashboard(source, accountID: accountID))
+  func openDashboard(_ source: Source) {
+    NSWorkspace.shared.open(Presentation.dashboard(source))
   }
 }
 

@@ -93,7 +93,7 @@ struct NoticesView: View {
             await model.markAllRead()
             if unreadOnly { kept.removeAll() }
           }
-        }.buttonStyle(NoticePillStyle(height: 28)).disabled(unread == 0)
+        }.buttonStyle(NoticePillStyle()).disabled(unread == 0)
       }
     }.padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
   }
@@ -338,12 +338,11 @@ private struct NoticeRowStyle: ButtonStyle {
 
 /// A bordered pill for the Notices actions.
 private struct NoticePillStyle: ButtonStyle {
-  let height: CGFloat
   @Environment(\.isEnabled) private var enabled
   func makeBody(configuration: Configuration) -> some View {
-    configuration.label.font(HR.popoverFont(height > 26 ? 12 : 11.5, .medium))
+    configuration.label.font(HR.popoverFont(12, .medium))
       .foregroundStyle(enabled ? HR.ink : HR.textMuted)
-      .padding(.horizontal, height > 26 ? 12 : 10).frame(height: height)
+      .padding(.horizontal, 12).frame(height: 28)
       .background(configuration.isPressed ? HR.track : HR.surface, in: Capsule())
       .overlay(Capsule().strokeBorder(HR.border))
       .scaleEffect(configuration.isPressed && enabled ? 0.97 : 1)

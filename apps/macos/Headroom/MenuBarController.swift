@@ -10,6 +10,9 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
   private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
   private let popover = NSPopover()
   private var appearance: NSKeyValueObservation?
+  /// What the label image last showed. Most observed changes (the minute tick, a preference
+  /// the label does not use) leave it the same, and drawing it again would be wasted work.
+  fileprivate var drawn: (status: MenuStatus, dark: Bool, scale: CGFloat)?
 
   init(model: AppModel) {
     self.model = model
@@ -81,11 +84,14 @@ extension MenuBarController {
     let monochrome = !status.colored
     let dark =
       !monochrome && button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    let scale = button.window?.backingScaleFactor ?? 2
+    if let drawn, drawn.status == status, drawn.dark == dark, drawn.scale == scale { return }
     let renderer = ImageRenderer(
       content: MenuItemLabel(status: status)
         .frame(height: 24).environment(\.colorScheme, dark ? .dark : .light))
-    renderer.scale = button.window?.backingScaleFactor ?? 2
+    renderer.scale = scale
     guard let image = renderer.nsImage else { return }
+    drawn = (status, dark, scale)
     image.isTemplate = monochrome
     // The image carries no accessibility, so the button reads what the label shows.
     button.setAccessibilityLabel(status.summary)

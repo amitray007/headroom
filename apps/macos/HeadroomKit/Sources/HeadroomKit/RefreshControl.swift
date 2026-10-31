@@ -12,18 +12,12 @@ public enum RefreshAccess: Sendable, Equatable {
   case unknown
 }
 
-public protocol RefreshControlling: Sendable {
-  func refreshAccess(source: Source, token: String) async -> RefreshAccess
-  /// True when the server saved the interval.
-  func setRefresh(source: Source, token: String, minutes: Int) async -> Bool
-}
-
 /// The Refresh Every choices a server accepts, in minutes.
 public enum RefreshInterval {
   public static let options = [2, 5, 10, 15, 30]
 }
 
-extension FeedClient: RefreshControlling {
+extension FeedClient {
   public func refreshAccess(source: Source, token: String) async -> RefreshAccess {
     guard (try? Source.validate(source.baseURL)) != nil, Self.usable(token) else { return .unknown }
     let client = Client(
@@ -40,6 +34,7 @@ extension FeedClient: RefreshControlling {
     } catch { return .unknown }
   }
 
+  /// True when the server saved the interval.
   public func setRefresh(source: Source, token: String, minutes: Int) async -> Bool {
     guard RefreshInterval.options.contains(minutes), Self.usable(token),
       (try? Source.validate(source.baseURL)) != nil

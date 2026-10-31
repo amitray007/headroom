@@ -16,7 +16,7 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
     /// Live logo, Dots and Accounts show every slot; Logo and room follows the first one.
     public var showsSlots: Bool { self == .liveLogo || self == .dots || self == .accounts }
 
-    /// Styles saved before round 8: the percentage styles become Logo and room, the badge
+    /// Styles saved by earlier versions: the percentage styles become Logo and room, the badge
     /// becomes Logo and a pinned account becomes one Accounts slot.
     init(saved: String) {
       switch saved {
@@ -85,19 +85,22 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
     let slots = try values.decodeIfPresent([MenuSlot].self, forKey: .slots) ?? []
     self.slots =
       slots.isEmpty ? [MenuSlot(account: followed)] : Array(slots.prefix(Self.maxSlots))
-    providerLogos = try values.decodeIfPresent(Bool.self, forKey: .providerLogos) ?? true
-    colorLowOut = try values.decodeIfPresent(Bool.self, forKey: .colorLowOut) ?? true
-    liveRoom = try values.decodeIfPresent(Bool.self, forKey: .liveRoom) ?? false
-    limitsView = try values.decodeIfPresent(LimitsView.self, forKey: .limitsView) ?? .left
+    providerLogos =
+      try values.decodeIfPresent(Bool.self, forKey: .providerLogos) ?? defaults.providerLogos
+    colorLowOut =
+      try values.decodeIfPresent(Bool.self, forKey: .colorLowOut) ?? defaults.colorLowOut
+    liveRoom = try values.decodeIfPresent(Bool.self, forKey: .liveRoom) ?? defaults.liveRoom
+    limitsView =
+      try values.decodeIfPresent(LimitsView.self, forKey: .limitsView) ?? defaults.limitsView
     checkSeconds =
       try values.decodeIfPresent(Int.self, forKey: .checkSeconds)
-      .flatMap { Self.checkOptions.contains($0) ? $0 : nil } ?? 120
+      .flatMap { Self.checkOptions.contains($0) ? $0 : nil } ?? defaults.checkSeconds
     hiddenAccounts = try values.decodeIfPresent(Set<String>.self, forKey: .hiddenAccounts) ?? []
     accountOrder = try values.decodeIfPresent([String].self, forKey: .accountOrder) ?? []
     appearance =
       try values.decodeIfPresent(Appearance.self, forKey: .appearance) ?? defaults.appearance
-    privacy = try values.decodeIfPresent(Bool.self, forKey: .privacy) ?? false
-    demo = try values.decodeIfPresent(Bool.self, forKey: .demo) ?? false
+    privacy = try values.decodeIfPresent(Bool.self, forKey: .privacy) ?? defaults.privacy
+    demo = try values.decodeIfPresent(Bool.self, forKey: .demo) ?? defaults.demo
     sourceFilter = try values.decodeIfPresent(UUID.self, forKey: .sourceFilter)
   }
 }
@@ -198,15 +201,7 @@ public enum Presentation {
     }
   }
 
-  /// Dashboard navigation always stays on the configured source. Feed URLs cannot redirect a token
-  /// recovery or an account link to another host. Opening a browser never carries the API token.
-  public static func dashboard(_ source: Source, accountID: String? = nil)
-    -> URL
-  {
-    guard accountID != nil else { return source.baseURL }
-    // The web app routes by hash. It has no per-account or Devices URL yet.
-    var components = URLComponents(url: source.baseURL, resolvingAgainstBaseURL: false)
-    components?.fragment = "/detailed"
-    return components?.url ?? source.baseURL
-  }
+  /// Dashboard navigation always stays on the configured source. Feed URLs cannot redirect a
+  /// token recovery to another host. Opening a browser never carries the API token.
+  public static func dashboard(_ source: Source) -> URL { source.baseURL }
 }

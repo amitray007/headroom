@@ -91,7 +91,8 @@ struct MenuReading: Equatable {
 }
 
 /// Everything the menu bar item shows, worked out once per redraw.
-@MainActor struct MenuStatus {
+/// Equatable, so the menu bar skips drawing a label it already shows.
+struct MenuStatus: Equatable {
   let style: DisplayPreferences.ItemStyle
   /// The slots that found an account, in order. Empty for Logo and Logo and room.
   let readings: [MenuReading]
@@ -108,7 +109,7 @@ struct MenuReading: Equatable {
   /// One line per account, for the pointer: one-icon styles carry no names.
   let tooltip: String
 
-  init(model: AppModel, style: DisplayPreferences.ItemStyle, sample: Bool = false) {
+  @MainActor init(model: AppModel, style: DisplayPreferences.ItemStyle, sample: Bool = false) {
     let preferences = model.preferences
     let now = model.now
     let visible = model.accounts
@@ -123,14 +124,18 @@ struct MenuReading: Equatable {
       }
     // Chosen accounts first, so a tightest slot never repeats one of them.
     var taken = Set(slots.compactMap(\.account))
+    // Built once: each read of `allAccounts` rebuilds and sorts the whole list.
+    let everyAccount = slots.contains { $0.account != nil } ? model.allAccounts : []
     let columns: [RoomColumn?] = slots.map { slot in
       if let id = slot.account {
-        return model.allAccounts.first { $0.id == id }.map { RoomColumn(item: $0, now: now) }
+        return everyAccount.first { $0.id == id }.map { RoomColumn(item: $0, now: now) }
       }
       let pick = Self.tightest(visible, excluding: taken, now: now)
       if let pick { taken.insert(pick.id) }
       return pick
     }
+    // Logo and room shows only the first slot's account.
+    let followed = columns.first ?? nil
     var readings: [MenuReading] = []
     if style.showsSlots {
       for (slot, column) in zip(slots, columns) {
@@ -160,7 +165,7 @@ struct MenuReading: Equatable {
     var text: String?
     var textTone = MenuTone.plain
     if style == .logoAndRoom {
-      if let column = columns.first ?? nil {
+      if let column = followed {
         text = MenuReading.text(column, long: true, view: preferences.limitsView)
         textTone = MenuReading.tone(column.state)
       } else {
@@ -191,7 +196,7 @@ struct MenuReading: Equatable {
     let lines: [String]
     if style == .logoAndRoom {
       lines = [
-        "\((columns.first ?? nil)?.item.name ?? "Tightest account"): \(text ?? "no readings yet")"
+        "\(followed?.item.name ?? "Tightest account"): \(text ?? "no readings yet")"
       ]
     } else {
       lines = readings.map { "\($0.name): \(Self.figure($0, view: preferences.limitsView))" }
@@ -200,7 +205,7 @@ struct MenuReading: Equatable {
 
     var parts = ["Headroom"]
     if style == .logoAndRoom {
-      parts.append((columns.first ?? nil)?.item.name ?? "all accounts")
+      parts.append(followed?.item.name ?? "all accounts")
       parts.append(text ?? "no readings yet")
     } else {
       parts += readings.map { "\($0.name), \(Self.figure($0, view: preferences.limitsView))" }
@@ -243,7 +248,7 @@ struct MenuReading: Equatable {
 
   /// True when the label draws in color: a low or out tone, or a provider mark in its own color.
   /// A one-color label is a template image the menu bar tints like any icon.
-  var colored: Bool {
+  @MainActor var colored: Bool {
     let tones =
       [textTone, dot ?? .plain, liveRoom?.tone ?? .plain]
       + readings.flatMap { [$0.tone] + $0.bars.map(\.tone) }

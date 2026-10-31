@@ -2,6 +2,20 @@ import HeadroomAPI
 import HeadroomKit
 import SwiftUI
 
+/// An email Privacy Mode blurs until the pointer is over its row. The blur is drawn once into a
+/// flat image; a live blur filter is redrawn on every scroll frame.
+struct PrivateText: View {
+  let text: String
+  let hidden: Bool
+  var body: some View {
+    if hidden {
+      Text(text).padding(4).blur(radius: 4).drawingGroup().padding(-4).accessibilityHidden(true)
+    } else {
+      Text(text)
+    }
+  }
+}
+
 /// One provider's rows. Providers are separated by a rule; accounts inside one are not.
 struct LedgerGroup: View {
   let rows: [LedgerRow]
@@ -10,20 +24,23 @@ struct LedgerGroup: View {
   let model: AppModel
   var body: some View {
     VStack(spacing: 0) {
+      // Privacy Mode is passed in, so a change to another preference does not redraw every row.
+      let privacy = model.preferences.privacy
       ForEach(rows) { row in
-        LedgerRowView(row: row, showsSource: withSource.contains(row.id), model: model)
-          .equatable()
+        LedgerRowView(
+          row: row, showsSource: withSource.contains(row.id), privacy: privacy, model: model
+        )
+        .equatable()
       }
     }.padding(.vertical, 4)
   }
 }
 
 /// Equatable on what it shows, so a list redraw skips every row whose reading is unchanged.
-/// Values it reads from the model itself (now, Privacy Mode) still redraw it through
-/// observation.
 struct LedgerRowView: View, Equatable {
   nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
     lhs.row.id == rhs.row.id && lhs.showsSource == rhs.showsSource
+      && lhs.privacy == rhs.privacy
       && lhs.row.meters == rhs.row.meters && lhs.row.extra == rhs.row.extra
       && lhs.row.column.state == rhs.row.column.state
       && lhs.row.item.snapshot.state == rhs.row.item.snapshot.state
@@ -33,6 +50,7 @@ struct LedgerRowView: View, Equatable {
 
   let row: LedgerRow
   let showsSource: Bool
+  let privacy: Bool
   let model: AppModel
   @State private var expanded = false
   @State private var hovered = false
@@ -105,14 +123,7 @@ struct LedgerRowView: View, Equatable {
           Text(subtitle)
           if let identity = shownIdentity {
             Text(subtitle.isEmpty ? "" : " · ")
-            // Privacy Mode blurs the email until the pointer is over the row. The blur is drawn
-            // once into a flat image; a live blur filter is redrawn on every scroll frame.
-            if hidesIdentity {
-              Text(identity).padding(4).blur(radius: 4).drawingGroup().padding(-4)
-                .layoutPriority(-1).accessibilityHidden(true)
-            } else {
-              Text(identity).layoutPriority(-1)
-            }
+            PrivateText(text: identity, hidden: hidesIdentity).layoutPriority(-1)
           }
         }.font(HR.popoverFont(11))
           .foregroundStyle(row.column.state == .signIn ? HR.popoverDanger : HR.textMuted)
@@ -128,7 +139,7 @@ struct LedgerRowView: View, Equatable {
   private var shownIdentity: String? {
     row.column.state == .signIn || quiet ? nil : account.identity
   }
-  private var hidesIdentity: Bool { model.preferences.privacy && !hovered && !expanded }
+  private var hidesIdentity: Bool { privacy && !hovered && !expanded }
 
   private var subtitle: String {
     if row.column.state == .signIn { return "Sign in again in the dashboard" }

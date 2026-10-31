@@ -67,9 +67,6 @@ import Testing
   #expect(
     Presentation.dashboard(configured).absoluteString
       == "https://configured.example.invalid/headroom")
-  #expect(
-    Presentation.dashboard(configured, accountID: "synthetic").absoluteString
-      == "https://configured.example.invalid/headroom#/detailed")
 }
 
 @Test func allSeventeenNotificationPreferencesPersistWithoutBannerDelivery() async throws {

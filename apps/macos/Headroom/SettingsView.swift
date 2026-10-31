@@ -156,7 +156,12 @@ struct SettingsView: View {
   {
     let movable = style.showsSlots && model.preferences.slots.count > 1
     let key = "menu-slot:\(index)"
-    let name = slotName(slot)
+    // Built once per row: each read of `allAccounts` rebuilds and sorts the whole list.
+    let accounts = model.allAccounts
+    let chosen = slot.account.flatMap { id in accounts.first { $0.id == id } }
+    let name =
+      slot.account == nil
+      ? "Tightest account with room" : chosen?.name ?? "Account no longer linked"
     return HStack(spacing: 10) {
       if movable {
         Image(systemName: "line.3.horizontal").font(.system(size: 12, weight: .medium))
@@ -164,16 +169,14 @@ struct SettingsView: View {
       }
       WebSelect(
         value: name,
-        mark: slot.account.flatMap { id in
-          model.allAccounts.first { $0.id == id }?.account.provider.rawValue
-        },
+        mark: chosen?.account.provider.rawValue,
         symbol: "gauge.medium", fill: true
       ) {
         Button("Tightest account with room") { model.preferences.slots[index].account = nil }
-        if !model.allAccounts.isEmpty { Divider() }
-        ForEach(model.allAccounts) { item in
+        if !accounts.isEmpty { Divider() }
+        ForEach(accounts) { item in
           Button(
-            Presentation.needsSource(item, among: model.allAccounts)
+            Presentation.needsSource(item, among: accounts)
               ? "\(item.name) · \(item.snapshot.source.name)" : item.name
           ) { model.preferences.slots[index].account = item.id }
         }
@@ -242,11 +245,6 @@ struct SettingsView: View {
     withAnimation(Motion.expand(reduceMotion)) {
       model.preferences.slots.append(.init(account: account, look: slots.last?.look ?? .percent))
     }
-  }
-
-  private func slotName(_ slot: DisplayPreferences.MenuSlot) -> String {
-    guard let id = slot.account else { return "Tightest account with room" }
-    return model.allAccounts.first { $0.id == id }?.name ?? "Account no longer linked"
   }
 
   // MARK: List
@@ -687,12 +685,7 @@ private struct AccountListLabel: View {
         HStack(spacing: 0) {
           Text(plan)
           if let identity = account.identity {
-            if privacy && !hovered {
-              Text(identity).padding(4).blur(radius: 4).drawingGroup().padding(-4)
-                .layoutPriority(-1).accessibilityHidden(true)
-            } else {
-              Text(identity).layoutPriority(-1)
-            }
+            PrivateText(text: identity, hidden: privacy && !hovered).layoutPriority(-1)
             Text(" · ")
           }
           Text(item.snapshot.source.name)

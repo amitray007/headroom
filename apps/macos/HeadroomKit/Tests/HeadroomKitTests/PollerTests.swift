@@ -259,3 +259,31 @@ private actor HeldReader: FeedReading {
   try await cache.remove(sourceID: source.id)
   #expect(try await cache.load(sourceID: source.id) == nil)
 }
+
+@Test(.timeLimit(.minutes(1))) func checkEverySetsTheBackgroundIntervalAndCapsTheOpenOne()
+  async throws
+{
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let source = try source()
+  let feed = try fixture()
+  let clock = ManualClock()
+  let reader = QueuedReader(Array(repeating: .updated(feed, etag: "synthetic"), count: 10))
+  let poller = try await makePoller(
+    directory: directory, sources: [source], reader: reader, clock: clock)
+  // Set before start: no loop starts early, and the first wait uses the new interval.
+  await poller.setBackgroundInterval(seconds: 300)
+  #expect(await reader.calls == 0)
+  await poller.start()
+  #expect(await clock.nextSleep() == .seconds(300))
+  // A change while running starts the wait over on the new interval, never under 30 seconds.
+  await poller.setBackgroundInterval(seconds: 5)
+  #expect(await clock.nextSleep() == .seconds(30))
+  await poller.setBackgroundInterval(seconds: 600)
+  #expect(await clock.nextSleep() == .seconds(600))
+  // While the popover is open the app reads every 30 seconds, or sooner when Check every is.
+  await clock.advance(31)
+  await poller.setPopoverOpen(true)
+  #expect(await clock.nextSleep() == .seconds(30))
+  await poller.stop()
+}
