@@ -284,6 +284,7 @@ private struct AccountList: View {
   let model: AppModel
   @State private var listHeight: CGFloat = 0
   @State private var listAtEnd = false
+  @State private var scrolling = false
 
   var body: some View {
     ScrollViewReader { proxy in
@@ -294,7 +295,11 @@ private struct AccountList: View {
               .id(group.provider)
             if group.provider != groups.last?.provider { Divider().overlay(HR.border) }
           }
-        }.onGeometryChange(for: CGFloat.self) {
+        }
+        // Rows passing under a still pointer would each light up and unblur in turn; hover
+        // waits until the list stops.
+        .allowsHitTesting(!scrolling)
+        .onGeometryChange(for: CGFloat.self) {
           $0.size.height
         } action: {
           listHeight = $0
@@ -305,6 +310,7 @@ private struct AccountList: View {
         } action: { _, atEnd in
           listAtEnd = atEnd
         }
+        .onScrollPhaseChange { _, phase in scrolling = phase.isScrolling }
         // A fade over the last row says the list goes on; it clears at the end.
         .overlay(alignment: .bottom) {
           LinearGradient(

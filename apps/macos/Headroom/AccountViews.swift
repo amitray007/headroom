@@ -105,10 +105,14 @@ struct LedgerRowView: View, Equatable {
           Text(subtitle)
           if let identity = shownIdentity {
             Text(subtitle.isEmpty ? "" : " · ")
-            // Privacy Mode blurs the email until the pointer is over the row.
-            Text(identity).layoutPriority(-1).blur(radius: hidesIdentity ? 4 : 0)
-              .animation(Motion.hover, value: hidesIdentity)
-              .accessibilityHidden(hidesIdentity)
+            // Privacy Mode blurs the email until the pointer is over the row. The blur is drawn
+            // once into a flat image; a live blur filter is redrawn on every scroll frame.
+            if hidesIdentity {
+              Text(identity).padding(4).blur(radius: 4).drawingGroup().padding(-4)
+                .layoutPriority(-1).accessibilityHidden(true)
+            } else {
+              Text(identity).layoutPriority(-1)
+            }
           }
         }.font(HR.popoverFont(11))
           .foregroundStyle(row.column.state == .signIn ? HR.popoverDanger : HR.textMuted)
