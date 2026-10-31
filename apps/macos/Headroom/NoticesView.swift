@@ -2,12 +2,14 @@ import HeadroomKit
 import SwiftUI
 
 /// The web app's notification centre at popover size: a status header, All and Unread, then
-/// rows grouped by day. Opening a row marks it read and shows the whole message.
+/// rows grouped by day. Clicking a row marks it read; clicking it again marks it unread.
 struct NoticesView: View {
   @Bindable var model: AppModel
   var back: () -> Void
   @State private var unreadOnly = false
-  @State private var expanded: Set<String> = []
+  /// Rows read while Unread is shown stay put until the filter changes, so a click never
+  /// pulls a row out from under the pointer.
+  @State private var kept: Set<String> = []
   @State private var listHeight: CGFloat = 0
   @FocusState private var focused: String?
   @Namespace private var filter
@@ -16,7 +18,7 @@ struct NoticesView: View {
   private var all: [NoticeItem] { model.popoverNotices }
   private var unread: Int { all.filter { !$0.read }.count }
   private var items: [NoticeItem] {
-    all.filter { !unreadOnly || !$0.read || expanded.contains($0.id) }
+    all.filter { !unreadOnly || !$0.read || kept.contains($0.id) }
   }
   private var days: [(day: NoticeDay, items: [NoticeItem])] {
     NoticeDay.allCases.compactMap { day in
@@ -54,17 +56,14 @@ struct NoticesView: View {
     }
     .onAppear {
       if model.synthetic && model.captureState == "notice-expanded", let first = all.first {
-        expand(first)
+        toggle(first)
       }
       selectBanner()
     }
     .onChange(of: model.bannerNoticeID) { _, _ in selectBanner() }
+    .onChange(of: unreadOnly) { _, _ in kept.removeAll() }
     .onKeyPress(.escape) {
-      if let id = focused, expanded.contains(id) {
-        _ = withAnimation(Motion.expand(reduceMotion)) { expanded.remove(id) }
-      } else {
-        back()
-      }
+      back()
       return .handled
     }
   }
@@ -87,7 +86,7 @@ struct NoticesView: View {
         Button("Mark all read") {
           Task {
             await model.markAllRead()
-            if unreadOnly { expanded.removeAll() }
+            if unreadOnly { kept.removeAll() }
           }
         }.buttonStyle(NoticePillStyle(height: 28)).disabled(unread == 0)
       }
@@ -147,10 +146,8 @@ struct NoticesView: View {
           ForEach(days, id: \.day) { group in
             Section {
               ForEach(group.items) { item in
-                NoticeRow(
-                  item: item, open: expanded.contains(item.id), now: model.now,
-                  toggle: { toggle(item) }, markUnread: { markUnread(item) }
-                ).focused($focused, equals: item.id).id(item.id)
+                NoticeRow(item: item, now: model.now) { toggle(item) }
+                  .focused($focused, equals: item.id).id(item.id)
               }
             } header: {
               Text(group.day.rawValue).font(HR.popoverFont(11, .medium))
@@ -191,28 +188,14 @@ struct NoticesView: View {
   }
 
   private func toggle(_ item: NoticeItem) {
-    if expanded.contains(item.id) {
-      _ = withAnimation(Motion.expand(reduceMotion)) { expanded.remove(item.id) }
-    } else {
-      expand(item)
-    }
-  }
-  private func expand(_ item: NoticeItem) {
-    _ = withAnimation(Motion.expand(reduceMotion)) { expanded.insert(item.id) }
-    Task { await model.setRead(true, item: item) }
-  }
-  private func markUnread(_ item: NoticeItem) {
-    Task {
-      await model.setRead(false, item: item)
-      _ = withAnimation(Motion.expand(reduceMotion)) { expanded.remove(item.id) }
-      focused = item.id
-    }
+    if unreadOnly { kept.insert(item.id) }
+    Task { await model.setRead(!item.read, item: item) }
   }
   private func selectBanner() {
     guard let id = model.bannerNoticeID, let item = all.first(where: { $0.id == id })
     else { return }
     unreadOnly = false
-    expand(item)
+    if !item.read { toggle(item) }
     focused = id
     model.bannerNoticeID = nil
   }
@@ -237,62 +220,60 @@ struct NoticesView: View {
 
 private struct NoticeRow: View {
   let item: NoticeItem
-  let open: Bool
   let now: Date
   let toggle: () -> Void
-  let markUnread: () -> Void
   @State private var hovered = false
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   private var notice: NativeNotice { item.notice }
   private var unread: Bool { !item.read }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      Button(action: toggle) {
-        HStack(alignment: .top, spacing: 12) {
-          tile
-          VStack(alignment: .leading, spacing: 3) {
-            Text(notice.title)
-              .font(HR.popoverFont(13, unread || open ? .medium : .regular))
-              .foregroundStyle(unread || open ? HR.ink : HR.secondary).lineLimit(1)
-            Text(notice.message).font(HR.popoverFont(12))
-              .foregroundStyle(open ? HR.ink : HR.secondary).lineSpacing(open ? 4 : 0)
-              .lineLimit(open ? nil : 1).fixedSize(horizontal: false, vertical: open)
-            HStack(spacing: 6) {
-              if let provider = notice.provider {
-                ProviderMark(provider: provider).frame(width: 12, height: 12)
-              }
-              Text(notice.accountLabel).font(HR.popoverFont(11)).foregroundStyle(HR.textMuted)
-            }.lineLimit(1)
-          }.frame(maxWidth: .infinity, alignment: .leading)
-          VStack(alignment: .trailing, spacing: 8) {
-            Text(Formatting.elapsed(notice.occurredAt, now: now)).font(HR.popoverFont(11))
-              .foregroundStyle(HR.textMuted).fixedSize()
-            Circle().fill(HR.ink).frame(width: 7, height: 7).opacity(unread ? 1 : 0)
-              .scaleEffect(unread ? 1 : 0.4).animation(Motion.hover, value: unread)
-          }.padding(.top, 2)
-        }.padding(10).contentShape(Rectangle())
-      }.buttonStyle(.plain)
-        .accessibilityLabel(
-          "\(unread ? "Unread" : "Read"). \(notice.title). \(notice.accountLabel). \(Formatting.age(notice.occurredAt, now: now))"
-        )
-        .accessibilityValue(open ? "Expanded" : "Collapsed")
-      if open {
-        Button("Mark unread", action: markUnread).buttonStyle(NoticePillStyle(height: 26))
-          .accessibilityLabel("Mark \(notice.title) as unread")
-          .padding(.leading, 54).padding(.bottom, 10)
-          .transition(Motion.reveal(reduceMotion))
-      }
+    Button(action: toggle) {
+      HStack(alignment: .top, spacing: 12) {
+        tile
+        VStack(alignment: .leading, spacing: 3) {
+          Text(notice.title).font(HR.popoverFont(13, unread ? .medium : .regular))
+            .foregroundStyle(unread ? HR.ink : HR.secondary).lineLimit(1)
+          Text(notice.message).font(HR.popoverFont(12)).foregroundStyle(HR.secondary)
+            .lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+          HStack(spacing: 6) {
+            if let provider = notice.provider {
+              ProviderMark(provider: provider).frame(width: 12, height: 12)
+            }
+            Text(notice.accountLabel).font(HR.popoverFont(11)).foregroundStyle(HR.textMuted)
+          }.lineLimit(1).padding(.top, 1)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .trailing, spacing: 6) {
+          Text(Formatting.elapsed(notice.occurredAt, now: now)).font(HR.popoverFont(11))
+            .foregroundStyle(HR.textMuted).fixedSize()
+          readMark
+        }.padding(.top, 2)
+      }.padding(10)
     }
-    .background(background, in: RoundedRectangle(cornerRadius: 10))
-    .animation(Motion.hover, value: hovered)
+    .buttonStyle(NoticeRowStyle(unread: unread, hovered: hovered))
     .onHover { hovered = $0 }
+    .pointerStyle(.link)
+    .help(unread ? "Mark as read" : "Mark as unread")
+    .accessibilityLabel(
+      "\(unread ? "Unread" : "Read"). \(notice.title). \(notice.message) \(notice.accountLabel). \(Formatting.age(notice.occurredAt, now: now))"
+    )
+    .accessibilityHint(unread ? "Marks as read" : "Marks as unread")
   }
 
-  private var background: Color {
-    if open { return HR.muted }
-    if hovered { return HR.muted.opacity(0.7) }
-    return unread ? HR.ink.opacity(0.05) : .clear
+  /// The unread dot; under the pointer it previews what a click does: a check to mark read, a
+  /// ring to mark unread.
+  private var readMark: some View {
+    ZStack {
+      if hovered {
+        Image(systemName: unread ? "checkmark.circle.fill" : "circle")
+          .font(.system(size: 13, weight: .medium))
+          .foregroundStyle(unread ? HR.ink : HR.textMuted)
+          .transition(.scale(scale: 0.6).combined(with: .opacity))
+      } else if unread {
+        Circle().fill(HR.ink).frame(width: 7, height: 7)
+          .transition(.scale(scale: 0.4).combined(with: .opacity))
+      }
+    }.frame(width: 14, height: 14).animation(Motion.hover, value: hovered)
+      .animation(Motion.hover, value: unread).accessibilityHidden(true)
   }
 
   private var tile: some View {
@@ -302,7 +283,7 @@ private struct NoticeRow: View {
       case .warn: HR.popoverWarning
       case .info: HR.secondary
       }
-    let quiet = !unread && !open
+    let quiet = !unread
     return Image(systemName: symbol).font(.system(size: 13, weight: .medium))
       .foregroundStyle(quiet ? HR.textMuted : color).frame(width: 32, height: 32)
       .background(
@@ -323,6 +304,27 @@ private struct NoticeRow: View {
       .budget_exceeded:
       "dollarsign.circle"
     }
+  }
+}
+
+/// The whole row is the button: a fill under the pointer, a darker fill and a small press.
+private struct NoticeRowStyle: ButtonStyle {
+  let unread: Bool
+  let hovered: Bool
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label.contentShape(RoundedRectangle(cornerRadius: 10))
+      .background(
+        configuration.isPressed
+          ? HR.track : hovered ? HR.muted : unread ? HR.ink.opacity(0.05) : .clear,
+        in: RoundedRectangle(cornerRadius: 10)
+      )
+      .overlay {
+        if hovered { RoundedRectangle(cornerRadius: 10).strokeBorder(HR.border) }
+      }
+      .scaleEffect(configuration.isPressed ? 0.985 : 1)
+      .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+      .animation(Motion.hover, value: hovered)
+      .animation(Motion.hover, value: unread)
   }
 }
 
