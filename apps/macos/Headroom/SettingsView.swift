@@ -31,7 +31,7 @@ struct SettingsView: View {
             .frame(height: 34).padding(.horizontal, 24).accessibilityAddTraits(.isHeader)
           switch model.selectedPane {
           case .menuBar: menuBar
-          case .list: accountList
+          case .accounts: accountList
           case .notifications: notifications
           case .sources: sources
           case .general: general
