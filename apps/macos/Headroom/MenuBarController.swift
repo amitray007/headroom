@@ -9,7 +9,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
   private let model: AppModel
   private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
   private let popover = NSPopover()
-  private var label: MenuLabelHost?
+  private var appearance: NSKeyValueObservation?
 
   init(model: AppModel) {
     self.model = model
@@ -24,10 +24,11 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     if let button = item.button {
       button.target = self
       button.action = #selector(toggle)
-      let label = MenuLabelHost(
-        rootView: MenuItemLabel(model: model, style: model.preferences.itemStyle))
-      button.addSubview(label)
-      self.label = label
+      button.imagePosition = .imageOnly
+      // A light or dark menu bar needs the colored label drawn again.
+      appearance = button.observe(\.effectiveAppearance) { [weak self] _, _ in
+        Task { @MainActor in self?.drawLabel() }
+      }
     }
     observe()
   }
@@ -57,11 +58,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
       _ = model.now
       _ = model.ready
       _ = model.popoverPresented
-      label?.rootView = MenuItemLabel(model: model, style: model.preferences.itemStyle)
-      let size = label?.fittingSize ?? NSSize(width: 24, height: 24)
-      // 4 pt each side, as a standard 16 pt menu bar icon sits in its 24 pt item.
-      item.length = size.width + 8
-      label?.frame = NSRect(x: 4, y: 0, width: size.width, height: 24)
+      drawLabel()
       item.button?.setAccessibilityLabel("Headroom, \(model.unread) unread notifications")
       if model.popoverPresented {
         if popover.isShown { Task { await model.presentBannerNotice() } } else { show() }
@@ -74,6 +71,24 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
   }
 }
 
-private final class MenuLabelHost: NSHostingView<MenuItemLabel> {
-  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+extension MenuBarController {
+  /// The label is drawn once into an image when it changes. A live SwiftUI view in the status
+  /// item made macOS lay it out again for every menu bar snapshot (each display and Space),
+  /// up to 300 ms on the main thread. A one-color label is a template image the menu bar
+  /// tints itself; a colored one is drawn for the menu bar's current appearance.
+  fileprivate func drawLabel() {
+    guard let button = item.button else { return }
+    let monochrome = MenuItemLabel.monochrome(model: model)
+    let dark =
+      !monochrome && button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    let renderer = ImageRenderer(
+      content: MenuItemLabel(model: model, style: model.preferences.itemStyle)
+        .frame(height: 24).environment(\.colorScheme, dark ? .dark : .light))
+    renderer.scale = button.window?.backingScaleFactor ?? 2
+    guard let image = renderer.nsImage else { return }
+    image.isTemplate = monochrome
+    button.image = image
+    // 4 pt each side, as a standard 16 pt menu bar icon sits in its 24 pt item.
+    item.length = image.size.width + 8
+  }
 }

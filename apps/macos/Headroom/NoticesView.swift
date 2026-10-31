@@ -14,7 +14,6 @@ struct NoticesView: View {
   @State private var kept: Set<String> = []
   @State private var listHeight: CGFloat = 0
   @FocusState private var focused: String?
-  @State private var scrolling = false
   @Namespace private var filter
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -163,8 +162,6 @@ struct NoticesView: View {
             }
           }
         }.padding(.horizontal, 8).padding(.bottom, 8)
-          // Hover waits until the list stops, so rows passing the pointer do not light up.
-          .allowsHitTesting(!scrolling)
           .onGeometryChange(for: CGFloat.self) {
             $0.size.height
           } action: {
@@ -172,7 +169,6 @@ struct NoticesView: View {
           }
       }.frame(height: fill ? nil : min(max(listHeight, 120), 588))
         .frame(maxHeight: fill ? .infinity : nil)
-        .onScrollPhaseChange { _, phase in scrolling = phase.isScrolling }
         .onChange(of: model.bannerNoticeID) { _, id in
           if let id { proxy.scrollTo(id, anchor: .top) }
         }

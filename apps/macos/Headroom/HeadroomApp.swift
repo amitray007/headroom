@@ -138,6 +138,12 @@ struct MenuItemLabel: View {
     var problem: Bool { pinned == nil && (needsSignIn || anyOut) }
   }
 
+  /// True when the label draws in one color only, so the menu bar can tint it like any icon.
+  @MainActor static func monochrome(model: AppModel) -> Bool {
+    let status = Status(model: model)
+    return status.tone == .primary && !status.problem
+  }
+
   var body: some View {
     let status = Status(model: model)
     let shown = status.text ?? (sample ? Formatting.percentLeft(64) : nil)

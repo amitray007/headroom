@@ -277,15 +277,13 @@ private struct AccountsPage: View {
   }
 }
 
-/// The scrolling rows. Its height and scroll state live here, so opening a row or scrolling
-/// redraws this list and not the page around it.
+/// The scrolling rows. Its height lives here, so opening a row redraws this list and not the
+/// page around it.
 private struct AccountList: View {
   let groups: [(provider: String, rows: [LedgerRow])]
   let withSource: Set<String>
   let model: AppModel
   @State private var listHeight: CGFloat = 0
-  @State private var listAtEnd = false
-  @State private var scrolling = false
 
   var body: some View {
     ScrollViewReader { proxy in
@@ -297,29 +295,23 @@ private struct AccountList: View {
             if group.provider != groups.last?.provider { Divider().overlay(HR.border) }
           }
         }
-        // Rows passing under a still pointer would each light up and unblur in turn; hover
-        // waits until the list stops.
-        .allowsHitTesting(!scrolling)
         .onGeometryChange(for: CGFloat.self) {
           $0.size.height
         } action: {
           listHeight = $0
         }
+        // Room after the last row for the fade to sit on, so the fade can stay put: nothing
+        // here changes while the list scrolls.
+        .padding(.bottom, listHeight > listCap ? 32 : 0)
       }.frame(height: min(max(listHeight, 44), listCap))
-        .onScrollGeometryChange(for: Bool.self) {
-          $0.contentOffset.y + $0.containerSize.height >= $0.contentSize.height - 1
-        } action: { _, atEnd in
-          listAtEnd = atEnd
-        }
-        .onScrollPhaseChange { _, phase in scrolling = phase.isScrolling }
-        // A fade over the last row says the list goes on; it clears at the end.
+        // A fade over the cut row says the list goes on; at the end it covers only the room
+        // left after the last row.
         .overlay(alignment: .bottom) {
           LinearGradient(
             colors: [HR.surface.opacity(0), HR.surface], startPoint: .top, endPoint: .bottom
           )
-          .frame(height: 40).allowsHitTesting(false)
-          .opacity(listHeight > listCap && !listAtEnd ? 1 : 0)
-          .animation(Motion.hover, value: listAtEnd)
+          .frame(height: 32).allowsHitTesting(false)
+          .opacity(listHeight > listCap ? 1 : 0)
         }
         .onAppear {
           if model.synthetic && model.captureState == "lower" {
