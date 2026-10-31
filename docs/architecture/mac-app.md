@@ -71,7 +71,7 @@ Rules carried from the dashboard: unknown is null, never 0; units stay separate;
 
 ### Sources
 
-A source is `{ id, name, baseURL }` in the app's settings, plus its token, kept with the other tokens in one Keychain item keyed by source id. "This Mac" is a source with `http://127.0.0.1:8080`. The app probes `/healthz` there at first launch and offers it when a server answers.
+A source is `{ id, name, baseURL }` in the app's settings, plus its token, kept with the other tokens in one Keychain item keyed by source id. "This Mac" is a source with `http://127.0.0.1:8080`. The app probes `/healthz` there at launch and on the Sources pane, and offers it when a server answers. When no server answers, the app looks for an installed one: a launch agent (`club.theblank.headroom` or `homebrew.mxcl.headroom`), the Homebrew formula, or the install script's binary. Start Headroom then runs `launchctl`, `brew services start headroom` or `headroom service install` in a login shell, so the server also starts at every login. Without an install, the pane shows the Homebrew command to copy.
 
 | Source state | When | Shown |
 | --- | --- | --- |
@@ -155,4 +155,4 @@ Each phase is one pull request or a short stack. Phase 1 ships in a server relea
 | 3. Widgets and notices | Widget configuration and banners (the notice store and list already exist) | All 17 kinds bannered once; widgets update at resets |
 | 4. Release | release-please package, `macos.yml`, cask, latest guard, install docs | A test tag installs through the cask on a clean runner |
 
-Out of scope for the first release: starting or installing the local server from the app, a `headroom token create` command for one-step pairing with This Mac, and an in-app updater.
+Out of scope for the first release: installing the local server from the app, a `headroom token create` command for one-step pairing with This Mac, and an in-app updater.

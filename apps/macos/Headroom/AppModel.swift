@@ -27,13 +27,18 @@ final class AppModel {
   var sources: [SourceSnapshot] = []
   var notices: [NoticeItem] = []
   var noticePhase: NoticePhase = .loading
-  var preferences = DisplayPreferences()
+  var preferences = DisplayPreferences() {
+    didSet { if preferences.appearance != oldValue.appearance { applyAppearance() } }
+  }
   var enabledKinds: [String: Bool] = [:]
   var selectedPane: SettingsPane = .menuBar
   var error: String?
   var ready = false
   var busy = false
   var localAvailable = false
+  /// An installed Headroom server on this Mac that the app can start, when one is not answering.
+  var localServer: LocalServer?
+  var localStarting = false
   var now = Date()
   var synthetic = false
   var captureState: String?
@@ -60,12 +65,15 @@ final class AppModel {
     Presentation.accounts(sources, preferences: preferences, includeHidden: true)
   }
   var unread: Int { notices.filter { !$0.read }.count }
-  var colorScheme: ColorScheme? {
-    switch preferences.appearance {
-    case .system: nil
-    case .light: .light
-    case .dark: .dark
-    }
+  /// The app-wide appearance, not `preferredColorScheme`: SwiftUI leaves a window on the last
+  /// forced scheme when the choice returns to System, while `nil` here follows macOS again.
+  private func applyAppearance() {
+    NSApp.appearance =
+      switch preferences.appearance {
+      case .system: nil
+      case .light: NSAppearance(named: .aqua)
+      case .dark: NSAppearance(named: .darkAqua)
+      }
   }
 
   func start() async {
@@ -88,7 +96,7 @@ final class AppModel {
       enabledKinds = await noticeStore?.enabledKinds() ?? [:]
       try await connect(try await sourceStore.load())
       ready = true
-      localAvailable = await FeedClient().thisMacAvailable()
+      await checkLocal()
       let monitor = NWPathMonitor()
       monitor.pathUpdateHandler = { [weak self] _ in
         Task { @MainActor in await self?.poller?.networkDidChange() }
@@ -292,6 +300,29 @@ final class AppModel {
       try await connect(values)
     } catch { self.error = "Could not save source order." }
   }
+  func checkLocal() async {
+    guard !synthetic else { return }
+    localAvailable = await FeedClient().thisMacAvailable()
+    localServer = LocalServer.find(
+      home: FileManager.default.homeDirectoryForCurrentUser,
+      exists: { FileManager.default.fileExists(atPath: $0) })
+  }
+
+  func startLocal() async {
+    guard let localServer, !localStarting else { return }
+    localStarting = true
+    defer { localStarting = false }
+    do {
+      try await localServer.start(
+        runner: ProcessRunner(), uid: getuid(),
+        shell: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
+        answers: { await FeedClient().thisMacAvailable() })
+      localAvailable = true
+    } catch {
+      self.error = error.localizedDescription
+    }
+  }
+
   func openDashboard(_ source: Source, accountID: String? = nil) {
     NSWorkspace.shared.open(Presentation.dashboard(source, accountID: accountID))
   }

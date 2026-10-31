@@ -122,6 +122,9 @@ struct MenuItemLabel: View {
               Circle().fill(dotTone).frame(width: 5, height: 5).offset(x: -2, y: -2)
             }
           }
+          // The glyph's 64 pt grid leaves 12 pt of air left of the bars; the dot ends 2 pt from the
+          // right edge. Trim both so the item is as wide as what it draws.
+          .padding(.leading, -4).padding(.trailing, -2)
       }
       if style != .logoAndBadge, let shown {
         Text(shown).font(.system(size: 13, weight: .medium)).monospacedDigit()

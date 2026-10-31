@@ -29,10 +29,12 @@ struct PopoverView: View {
         } else if model.sources.isEmpty {
           PopoverState(
             art: "no-sources", title: "No sources yet",
-            message:
-              "Connect a Headroom source in Settings.\nAccounts and their room will appear here."
+            message: "Add a Headroom server to see its accounts here."
           ) {
-            Button("Open Settings", action: settings).buttonStyle(.plain).font(HR.popoverFont(12))
+            Button("Add a source") {
+              model.selectedPane = .sources
+              settings()
+            }.buttonStyle(PopoverActionStyle())
           }
         } else if model.accounts.isEmpty {
           emptyAccounts
@@ -52,7 +54,7 @@ struct PopoverView: View {
       footer
     }
     .font(HR.popoverFont()).monospacedDigit().foregroundStyle(HR.ink).background(HR.surface)
-    .frame(width: 420).preferredColorScheme(model.colorScheme)
+    .frame(width: 420)
     .task { if model.bannerNoticeID != nil { showingNotices = true } }
     .onChange(of: model.bannerNoticeID) { _, id in if id != nil { showingNotices = true } }
     .alert(
@@ -235,6 +237,18 @@ struct PopoverToolStyle: ButtonStyle {
       .background(
         configuration.isPressed ? HR.track : .clear, in: RoundedRectangle(cornerRadius: 6)
       )
+      .contentShape(Rectangle())
+  }
+}
+
+/// The one action of an empty state: a quiet filled button, never the accent color.
+struct PopoverActionStyle: ButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label.font(HR.popoverFont(12, .medium)).padding(.horizontal, 14).frame(height: 30)
+      .background(
+        configuration.isPressed ? HR.track : HR.muted, in: RoundedRectangle(cornerRadius: 7)
+      )
+      .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(HR.border))
       .contentShape(Rectangle())
   }
 }
