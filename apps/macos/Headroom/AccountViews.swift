@@ -264,17 +264,22 @@ struct AccountDetail: View {
           Text(Presentation.limitLabel(limit, in: account)).font(HR.popoverFont(11.5))
             .frame(width: 120, alignment: .leading)
           Cells(
-            fill: limit.percentLeft,
+            fill: Formatting.shown(limit.percentLeft, view: model.preferences.limitsView),
             tone: limit.percentLeft == nil ? .unknown : limit.percentLeft == 0 ? .out : .room
           )
-          Text(limit.unlimited ? "Unlimited" : Formatting.barePercent(limit.percentLeft))
-            .font(HR.popoverFont(11.5)).frame(width: 64, alignment: .trailing)
+          Text(
+            limit.unlimited
+              ? "Unlimited"
+              : Formatting.barePercent(
+                Formatting.shown(limit.percentLeft, view: model.preferences.limitsView))
+          )
+          .font(HR.popoverFont(11.5)).frame(width: 64, alignment: .trailing)
           Text(Formatting.when(Formatting.date(milliseconds: limit.resetsAt), now: model.now))
             .font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
             .frame(width: 96, alignment: .trailing)
         }.lineLimit(1).accessibilityElement(children: .ignore)
           .accessibilityLabel(
-            "\(limit.label), \(limit.unlimited ? "Unlimited" : Formatting.percentLeft(limit.percentLeft)), resets \(Formatting.when(Formatting.date(milliseconds: limit.resetsAt), now: model.now)), \(limit.interface.rawValue) interface"
+            "\(limit.label), \(limit.unlimited ? "Unlimited" : Formatting.share(limit.percentLeft, view: model.preferences.limitsView)), resets \(Formatting.when(Formatting.date(milliseconds: limit.resetsAt), now: model.now)), \(limit.interface.rawValue) interface"
           )
       }
       ForEach(account.charges, id: \.key) { charge in

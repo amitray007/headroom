@@ -31,7 +31,12 @@ public struct LedgerRow: Identifiable, Sendable {
   public var item: AccountItem { column.item }
   public var id: String { column.id }
 
-  public init(column: RoomColumn, now: Date, timeZone: TimeZone = .current) {
+  /// `view` picks room left or the share used for each limit's figure and cells; the tone
+  /// always follows room left.
+  public init(
+    column: RoomColumn, now: Date, timeZone: TimeZone = .current,
+    view: DisplayPreferences.LimitsView = .left
+  ) {
     self.column = column
     self.now = now
     let account = column.item.account
@@ -50,7 +55,7 @@ public struct LedgerRow: Identifiable, Sendable {
       extra = nil
       return
     }
-    meters = limits.map { Self.meter($0, now: now, timeZone: timeZone) }
+    meters = limits.map { Self.meter($0, now: now, timeZone: timeZone, view: view) }
     extra = Self.extra(account, now: now, timeZone: timeZone)
   }
 
@@ -59,26 +64,30 @@ public struct LedgerRow: Identifiable, Sendable {
     outCount == 0 && meters.contains { $0.tone == .tight } ? 1 : 0
   }
 
-  static func meter(_ limit: FeedAccount.limitsPayloadPayload, now: Date, timeZone: TimeZone)
-    -> Meter
-  {
+  static func meter(
+    _ limit: FeedAccount.limitsPayloadPayload, now: Date, timeZone: TimeZone,
+    view: DisplayPreferences.LimitsView = .left
+  ) -> Meter {
     let left = min(100, max(0, limit.percentLeft ?? 0))
+    // The figure and the cells follow the view; the tone and notes follow room left.
+    let shown = view == .left ? left : 100 - left
+    let value = Formatting.barePercent(shown)
     let reset = Formatting.date(milliseconds: limit.resetsAt)
     let label = windowLabel(limit)
     if left == 0 {
       return Meter(
-        fill: 0, value: Formatting.barePercent(left), label: label, tone: .out,
+        fill: view == .left ? 0 : 100, value: value, label: label, tone: .out,
         note: "back \(Formatting.when(reset, now: now, timeZone: timeZone))", alarm: true,
         runsOut: false)
     }
     if let runOut = RoomNow.projection(limit, now: now) {
       return Meter(
-        fill: left, value: Formatting.barePercent(left), label: label, tone: .tight,
+        fill: shown, value: value, label: label, tone: .tight,
         note: "out \(Formatting.when(runOut, now: now, timeZone: timeZone))", alarm: true,
         runsOut: true)
     }
     return Meter(
-      fill: left, value: Formatting.barePercent(left), label: label,
+      fill: shown, value: value, label: label,
       tone: left <= 20 ? .tight : .room,
       note: reset.map { Formatting.countdown(to: $0, now: now) } ?? "", alarm: false,
       runsOut: false)

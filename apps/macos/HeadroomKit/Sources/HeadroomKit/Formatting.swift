@@ -11,6 +11,18 @@ public enum Formatting {
     return "\(barePercent(value)) left"
   }
 
+  /// The figure a limit shows: room left, or the share used. Nil stays nil.
+  public static func shown(_ left: Double?, view: DisplayPreferences.LimitsView) -> Double? {
+    guard let left, left.isFinite else { return nil }
+    return view == .left ? left : 100 - left
+  }
+
+  /// "37% left" or "63% used".
+  public static func share(_ left: Double?, view: DisplayPreferences.LimitsView) -> String {
+    guard let value = shown(left, view: view) else { return "Unknown" }
+    return "\(barePercent(value)) \(view == .left ? "left" : "used")"
+  }
+
   public static func barePercent(_ value: Double?) -> String {
     guard let value, value.isFinite else { return "Unknown" }
     let rounded = value > 0 && value < 100 ? min(99, max(1, value.rounded())) : value.rounded()

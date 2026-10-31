@@ -129,6 +129,7 @@ private func row(_ rows: [LedgerRow], _ id: String) throws -> LedgerRow {
   #expect(value.slots == [.init()])
   #expect(value.providerLogos && value.colorLowOut)
   #expect(value.checkSeconds == 120)
+  #expect(value.limitsView == .left)
   let unknown = Data(#"{"checkSeconds":7}"#.utf8)
   #expect(try JSONDecoder().decode(DisplayPreferences.self, from: unknown).checkSeconds == 120)
   #expect(value.appearance == .system)
@@ -182,4 +183,20 @@ private func row(_ rows: [LedgerRow], _ id: String) throws -> LedgerRow {
   #expect(!SourceSnapshot.sameReadings(first, renamed))
   let offline = [SourceSnapshot(source: source, state: .offline, cached: first[0].cached)]
   #expect(!SourceSnapshot.sameReadings(first, offline))
+}
+
+@Test func usedViewShowsTheShareUsedAndKeepsTheTone() throws {
+  let (feed, left, now) = try ledger()
+  let snapshot = SourceSnapshot(
+    source: try source(), state: .connected,
+    cached: CachedFeed(feed: feed, etag: nil, readAt: Date()))
+  let items = feed.accounts.map { AccountItem(snapshot: snapshot, account: $0) }
+  let utc = try #require(TimeZone(identifier: "UTC"))
+  let used = RoomNow(items: items, now: now).columns.map {
+    LedgerRow(column: $0, now: now, timeZone: utc, view: .used)
+  }
+  let max = try row(used, "claude-max")
+  #expect(max.meters.map(\.value) == ["7%", "38%"])
+  #expect(max.meters.map(\.fill) == [7, 38])
+  #expect(max.meters.map(\.tone) == (try row(left, "claude-max")).meters.map(\.tone))
 }

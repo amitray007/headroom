@@ -41,6 +41,10 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
   public static let maxSlots = 3
 
   public enum Appearance: String, Codable, CaseIterable, Sendable { case system, light, dark }
+  /// Show each limit's room left or its share used, as the web's Limits view does. Colors
+  /// still follow room left.
+  public enum LimitsView: String, Codable, CaseIterable, Sendable { case left, used }
+  public var limitsView: LimitsView = .left
   public var itemStyle: ItemStyle = .logoAndRoom
   /// One to three slots, left to right in the menu bar and top to bottom in a one-icon style.
   public var slots: [MenuSlot] = [MenuSlot()] {
@@ -84,6 +88,7 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
     providerLogos = try values.decodeIfPresent(Bool.self, forKey: .providerLogos) ?? true
     colorLowOut = try values.decodeIfPresent(Bool.self, forKey: .colorLowOut) ?? true
     liveRoom = try values.decodeIfPresent(Bool.self, forKey: .liveRoom) ?? false
+    limitsView = try values.decodeIfPresent(LimitsView.self, forKey: .limitsView) ?? .left
     checkSeconds =
       try values.decodeIfPresent(Int.self, forKey: .checkSeconds)
       .flatMap { Self.checkOptions.contains($0) ? $0 : nil } ?? 120

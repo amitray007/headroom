@@ -150,3 +150,12 @@ func durationsMatchTheMockup(_ seconds: Double, _ expected: String) {
   #expect(Formatting.checked(now.addingTimeInterval(-61), now: now) == "1 min ago")
   #expect(Formatting.checked(nil, now: now) == "Unknown")
 }
+
+@Test func limitsShowRoomLeftOrShareUsed() {
+  #expect(Formatting.shown(37, view: .left) == 37)
+  #expect(Formatting.shown(37, view: .used) == 63)
+  #expect(Formatting.shown(nil, view: .used) == nil)
+  #expect(Formatting.share(37, view: .left) == "37% left")
+  #expect(Formatting.share(37, view: .used) == "63% used")
+  #expect(Formatting.share(nil, view: .used) == "Unknown")
+}

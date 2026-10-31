@@ -464,7 +464,11 @@ struct SettingsView: View {
     let readOnly = model.sources.filter { model.refreshAccess[$0.id] == .readOnly }
       .map(\.source.name)
     guard !readOnly.isEmpty else { return "How often your servers refresh." }
-    return "\(ListFormatter.localizedString(byJoining: readOnly)): read-only token."
+    // Nothing here can change it until one source has a token that may.
+    guard !refreshWritable.isEmpty else {
+      return "Needs a source whose token can change Refresh Every."
+    }
+    return "Skips \(ListFormatter.localizedString(byJoining: readOnly)): read-only token."
   }
 
   /// "Connected · every 10 min · read only": the state, the server's Refresh Every, and whether
@@ -595,6 +599,13 @@ struct SettingsView: View {
           }
         }
         .help("While the menu is open, it reads every 30 seconds, or sooner when this is shorter.")
+        SettingsRow(
+          title: "Show limits as", note: "Room left, or the share used, as on the web."
+        ) {
+          WebSegmented(
+            selection: $model.preferences.limitsView,
+            options: [(.left, "Left"), (.used, "Used")])
+        }
         SettingsRow(title: "Appearance") {
           WebSegmented(
             selection: $model.preferences.appearance,

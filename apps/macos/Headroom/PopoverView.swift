@@ -144,7 +144,7 @@ private struct AccountsPage: View {
   var body: some View {
     // Build the rows once per render; the summary and every provider group share them.
     let rows = RoomNow(items: model.popoverAccounts, now: model.now).columns.map {
-      LedgerRow(column: $0, now: model.now)
+      LedgerRow(column: $0, now: model.now, view: model.preferences.limitsView)
     }
     VStack(spacing: 0) {
       if model.popoverLoading {

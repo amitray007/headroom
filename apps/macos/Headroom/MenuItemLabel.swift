@@ -13,42 +13,56 @@ struct MenuReading: Equatable {
   }
   var name: String
   var provider: String
-  /// Room left, 0...100; nil when the feed has no figure.
+  /// Room left, 0...100; nil when the feed has no figure. Ranks the slots.
   var left: Double?
+  /// What the meters fill to: room left, or the share used, by the owner's view.
+  var fill: Double?
   var tone: MenuTone
   var text: String
   /// Session, then the longer window. Only the bars look reads them.
   var bars: [Bar]
   var look: DisplayPreferences.MenuSlot.Look
 
-  init(column: RoomColumn, look: DisplayPreferences.MenuSlot.Look, now: Date) {
+  init(
+    column: RoomColumn, look: DisplayPreferences.MenuSlot.Look, now: Date,
+    view: DisplayPreferences.LimitsView
+  ) {
     name = column.item.name
     provider = column.item.account.provider.rawValue
     left = column.percentLeft
+    fill = Formatting.shown(column.percentLeft, view: view)
     tone = Self.tone(column.state)
-    text = Self.text(column, long: false)
+    text = Self.text(column, long: false, view: view)
     self.look = look
     bars =
       look == .bars
-      ? LedgerRow(column: column, now: now).meters.prefix(2).map {
+      ? LedgerRow(column: column, now: now, view: view).meters.prefix(2).map {
         Bar(fill: $0.fill, tone: $0.tone == .out ? .out : $0.tone == .tight ? .low : .plain)
       } : []
   }
 
-  private init(sample provider: String, left: Double, look: DisplayPreferences.MenuSlot.Look) {
+  private init(
+    sample provider: String, left: Double, look: DisplayPreferences.MenuSlot.Look,
+    view: DisplayPreferences.LimitsView
+  ) {
     name = Presentation.providerName(provider)
     self.provider = provider
     self.left = left
+    let shown = Formatting.shown(left, view: view) ?? left
+    fill = shown
     tone = .plain
-    text = Formatting.barePercent(left)
-    bars = [Bar(fill: min(100, left + 30), tone: .plain), Bar(fill: left, tone: .plain)]
+    text = Formatting.barePercent(shown)
+    let session = Formatting.shown(min(100, left + 30), view: view)
+    bars = [Bar(fill: session, tone: .plain), Bar(fill: shown, tone: .plain)]
     self.look = look
   }
 
   /// Settings shows these while no account has a reading.
-  static func samples(_ looks: [DisplayPreferences.MenuSlot.Look]) -> [MenuReading] {
+  static func samples(
+    _ looks: [DisplayPreferences.MenuSlot.Look], view: DisplayPreferences.LimitsView
+  ) -> [MenuReading] {
     zip([("claude", 62.0), ("codex", 37), ("cursor", 74)], looks).map {
-      MenuReading(sample: $0.0.0, left: $0.0.1, look: $0.1)
+      MenuReading(sample: $0.0.0, left: $0.0.1, look: $0.1, view: view)
     }
   }
 
@@ -60,15 +74,18 @@ struct MenuReading: Equatable {
     }
   }
 
-  /// "37%" in a slot, "37% left" beside the logo.
-  static func text(_ column: RoomColumn, long: Bool) -> String {
+  /// "37%" in a slot, "37% left" (or "63% used") beside the logo.
+  static func text(
+    _ column: RoomColumn, long: Bool, view: DisplayPreferences.LimitsView
+  ) -> String {
     switch column.state {
     case .signIn: return "!"
     case .out: return "Out"
     case .unknown: return column.item.snapshot.state == .connected ? "Unknown" : "…"
     default:
       return long
-        ? Formatting.percentLeft(column.percentLeft) : Formatting.barePercent(column.percentLeft)
+        ? Formatting.share(column.percentLeft, view: view)
+        : Formatting.barePercent(Formatting.shown(column.percentLeft, view: view))
     }
   }
 }
@@ -117,9 +134,14 @@ struct MenuReading: Equatable {
     var readings: [MenuReading] = []
     if style.showsSlots {
       for (slot, column) in zip(slots, columns) {
-        if let column { readings.append(MenuReading(column: column, look: slot.look, now: now)) }
+        if let column {
+          readings.append(
+            MenuReading(column: column, look: slot.look, now: now, view: preferences.limitsView))
+        }
       }
-      if sample && readings.isEmpty { readings = MenuReading.samples(slots.map(\.look)) }
+      if sample && readings.isEmpty {
+        readings = MenuReading.samples(slots.map(\.look), view: preferences.limitsView)
+      }
     }
     self.readings = readings
 
@@ -139,7 +161,7 @@ struct MenuReading: Equatable {
     var textTone = MenuTone.plain
     if style == .logoAndRoom {
       if let column = columns.first ?? nil {
-        text = MenuReading.text(column, long: true)
+        text = MenuReading.text(column, long: true, view: preferences.limitsView)
         textTone = MenuReading.tone(column.state)
       } else {
         // Nil when there is nothing to report: no source yet, or sources with no accounts.
@@ -157,7 +179,7 @@ struct MenuReading: Equatable {
           }
         textTone = needsSignIn || anyOut ? .out : .plain
       }
-      if sample && text == nil { text = Formatting.percentLeft(64) }
+      if sample && text == nil { text = Formatting.share(64, view: preferences.limitsView) }
     }
     self.text = text
     self.textTone = textTone
@@ -172,7 +194,7 @@ struct MenuReading: Equatable {
         "\((columns.first ?? nil)?.item.name ?? "Tightest account"): \(text ?? "no readings yet")"
       ]
     } else {
-      lines = readings.map { "\($0.name): \(Self.figure($0))" }
+      lines = readings.map { "\($0.name): \(Self.figure($0, view: preferences.limitsView))" }
     }
     tooltip = (["Headroom"] + lines).joined(separator: "\n")
 
@@ -181,16 +203,17 @@ struct MenuReading: Equatable {
       parts.append((columns.first ?? nil)?.item.name ?? "all accounts")
       parts.append(text ?? "no readings yet")
     } else {
-      parts += readings.map { "\($0.name), \(Self.figure($0))" }
+      parts += readings.map { "\($0.name), \(Self.figure($0, view: preferences.limitsView))" }
     }
     if model.unread > 0 { parts.append("\(model.unread) unread notifications") }
     summary = parts.joined(separator: ", ")
   }
 
   /// "37% left", or the slot's word when it has no figure to give.
-  private static func figure(_ reading: MenuReading) -> String {
+  private static func figure(_ reading: MenuReading, view: DisplayPreferences.LimitsView) -> String
+  {
     reading.left != nil && reading.tone != .out
-      ? Formatting.percentLeft(reading.left) : reading.text
+      ? Formatting.share(reading.left, view: view) : reading.text
   }
 
   private static func urgency(_ reading: MenuReading) -> Double {
@@ -287,7 +310,7 @@ struct MenuItemLabel: View {
       Text(reading.text).font(.system(size: 13, weight: .medium)).monospacedDigit()
         .foregroundStyle(color(reading.tone))
     case .ring:
-      MenuRing(left: reading.left, tone: reading.tone, color: color).frame(width: 14, height: 14)
+      MenuRing(left: reading.fill, tone: reading.tone, color: color).frame(width: 14, height: 14)
     case .bars:
       MenuBars(bars: reading.bars, color: color).frame(width: 18, height: 10)
     }
@@ -336,13 +359,13 @@ private struct LiveGlyph: View {
   var body: some View {
     VStack(spacing: 2.5) {
       ForEach(Array(readings.enumerated()), id: \.offset) { _, reading in
-        MenuMeter(fill: reading.left, tone: reading.tone, color: color).frame(height: 3)
+        MenuMeter(fill: reading.fill, tone: reading.tone, color: color).frame(height: 3)
       }
     }.padding(.horizontal, 0.5)
   }
 }
 
-/// One row of three dots per slot; lit dots are thirds of the room left. An out row lights in
+/// One row of three dots per slot; lit dots are thirds of the shown figure (room left or used). An out row lights in
 /// red; a row with no figure stays dim.
 private struct DotGrid: View {
   let readings: [MenuReading]
@@ -362,8 +385,8 @@ private struct DotGrid: View {
   }
   private static func lit(_ reading: MenuReading) -> Int {
     if reading.tone == .out { return 3 }
-    guard let left = reading.left, left > 0 else { return 0 }
-    return left < 34 ? 1 : left < 67 ? 2 : 3
+    guard let fill = reading.fill, fill > 0 else { return 0 }
+    return fill < 34 ? 1 : fill < 67 ? 2 : 3
   }
 }
 
