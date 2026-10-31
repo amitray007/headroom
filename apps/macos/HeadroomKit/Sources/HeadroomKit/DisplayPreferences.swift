@@ -130,12 +130,13 @@ public enum Presentation {
     }.map(\.element)
   }
 
+  /// The source name only tells accounts apart when the same account name and plan appear on
+  /// another source. With one source it adds nothing, and offline rows already say so.
   public static func needsSource(_ item: AccountItem, among items: [AccountItem]) -> Bool {
-    item.snapshot.state != .connected
-      || items.contains {
-        $0.id != item.id && $0.account.provider == item.account.provider
-          && $0.account.name == item.account.name && $0.account.plan == item.account.plan
-      }
+    items.contains {
+      $0.snapshot.id != item.snapshot.id && $0.account.provider == item.account.provider
+        && $0.account.name == item.account.name && $0.account.plan == item.account.plan
+    }
   }
 
   /// Dashboard navigation always stays on the configured source. Feed URLs cannot redirect a token

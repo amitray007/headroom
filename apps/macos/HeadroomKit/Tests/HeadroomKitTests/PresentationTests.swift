@@ -25,6 +25,9 @@ import Testing
   #expect(!visible.contains { $0.id == firstAccount.id })
   #expect(Presentation.needsSource(firstAccount, among: all))
   #expect(!Presentation.needsSource(firstAccount, among: Array(all.prefix(feed.accounts.count))))
+  let offline = SourceSnapshot(source: first, state: .offline, cached: cached)
+  let alone = Presentation.accounts([offline], preferences: DisplayPreferences())
+  #expect(!Presentation.needsSource(try #require(alone.first), among: alone))
 }
 
 @Test func bindingPreservesUnknownAndIgnoresSubPools() throws {
