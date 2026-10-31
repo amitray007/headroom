@@ -98,6 +98,8 @@ const tokenSchema = z.object({
   createdAt: z.number(),
   lastUsedAt: z.number().nullable(),
   expiresAt: z.number().nullable(),
+  /** `refresh` lets the device change Refresh Every; every token can read. */
+  scopes: z.array(z.enum(["read", "refresh"])),
 });
 const tokensSchema = z.object({ tokens: z.array(tokenSchema) });
 
@@ -113,6 +115,7 @@ function demoTokens(now: number): ApiToken[] {
       createdAt: now - 12 * day,
       lastUsedAt: now - 4 * 60_000,
       expiresAt: null,
+      scopes: ["read", "refresh"],
     },
     {
       id: "demo-token-desk",
@@ -122,6 +125,7 @@ function demoTokens(now: number): ApiToken[] {
       createdAt: now - 40 * day,
       lastUsedAt: now - 3 * day,
       expiresAt: null,
+      scopes: ["read"],
     },
   ];
 }
@@ -433,8 +437,8 @@ export const api = {
     demoOn()
       ? Promise.resolve({ tokens: demoTokens(Date.now()) })
       : request("GET", "/api/tokens", tokensSchema),
-  createToken: changesAccount((name: string) =>
-    request("POST", "/api/tokens", createdTokenSchema, { name }),
+  createToken: changesAccount((name: string, refresh: boolean) =>
+    request("POST", "/api/tokens", createdTokenSchema, { name, refresh }),
   ),
   revokeToken: changesAccount((id: string) =>
     request(

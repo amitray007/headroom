@@ -1,6 +1,11 @@
 import { useContext, useId, useState, useSyncExternalStore } from "react";
 
-import type { NotificationKind, Provider } from "@headroom/core/contracts";
+import {
+  historyRetentionOptions,
+  refreshIntervalOptions,
+  type NotificationKind,
+  type Provider,
+} from "@headroom/core/contracts";
 import type { OverviewConnection } from "@headroom/view-model/overview";
 
 import { useDevicePrefs } from "../lib/device-prefs.ts";
@@ -11,6 +16,7 @@ import { BellIcon, EyeIcon, GearIcon, KeyIcon, LinkIcon, PlugIcon, ResetIcon } f
 import { Dialog } from "../ui/dialog.tsx";
 import { ErrorNotice } from "../ui/error-notice.tsx";
 import { Segmented } from "../ui/segmented.tsx";
+import { Select } from "../ui/select.tsx";
 import { Sk } from "../ui/skeleton.tsx";
 import { SlideSwap, type SwapDirection } from "../ui/slide-swap.tsx";
 import { Tabs } from "../ui/tabs.tsx";
@@ -79,9 +85,44 @@ function NumberRow<T extends number>(props: {
   );
 }
 
+/** A choice among numbers in a dropdown, for lists too long to read well as segments. */
+function SelectRow<T extends number>(props: {
+  readonly title: string;
+  readonly note: string;
+  readonly value: T;
+  readonly values: readonly T[];
+  readonly format: (value: T) => string;
+  readonly onChange: (value: T) => void;
+}) {
+  const waiting = useContext(WaitingContext);
+  return (
+    <div className="srow srow-choice">
+      <Body title={props.title} note={props.note} />
+      {waiting ? (
+        <Sk width={150} height={32} className="sk-pill" />
+      ) : (
+        <div className="srow-select">
+          <Select
+            label={props.title}
+            hideLabel
+            size="sm"
+            value={String(props.value)}
+            options={props.values.map((value) => ({
+              value: String(value),
+              label: props.format(value),
+            }))}
+            onChange={(text) => {
+              const next = props.values.find((value) => String(value) === text);
+              if (next !== undefined) props.onChange(next);
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 const thresholds = [30, 20, 15] as const;
-const intervals = [5, 10, 15, 30] as const;
-const retentions = [30, 90, 180, 365] as const;
 
 const sections = [
   { value: "general", label: "General", icon: <GearIcon /> },
@@ -138,21 +179,21 @@ function General(props: { readonly change: (patch: SettingsPatch) => void }) {
         />
       </Section>
       <Section title="Refresh">
-        <NumberRow
+        <SelectRow
           title="Refresh Every"
           note="How often your accounts update."
           value={settings.refreshIntervalMinutes}
-          values={intervals}
+          values={refreshIntervalOptions}
           format={(value) => `${value} min`}
           onChange={(refreshIntervalMinutes) => change({ refreshIntervalMinutes })}
         />
       </Section>
       <Section title="Data">
-        <NumberRow
+        <SelectRow
           title="History"
           note="Older refresh history is deleted. The latest reading of each account is always kept."
           value={settings.historyRetentionDays}
-          values={retentions}
+          values={historyRetentionOptions}
           format={(value) => (value === 365 ? "1 year" : `${value} days`)}
           onChange={(historyRetentionDays) => change({ historyRetentionDays })}
         />

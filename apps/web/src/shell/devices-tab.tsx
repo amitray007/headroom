@@ -10,15 +10,17 @@ import { CopyButton } from "../ui/copy-button.tsx";
 import { EmptyState } from "../ui/empty-state.tsx";
 import { ErrorNotice } from "../ui/error-notice.tsx";
 import { Sk } from "../ui/skeleton.tsx";
+import { Switch } from "../ui/switch.tsx";
 import { Section } from "./settings-rows.tsx";
 import "./devices.css";
 
-/** The token's visible start, its last use and, when set, its expiry. */
+/** The token's visible start, what it may do, its last use and, when set, its expiry. */
 function DeviceNote(props: { readonly token: ApiToken }) {
   const { token } = props;
   return (
     <span className="muted">
       <code>{token.start ?? token.prefix}…</code>
+      {token.scopes.includes("refresh") ? " · Can change Refresh Every" : " · Read only"}
       {" · "}
       {token.lastUsedAt === null ? (
         "Never used"
@@ -39,6 +41,7 @@ export function DevicesTab() {
   const [tokens, setTokens] = useState<ApiToken[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [refresh, setRefresh] = useState(false);
   const [created, setCreated] = useState<{ readonly name: string; readonly key: string } | null>(
     null,
   );
@@ -73,7 +76,7 @@ export function DevicesTab() {
     setBusy(true);
     setError(null);
     try {
-      const token = await api.createToken(name.trim());
+      const token = await api.createToken(name.trim(), refresh);
       setCreated({ name: token.name ?? name.trim(), key: token.key });
       setName("");
       await reload();
@@ -110,9 +113,7 @@ export function DevicesTab() {
           >
             <label htmlFor={nameId} className="sbody">
               <b>Device Name</b>
-              <span className="muted">
-                A read-only token lets Headroom for Mac read this server.
-              </span>
+              <span className="muted">A token lets Headroom for Mac read this server.</span>
             </label>
             <div className="device-create">
               <input
@@ -127,6 +128,16 @@ export function DevicesTab() {
                 Create Token
               </Button>
             </div>
+            {/* oxlint-disable-next-line jsx-a11y/label-has-associated-control -- the Switch component renders the input */}
+            <label className="device-scope">
+              <span className="sbody">
+                <b>Can Change Refresh Every</b>
+                <span className="muted">
+                  The Mac can set how often this server refreshes. It can change nothing else.
+                </span>
+              </span>
+              <Switch checked={refresh} onChange={setRefresh} />
+            </label>
           </form>
         ) : (
           <div className="device-key">

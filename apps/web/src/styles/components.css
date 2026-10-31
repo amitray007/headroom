@@ -2454,6 +2454,12 @@ html[data-density="compact"] .accounts .tname {
   height: 56px;
 }
 
+/* A dropdown choice keeps one width, so rows with different option lengths line up. */
+.srow-select {
+  flex: none;
+  width: 150px;
+}
+
 /* Phones: a choice row puts its segmented control under the text at full width, so the note keeps a
    readable measure. Switch rows stay on one line. */
 @media (max-width: 560px) {
@@ -2461,6 +2467,9 @@ html[data-density="compact"] .accounts .tname {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+  }
+  .srow-choice .srow-select {
+    width: 100%;
   }
   .srow-choice .seg,
   .srow-choice .sk-segs {

@@ -4,7 +4,11 @@ import { fileURLToPath } from "node:url";
 import { format } from "oxfmt";
 import { z } from "zod";
 
-import { appFeedSchema, appWhoamiSchema } from "../packages/view-model/src/app-feed.ts";
+import {
+  appFeedSchema,
+  appRefreshSchema,
+  appWhoamiSchema,
+} from "../packages/view-model/src/app-feed.ts";
 
 const contractPath = fileURLToPath(new URL("../apps/macos/Contract/openapi.json", import.meta.url));
 const errorSchema = z.strictObject({ error: z.string() });
@@ -70,6 +74,34 @@ function operation(operationId: string, schema: string) {
   };
 }
 
+/** The one write: Refresh Every, for a token created with the `refresh` scope. */
+const putRefresh = {
+  operationId: "putAppRefresh",
+  security: [{ appToken: [] }],
+  requestBody: {
+    required: true,
+    content: { "application/json": { schema: { $ref: "#/components/schemas/AppRefresh" } } },
+  },
+  responses: {
+    "200": {
+      description:
+        "The saved interval. The server collects on the new interval from its next tick.",
+      content: { "application/json": { schema: { $ref: "#/components/schemas/AppRefresh" } } },
+    },
+    "400": error("The body is not one of the allowed intervals: invalid_body."),
+    "401": error("Missing, expired, revoked or invalid token: invalid_token."),
+    "403": error("The token was created without the refresh scope: missing_permission."),
+    "405": {
+      ...error("Only PUT is allowed: method_not_allowed."),
+      headers: { Allow: { schema: { type: "string", const: "PUT" } } },
+    },
+    "429": {
+      ...error("Too many authentication attempts: rate_limited."),
+      headers: { "Retry-After": { schema: { type: "string" } } },
+    },
+  },
+};
+
 export async function appContract(): Promise<string> {
   const document = {
     openapi: "3.1.0",
@@ -91,13 +123,15 @@ export async function appContract(): Promise<string> {
         },
       },
       "/api/app/v1/whoami": { get: operation("getAppWhoami", "AppWhoami") },
+      "/api/app/v1/settings/refresh": { put: putRefresh },
     },
     components: {
       securitySchemes: {
-        appToken: { type: "http", scheme: "bearer", bearerFormat: "Headroom read token" },
+        appToken: { type: "http", scheme: "bearer", bearerFormat: "Headroom app token" },
       },
       schemas: {
         AppFeed: json(appFeedSchema),
+        AppRefresh: json(appRefreshSchema),
         AppWhoami: json(appWhoamiSchema),
         Error: json(errorSchema),
       },
