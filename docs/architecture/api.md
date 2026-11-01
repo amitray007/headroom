@@ -27,8 +27,18 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 | `GET /api/tokens`, `POST /api/tokens`, `DELETE /api/tokens/:id` | Session-only device token management, see [API tokens](#api-tokens) |
 | `GET /api/app/v1/feed?tz=<minutes>` | Token-only account feed, notices and Wallet summary, see [App feed](#app-feed) |
 | `GET /api/app/v1/whoami` | Token-only API version, server version, token name and scopes |
+| `GET /api/notices/read`, `PUT /api/notices/read` | Session-only: the ids of notices marked read, and marking ids read or unread, see [Notice read state](#notice-read-state) |
+| `PUT /api/app/v1/notices/read` | Token-only, any scope: mark notices read or unread, see [Notice read state](#notice-read-state) |
 | `PUT /api/app/v1/settings/refresh` | Token-only, `refresh` scope: set Refresh Every, see [API tokens](#api-tokens) |
 | `/api/delivery/...` | Notification channels (Telegram, webhook), tests and Telegram chat discovery, see [Delivery](#delivery) |
+
+## Notice read state
+
+The server keeps one set of read notice ids for the owner. A notice id is the same in the dashboard and in the feed. The time zone and the time style change only the text, never the id.
+
+`GET /api/notices/read` (session) returns `{ "ids": [string] }`, sorted. `PUT /api/notices/read` (session) takes `{ "ids": [string], "read": boolean }` and returns the whole set as `{ "ids": [string] }`. `read: true` marks the ids read and `read: false` marks them unread. One call can carry up to 500 ids, each 1 to 300 characters, so "Mark all read" is one call. Any other body is 400 `invalid_body`.
+
+`PUT /api/app/v1/notices/read` (token) takes the same body and returns it unchanged: `{ "ids": [string], "read": boolean }`. Any valid token may call it, including a read-only one, because it changes only Headroom's own read marks and never a provider account. A write removes marks older than 90 days. The change shows in the next feed as `read` on each notice, and it changes the feed's `ETag`.
 
 ## API tokens
 
@@ -36,7 +46,7 @@ Settings, Devices lets the owner name, create and revoke a token. `POST /api/tok
 
 The Better Auth API key plugin stores a hash, assigns `{ app: ["read"] }`, or `{ app: ["read", "refresh"] }` when the owner opted in, and has API key sessions disabled. Its HTTP management endpoints are blocked; only the Headroom routes above manage tokens. Tokens have no expiry by default. The plugin checks expiry, revocation and permission on each app request. Its per-key rate limit is off: its window resets only after a quiet minute, so steady polling would lock a valid token out. The address limit on failed guesses still applies.
 
-`/api/app/v1/*` accepts only `Authorization: Bearer <token>`. A session cookie or `x-api-key` cannot authenticate it. GET and HEAD are allowed, except on `/api/app/v1/settings/refresh`, which allows only PUT; other methods return 405 `method_not_allowed` with the matching `Allow`. Missing, invalid, expired, revoked or unscoped keys return 401 `invalid_token`. Ten failed attempts from one client address within a minute block further attempts with 429 `rate_limited` and `Retry-After`. This bounded, in-memory limit resets on server restart and uses the same trusted-proxy policy as sign-in. A token cannot authenticate any session route. The one state it can change is Refresh Every, and only with the `refresh` scope: `PUT /api/app/v1/settings/refresh` takes `{ refreshIntervalMinutes }`, one of the Refresh Every options, saves it and returns it. Any other key or value is 400 `invalid_body`. A valid token without the scope gets 403 `missing_permission`, which does not count as a failed attempt.
+`/api/app/v1/*` accepts only `Authorization: Bearer <token>`. A session cookie or `x-api-key` cannot authenticate it. GET and HEAD are allowed, except on `/api/app/v1/settings/refresh` and `/api/app/v1/notices/read`, which allow only PUT; other methods return 405 `method_not_allowed` with the matching `Allow`. Missing, invalid, expired, revoked or unscoped keys return 401 `invalid_token`. Ten failed attempts from one client address within a minute block further attempts with 429 `rate_limited` and `Retry-After`. This bounded, in-memory limit resets on server restart and uses the same trusted-proxy policy as sign-in. A token cannot authenticate any session route. A token can change two things. Read marks need no scope beyond `read` (see [Notice read state](#notice-read-state)). Refresh Every needs the `refresh` scope: `PUT /api/app/v1/settings/refresh` takes `{ refreshIntervalMinutes }`, one of the Refresh Every options, saves it and returns it. Any other key or value is 400 `invalid_body`. A valid token without the scope gets 403 `missing_permission`, which does not count as a failed attempt.
 
 `GET /api/app/v1/whoami` returns `{ apiVersion: 1, serverVersion, tokenName, scopes }`, so a client knows whether it may change Refresh Every. Both app responses are validated against the Zod schemas in `packages/view-model/src/app-feed.ts`. Demo Mode hides the real token list and refuses token changes; the static demo returns an empty list and the usual demo refusal.
 
@@ -56,7 +66,7 @@ The strict `appFeedSchema` in `packages/view-model/src/app-feed.ts` defines the 
 | `summary.monthlyPlanTotal` | Wallet monthly price total as `{ minor, currency }`, or null when no cost is entered or a conversion rate is missing |
 | `summary.extraSpend` | Spend totals as `{ unit, value }`, sorted by unit. Any unread spend makes that unit's total null |
 | `summary.nextLimitBack` | The earliest future reset of an exhausted limit on a ready or partial account, as `{ accountId, metricKey, at }`, or null. Cursor parts do not count |
-| `notices` | Validated `notificationEventSchema` events from the delivery derivation, with exact time style, the request offset and Wallet expiry notices. Dashboard links use `dashboardUrl` when set |
+| `notices` | Validated `notificationEventSchema` events from the delivery derivation, with exact time style, the request offset and Wallet expiry notices. Each adds `read`, true when the owner marked it read. Dashboard links use `dashboardUrl` when set |
 
 Each account carries its internal `id`, provider, display name, plan, display identity, state, reconnect reason, interface, `lastSuccessAt` and `observedAt`. These timestamps let the app show age without changing the feed each second. It carries no provider account id, workspace id, credential, raw response or run error text.
 

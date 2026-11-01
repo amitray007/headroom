@@ -5,8 +5,10 @@ import { apiTokenScopesOf } from "@headroom/core";
 import type { AppContext } from "../bootstrap.ts";
 import type { Env } from "./session.ts";
 
-/** The one write a token can make, and only with the `refresh` scope. */
+/** A write only a token with the `refresh` scope can make. */
 const refreshPath = /\/app\/v1\/settings\/refresh$/;
+/** A write any valid token can make: it changes Headroom's own read marks, not an account. */
+const noticeReadPath = /\/app\/v1\/notices\/read$/;
 
 /** Per-process failed-attempt window, bounded even when many addresses send invalid keys. */
 export function requireApiToken(
@@ -19,7 +21,7 @@ export function requireApiToken(
   return async (c, next) => {
     c.header("Cache-Control", "no-store");
     const write = refreshPath.test(c.req.path);
-    const allowed = write ? ["PUT"] : ["GET", "HEAD"];
+    const allowed = write || noticeReadPath.test(c.req.path) ? ["PUT"] : ["GET", "HEAD"];
     if (!allowed.includes(c.req.method)) {
       c.header("Allow", allowed.join(", "));
       return c.json({ error: "method_not_allowed" }, 405);
