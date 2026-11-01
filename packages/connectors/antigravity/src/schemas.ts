@@ -40,6 +40,28 @@ export const quotaSummarySchema = z.union([
   z.object({ response: groupsSchema }),
 ]);
 
+const quotaInfoSchema = z
+  .object({
+    remainingFraction: z.number().optional(),
+    resetTime: z.string().nullable().optional(),
+  })
+  .loose();
+
+export const fetchAvailableModelsSchema = z
+  .object({
+    models: z
+      .record(
+        z.string(),
+        z
+          .object({
+            quotaInfo: quotaInfoSchema.optional(),
+          })
+          .loose(),
+      )
+      .optional(),
+  })
+  .loose();
+
 export const loadCodeAssistSchema = z
   .object({
     /** A plain project id on the live response of 2026-10-01; CLIProxyAPI also handles an object form. */

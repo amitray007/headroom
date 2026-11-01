@@ -32,6 +32,7 @@ import {
   loadCodeAssistBody,
   loadCodeAssistPath,
   quotaSummaryPath,
+  fetchAvailableModelsPath,
   redirectUri,
   scopes,
   tokenUrl,
@@ -39,6 +40,7 @@ import {
 } from "./endpoints.ts";
 import {
   antigravityCredentialSchema,
+  fetchAvailableModelsSchema,
   loadCodeAssistSchema,
   quotaSummarySchema,
   tokenResponseSchema,
@@ -312,6 +314,36 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
             availability: remaining === undefined ? "unknown" : "available",
             interface: "private",
           });
+        }
+      }
+      if (!seen.has("gemini-5h")) {
+        try {
+          const modelsRaw = await cloudCode(fetchAvailableModelsPath, secret.accessToken, {
+            project,
+          });
+          const modelsRes = fetchAvailableModelsSchema.safeParse(modelsRaw);
+          if (modelsRes.success && modelsRes.data.models) {
+            const geminiEntries = Object.entries(modelsRes.data.models).filter(
+              ([k, v]) => k.startsWith("gemini-") && v.quotaInfo?.remainingFraction !== undefined,
+            );
+            if (geminiEntries.length > 0) {
+              const quotaInfo = geminiEntries[0]![1].quotaInfo!;
+              const remaining = quotaInfo.remainingFraction;
+              seen.add("gemini-5h");
+              metrics.push({
+                providerMetricKey: "quota.gemini-5h",
+                kind: "quota_percentage",
+                scope: knownBuckets["gemini-5h"]?.scope ?? "window:18000s",
+                valueText: remaining === undefined ? null : ((1 - remaining) * 100).toFixed(2),
+                unit: "percent",
+                resetsAt: parseDate(quotaInfo.resetTime),
+                availability: remaining === undefined ? "unknown" : "available",
+                interface: "private",
+              });
+            }
+          }
+        } catch {
+          // Gracefully omit if fetchAvailableModels fails
         }
       }
       // Buckets the tier does not report are not missing data: the free tier of 2026-10-01 carried
