@@ -158,6 +158,56 @@ describe("Antigravity connector", () => {
     expect(http.calls[1]?.init?.body).toBe(JSON.stringify({ project: "proj" }));
   });
 
+  test("collect falls back to fetchAvailableModels when gemini-5h is missing from quotaSummary", async () => {
+    const http = fakeFetch({
+      [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+      [`${daily}${quotaSummaryPath}`]: () =>
+        json({
+          groups: [
+            {
+              displayName: "Claude and GPT models",
+              buckets: [
+                {
+                  bucketId: "3p-weekly",
+                  remainingFraction: 1,
+                  resetTime: "2026-11-08T10:00:00Z",
+                },
+                {
+                  bucketId: "3p-5h",
+                  remainingFraction: 0.95,
+                  resetTime: "2026-11-01T15:00:00Z",
+                },
+              ],
+            },
+          ],
+        }),
+      [`${daily}/v1internal:fetchAvailableModels`]: () =>
+        json({
+          models: {
+            "gemini-3.8-flash-tiered": {
+              quotaInfo: {
+                remainingFraction: 0.85,
+                resetTime: "2026-11-01T16:00:00Z",
+              },
+            },
+          },
+        }),
+    });
+    const connector = createAntigravityConnector({
+      fetch: http.fetch,
+      now: () => 1_700_000_000_000,
+    });
+    const result = await connector.collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["quota.gemini-5h"]).toMatchObject({
+      valueText: "15.00",
+      scope: "window:18000s",
+      resetsAt: Date.parse("2026-11-01T16:00:00Z"),
+    });
+    expect(byKey["quota.3p-5h"]).toMatchObject({ valueText: "5.00" });
+    expect(byKey["quota.3p-weekly"]).toMatchObject({ valueText: "0.00" });
+  });
+
   test("a quota summary 403 is permission_denied, as is an account without a project", async () => {
     const forbidden = createAntigravityConnector({
       fetch: fakeFetch({
