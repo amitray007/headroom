@@ -98,7 +98,7 @@ struct UpdateCardContent: View {
       }
       .padding(.horizontal, 8).frame(height: 28)
       .accessibilityElement(children: .combine).accessibilityLabel("Updating")
-      note("Installing with Homebrew. Headroom reopens when it is done.")
+      note("Headroom reopens when it is done.")
     case .failed(let reason):
       Text(reason).font(HR.popoverFont(11)).foregroundStyle(HR.danger)
         .lineLimit(2).frame(width: Self.textWidth, alignment: .leading)
@@ -119,16 +119,12 @@ struct UpdateCardContent: View {
         PopoverMenuItem(title: "Update now", symbol: "arrow.down.circle") {
           updater.installWithHomebrew()
         }
-        note(
-          "Updates with Homebrew, then reopens Headroom. Afterwards macOS asks for your login password once, to unlock saved tokens."
-        )
+        note("Installs with Homebrew and reopens. macOS then asks for your password once.")
       } else {
         PopoverMenuItem(title: "Download", symbol: "arrow.down.to.line") {
           NSWorkspace.shared.open(release)
         }
-        note(
-          "Homebrew was not found. Download the zip and replace Headroom in Applications. Afterwards macOS asks for your login password once, to unlock saved tokens."
-        )
+        note("Replace Headroom in Applications with the download.")
       }
     }
   }
