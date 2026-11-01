@@ -1206,19 +1206,25 @@ private struct WidgetPreview: View {
     let size = kind.size
     let scale = room > 0 ? min(1, room / size.width) : 1
     let selection = WidgetSelection(kind: kind, cache: cache, date: date)
-    HeadroomWidgetView(
-      cache: cache, date: date, kind: kind, accountIDs: selection.accountIDs,
-      limitKey: selection.limitKey, used: selection.used
-    )
-    .frame(width: size.width, height: size.height)
-    .scaleEffect(scale)
-    .frame(width: size.width * scale, height: size.height * scale)
-    .frame(maxWidth: .infinity)
-    .onGeometryChange(for: CGFloat.self) {
-      $0.size.width
-    } action: {
-      room = $0
-    }
+    // The widget draws over a space sized by the pane, never the other way round: at full
+    // size the Extra large preview (744 pt) pushed the whole pane wider than the window.
+    Color.clear
+      .frame(maxWidth: .infinity)
+      .frame(height: size.height * scale)
+      .onGeometryChange(for: CGFloat.self) {
+        $0.size.width
+      } action: {
+        room = $0
+      }
+      .overlay {
+        HeadroomWidgetView(
+          cache: cache, date: date, kind: kind, accountIDs: selection.accountIDs,
+          limitKey: selection.limitKey, used: selection.used
+        )
+        .frame(width: size.width, height: size.height)
+        .scaleEffect(scale)
+        .opacity(room > 0 ? 1 : 0)
+      }
     .padding(14).background(HR.muted, in: RoundedRectangle(cornerRadius: 12))
     .accessibilityElement(children: .ignore)
     .accessibilityLabel("Preview of the \(kind.title) widget")
