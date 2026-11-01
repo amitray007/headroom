@@ -17,6 +17,10 @@ let package = Package(
     .target(
       name: "HeadroomAPI",
       dependencies: [.product(name: "OpenAPIRuntime", package: "swift-openapi-runtime")],
+      // The generated imports carry @diagnose(UnusedImportAccess, as: ignored), which the
+      // Swift 6.4 beta compiler does not honor yet; without this every build prints dozens of
+      // warnings about code we do not write. Our own code is in HeadroomKit.
+      swiftSettings: [.unsafeFlags(["-suppress-warnings"])],
       plugins: [.plugin(name: "OpenAPIGenerator", package: "swift-openapi-generator")]
     ),
     .target(

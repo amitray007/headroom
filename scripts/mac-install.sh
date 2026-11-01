@@ -23,6 +23,7 @@ if brew list --cask headroom-mac >/dev/null 2>&1; then
 fi
 
 xcodebuild -project "$root/apps/macos/Headroom.xcodeproj" -scheme Headroom -configuration Release \
+  -destination "platform=macOS,arch=$(uname -m)" \
   -derivedDataPath "$derived" -skipPackagePluginValidation -skipMacroValidation \
   -onlyUsePackageVersionsFromResolvedFile MARKETING_VERSION="$version" CURRENT_PROJECT_VERSION="$build" \
   build -quiet

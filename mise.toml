@@ -95,7 +95,7 @@ description = "Build the Mac app and widget extension with ad-hoc signing"
 # The pinned generator is authorized to run without Xcode's first-build trust dialog.
 # Unregister the result so WidgetKit never picks this Debug widget over the installed app.
 run = [
-  "xcodebuild -skipPackagePluginValidation -project apps/macos/Headroom.xcodeproj -scheme Headroom -configuration Debug -derivedDataPath apps/macos/.derived-data CODE_SIGN_IDENTITY=- build",
+  "xcodebuild -skipPackagePluginValidation -project apps/macos/Headroom.xcodeproj -scheme Headroom -configuration Debug -destination \"platform=macOS,arch=$(uname -m)\" -derivedDataPath apps/macos/.derived-data CODE_SIGN_IDENTITY=- build -quiet",
   "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u apps/macos/.derived-data/Build/Products/Debug/Headroom.app",
 ]
 
