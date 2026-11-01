@@ -5,7 +5,11 @@
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
-target="$HOME/Applications/Headroom.app"
+# /Applications, where the cask installs: Notification Center and the Notifications pane in
+# System Settings are sandboxed and cannot read ~/Applications, so they drew a blank icon.
+target=/Applications/Headroom.app
+# Earlier versions of this script installed here.
+old="$HOME/Applications/Headroom.app"
 derived="$root/apps/macos/.derived-data"
 built="$derived/Build/Products/Release/Headroom.app"
 lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
@@ -13,8 +17,8 @@ version=$(cat "$root/apps/macos/version.txt")
 # A rising build number lets macOS rank this copy above any copy it still remembers.
 build=$(date +%y%m%d.%H%M)
 
-if [ -d /Applications/Headroom.app ]; then
-  echo 'Headroom from the Homebrew cask is in /Applications. Run: brew uninstall --cask headroom-mac' >&2
+if brew list --cask headroom-mac >/dev/null 2>&1; then
+  echo 'Headroom from the Homebrew cask is installed. Run: brew uninstall --cask headroom-mac' >&2
   exit 1
 fi
 
@@ -33,7 +37,7 @@ pkill -x Headroom || true
     echo "unregistered $app"
   done
 
-rm -rf "$target"
+rm -rf "$target" "$old"
 ditto "$built" "$target"
 # The build output is a second copy of the same bundle. Remove it so it never registers again.
 rm -rf "$built"
@@ -45,4 +49,7 @@ pluginkit -a "$target/Contents/PlugIns/HeadroomWidgets.appex"
 killall chronod 2>/dev/null || true
 
 open "$target"
+# The copy above can register the bundle mid-copy through file events, without its icon.
+# Register it once more now that it is complete.
+"$lsregister" -f "$target"
 echo "installed Headroom $version ($build)"

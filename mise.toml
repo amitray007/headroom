@@ -100,5 +100,5 @@ run = [
 ]
 
 [tasks."mac:install"]
-description = "Build a Release Mac app, remove every older copy and install it in ~/Applications"
+description = "Build a Release Mac app, remove every older copy and install it in /Applications"
 run = "scripts/mac-install.sh"
