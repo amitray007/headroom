@@ -80,16 +80,20 @@ public actor Poller {
     running = true
     scheduleRevision &+= 1
     loop = Task { [weak self] in
+      guard !Task.isCancelled else { return }
       await self?.refresh()
+      guard !Task.isCancelled else { return }
       await self?.runLoop()
     }
   }
 
-  public func stop() {
+  public func stop() async {
     running = false
     scheduleRevision &+= 1
     loop?.cancel()
     loop = nil
+    // Drain an in-flight read before callers remove a source or replace its credentials/cache.
+    await refreshTask?.value
   }
 
   private func runLoop() async {

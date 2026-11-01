@@ -179,3 +179,48 @@ func networkErrorsAreOffline(_ error: URLError.Code) async throws {
   }
   #expect(!decision.withLock { $0 })
 }
+
+@Test func sourceVerificationUsesOnlyWhoamiGETAndNoCookies() async throws {
+  let source = try StubProtocol.register(
+    Stub(body: Data("{\"apiVersion\":1,\"serverVersion\":\"synthetic\",\"tokenName\":null}".utf8)))
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  try await client.verify(source: source, token: "synthetic-read-token")
+  let request = try #require(StubProtocol.requests(for: source).first)
+  #expect(request.httpMethod == "GET")
+  #expect(request.url?.path == "/api/app/v1/whoami")
+  #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-read-token")
+  #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+  #expect(request.httpBody == nil)
+  #expect(StubProtocol.requests(for: source).count == 1)
+}
+
+@Test(arguments: [
+  (401, SourceSetupError.rejectedToken), (404, .needsUpdate), (500, .unavailable),
+  (302, .unavailable),
+])
+func verificationRejectsFailures(_ status: Int, _ expected: SourceSetupError) async throws {
+  let source = try StubProtocol.register(
+    Stub(status: status, body: Data("{\"error\":\"synthetic\"}".utf8)))
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  await #expect(throws: expected) { try await client.verify(source: source, token: "synthetic") }
+}
+
+@Test func localSourceOfferNeedsAnUnauthenticatedSuccessfulHealthCheck() async throws {
+  let local = try source("http://127.0.0.1:8080")
+  StubProtocol.state.withLock { $0.stubs["127.0.0.1"] = Stub(body: Data("ok".utf8)) }
+  defer {
+    StubProtocol.state.withLock {
+      $0.stubs["127.0.0.1"] = nil
+      $0.requests["127.0.0.1"] = nil
+    }
+  }
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  #expect(await client.thisMacAvailable())
+  let request = try #require(StubProtocol.requests(for: local).first)
+  #expect(request.httpMethod == "GET")
+  #expect(request.url?.absoluteString == "http://127.0.0.1:8080/healthz")
+  #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+  #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+  StubProtocol.state.withLock { $0.stubs["127.0.0.1"] = Stub(status: 404) }
+  #expect(await client.thisMacAvailable() == false)
+}

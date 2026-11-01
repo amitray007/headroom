@@ -66,7 +66,7 @@ public struct FeedClient: FeedReading, Sendable {
   }
 }
 
-private struct FeedHeaders: ClientMiddleware {
+struct FeedHeaders: ClientMiddleware {
   let token: String
   let etag: String?
 
