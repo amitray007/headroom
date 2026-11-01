@@ -108,3 +108,13 @@ private func row(
   let old = row("o", limits: [weekly], keys: nil)
   #expect(WidgetLedger.meters(old, at: now).map(\.value) == ["50%"])
 }
+
+@Test func aOneRowViewShowsTheMeterThatNeedsAttention() {
+  let session = limit("session", left: 0, reset: 13_080, window: "Session", session: true)
+  let weekly = limit("weekly", left: 34, reset: 300_000, window: "Weekly")
+  let out = row("o", limits: [session, weekly], keys: ["session", "weekly"])
+  #expect(WidgetLedger.primary(out, at: now)?.label == "Session")
+  let calmSession = limit("session", left: 100, reset: 13_080, window: "Session", session: true)
+  let calm = row("c", limits: [calmSession, weekly], keys: ["session", "weekly"])
+  #expect(WidgetLedger.primary(calm, at: now)?.label == "Weekly")
+}

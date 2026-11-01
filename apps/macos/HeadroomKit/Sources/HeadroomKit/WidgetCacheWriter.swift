@@ -122,9 +122,12 @@ public struct WidgetCacheWriter: Sendable {
           banked: account.banked.map { Formatting.inventory($0.count, unit: $0.unit) },
           plan: account.plan,
           ledgerKeys: LedgerRow.limits(account, now: now).map(\.key),
-          extra: LedgerRow.extra(account, now: now, timeZone: timeZone).map {
-            WidgetExtra(value: $0.value, label: $0.label)
-          },
+          // With no quota the balance is the meter, so it is not repeated as the extra.
+          extra: LedgerRow.limits(account, now: now).isEmpty && LedgerRow.balance(account) != nil
+            ? nil
+            : LedgerRow.extra(account, now: now, timeZone: timeZone).map {
+              WidgetExtra(value: $0.value, label: $0.label)
+            },
           balanceMeter: LedgerRow.balance(account).map {
             WidgetBalanceMeter(value: $0.value, fill: $0.fill, note: $0.note)
           }

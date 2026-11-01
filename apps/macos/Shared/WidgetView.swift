@@ -143,14 +143,23 @@ struct HeadroomWidgetView: View {
       Spacer(minLength: 6)
       if let big {
         VStack(alignment: .leading, spacing: 5) {
-          HStack(alignment: .center, spacing: 8) {
-            Text(big.value).font(WidgetStyle.font(30, .medium)).tracking(-0.6)
-              .foregroundStyle(valueColor(big, row: row)).lineLimit(1).minimumScaleFactor(0.6)
-            VStack(alignment: .leading, spacing: 1) {
-              Text(big.label).font(WidgetStyle.font(11.5)).foregroundStyle(muted)
+          // The note sits beside the figure when it fits whole, otherwise on its own line.
+          ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 8) {
+              bigValue(big, row: row)
+              VStack(alignment: .leading, spacing: 1) {
+                Text(big.label).font(WidgetStyle.font(11.5)).foregroundStyle(muted)
+                note(big, row: row)
+              }.fixedSize()
+            }
+            VStack(alignment: .leading, spacing: 2) {
+              HStack(alignment: .firstTextBaseline, spacing: 8) {
+                bigValue(big, row: row)
+                Text(big.label).font(WidgetStyle.font(11.5)).foregroundStyle(muted)
+              }
               note(big, row: row)
-            }.lineLimit(1)
-          }
+            }
+          }.lineLimit(1)
           cells(big, row: row)
         }
       }
@@ -161,6 +170,11 @@ struct HeadroomWidgetView: View {
       footer(twoLines: true)
     }
     .accessibilityElement(children: .ignore).accessibilityLabel(reading(row, meters: all))
+  }
+
+  private func bigValue(_ meter: LedgerRow.Meter, row: WidgetAccountRow) -> some View {
+    Text(meter.value).font(WidgetStyle.font(30, .medium)).tracking(-0.6)
+      .foregroundStyle(valueColor(meter, row: row)).fixedSize()
   }
 
   /// Small, every account: the count line over the three accounts that need attention first.
@@ -174,8 +188,7 @@ struct HeadroomWidgetView: View {
       summaryLine(summary, age: false)
       VStack(alignment: .leading, spacing: 7) {
         ForEach(shown, id: \.id) { row in
-          let meter = WidgetLedger.meters(row, at: date, timeZone: timeZone, used: used)
-            .first { !$0.session } ?? WidgetLedger.meters(row, at: date, used: used).first
+          let meter = WidgetLedger.primary(row, at: date, timeZone: timeZone, used: used)
           VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
               mark(row, size: 14)
@@ -205,7 +218,7 @@ struct HeadroomWidgetView: View {
     VStack(alignment: .leading, spacing: 0) {
       VStack(spacing: 0) {
         ForEach(rows.prefix(3), id: \.id) { row in
-          ledgerRow(row, every: false, whoWidth: 120, extraWidth: 40)
+          ledgerRow(row, every: false, whoWidth: 128, extraWidth: 52)
             .frame(maxHeight: .infinity)
         }
       }.frame(maxHeight: .infinity)
@@ -220,7 +233,7 @@ struct HeadroomWidgetView: View {
       summaryLine(WidgetLedger.summary(rows, at: date), age: true).padding(.bottom, 8)
       VStack(spacing: 0) {
         ForEach(rows.prefix(fit), id: \.id) { row in
-          ledgerRow(row, every: false, whoWidth: 120, extraWidth: 40)
+          ledgerRow(row, every: false, whoWidth: 128, extraWidth: 52)
             .frame(maxHeight: .infinity)
         }
       }.frame(maxHeight: .infinity)
@@ -241,7 +254,7 @@ struct HeadroomWidgetView: View {
           VStack(spacing: 0) {
             ForEach(Array(columns[index].enumerated()), id: \.element.id) { position, row in
               if position > 0 { Rectangle().fill(hairline).frame(height: 1) }
-              ledgerRow(row, every: true, whoWidth: 122, extraWidth: 46)
+              ledgerRow(row, every: true, whoWidth: 130, extraWidth: 64)
                 .padding(.top, position == 0 ? 0 : 6)
                 .padding(.bottom, position == columns[index].count - 1 ? 0 : 6)
                 .frame(maxHeight: .infinity)
@@ -277,7 +290,11 @@ struct HeadroomWidgetView: View {
   private func ledgerRow(_ row: WidgetAccountRow, every: Bool, whoWidth: CGFloat, extraWidth: CGFloat)
     -> some View
   {
-    let meters = WidgetLedger.meters(row, at: date, timeZone: timeZone, used: used, every: every)
+    // One meter per row, the one that needs attention, except Extra large shows every limit.
+    let meters =
+      every
+      ? WidgetLedger.meters(row, at: date, timeZone: timeZone, used: used, every: true)
+      : WidgetLedger.primary(row, at: date, timeZone: timeZone, used: used).map { [$0] } ?? []
     return HStack(alignment: .center, spacing: 10) {
       who(row, plan: true).frame(width: whoWidth, alignment: .leading)
       VStack(spacing: 7) {
@@ -291,9 +308,12 @@ struct HeadroomWidgetView: View {
       }.frame(maxWidth: .infinity)
       if let extra = row.extra {
         VStack(alignment: .trailing, spacing: 0) {
-          Text(extra.value).font(WidgetStyle.font(12.5, .medium))
-          Text(extra.label).font(WidgetStyle.font(11)).foregroundStyle(muted)
-        }.lineLimit(1).minimumScaleFactor(0.8).frame(width: extraWidth, alignment: .trailing)
+          Text(extra.value).font(WidgetStyle.font(12.5, .medium)).minimumScaleFactor(0.8)
+          // "banked · Sat" in the popover; the widget keeps the noun.
+          Text(extra.label.hasPrefix("banked") ? "banked" : extra.label)
+            .font(WidgetStyle.font(11)).foregroundStyle(muted).truncationMode(.tail)
+        }.lineLimit(1).frame(maxWidth: extraWidth, alignment: .trailing).fixedSize(
+          horizontal: false, vertical: true)
       }
     }
     .accessibilityElement(children: .ignore).accessibilityLabel(reading(row, meters: meters))
@@ -333,16 +353,26 @@ struct HeadroomWidgetView: View {
   /// "70%  weekly            ● out Fri 09:23" over ten cells.
   private func meterView(_ meter: LedgerRow.Meter, row: WidgetAccountRow) -> some View {
     VStack(spacing: 4) {
-      HStack(alignment: .firstTextBaseline, spacing: 5) {
-        Text(meter.value).font(WidgetStyle.font(13, .medium))
-          .foregroundStyle(valueColor(meter, row: row)).fixedSize()
-        // The window name gives way first; the figure and the note stay whole.
-        Text(meter.label).font(WidgetStyle.font(11.5)).foregroundStyle(muted)
-          .truncationMode(.tail).layoutPriority(-1)
-        Spacer(minLength: 2)
-        note(meter, row: row).fixedSize()
+      // The window name shows whole or not at all; the figure and the note always show.
+      ViewThatFits(in: .horizontal) {
+        meterLine(meter, row: row, label: true)
+        meterLine(meter, row: row, label: false)
       }.lineLimit(1)
       cells(meter, row: row)
+    }
+  }
+
+  private func meterLine(_ meter: LedgerRow.Meter, row: WidgetAccountRow, label: Bool)
+    -> some View
+  {
+    HStack(alignment: .firstTextBaseline, spacing: 5) {
+      Text(meter.value).font(WidgetStyle.font(13, .medium))
+        .foregroundStyle(valueColor(meter, row: row)).fixedSize()
+      if label {
+        Text(meter.label).font(WidgetStyle.font(11.5)).foregroundStyle(muted).fixedSize()
+      }
+      Spacer(minLength: 6)
+      note(meter, row: row).fixedSize()
     }
   }
 

@@ -84,6 +84,16 @@ public enum WidgetLedger {
     return shown.map { meter($0, at: date, timeZone: timeZone, used: used) }
   }
 
+  /// The one meter a single-row view shows: out first, then a forecast run-out, then little
+  /// room left, then the longer window.
+  public static func primary(
+    _ row: WidgetAccountRow, at date: Date, timeZone: TimeZone = .current, used: Bool = false
+  ) -> LedgerRow.Meter? {
+    let all = meters(row, at: date, timeZone: timeZone, used: used)
+    return all.first { $0.tone == .out } ?? all.first(where: \.runsOut)
+      ?? all.first { $0.tone == .tight } ?? all.first { !$0.session } ?? all.first
+  }
+
   /// The count line: accounts out now, accounts forecast to run out, and banked resets.
   public struct Summary: Equatable, Sendable {
     public let out: Int
