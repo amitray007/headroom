@@ -7,8 +7,6 @@ struct SettingsView: View {
   @Bindable var model: AppModel
   @State private var editing: SourceDraft?
   @State private var remove: SourceSnapshot?
-  @State private var dropTarget: String?
-  @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
   /// The source whose More menu is open.
   @State private var sourceMenu: UUID?
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -33,14 +31,15 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 0) {
           Text(model.selectedPane.rawValue).font(HR.popoverFont(16, .medium))
             .frame(height: 34).padding(.horizontal, 24).accessibilityAddTraits(.isHeader)
+          // Each pane is its own view, so a change it does not read leaves it alone.
           switch model.selectedPane {
-          case .menuBar: menuBar
-          case .widgets: widgetPane
-          case .accounts: accountList
-          case .notifications: notifications
+          case .menuBar: MenuBarPane(model: model)
+          case .widgets: WidgetsPane(model: model)
+          case .accounts: AccountsPane(model: model, addSource: addSource)
+          case .notifications: NotificationsPane(model: model, addSource: addSource)
           case .sources: sources
-          case .general: general
-          case .about: about
+          case .general: GeneralPane(model: model)
+          case .about: AboutPane(model: model)
           }
         }
         // The pane title sits in the traffic lights' row, 24 pt from the top.
@@ -94,452 +93,6 @@ struct SettingsView: View {
   private func addSource() {
     model.selectedPane = .sources
     editing = SourceDraft()
-  }
-
-  // MARK: Menu Bar
-
-  private var menuBar: some View {
-    let style = model.preferences.itemStyle
-    return SettingsSections {
-      SettingsSection("Preview") {
-        MenuBarPreview(status: MenuStatus(model: model, style: style, sample: true))
-          .padding(.vertical, 8)
-      }
-      SettingsSection("Show") {
-        WebSegmented(
-          selection: $model.preferences.itemStyle,
-          options: DisplayPreferences.ItemStyle.allCases.map { ($0, $0.label) }
-        ).padding(.vertical, 8)
-      }
-      if style != .logo {
-        SettingsSection(style.showsSlots ? "Accounts · up to 3" : "Account") {
-          ForEach(Array(model.preferences.slots.enumerated()), id: \.offset) { index, slot in
-            if style.showsSlots || index == 0 { slotRow(index, slot: slot, style: style) }
-          }
-          if style.showsSlots {
-            Button(action: addSlot) {
-              Label("Add account", systemImage: "plus").font(HR.popoverFont(13, .medium))
-                .foregroundStyle(HR.secondary).padding(.horizontal, 14).frame(height: 30)
-                .overlay(Capsule().strokeBorder(HR.border, style: StrokeStyle(dash: [3, 3])))
-                .contentShape(Capsule())
-            }
-            .buttonStyle(.plain).padding(.vertical, 10)
-            .disabled(model.preferences.slots.count >= DisplayPreferences.maxSlots)
-            .opacity(model.preferences.slots.count >= DisplayPreferences.maxSlots ? 0.45 : 1)
-          }
-        }
-      }
-      SettingsSection("Options") {
-        if style == .liveLogo {
-          SettingsRow(
-            title: "Room beside the logo",
-            note: "Adds the figure of the account with least room, about 32 pt."
-          ) {
-            Toggle("Room beside the logo", isOn: $model.preferences.liveRoom)
-              .toggleStyle(WebSwitchStyle())
-          }
-        }
-        if style == .accounts {
-          SettingsRow(title: "Provider logos", note: "Off saves about 16 pt per account.") {
-            Toggle("Provider logos", isOn: $model.preferences.providerLogos)
-              .toggleStyle(WebSwitchStyle())
-          }
-        }
-        SettingsRow(
-          title: "Mark low and out",
-          note: "Meters also show it: a short fill, or a dashed outline when out."
-        ) {
-          Toggle("Mark low and out", isOn: $model.preferences.colorLowOut)
-            .toggleStyle(WebSwitchStyle())
-        }
-        if model.preferences.colorLowOut {
-          HStack(spacing: 8) {
-            ForEach(DisplayPreferences.MarkStyle.allCases, id: \.self) { markStyle in
-              markCard(markStyle)
-            }
-          }
-          .padding(.vertical, 10)
-          .transition(Motion.reveal(reduceMotion))
-        }
-      }
-      .animation(Motion.expand(reduceMotion), value: model.preferences.colorLowOut)
-    }
-  }
-
-  private func markCard(_ style: DisplayPreferences.MarkStyle) -> some View {
-    var preferences = model.preferences
-    preferences.markStyle = style
-    let selected = style == model.preferences.markStyle
-    return Button {
-      withAnimation(Motion.expand(reduceMotion)) { model.preferences.markStyle = style }
-    } label: {
-      VStack(spacing: 8) {
-        MarkStylePreview(status: .markSample(preferences: preferences))
-          .accessibilityHidden(true)
-        Text(style.label).font(HR.popoverFont(12, .medium)).foregroundStyle(HR.ink)
-      }
-      .padding(.horizontal, 6).padding(.vertical, 10)
-      .frame(maxWidth: .infinity)
-      .background(HR.muted, in: RoundedRectangle(cornerRadius: 8))
-      .overlay {
-        RoundedRectangle(cornerRadius: 8).strokeBorder(selected ? HR.ink : HR.border, lineWidth: 1)
-      }
-      .contentShape(RoundedRectangle(cornerRadius: 8))
-    }
-    .buttonStyle(.plain)
-    .accessibilityLabel("\(style.label) mark style")
-    .accessibilityAddTraits(selected ? [.isSelected] : [])
-  }
-
-  /// One menu bar slot: the account, its look in the Accounts style, and a grip to drag it into
-  /// place. Live logo and Dots stack the slots top to bottom in this order.
-  private func slotRow(
-    _ index: Int, slot: DisplayPreferences.MenuSlot, style: DisplayPreferences.ItemStyle
-  )
-    -> some View
-  {
-    let movable = style.showsSlots && model.preferences.slots.count > 1
-    let key = "menu-slot:\(index)"
-    // Built once per row: each read of `allAccounts` rebuilds and sorts the whole list.
-    let accounts = model.allAccounts
-    let chosen = slot.account.flatMap { id in accounts.first { $0.id == id } }
-    let name =
-      slot.account == nil
-      ? "Tightest account with room" : chosen?.name ?? "Account no longer linked"
-    return HStack(spacing: 10) {
-      if movable {
-        Image(systemName: "line.3.horizontal").font(.system(size: 12, weight: .medium))
-          .foregroundStyle(HR.textMuted).frame(width: 16).accessibilityHidden(true)
-      }
-      WebSelect(
-        value: name,
-        mark: chosen?.account.provider.rawValue,
-        symbol: "gauge.medium", fill: true
-      ) {
-        Button("Tightest account with room") { model.preferences.slots[index].account = nil }
-        if !accounts.isEmpty { Divider() }
-        ForEach(accounts) { item in
-          Button(
-            Presentation.needsSource(item, among: accounts)
-              ? "\(item.name) · \(item.snapshot.source.name)" : item.name
-          ) { model.preferences.slots[index].account = item.id }
-        }
-      }
-      if style == .accounts {
-        WebSegmented(
-          selection: $model.preferences.slots[index].look,
-          options: [(.percent, "%"), (.ring, "Ring"), (.bars, "Bars")], compact: true
-        ).help("Bars show the session window over the longer one.")
-      }
-      if movable {
-        Button {
-          withAnimation(Motion.expand(reduceMotion)) {
-            _ = model.preferences.slots.remove(at: index)
-          }
-        } label: {
-          Image(systemName: "xmark").font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(HR.textMuted).frame(width: 24, height: 24).contentShape(Rectangle())
-        }
-        .buttonStyle(.plain).help("Remove").accessibilityLabel("Remove \(name)")
-      }
-    }
-    .padding(.vertical, 8).padding(.horizontal, 8).contentShape(Rectangle())
-    .background(dropTarget == key ? HR.muted : .clear, in: RoundedRectangle(cornerRadius: 8))
-    .padding(.horizontal, -8).animation(Motion.hover, value: dropTarget)
-    .draggable(key) {
-      Text(name).font(HR.popoverFont(13, .medium)).padding(.horizontal, 10)
-        .padding(.vertical, 6).background(HR.raisedSurface, in: RoundedRectangle(cornerRadius: 7))
-    }
-    .dropDestination(for: String.self) { keys, _ in
-      guard movable, let from = keys.first.flatMap(slotIndex), from != index else { return false }
-      withAnimation(Motion.expand(reduceMotion)) {
-        model.preferences.slots.move(
-          fromOffsets: IndexSet(integer: from), toOffset: index > from ? index + 1 : index)
-      }
-      return true
-    } isTargeted: { targeted in
-      if targeted && movable {
-        dropTarget = key
-      } else if dropTarget == key {
-        dropTarget = nil
-      }
-    }
-    .accessibilityAction(named: "Move up") { moveSlot(index, by: -1) }
-    .accessibilityAction(named: "Move down") { moveSlot(index, by: 1) }
-  }
-
-  private func slotIndex(_ key: String) -> Int? {
-    guard key.hasPrefix("menu-slot:") else { return nil }
-    return Int(key.dropFirst("menu-slot:".count))
-  }
-
-  private func moveSlot(_ index: Int, by offset: Int) {
-    guard model.preferences.slots.indices.contains(index + offset) else { return }
-    model.preferences.slots.swapAt(index, index + offset)
-  }
-
-  /// A new slot takes the tightest account when no slot does yet, else the next account no slot
-  /// shows.
-  private func addSlot() {
-    let slots = model.preferences.slots
-    let used = Set(slots.compactMap(\.account))
-    let account =
-      slots.contains { $0.account == nil }
-      ? model.allAccounts.first { !used.contains($0.id) }?.id : nil
-    withAnimation(Motion.expand(reduceMotion)) {
-      model.preferences.slots.append(.init(account: account, look: slots.last?.look ?? .percent))
-    }
-  }
-
-  // MARK: Widgets
-
-  /// What each widget shows. The widgets read these choices from the widget cache, because an
-  /// ad-hoc signed extension cannot keep choices made in the system widget editor.
-  private var widgetPane: some View {
-    let settings = model.preferences.widgets
-    // Built as the writer builds it, so the previews match the placed widgets.
-    let cache = WidgetCacheWriter.cache(
-      sources: model.displaySources, settings: settings, now: model.now)
-    let accounts = model.allAccounts
-    let row = cache.rows.first { $0.id == (settings.accountID ?? cache.rows.first?.id) }
-    let limits = row.map(WidgetLedger.everyLimit) ?? []
-    let chosen = settings.accountID.flatMap { id in accounts.first { $0.widgetID == id } }
-    return SettingsSections {
-      SettingsSection("Account widget") {
-        WidgetPreview(cache: cache, kind: .account, date: model.now).padding(.vertical, 8)
-        SettingsRow(title: "Account") {
-          WebSelect(
-            value: settings.accountID == nil
-              ? "First account" : chosen.map { accountName($0, among: accounts) }
-                ?? "Account no longer linked",
-            mark: chosen?.account.provider.rawValue, symbol: "gauge.medium"
-          ) {
-            Button("First account") { chooseWidgetAccount(nil) }
-            if !accounts.isEmpty { Divider() }
-            ForEach(accounts) { item in
-              Button(accountName(item, among: accounts)) { chooseWidgetAccount(item.widgetID) }
-            }
-          }
-        }
-        SettingsRow(title: "Limit") {
-          WebSelect(
-            value: settings.limitKey.flatMap { key in limits.first { $0.key == key }?.label }
-              ?? "Automatic"
-          ) {
-            Button("Automatic") { model.preferences.widgets.limitKey = nil }
-            if !limits.isEmpty { Divider() }
-            ForEach(limits) { limit in
-              Button(limit.label) { model.preferences.widgets.limitKey = limit.key }
-            }
-          }
-        }
-        SettingsRow(title: "Show") {
-          WebSegmented(
-            selection: $model.preferences.widgets.used, options: [(false, "Left"), (true, "Used")])
-        }
-      }
-      SettingsSection("Accounts widget") {
-        WidgetPreview(cache: cache, kind: .accounts, date: model.now).padding(.vertical, 8)
-        ForEach(0..<WidgetPreferences.maxAccounts, id: \.self) { index in
-          accountsSlot(index, accounts: accounts)
-        }
-      }
-      // Nothing to choose here, but the previews show what the two sizes draw.
-      SettingsSection("All accounts") {
-        ForEach([WidgetKind.allAccounts, .detail], id: \.self) { size in
-          VStack(alignment: .leading, spacing: 6) {
-            Text(size == .detail ? "Extra large" : "Large").font(HR.popoverFont(12))
-              .foregroundStyle(HR.textMuted)
-            WidgetPreview(cache: cache, kind: size, date: model.now)
-          }.padding(.vertical, 8)
-        }
-      }
-    }
-  }
-
-  private func accountName(_ item: AccountItem, among accounts: [AccountItem]) -> String {
-    Presentation.needsSource(item, among: accounts)
-      ? "\(item.name) · \(item.snapshot.source.name)" : item.name
-  }
-
-  /// A new account resets the limit, since limit keys belong to one account.
-  private func chooseWidgetAccount(_ id: String?) {
-    var widgets = model.preferences.widgets
-    guard widgets.accountID != id else { return }
-    widgets.accountID = id
-    widgets.limitKey = nil
-    model.preferences.widgets = widgets
-  }
-
-  /// One Accounts widget row. Chosen accounts come first, so a slot opens once the one above it
-  /// holds an account; Automatic in a chosen slot removes it.
-  private func accountsSlot(_ index: Int, accounts: [AccountItem]) -> some View {
-    let ids = model.preferences.widgets.accountIDs
-    let id = ids.indices.contains(index) ? ids[index] : nil
-    let chosen = id.flatMap { id in accounts.first { $0.widgetID == id } }
-    let others = Set(ids.enumerated().filter { $0.offset != index }.map(\.element))
-    let open = index <= ids.count
-    return HStack(spacing: 10) {
-      Text("\(index + 1)").font(HR.popoverFont(13, .medium)).foregroundStyle(HR.textMuted)
-        .frame(width: 16).accessibilityHidden(true)
-      WebSelect(
-        value: id == nil ? "Automatic" : chosen.map { accountName($0, among: accounts) }
-          ?? "Account no longer linked",
-        mark: chosen?.account.provider.rawValue, symbol: "gauge.medium", fill: true
-      ) {
-        Button("Automatic") {
-          if id != nil { model.preferences.widgets.accountIDs.remove(at: index) }
-        }
-        let choices = accounts.filter { !others.contains($0.widgetID) }
-        if !choices.isEmpty { Divider() }
-        ForEach(choices) { item in
-          Button(accountName(item, among: accounts)) {
-            if id == nil {
-              model.preferences.widgets.accountIDs.append(item.widgetID)
-            } else {
-              model.preferences.widgets.accountIDs[index] = item.widgetID
-            }
-          }
-        }
-      }
-      .disabled(!open).opacity(open ? 1 : 0.45)
-      .accessibilityLabel("Accounts widget row \(index + 1)")
-    }
-    .padding(.vertical, 8)
-  }
-
-  // MARK: List
-
-  @ViewBuilder private var accountList: some View {
-    if model.allAccounts.isEmpty {
-      if model.sources.isEmpty {
-        SettingsEmpty(
-          symbol: "list.bullet", title: "No accounts yet",
-          message: "Add a source, and its accounts appear here to show, hide and order."
-        ) {
-          Button("Add a source", action: addSource).buttonStyle(WebButtonStyle(kind: .primary))
-        }
-      } else {
-        SettingsEmpty(
-          symbol: "list.bullet", title: "No accounts yet",
-          message: "Accounts appear after a source sends its first readings."
-        ) {
-          if let source = model.sources.first?.source {
-            Button("Open dashboard") { model.openDashboard(source) }.buttonStyle(WebButtonStyle())
-          }
-        }
-      }
-    } else {
-      SettingsSections {
-        SettingsSection("Accounts") {
-          ForEach(model.allAccounts, id: \.id) { item in
-            accountRow(item)
-          }
-        }
-      }
-    }
-  }
-
-  /// A row to drag into place: the grip says it moves, and the row it is over fills to show
-  /// whose place it takes. VoiceOver gets Move up and Move down actions instead.
-  private func accountRow(_ item: AccountItem) -> some View {
-    HStack(spacing: 10) {
-      Image(systemName: "line.3.horizontal").font(.system(size: 12, weight: .medium))
-        .foregroundStyle(HR.textMuted).frame(width: 16).accessibilityHidden(true)
-      HStack(spacing: 40) {
-        AccountListLabel(item: item, privacy: model.preferences.privacy)
-          .frame(maxWidth: .infinity, alignment: .leading)
-        Toggle("Show \(item.name)", isOn: shown(item)).toggleStyle(WebSwitchStyle())
-      }
-      .padding(.vertical, 10)
-    }
-    .padding(.horizontal, 8).contentShape(Rectangle())
-    .background(
-      dropTarget == item.id ? HR.muted : .clear, in: RoundedRectangle(cornerRadius: 8)
-    )
-    .padding(.horizontal, -8).animation(Motion.hover, value: dropTarget)
-    .draggable(item.id) {
-      Text(item.name).font(HR.popoverFont(13, .medium)).padding(.horizontal, 10)
-        .padding(.vertical, 6).background(HR.raisedSurface, in: RoundedRectangle(cornerRadius: 7))
-    }
-    .dropDestination(for: String.self) { ids, _ in
-      guard let id = ids.first else { return false }
-      withAnimation(Motion.expand(reduceMotion)) { model.moveAccount(id: id, onto: item.id) }
-      return true
-    } isTargeted: { targeted in
-      if targeted {
-        dropTarget = item.id
-      } else if dropTarget == item.id {
-        dropTarget = nil
-      }
-    }
-    .accessibilityAction(named: "Move up") { model.moveAccount(item, by: -1) }
-    .accessibilityAction(named: "Move down") { model.moveAccount(item, by: 1) }
-  }
-
-  private func shown(_ item: AccountItem) -> Binding<Bool> {
-    Binding(
-      get: { !model.preferences.hiddenAccounts.contains(item.id) },
-      set: {
-        if $0 {
-          model.preferences.hiddenAccounts.remove(item.id)
-        } else {
-          model.preferences.hiddenAccounts.insert(item.id)
-        }
-      })
-  }
-
-  // MARK: Notifications
-
-  /// "almost_out" reads "Almost out": sentence case, as everywhere else in Settings.
-  private func kindLabel(_ kind: NoticeKind) -> String {
-    let words = kind.rawValue.replacingOccurrences(of: "_", with: " ")
-    return words.prefix(1).uppercased() + words.dropFirst()
-  }
-
-  @ViewBuilder private var notifications: some View {
-    if model.sources.isEmpty {
-      SettingsEmpty(
-        symbol: "bell", title: "No notifications yet",
-        message: "Notifications come from your sources. Add one, then choose which show as banners."
-      ) {
-        Button("Add a source", action: addSource).buttonStyle(WebButtonStyle(kind: .primary))
-      }
-      SettingsSections { NotificationPreviewSection(model: model) }
-    } else {
-      SettingsSections {
-        NotificationPreviewSection(model: model)
-        ForEach(noticeGroups, id: \.0) { group in
-          SettingsSection(group.0) {
-            ForEach(group.1, id: \.self) { kind in
-              SettingsRow(title: kindLabel(kind)) {
-                Toggle(
-                  kindLabel(kind),
-                  isOn: Binding(
-                    get: { model.enabledKinds[kind.rawValue] != false },
-                    set: { value in Task { await model.setKind(kind, enabled: value) } })
-                ).toggleStyle(WebSwitchStyle())
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  private var noticeGroups: [(String, [NoticeKind])] {
-    [
-      ("Limits", [.almost_out, .pacing, .running_low]),
-      (
-        "Money",
-        [
-          .spend_near_cap, .extra_usage_started, .balance_low, .top_up_detected, .credits_expiring,
-          .budget_near, .budget_exceeded, .spend_cap_reached,
-        ]
-      ),
-      ("Resets", [.reset_expiring, .early_reset, .reset_granted, .auto_reset]),
-      ("Connection", [.disconnected, .refresh_failed]),
-    ]
   }
 
   // MARK: Sources
@@ -801,27 +354,490 @@ struct SettingsView: View {
 
   private static let installCommand = "brew install amitray007/headroom/headroom"
 
-  // MARK: General
+}
 
-  /// One sentence on where this copy stands, then when that was learned.
-  private var updateNote: String {
-    let updates = model.updates
-    let running = "Version \(updates.running)"
-    if updates.checking { return "Checking for a newer version…" }
-    let status =
-      if let found = updates.available {
-        "Version \(found.version) is available. You have \(updates.running)."
-      } else if updates.lastCheckFailed {
-        "\(running). Could not reach GitHub."
-      } else if updates.result == .upToDate {
-        "\(running) is up to date."
-      } else {
-        "\(running)."
+// MARK: Menu Bar
+
+private struct MenuBarPane: View {
+  @Bindable var model: AppModel
+  @State private var dropTarget: String?
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  var body: some View { menuBar }
+
+
+  private var menuBar: some View {
+    let style = model.preferences.itemStyle
+    return SettingsSections {
+      SettingsSection("Preview") {
+        MenuBarPreview(status: MenuStatus(model: model, style: style, sample: true))
+          .padding(.vertical, 8)
       }
-    guard let at = updates.checkedAt else { return status }
-    let when = Formatting.checked(at, now: model.now)
-    return "\(status) \(updates.lastCheckFailed ? "Last checked" : "Checked") \(when)."
+      SettingsSection("Show") {
+        WebSegmented(
+          selection: $model.preferences.itemStyle,
+          options: DisplayPreferences.ItemStyle.allCases.map { ($0, $0.label) }
+        ).padding(.vertical, 8)
+      }
+      if style != .logo {
+        SettingsSection(style.showsSlots ? "Accounts · up to 3" : "Account") {
+          ForEach(Array(model.preferences.slots.enumerated()), id: \.offset) { index, slot in
+            if style.showsSlots || index == 0 { slotRow(index, slot: slot, style: style) }
+          }
+          if style.showsSlots {
+            Button(action: addSlot) {
+              Label("Add account", systemImage: "plus").font(HR.popoverFont(13, .medium))
+                .foregroundStyle(HR.secondary).padding(.horizontal, 14).frame(height: 30)
+                .overlay(Capsule().strokeBorder(HR.border, style: StrokeStyle(dash: [3, 3])))
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain).padding(.vertical, 10)
+            .disabled(model.preferences.slots.count >= DisplayPreferences.maxSlots)
+            .opacity(model.preferences.slots.count >= DisplayPreferences.maxSlots ? 0.45 : 1)
+          }
+        }
+      }
+      SettingsSection("Options") {
+        if style == .liveLogo {
+          SettingsRow(
+            title: "Room beside the logo",
+            note: "Adds the figure of the account with least room, about 32 pt."
+          ) {
+            Toggle("Room beside the logo", isOn: $model.preferences.liveRoom)
+              .toggleStyle(WebSwitchStyle())
+          }
+        }
+        if style == .accounts {
+          SettingsRow(title: "Provider logos", note: "Off saves about 16 pt per account.") {
+            Toggle("Provider logos", isOn: $model.preferences.providerLogos)
+              .toggleStyle(WebSwitchStyle())
+          }
+        }
+        SettingsRow(
+          title: "Mark low and out",
+          note: "Meters also show it: a short fill, or a dashed outline when out."
+        ) {
+          Toggle("Mark low and out", isOn: $model.preferences.colorLowOut)
+            .toggleStyle(WebSwitchStyle())
+        }
+        if model.preferences.colorLowOut {
+          HStack(spacing: 8) {
+            ForEach(DisplayPreferences.MarkStyle.allCases, id: \.self) { markStyle in
+              markCard(markStyle)
+            }
+          }
+          .padding(.vertical, 10)
+          .transition(Motion.reveal(reduceMotion))
+        }
+      }
+      .animation(Motion.expand(reduceMotion), value: model.preferences.colorLowOut)
+    }
   }
+
+  private func markCard(_ style: DisplayPreferences.MarkStyle) -> some View {
+    var preferences = model.preferences
+    preferences.markStyle = style
+    let selected = style == model.preferences.markStyle
+    return Button {
+      withAnimation(Motion.expand(reduceMotion)) { model.preferences.markStyle = style }
+    } label: {
+      VStack(spacing: 8) {
+        MarkStylePreview(status: .markSample(preferences: preferences))
+          .accessibilityHidden(true)
+        Text(style.label).font(HR.popoverFont(12, .medium)).foregroundStyle(HR.ink)
+      }
+      .padding(.horizontal, 6).padding(.vertical, 10)
+      .frame(maxWidth: .infinity)
+      .background(HR.muted, in: RoundedRectangle(cornerRadius: 8))
+      .overlay {
+        RoundedRectangle(cornerRadius: 8).strokeBorder(selected ? HR.ink : HR.border, lineWidth: 1)
+      }
+      .contentShape(RoundedRectangle(cornerRadius: 8))
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel("\(style.label) mark style")
+    .accessibilityAddTraits(selected ? [.isSelected] : [])
+  }
+
+  /// One menu bar slot: the account, its look in the Accounts style, and a grip to drag it into
+  /// place. Live logo and Dots stack the slots top to bottom in this order.
+  private func slotRow(
+    _ index: Int, slot: DisplayPreferences.MenuSlot, style: DisplayPreferences.ItemStyle
+  )
+    -> some View
+  {
+    let movable = style.showsSlots && model.preferences.slots.count > 1
+    let key = "menu-slot:\(index)"
+    // Built once per row: each read of `allAccounts` rebuilds and sorts the whole list.
+    let accounts = model.allAccounts
+    let chosen = slot.account.flatMap { id in accounts.first { $0.id == id } }
+    let name =
+      slot.account == nil
+      ? "Tightest account with room" : chosen?.name ?? "Account no longer linked"
+    return HStack(spacing: 10) {
+      if movable {
+        Image(systemName: "line.3.horizontal").font(.system(size: 12, weight: .medium))
+          .foregroundStyle(HR.textMuted).frame(width: 16).accessibilityHidden(true)
+      }
+      WebSelect(
+        value: name,
+        mark: chosen?.account.provider.rawValue,
+        symbol: "gauge.medium", fill: true
+      ) {
+        Button("Tightest account with room") { model.preferences.slots[index].account = nil }
+        if !accounts.isEmpty { Divider() }
+        ForEach(accounts) { item in
+          Button(
+            Presentation.needsSource(item, among: accounts)
+              ? "\(item.name) · \(item.snapshot.source.name)" : item.name
+          ) { model.preferences.slots[index].account = item.id }
+        }
+      }
+      if style == .accounts {
+        WebSegmented(
+          selection: $model.preferences.slots[index].look,
+          options: [(.percent, "%"), (.ring, "Ring"), (.bars, "Bars")], compact: true
+        ).help("Bars show the session window over the longer one.")
+      }
+      if movable {
+        Button {
+          withAnimation(Motion.expand(reduceMotion)) {
+            _ = model.preferences.slots.remove(at: index)
+          }
+        } label: {
+          Image(systemName: "xmark").font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(HR.textMuted).frame(width: 24, height: 24).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).help("Remove").accessibilityLabel("Remove \(name)")
+      }
+    }
+    .padding(.vertical, 8).padding(.horizontal, 8).contentShape(Rectangle())
+    .background(dropTarget == key ? HR.muted : .clear, in: RoundedRectangle(cornerRadius: 8))
+    .padding(.horizontal, -8).animation(Motion.hover, value: dropTarget)
+    .draggable(key) {
+      Text(name).font(HR.popoverFont(13, .medium)).padding(.horizontal, 10)
+        .padding(.vertical, 6).background(HR.raisedSurface, in: RoundedRectangle(cornerRadius: 7))
+    }
+    .dropDestination(for: String.self) { keys, _ in
+      guard movable, let from = keys.first.flatMap(slotIndex), from != index else { return false }
+      withAnimation(Motion.expand(reduceMotion)) {
+        model.preferences.slots.move(
+          fromOffsets: IndexSet(integer: from), toOffset: index > from ? index + 1 : index)
+      }
+      return true
+    } isTargeted: { targeted in
+      if targeted && movable {
+        dropTarget = key
+      } else if dropTarget == key {
+        dropTarget = nil
+      }
+    }
+    .accessibilityAction(named: "Move up") { moveSlot(index, by: -1) }
+    .accessibilityAction(named: "Move down") { moveSlot(index, by: 1) }
+  }
+
+  private func slotIndex(_ key: String) -> Int? {
+    guard key.hasPrefix("menu-slot:") else { return nil }
+    return Int(key.dropFirst("menu-slot:".count))
+  }
+
+  private func moveSlot(_ index: Int, by offset: Int) {
+    guard model.preferences.slots.indices.contains(index + offset) else { return }
+    model.preferences.slots.swapAt(index, index + offset)
+  }
+
+  /// A new slot takes the tightest account when no slot does yet, else the next account no slot
+  /// shows.
+  private func addSlot() {
+    let slots = model.preferences.slots
+    let used = Set(slots.compactMap(\.account))
+    let account =
+      slots.contains { $0.account == nil }
+      ? model.allAccounts.first { !used.contains($0.id) }?.id : nil
+    withAnimation(Motion.expand(reduceMotion)) {
+      model.preferences.slots.append(.init(account: account, look: slots.last?.look ?? .percent))
+    }
+  }
+}
+
+// MARK: Widgets
+
+private struct WidgetsPane: View {
+  @Bindable var model: AppModel
+  var body: some View { widgetPane }
+
+
+  /// What each widget shows. The widgets read these choices from the widget cache, because an
+  /// ad-hoc signed extension cannot keep choices made in the system widget editor.
+  private var widgetPane: some View {
+    let settings = model.preferences.widgets
+    // Built as the writer builds it, so the previews match the placed widgets.
+    let cache = WidgetCacheWriter.cache(
+      sources: model.displaySources, settings: settings, now: model.now)
+    let accounts = model.allAccounts
+    let row = cache.rows.first { $0.id == (settings.accountID ?? cache.rows.first?.id) }
+    let limits = row.map(WidgetLedger.everyLimit) ?? []
+    let chosen = settings.accountID.flatMap { id in accounts.first { $0.widgetID == id } }
+    return SettingsSections {
+      SettingsSection("Account widget") {
+        WidgetPreview(cache: cache, kind: .account, date: model.now).padding(.vertical, 8)
+        SettingsRow(title: "Account") {
+          WebSelect(
+            value: settings.accountID == nil
+              ? "First account" : chosen.map { accountName($0, among: accounts) }
+                ?? "Account no longer linked",
+            mark: chosen?.account.provider.rawValue, symbol: "gauge.medium"
+          ) {
+            Button("First account") { chooseWidgetAccount(nil) }
+            if !accounts.isEmpty { Divider() }
+            ForEach(accounts) { item in
+              Button(accountName(item, among: accounts)) { chooseWidgetAccount(item.widgetID) }
+            }
+          }
+        }
+        SettingsRow(title: "Limit") {
+          WebSelect(
+            value: settings.limitKey.flatMap { key in limits.first { $0.key == key }?.label }
+              ?? "Automatic"
+          ) {
+            Button("Automatic") { model.preferences.widgets.limitKey = nil }
+            if !limits.isEmpty { Divider() }
+            ForEach(limits) { limit in
+              Button(limit.label) { model.preferences.widgets.limitKey = limit.key }
+            }
+          }
+        }
+        SettingsRow(title: "Show") {
+          WebSegmented(
+            selection: $model.preferences.widgets.used, options: [(false, "Left"), (true, "Used")])
+        }
+      }
+      SettingsSection("Accounts widget") {
+        WidgetPreview(cache: cache, kind: .accounts, date: model.now).padding(.vertical, 8)
+        ForEach(0..<WidgetPreferences.maxAccounts, id: \.self) { index in
+          accountsSlot(index, accounts: accounts)
+        }
+      }
+      // Nothing to choose here, but the previews show what the two sizes draw.
+      SettingsSection("All accounts") {
+        ForEach([WidgetKind.allAccounts, .detail], id: \.self) { size in
+          VStack(alignment: .leading, spacing: 6) {
+            Text(size == .detail ? "Extra large" : "Large").font(HR.popoverFont(12))
+              .foregroundStyle(HR.textMuted)
+            WidgetPreview(cache: cache, kind: size, date: model.now)
+          }.padding(.vertical, 8)
+        }
+      }
+    }
+  }
+
+  private func accountName(_ item: AccountItem, among accounts: [AccountItem]) -> String {
+    Presentation.needsSource(item, among: accounts)
+      ? "\(item.name) · \(item.snapshot.source.name)" : item.name
+  }
+
+  /// A new account resets the limit, since limit keys belong to one account.
+  private func chooseWidgetAccount(_ id: String?) {
+    var widgets = model.preferences.widgets
+    guard widgets.accountID != id else { return }
+    widgets.accountID = id
+    widgets.limitKey = nil
+    model.preferences.widgets = widgets
+  }
+
+  /// One Accounts widget row. Chosen accounts come first, so a slot opens once the one above it
+  /// holds an account; Automatic in a chosen slot removes it.
+  private func accountsSlot(_ index: Int, accounts: [AccountItem]) -> some View {
+    let ids = model.preferences.widgets.accountIDs
+    let id = ids.indices.contains(index) ? ids[index] : nil
+    let chosen = id.flatMap { id in accounts.first { $0.widgetID == id } }
+    let others = Set(ids.enumerated().filter { $0.offset != index }.map(\.element))
+    let open = index <= ids.count
+    return HStack(spacing: 10) {
+      Text("\(index + 1)").font(HR.popoverFont(13, .medium)).foregroundStyle(HR.textMuted)
+        .frame(width: 16).accessibilityHidden(true)
+      WebSelect(
+        value: id == nil ? "Automatic" : chosen.map { accountName($0, among: accounts) }
+          ?? "Account no longer linked",
+        mark: chosen?.account.provider.rawValue, symbol: "gauge.medium", fill: true
+      ) {
+        Button("Automatic") {
+          if id != nil { model.preferences.widgets.accountIDs.remove(at: index) }
+        }
+        let choices = accounts.filter { !others.contains($0.widgetID) }
+        if !choices.isEmpty { Divider() }
+        ForEach(choices) { item in
+          Button(accountName(item, among: accounts)) {
+            if id == nil {
+              model.preferences.widgets.accountIDs.append(item.widgetID)
+            } else {
+              model.preferences.widgets.accountIDs[index] = item.widgetID
+            }
+          }
+        }
+      }
+      .disabled(!open).opacity(open ? 1 : 0.45)
+      .accessibilityLabel("Accounts widget row \(index + 1)")
+    }
+    .padding(.vertical, 8)
+  }
+}
+
+// MARK: Accounts
+
+private struct AccountsPane: View {
+  @Bindable var model: AppModel
+  let addSource: () -> Void
+  @State private var dropTarget: String?
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  var body: some View { accountList }
+
+
+  @ViewBuilder private var accountList: some View {
+    if model.allAccounts.isEmpty {
+      if model.sources.isEmpty {
+        SettingsEmpty(
+          symbol: "list.bullet", title: "No accounts yet",
+          message: "Add a source, and its accounts appear here to show, hide and order."
+        ) {
+          Button("Add a source", action: addSource).buttonStyle(WebButtonStyle(kind: .primary))
+        }
+      } else {
+        SettingsEmpty(
+          symbol: "list.bullet", title: "No accounts yet",
+          message: "Accounts appear after a source sends its first readings."
+        ) {
+          if let source = model.sources.first?.source {
+            Button("Open dashboard") { model.openDashboard(source) }.buttonStyle(WebButtonStyle())
+          }
+        }
+      }
+    } else {
+      SettingsSections {
+        SettingsSection("Accounts") {
+          ForEach(model.allAccounts, id: \.id) { item in
+            accountRow(item)
+          }
+        }
+      }
+    }
+  }
+
+  /// A row to drag into place: the grip says it moves, and the row it is over fills to show
+  /// whose place it takes. VoiceOver gets Move up and Move down actions instead.
+  private func accountRow(_ item: AccountItem) -> some View {
+    HStack(spacing: 10) {
+      Image(systemName: "line.3.horizontal").font(.system(size: 12, weight: .medium))
+        .foregroundStyle(HR.textMuted).frame(width: 16).accessibilityHidden(true)
+      HStack(spacing: 40) {
+        AccountListLabel(item: item, privacy: model.preferences.privacy)
+          .frame(maxWidth: .infinity, alignment: .leading)
+        Toggle("Show \(item.name)", isOn: shown(item)).toggleStyle(WebSwitchStyle())
+      }
+      .padding(.vertical, 10)
+    }
+    .padding(.horizontal, 8).contentShape(Rectangle())
+    .background(
+      dropTarget == item.id ? HR.muted : .clear, in: RoundedRectangle(cornerRadius: 8)
+    )
+    .padding(.horizontal, -8).animation(Motion.hover, value: dropTarget)
+    .draggable(item.id) {
+      Text(item.name).font(HR.popoverFont(13, .medium)).padding(.horizontal, 10)
+        .padding(.vertical, 6).background(HR.raisedSurface, in: RoundedRectangle(cornerRadius: 7))
+    }
+    .dropDestination(for: String.self) { ids, _ in
+      guard let id = ids.first else { return false }
+      withAnimation(Motion.expand(reduceMotion)) { model.moveAccount(id: id, onto: item.id) }
+      return true
+    } isTargeted: { targeted in
+      if targeted {
+        dropTarget = item.id
+      } else if dropTarget == item.id {
+        dropTarget = nil
+      }
+    }
+    .accessibilityAction(named: "Move up") { model.moveAccount(item, by: -1) }
+    .accessibilityAction(named: "Move down") { model.moveAccount(item, by: 1) }
+  }
+
+  private func shown(_ item: AccountItem) -> Binding<Bool> {
+    Binding(
+      get: { !model.preferences.hiddenAccounts.contains(item.id) },
+      set: {
+        if $0 {
+          model.preferences.hiddenAccounts.remove(item.id)
+        } else {
+          model.preferences.hiddenAccounts.insert(item.id)
+        }
+      })
+  }
+}
+
+// MARK: Notifications
+
+private struct NotificationsPane: View {
+  @Bindable var model: AppModel
+  let addSource: () -> Void
+  var body: some View { notifications }
+
+
+  /// "almost_out" reads "Almost out": sentence case, as everywhere else in Settings.
+  private func kindLabel(_ kind: NoticeKind) -> String {
+    let words = kind.rawValue.replacingOccurrences(of: "_", with: " ")
+    return words.prefix(1).uppercased() + words.dropFirst()
+  }
+
+  @ViewBuilder private var notifications: some View {
+    if model.sources.isEmpty {
+      SettingsEmpty(
+        symbol: "bell", title: "No notifications yet",
+        message: "Notifications come from your sources. Add one, then choose which show as banners."
+      ) {
+        Button("Add a source", action: addSource).buttonStyle(WebButtonStyle(kind: .primary))
+      }
+      SettingsSections { NotificationPreviewSection(model: model) }
+    } else {
+      SettingsSections {
+        NotificationPreviewSection(model: model)
+        ForEach(noticeGroups, id: \.0) { group in
+          SettingsSection(group.0) {
+            ForEach(group.1, id: \.self) { kind in
+              SettingsRow(title: kindLabel(kind)) {
+                Toggle(
+                  kindLabel(kind),
+                  isOn: Binding(
+                    get: { model.enabledKinds[kind.rawValue] != false },
+                    set: { value in Task { await model.setKind(kind, enabled: value) } })
+                ).toggleStyle(WebSwitchStyle())
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private var noticeGroups: [(String, [NoticeKind])] {
+    [
+      ("Limits", [.almost_out, .pacing, .running_low]),
+      (
+        "Money",
+        [
+          .spend_near_cap, .extra_usage_started, .balance_low, .top_up_detected, .credits_expiring,
+          .budget_near, .budget_exceeded, .spend_cap_reached,
+        ]
+      ),
+      ("Resets", [.reset_expiring, .early_reset, .reset_granted, .auto_reset]),
+      ("Connection", [.disconnected, .refresh_failed]),
+    ]
+  }
+}
+
+// MARK: General
+
+private struct GeneralPane: View {
+  @Bindable var model: AppModel
+  @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+  var body: some View { general }
 
   private var general: some View {
     SettingsSections {
@@ -873,8 +889,34 @@ struct SettingsView: View {
       }
     }
   }
+}
 
-  // MARK: About
+// MARK: About
+
+private struct AboutPane: View {
+  @Bindable var model: AppModel
+  var body: some View { about }
+
+  /// One sentence on where this copy stands, then when that was learned.
+  private var updateNote: String {
+    let updates = model.updates
+    let running = "Version \(updates.running)"
+    if updates.checking { return "Checking for a newer version…" }
+    let status =
+      if let found = updates.available {
+        "Version \(found.version) is available. You have \(updates.running)."
+      } else if updates.lastCheckFailed {
+        "\(running). Could not reach GitHub."
+      } else if updates.result == .upToDate {
+        "\(running) is up to date."
+      } else {
+        "\(running)."
+      }
+    guard let at = updates.checkedAt else { return status }
+    let when = Formatting.checked(at, now: model.now)
+    return "\(status) \(updates.lastCheckFailed ? "Last checked" : "Checked") \(when)."
+  }
+
 
   private static let releasesURL = URL(
     string: "https://github.com/amitray007/headroom/releases?q=macos-v&expanded=true")!
@@ -1201,31 +1243,52 @@ private struct WidgetPreview: View {
   let cache: WidgetCache
   let kind: WidgetKind
   let date: Date
+  /// The widget drawn once into an image. A live widget tree in each preview was laid out
+  /// again while the pane scrolled; the image is drawn again only when its inputs change.
+  @State private var image: NSImage?
+  @Environment(\.colorScheme) private var scheme
+  @Environment(\.displayScale) private var displayScale
 
   var body: some View {
     let size = kind.size
-    let selection = WidgetSelection(kind: kind, cache: cache, date: date)
-    // The space takes the widget's shape at up to its real width, so one layout pass sizes it.
-    // Measuring the pane and then sizing the preview from that took a second pass. The widget
-    // draws over the space, never the other way round: at full size the Extra large preview
-    // (744 pt) pushed the whole pane wider than the window.
+    // The space takes the widget's shape at up to its real width, so one layout pass sizes
+    // it, and the widget never sizes the pane: at full size the Extra large preview (744 pt)
+    // pushed the whole pane wider than the window.
     Color.clear
       .aspectRatio(size.width / size.height, contentMode: .fit)
       .frame(maxWidth: size.width)
       .overlay {
-        GeometryReader { proxy in
-          HeadroomWidgetView(
-            cache: cache, date: date, kind: kind, accountIDs: selection.accountIDs,
-            limitKey: selection.limitKey, used: selection.used
-          )
-          .frame(width: size.width, height: size.height)
-          .scaleEffect(proxy.size.width / size.width, anchor: .topLeading)
-        }
+        if let image { Image(nsImage: image).resizable().interpolation(.high) }
       }
       .frame(maxWidth: .infinity)
       .padding(14).background(HR.muted, in: RoundedRectangle(cornerRadius: 12))
+      .task(id: Inputs(cache: cache, kind: kind, date: date, scheme: scheme, scale: displayScale)) {
+        image = render()
+      }
       .accessibilityElement(children: .ignore)
       .accessibilityLabel("Preview of the \(kind.title) widget")
+  }
+
+  private struct Inputs: Equatable {
+    let cache: WidgetCache
+    let kind: WidgetKind
+    let date: Date
+    let scheme: ColorScheme
+    let scale: CGFloat
+  }
+
+  private func render() -> NSImage? {
+    let size = kind.size
+    let selection = WidgetSelection(kind: kind, cache: cache, date: date)
+    let renderer = ImageRenderer(
+      content: HeadroomWidgetView(
+        cache: cache, date: date, kind: kind, accountIDs: selection.accountIDs,
+        limitKey: selection.limitKey, used: selection.used
+      )
+      .frame(width: size.width, height: size.height)
+      .environment(\.colorScheme, scheme))
+    renderer.scale = displayScale
+    return renderer.nsImage
   }
 }
 
@@ -1233,37 +1296,32 @@ private struct WidgetPreview: View {
 /// of the card: 1.5x when it fits, smaller when three wide accounts and the clock would not.
 private struct MenuBarPreview: View {
   let status: MenuStatus
-  @State private var size = CGSize.zero
-  @State private var room: CGFloat = 0
+  /// The items' natural width, measured once per change of what they show.
+  @State private var width: CGFloat = 0
   private static let bar = HR.color(light: 0xE4E5E9, dark: 0x1D2030)
 
-  private var scale: CGFloat {
-    guard size.width > 0, room > 0 else { return 1.5 }
-    return min(1.5, room / size.width)
-  }
-
   var body: some View {
-    // The bar spans the card like the real menu bar, with the items at its trailing edge. The
-    // items draw over it, so their natural width never widens the pane.
-    RoundedRectangle(cornerRadius: 5 * scale).fill(Self.bar)
-      .frame(height: max(24, size.height) * scale)
-      .onGeometryChange(for: CGFloat.self) {
-        $0.size.width
-      } action: {
-        room = $0
-      }
-      .overlay(alignment: .trailing) {
-        strip.fixedSize()
-          .onGeometryChange(for: CGSize.self) {
-            $0.size
-          } action: {
-            size = $0
+    // The bar spans the card like the real menu bar, with the items at its trailing edge. Its
+    // height follows the card's width in the same layout pass, so the card is not measured.
+    // The items draw over the bar, so their natural width never widens the pane.
+    BarLayout(items: width) {
+      GeometryReader { proxy in
+        let scale = proxy.size.height / 24
+        RoundedRectangle(cornerRadius: 5 * scale).fill(Self.bar)
+          .overlay(alignment: .trailing) {
+            strip.fixedSize()
+              .onGeometryChange(for: CGFloat.self) {
+                $0.size.width
+              } action: {
+                width = $0
+              }
+              .scaleEffect(scale, anchor: .trailing)
           }
-          .scaleEffect(scale, anchor: .trailing)
       }
-      .padding(14).background(HR.muted, in: RoundedRectangle(cornerRadius: 12))
-      .accessibilityElement(children: .ignore)
-      .accessibilityLabel("Preview: \(status.summary)")
+    }
+    .padding(14).background(HR.muted, in: RoundedRectangle(cornerRadius: 12))
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("Preview: \(status.summary)")
   }
 
   private var strip: some View {
@@ -1277,6 +1335,22 @@ private struct MenuBarPreview: View {
     }
     .font(.system(size: 13, weight: .medium)).foregroundStyle(.primary)
     .padding(.horizontal, 10).frame(height: 24)
+  }
+}
+
+/// The full offered width, and the 24 pt menu bar height at the scale that fits the items in
+/// it, up to 1.5x.
+private struct BarLayout: Layout {
+  let items: CGFloat
+  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    let width = proposal.width ?? items * 1.5
+    let scale = items > 0 ? min(1.5, width / items) : 1.5
+    return CGSize(width: width, height: 24 * scale)
+  }
+  func placeSubviews(
+    in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
+  ) {
+    for subview in subviews { subview.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size)) }
   }
 }
 

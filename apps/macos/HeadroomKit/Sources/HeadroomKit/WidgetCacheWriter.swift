@@ -1,7 +1,7 @@
 import Foundation
 import WidgetKit
 
-public struct WidgetAccountRow: Codable, Identifiable, Sendable {
+public struct WidgetAccountRow: Codable, Equatable, Identifiable, Sendable {
   public let id: String
   public let sourceName: String
   public let name: String
@@ -41,7 +41,7 @@ public struct WidgetBalanceMeter: Codable, Equatable, Sendable {
   public let note: String
 }
 
-public struct WidgetLimitRow: Codable, Identifiable, Sendable {
+public struct WidgetLimitRow: Codable, Equatable, Identifiable, Sendable {
   public var id: String { key }
   public let key: String
   public let percentLeft: Double?
@@ -60,12 +60,12 @@ public struct WidgetLimitRow: Codable, Identifiable, Sendable {
   public var notStarted: Bool? = nil
 }
 
-public struct WidgetSourceRow: Codable, Sendable {
+public struct WidgetSourceRow: Codable, Equatable, Sendable {
   public let name: String
   public let state: SourceState
 }
 
-public struct WidgetCache: Codable, Sendable {
+public struct WidgetCache: Codable, Equatable, Sendable {
   public let writtenAt: Date
   public let rows: [WidgetAccountRow]
   public let sources: [WidgetSourceRow]

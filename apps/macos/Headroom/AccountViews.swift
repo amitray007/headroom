@@ -22,6 +22,9 @@ struct LedgerGroup: View {
   /// Rows whose subtitle names their source, worked out once for the whole list.
   let withSource: Set<String>
   let focus: FocusState<String?>.Binding
+  /// The row under the pointer, from the list's one hover tracker.
+  let hovered: String?
+  let frames: RowFrames
   let model: AppModel
   var body: some View {
     VStack(spacing: 0) {
@@ -30,7 +33,8 @@ struct LedgerGroup: View {
       ForEach(rows) { row in
         LedgerRowView(
           row: row, showsSource: withSource.contains(row.id), privacy: privacy,
-          siblings: rows.map(\.id), focus: focus, model: model
+          siblings: rows.map(\.id), hovered: hovered == row.id, focus: focus, frames: frames,
+          model: model
         )
         .equatable()
       }
@@ -42,7 +46,7 @@ struct LedgerGroup: View {
 struct LedgerRowView: View, Equatable {
   nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
     lhs.row.id == rhs.row.id && lhs.showsSource == rhs.showsSource
-      && lhs.privacy == rhs.privacy && lhs.siblings == rhs.siblings
+      && lhs.privacy == rhs.privacy && lhs.siblings == rhs.siblings && lhs.hovered == rhs.hovered
       && lhs.row.meters == rhs.row.meters && lhs.row.extra == rhs.row.extra
       && lhs.row.column.state == rhs.row.column.state
       && lhs.row.item.snapshot.state == rhs.row.item.snapshot.state
@@ -55,10 +59,11 @@ struct LedgerRowView: View, Equatable {
   let privacy: Bool
   /// The keys of the provider's accounts in the list, for "Share All".
   let siblings: [String]
+  let hovered: Bool
   let focus: FocusState<String?>.Binding
+  let frames: RowFrames
   let model: AppModel
   @State private var expanded = false
-  @State private var hovered = false
   private var item: AccountItem { row.item }
   private var account: FeedAccount { item.account }
   private var quiet: Bool { item.snapshot.state != .connected }
@@ -90,7 +95,13 @@ struct LedgerRowView: View, Equatable {
         }.frame(height: 44).padding(.horizontal, 16).contentShape(Rectangle())
           .background(expanded ? HR.muted : hovered ? HR.muted.opacity(0.55) : .clear)
           .animation(Motion.hover, value: hovered)
-      }.buttonStyle(.plain).focused(focus, equals: row.id).onHover { hovered = $0 }
+      }.buttonStyle(.plain).focused(focus, equals: row.id)
+        .onGeometryChange(for: CGRect.self) {
+          $0.frame(in: .named(RowFrames.space))
+        } action: { [frames, id = row.id] in
+          frames.set($0, for: id)
+        }
+        .onDisappear { [frames, id = row.id] in frames.remove(id) }
         .accessibilityLabel(row.column.text(now: row.now))
         .accessibilityValue(expanded ? "Expanded" : "Collapsed")
         .accessibilityHint("Show other limits and account details")

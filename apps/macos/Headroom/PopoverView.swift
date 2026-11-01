@@ -536,31 +536,48 @@ private struct AccountList: View {
   let groups: [(provider: String, rows: [LedgerRow])]
   let withSource: Set<String>
   let model: AppModel
+  /// The rows' height, measured only while every collapsed row fits: a fuller list is always
+  /// the cap high, so opening a row there never resizes the popover.
   @State private var listHeight: CGFloat = 0
   /// One focus for the whole list. A focus state in each row redrew every row on each click.
   @FocusState private var focus: String?
+  /// One hover tracker for the whole list. A tracker in each row was hit-tested again
+  /// whenever anything moved.
+  @State private var hovered: String?
+  @State private var frames = RowFrames()
 
   var body: some View {
-    // Measured once per draw: it reads the screen and walks every row.
-    let cap = listCap
+    // Worked out once per draw: it reads the screen and walks every row.
+    let (cap, collapsed) = sizes
+    let fits = collapsed <= cap
+    let content = fits ? max(listHeight, collapsed) : collapsed
     ScrollViewReader { proxy in
       ScrollView {
         VStack(spacing: 0) {
           ForEach(groups, id: \.provider) { group in
-            LedgerGroup(rows: group.rows, withSource: withSource, focus: $focus, model: model)
-              .id(group.provider)
+            LedgerGroup(
+              rows: group.rows, withSource: withSource, focus: $focus, hovered: hovered,
+              frames: frames, model: model
+            )
+            .id(group.provider)
             if group.provider != groups.last?.provider { Divider().overlay(HR.border) }
           }
+        }
+        .coordinateSpace(.named(RowFrames.space))
+        .onContinuousHover(coordinateSpace: .named(RowFrames.space)) { phase in
+          var row: String?
+          if case .active(let point) = phase { row = frames.row(at: point) }
+          if row != hovered { hovered = row }
         }
         .onGeometryChange(for: CGFloat.self) {
           $0.size.height
         } action: {
-          listHeight = $0
+          if fits { listHeight = $0 }
         }
         // A little room after the last row: at the end the fade's clear top half lies over the
         // row's empty lower edge, so the fade can stay put and nothing changes while scrolling.
-        .padding(.bottom, listHeight > cap ? 12 : 0)
-      }.frame(height: min(max(listHeight, 44), cap))
+        .padding(.bottom, content > cap ? 12 : 0)
+      }.frame(height: min(max(content, 44), cap))
         // The fade below already says the list goes on; a scroll bar would only add clutter.
         .scrollIndicators(.never)
         // A fade over the cut row says the list goes on; at the end it covers only the room
@@ -570,7 +587,7 @@ private struct AccountList: View {
             colors: [HR.surface.opacity(0), HR.surface], startPoint: .top, endPoint: .bottom
           )
           .frame(height: 24).allowsHitTesting(false)
-          .opacity(listHeight > cap ? 1 : 0)
+          .opacity(content > cap ? 1 : 0)
         }
         .onAppear {
           if model.synthetic && model.captureState == "lower" {
@@ -580,10 +597,11 @@ private struct AccountList: View {
     }
   }
 
-  /// About nine rows, then the list scrolls. A short screen lowers it so the popover keeps clear
-  /// of the menu bar and the Dock: header, summary, footer and margins take about 180 pt. A
-  /// list taller than that stops through the middle of a row, so the cut row says there is more.
-  private var listCap: CGFloat {
+  /// The list's cap and the height of every row collapsed. The cap is about nine rows, then
+  /// the list scrolls. A short screen lowers it so the popover keeps clear of the menu bar and
+  /// the Dock: header, summary, footer and margins take about 180 pt. A list taller than that
+  /// stops through the middle of a row, so the cut row says there is more.
+  private var sizes: (cap: CGFloat, collapsed: CGFloat) {
     let screen = NSScreen.main?.visibleFrame.height ?? 900
     let limit = max(176, min(440, screen - 180))
     // Collapsed rows are 44 pt; each provider group adds 4 pt above and below and a 1 pt rule.
@@ -597,7 +615,19 @@ private struct AccountList: View {
       }
       y += index < groups.count - 1 ? 5 : 4
     }
-    return y <= limit ? limit : cut ?? limit
+    return (y <= limit ? limit : cut ?? limit, y)
+  }
+}
+
+/// Where each row's summary sits in the list. The rows write it as they lay out and the one
+/// hover tracker reads it. It is not observed, so a write redraws nothing.
+@MainActor final class RowFrames {
+  nonisolated static let space = "account-rows"
+  private var frames: [String: CGRect] = [:]
+  func set(_ frame: CGRect, for id: String) { frames[id] = frame }
+  func remove(_ id: String) { frames[id] = nil }
+  func row(at point: CGPoint) -> String? {
+    frames.first { $0.value.contains(point) }?.key
   }
 }
 
