@@ -1,16 +1,18 @@
-import AppIntents
 import Foundation
 
-public struct WidgetAccountEntity: AppEntity, Sendable {
-  public static let typeDisplayRepresentation: TypeDisplayRepresentation = "Account"
-  public static let defaultQuery = WidgetAccountQuery()
+/// An account or limit the widget editor offers. The App Intents entity types live in the
+/// widget extension: App Intents registers only entities declared in the target itself, and a
+/// package-declared entity left every saved choice unresolved.
+public struct WidgetChoice: Equatable, Sendable {
   public let id: String
   public let title: String
-  public var displayRepresentation: DisplayRepresentation {
-    DisplayRepresentation(title: "\(title)")
-  }
+  /// For a limit, the account it belongs to and its key.
+  public var accountID: String? = nil
+  public var key: String? = nil
+}
 
-  public static func entities(in cache: WidgetCache?) -> [Self] {
+public enum WidgetChoices {
+  public static func accounts(in cache: WidgetCache?) -> [WidgetChoice] {
     let rows = cache?.rows ?? []
     return rows.map { row in
       let duplicate = rows.contains {
@@ -19,59 +21,26 @@ public struct WidgetAccountEntity: AppEntity, Sendable {
       let title =
         "\(Presentation.providerName(row.provider)) \(row.name)"
         + (duplicate ? " · \(row.sourceName)" : "")
-      return Self(id: row.id, title: title)
+      return WidgetChoice(id: row.id, title: title)
     }
   }
-}
 
-public struct WidgetAccountQuery: EntityQuery {
-  public let location: WidgetCacheLocation
-  public init() { location = .ownContainer }
-  public init(location: WidgetCacheLocation) { self.location = location }
-  public func entities(for identifiers: [String]) async throws -> [WidgetAccountEntity] {
-    let entities = try await suggestedEntities()
-    return identifiers.compactMap { id in entities.first { $0.id == id } }
-  }
-  public func suggestedEntities() async throws -> [WidgetAccountEntity] {
-    WidgetAccountEntity.entities(in: try WidgetCacheReader(location: location).read())
-  }
-  public func defaultResult() async -> WidgetAccountEntity? { try? await suggestedEntities().first }
-}
-
-public struct WidgetLimitEntity: AppEntity, Sendable {
-  public static let typeDisplayRepresentation: TypeDisplayRepresentation = "Limit"
-  public static let defaultQuery = WidgetLimitQuery()
-  public let id: String
-  public let accountID: String
-  public let key: String
-  public let title: String
-  public var displayRepresentation: DisplayRepresentation {
-    DisplayRepresentation(title: "\(title)")
-  }
-
-  public static func entities(in cache: WidgetCache?, accountID: String? = nil) -> [Self] {
-    let accounts = WidgetAccountEntity.entities(in: cache)
+  public static func limits(in cache: WidgetCache?, accountID: String? = nil) -> [WidgetChoice] {
+    let accounts = Self.accounts(in: cache)
     return (cache?.rows ?? []).filter { accountID == nil || $0.id == accountID }.flatMap { row in
       row.limits.map { limit in
-        Self(
-          id: "\(row.id)/\(limit.key)", accountID: row.id, key: limit.key,
+        WidgetChoice(
+          id: "\(row.id)/\(limit.key)",
           title: accountID == nil
             ? "\(accounts.first { $0.id == row.id }?.title ?? row.name) · \(limit.label)"
-            : limit.label)
+            : limit.label,
+          accountID: row.id, key: limit.key)
       }
     }
   }
-}
 
-public struct WidgetLimitQuery: EntityQuery {
-  public let location: WidgetCacheLocation
-  public init() { location = .ownContainer }
-  public init(location: WidgetCacheLocation) { self.location = location }
-  public func entities(for identifiers: [String]) async throws -> [WidgetLimitEntity] {
-    let entities = try await suggestedEntities()
-    return identifiers.compactMap { id in entities.first { $0.id == id } }
-  }
-  public func suggestedEntities() async throws -> [WidgetLimitEntity] {
-    WidgetLimitEntity.entities(in: try WidgetCacheReader(location: location).read())
+  /// The saved identifiers that still exist, in their saved order.
+  public static func pick(_ identifiers: [String], from choices: [WidgetChoice]) -> [WidgetChoice] {
+    identifiers.compactMap { id in choices.first { $0.id == id } }
   }
 }

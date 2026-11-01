@@ -31,6 +31,8 @@ struct HeadroomWidgetView: View {
   var limitKey: String?
   var used = false
   var dim = false
+  /// The gallery and first-load placeholder: the layout's skeleton, no readings.
+  var loading = false
   var timeZone: TimeZone = .current
   @Environment(\.colorScheme) private var scheme
   @Environment(\.widgetRenderingMode) private var renderingMode
@@ -65,8 +67,10 @@ struct HeadroomWidgetView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      if cache == nil {
-        empty(art: "loading", title: "No readings yet", message: "Open Headroom to load accounts.")
+      if loading {
+        skeleton(caption: nil)
+      } else if cache == nil {
+        skeleton(caption: "Open Headroom to load accounts.")
       } else if cache?.sources.isEmpty == true {
         empty(art: "no-sources", title: "No sources yet", message: "Open Headroom to add a source.")
       } else if rows.isEmpty {
@@ -125,6 +129,65 @@ struct HeadroomWidgetView: View {
     } else {
       Image(name).resizable().aspectRatio(contentMode: .fit)
     }
+  }
+
+  // MARK: Loading
+
+  /// The size's ledger with every reading blank: name bars and empty cells. WidgetKit draws
+  /// still frames, so the skeleton stands in for a spinner.
+  private func skeleton(caption: String?) -> some View {
+    let count: Int =
+      switch kind {
+      case .account: 1
+      case .overall, .accounts: 3
+      case .allAccounts: Self.largeRows
+      case .detail: 5
+      }
+    return VStack(alignment: .leading, spacing: 0) {
+      if kind == .allAccounts || kind == .detail || kind == .overall {
+        bar(width: 120, height: 8).padding(.bottom, 12)
+      }
+      HStack(alignment: .top, spacing: 20) {
+        ForEach(0..<(kind == .detail ? 2 : 1), id: \.self) { _ in
+          VStack(spacing: 0) {
+            ForEach(0..<count, id: \.self) { index in
+              skeletonRow(index: index).frame(maxHeight: .infinity)
+            }
+          }
+        }
+      }.frame(maxHeight: .infinity)
+      if let caption {
+        Text(caption).font(WidgetStyle.font(11)).foregroundStyle(muted).lineLimit(1)
+          .padding(.top, 6)
+      }
+    }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(caption ?? "Reading accounts")
+  }
+
+  private func skeletonRow(index: Int) -> some View {
+    // Varied name lengths read as accounts, not a pattern.
+    let names: [CGFloat] = [84, 66, 92, 72, 60, 88, 70, 78]
+    let small = kind == .account || kind == .overall
+    return HStack(spacing: 10) {
+      HStack(spacing: 8) {
+        Circle().fill(HR.track).frame(width: 16, height: 16)
+        if !small || kind == .account {
+          VStack(alignment: .leading, spacing: 5) {
+            bar(width: names[index % names.count], height: 8)
+            bar(width: 40, height: 6)
+          }
+        }
+      }.frame(width: small ? nil : 128, alignment: .leading)
+      VStack(alignment: .leading, spacing: 6) {
+        bar(width: 28, height: 8)
+        Cells(fill: 0, tone: .room)
+      }.frame(maxWidth: .infinity)
+    }
+  }
+
+  private func bar(width: CGFloat, height: CGFloat) -> some View {
+    Capsule().fill(HR.track).frame(width: width, height: height)
   }
 
   // MARK: Ledger sizes
@@ -226,22 +289,25 @@ struct HeadroomWidgetView: View {
     }
   }
 
-  /// Large: every account, its ledger row each; "+N more" only when they do not fit.
+  /// Large: up to eight accounts, the ones that need attention first, then "+N more". Ten
+  /// rows of real names, plans and extras did not breathe at this size.
   private var large: some View {
-    let fit = rows.count > 10 ? 9 : rows.count
+    let shown = Array(WidgetLedger.tightest(rows, at: date).prefix(Self.largeRows))
     return VStack(alignment: .leading, spacing: 0) {
       summaryLine(WidgetLedger.summary(rows, at: date), age: true).padding(.bottom, 8)
       VStack(spacing: 0) {
-        ForEach(rows.prefix(fit), id: \.id) { row in
+        ForEach(shown, id: \.id) { row in
           ledgerRow(row, every: false, whoWidth: 128, extraWidth: 52)
             .frame(maxHeight: .infinity)
         }
-      }.frame(maxHeight: .infinity)
-      if rows.count > fit {
-        Text("+\(rows.count - fit) more").font(WidgetStyle.font(11)).foregroundStyle(muted)
+      }.frame(maxHeight: .infinity, alignment: .top)
+      if rows.count > shown.count {
+        Text("+\(rows.count - shown.count) more").font(WidgetStyle.font(11)).foregroundStyle(muted)
+          .padding(.top, 4)
       }
     }
   }
+  static let largeRows = 8
 
   /// Extra large: two columns, every limit stacked per account, hairlines between accounts.
   private var extraLarge: some View {
@@ -503,6 +569,7 @@ struct HeadroomWidgetPresentation: View {
   var accountIDs: [String] = []
   var limitKey: String?
   var used = false
+  var loading = false
   var timeZone: TimeZone = .current
   @Environment(\.widgetRenderingMode) private var mode
   @Environment(\.colorScheme) private var scheme
@@ -531,7 +598,7 @@ struct HeadroomWidgetPresentation: View {
   private func content(dim: Bool) -> some View {
     HeadroomWidgetView(
       cache: cache, date: date, kind: kind, accountIDs: accountIDs,
-      limitKey: limitKey, used: used, dim: dim, timeZone: timeZone)
+      limitKey: limitKey, used: used, dim: dim, loading: loading, timeZone: timeZone)
   }
   private var reading: String {
     let rows = cache?.rows ?? []

@@ -49,7 +49,8 @@ struct AccountLimitQuery: EntityQuery {
   }
   func suggestedEntities() async throws -> [WidgetLimitEntity] {
     guard let account = configuration?.account else { return [] }
-    return WidgetLimitEntity.entities(in: try WidgetCacheReader().read(), accountID: account.id)
+    return WidgetChoices.limits(in: try WidgetCacheReader().read(), accountID: account.id)
+      .map(WidgetLimitEntity.init)
   }
 }
 
@@ -76,11 +77,12 @@ struct CacheEntry: TimelineEntry {
   var accountIDs: [String] = []
   var limitKey: String?
   var used = false
+  var loading = false
 }
 
 struct AccountProvider: AppIntentTimelineProvider {
   func placeholder(in context: Context) -> CacheEntry {
-    CacheEntry(date: Date(), cache: nil, kind: .account)
+    CacheEntry(date: Date(), cache: nil, kind: .account, loading: true)
   }
   func snapshot(for configuration: AccountConfiguration, in context: Context) async -> CacheEntry {
     entry(configuration, cache: try? WidgetCacheReader().read(), date: Date())
@@ -109,7 +111,7 @@ struct AccountProvider: AppIntentTimelineProvider {
 
 struct AccountsProvider: AppIntentTimelineProvider {
   func placeholder(in context: Context) -> CacheEntry {
-    CacheEntry(date: Date(), cache: nil, kind: .accounts)
+    CacheEntry(date: Date(), cache: nil, kind: .accounts, loading: true)
   }
   func snapshot(for configuration: AccountsConfiguration, in context: Context) async -> CacheEntry {
     CacheEntry(
@@ -132,7 +134,7 @@ struct AccountsProvider: AppIntentTimelineProvider {
 
 struct AllAccountsProvider: AppIntentTimelineProvider {
   func placeholder(in context: Context) -> CacheEntry {
-    CacheEntry(date: Date(), cache: nil, kind: .allAccounts)
+    CacheEntry(date: Date(), cache: nil, kind: .allAccounts, loading: true)
   }
   func snapshot(for configuration: AllAccountsConfiguration, in context: Context) async
     -> CacheEntry
@@ -164,7 +166,8 @@ struct CacheView: View {
   var body: some View {
     HeadroomWidgetPresentation(
       cache: entry.cache, date: entry.date, kind: entry.kind,
-      accountIDs: entry.accountIDs, limitKey: entry.limitKey, used: entry.used
+      accountIDs: entry.accountIDs, limitKey: entry.limitKey, used: entry.used,
+      loading: entry.loading
     )
     .containerBackground(HR.surface, for: .widget)
 
