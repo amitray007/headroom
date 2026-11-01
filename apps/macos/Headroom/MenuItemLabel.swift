@@ -27,34 +27,69 @@ struct MenuItemLabel: View {
     switch status.style {
     case .liveLogo where !readings.isEmpty:
       withDot {
-        HStack(spacing: 4) {
-          LiveGlyph(readings: readings).frame(width: 16, height: 16)
-          if let room = status.liveRoom {
-            Text(room.text).font(.system(size: 13, weight: .medium)).monospacedDigit()
+        MenuMark(style: status.markStyle, tone: status.mark) {
+          HStack(spacing: 4) {
+            LiveGlyph(readings: readings).frame(width: 16, height: 16)
+            if let room = status.liveRoom {
+              Text(room.text).font(.system(size: 13, weight: .medium)).monospacedDigit()
+            }
           }
         }
       }
     case .dots where !readings.isEmpty:
-      withDot { DotGrid(readings: readings).frame(width: 16, height: 16) }
+      withDot {
+        MenuMark(style: status.markStyle, tone: status.mark) {
+          DotGrid(readings: readings).frame(width: 16, height: 16)
+        }
+      }
     case .accounts where !readings.isEmpty:
       withDot {
         HStack(spacing: 6) {
-          ForEach(Array(readings.enumerated()), id: \.offset) { _, reading in
-            HStack(spacing: 3) {
-              if status.logos {
-                ProviderMark(provider: reading.provider).frame(width: 13, height: 13)
+          ForEach(Array(readings.enumerated()), id: \.offset) { index, reading in
+            MenuMark(style: status.markStyle, tone: status.slotMarks[index]) {
+              HStack(spacing: 3) {
+                if status.logos {
+                  ProviderMark(
+                    provider: reading.provider,
+                    monochrome: status.slotMarks[index] != nil && status.markStyle != .stripe
+                  )
+                  .frame(width: 13, height: 13)
+                }
+                slot(reading)
               }
-              slot(reading)
             }
           }
         }
       }
     default:
-      HStack(spacing: 3) {
-        glyph
-        if status.style == .logoAndRoom, let text = status.text {
-          Text(text).font(.system(size: 13, weight: .medium)).monospacedDigit()
+      if status.markStyle == .dot || !status.colors {
+        logoContent
+      } else {
+        withDot {
+          MenuMark(style: status.markStyle, tone: status.mark) {
+            HStack(spacing: 3) {
+              if status.mark != nil && (status.markStyle == .chip || status.markStyle == .inverted)
+              {
+                // The smaller grid fits an 18 pt chip without the glyph's negative padding.
+                HeadroomGlyph().frame(width: 18, height: 18)
+              } else {
+                glyph
+              }
+              if status.style == .logoAndRoom, let text = status.text {
+                Text(text).font(.system(size: 13, weight: .medium)).monospacedDigit()
+              }
+            }
+          }
         }
+      }
+    }
+  }
+
+  private var logoContent: some View {
+    HStack(spacing: 3) {
+      glyph
+      if status.style == .logoAndRoom, let text = status.text {
+        Text(text).font(.system(size: 13, weight: .medium)).monospacedDigit()
       }
     }
   }
@@ -74,7 +109,7 @@ struct MenuItemLabel: View {
   private var glyph: some View {
     HeadroomGlyph().frame(width: 23, height: 23)
       .overlay(alignment: .bottomTrailing) {
-        if let dot = status.dot {
+        if let dot = status.dot, status.markStyle == .dot || !status.colors {
           // A ringed dot keeps the plain dot's center.
           let shift = -2 + MenuDot.overhang(status)
           MenuDot(tone: dot, colors: status.colors).offset(x: shift, y: shift)
@@ -95,9 +130,43 @@ struct MenuItemLabel: View {
 
 }
 
-/// The one place the menu bar label uses color. The wallpaper shows through the menu bar, so a
-/// colored meter or figure vanishes on some wallpapers; the dot carries the tone instead, with
-/// a ring in the menu bar's ink so its edge always shows (MenuPalette).
+/// A solid chip owns its contrast. Inverted content cuts through the ink to the menu bar.
+private struct MenuMark<Content: View>: View {
+  let style: DisplayPreferences.MarkStyle
+  let tone: MenuTone?
+  @ViewBuilder var content: () -> Content
+
+  var body: some View {
+    if let tone {
+      switch style {
+      case .chip:
+        let palette = tone == .out ? MenuPalette.chipOut : MenuPalette.chipLow
+        content().foregroundStyle(HR.color(light: palette.ink, dark: palette.ink))
+          .padding(.horizontal, 3.5).frame(height: 18)
+          .background(
+            HR.color(light: palette.fill, dark: palette.fill),
+            in: RoundedRectangle(cornerRadius: 6))
+      case .inverted:
+        content().padding(.horizontal, 3.5).frame(height: 18)
+          .blendMode(.destinationOut)
+          .background { RoundedRectangle(cornerRadius: 6).fill(.primary) }
+          .compositingGroup()
+      case .stripe:
+        HStack(spacing: 3) {
+          Capsule().fill(.primary).frame(width: 2.6, height: 15)
+            .overlay { Capsule().fill(MenuColor.fill(tone) ?? .primary).padding(0.65) }
+          content()
+        }
+      case .dot:
+        content()
+      }
+    } else {
+      content()
+    }
+  }
+}
+
+/// A ring in the menu bar's ink keeps a colored dot readable over the wallpaper.
 struct MenuDot: View {
   let tone: MenuTone
   let colors: Bool
@@ -177,7 +246,7 @@ private struct MenuMeter: View {
     GeometryReader { geometry in
       if tone == .out || fill == nil {
         Capsule().strokeBorder(
-          Color.primary.opacity(tone == .out ? 1 : 0.55),
+          .primary.opacity(tone == .out ? 1 : 0.55),
           style: StrokeStyle(lineWidth: 0.7, dash: [1, 1]))
       } else {
         ZStack(alignment: .leading) {
@@ -211,7 +280,7 @@ private struct MenuRing: View {
     ZStack {
       if tone == .out || left == nil {
         Circle().inset(by: 1.5).stroke(
-          Color.primary.opacity(tone == .out ? 1 : 0.55),
+          .primary.opacity(tone == .out ? 1 : 0.55),
           style: StrokeStyle(lineWidth: 1.4, dash: [1.6, 1.6]))
       } else {
         Circle().inset(by: 1.75).stroke(.primary.opacity(0.28), lineWidth: 2)
@@ -219,33 +288,6 @@ private struct MenuRing: View {
           .stroke(.primary, style: StrokeStyle(lineWidth: 2, lineCap: .round))
           .rotationEffect(.degrees(-90))
       }
-    }
-  }
-}
-
-/// The colors themselves, in place of a sentence about them: the low and out dots in yellow
-/// and red, or both in the plain color when coloring is off.
-struct MenuToneLegend: View {
-  let colors: Bool
-  var body: some View {
-    HStack(spacing: 14) {
-      sample(tone: .low, label: "Low")
-      sample(tone: .out, label: "Out")
-    }
-    .font(HR.popoverFont(12, .medium))
-    .foregroundStyle(HR.secondary)
-    .animation(.easeOut(duration: 0.16), value: colors)
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel(
-      colors ? "A yellow dot marks low, a red dot marks out" : "Low and out show no colored dot")
-  }
-
-  private func sample(tone: MenuTone, label: String) -> some View {
-    HStack(spacing: 6) {
-      // With color off, low and out raise no dot, so the sample fades.
-      MenuDot(tone: tone, colors: colors).scaleEffect(1.6).frame(width: 10, height: 10)
-        .opacity(colors ? 1 : 0.35)
-      Text(label)
     }
   }
 }

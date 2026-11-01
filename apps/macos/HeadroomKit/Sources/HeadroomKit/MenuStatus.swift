@@ -13,10 +13,8 @@ public enum MenuTone: Equatable, Sendable {
   }
 }
 
-/// The colors of the menu bar's low and out dot, as sRGB hex for a light and a dark menu bar.
-/// The menu bar shows the wallpaper through it, so any middle color vanishes on some wallpaper.
-/// Everything else in the label draws in the menu bar's ink, and the dot has a ring of that
-/// ink, so its edge always shows. The fill only has to stand apart from its own ring.
+/// Ringed dots and stripes use appearance-specific colors against the menu bar's ink.
+/// Chips provide their own solid background and contrasting content.
 public enum MenuPalette {
   public struct Pair: Sendable {
     public let light: UInt32
@@ -24,6 +22,8 @@ public enum MenuPalette {
   }
   public static let low = Pair(light: 0xFFD60A, dark: 0xA87B00)
   public static let out = Pair(light: 0xFF3B30, dark: 0xE0201B)
+  public static let chipLow = (fill: UInt32(0xFFD60A), ink: UInt32(0x000000))
+  public static let chipOut = (fill: UInt32(0xD70015), ink: UInt32(0xFFFFFF))
   /// What macOS draws menu bar text in: black on a light menu bar, white on a dark one.
   public static let ink = Pair(light: 0x000000, dark: 0xFFFFFF)
 
@@ -102,6 +102,11 @@ public struct MenuReading: Equatable, Sendable {
     }
   }
 
+  /// Include session bars when deciding which mark an account needs.
+  public var loudestTone: MenuTone {
+    ([tone] + bars.map(\.tone)).max { $0.rank < $1.rank } ?? .plain
+  }
+
   public static func tone(_ state: RoomColumn.State) -> MenuTone {
     switch state {
     case .out, .signIn: .out
@@ -140,6 +145,10 @@ public struct MenuStatus: Equatable, Sendable {
   public let dot: MenuTone?
   public let logos: Bool
   public let colors: Bool
+  public let markStyle: DisplayPreferences.MarkStyle
+  /// Non-Dot styles mark each Accounts reading, or the whole item for other styles.
+  public let mark: MenuTone?
+  public let slotMarks: [MenuTone?]
   /// Live logo and room: the slot with least room, shown as its figure beside the glyph.
   public let liveRoom: MenuReading?
   public let summary: String
@@ -152,11 +161,13 @@ public struct MenuStatus: Equatable, Sendable {
   public init(
     style: DisplayPreferences.ItemStyle, preferences: DisplayPreferences,
     visible: [AccountItem], all: @autoclosure () -> [AccountItem] = [],
-    sources: [SourceState], ready: Bool, unread: Int, now: Date, sample: Bool = false
+    sources: [SourceState], ready: Bool, unread: Int, now: Date, sample: Bool = false,
+    sampleLow: Bool = false
   ) {
     self.style = style
     logos = preferences.providerLogos
     colors = preferences.colorLowOut
+    markStyle = preferences.markStyle
     let slots: [DisplayPreferences.MenuSlot] =
       switch style {
       case .logo: []
@@ -188,6 +199,16 @@ public struct MenuStatus: Equatable, Sendable {
       if sample && readings.isEmpty {
         readings = MenuReading.samples(slots.map(\.look), view: preferences.limitsView)
       }
+    }
+    if sampleLow, let last = readings.indices.last {
+      readings[last].left = 15
+      readings[last].fill = Formatting.shown(15, view: preferences.limitsView)
+      readings[last].text = Formatting.barePercent(readings[last].fill)
+      readings[last].tone = .low
+      readings[last].bars = [
+        MenuReading.Bar(fill: readings[last].fill, tone: .low),
+        MenuReading.Bar(fill: Formatting.shown(45, view: preferences.limitsView), tone: .plain),
+      ]
     }
     self.readings = readings
 
@@ -228,18 +249,36 @@ public struct MenuStatus: Equatable, Sendable {
       }
       if sample && text == nil { text = Formatting.share(64, view: preferences.limitsView) }
     }
+    if sampleLow && (style == .logo || style == .logoAndRoom) {
+      textTone = .low
+      if style == .logoAndRoom { text = Formatting.share(15, view: preferences.limitsView) }
+    }
     self.text = text
     self.textTone = textTone
     // Out first, then the least room left; a slot with no figure never stands for the rest.
     liveRoom =
       style == .liveLogo && preferences.liveRoom
       ? readings.min { Self.urgency($0) > Self.urgency($1) } : nil
-    // The meters and figures draw in the menu bar's ink, so color reaches only the dot.
-    var tones: [MenuTone] = [textTone, liveRoom?.tone ?? .plain]
-    for reading in readings { tones += [reading.tone] + reading.bars.map(\.tone) }
+    let tones = [textTone, liveRoom?.tone ?? .plain] + readings.map(\.loudestTone)
     let loudest = tones.max { $0.rank < $1.rank } ?? .plain
-    dot =
-      if colors && loudest.rank > (problemDot ?? .plain).rank { loudest } else { problemDot }
+    if colors && markStyle != .dot {
+      if style == .accounts {
+        mark = nil
+        slotMarks = readings.map { $0.loudestTone == .plain ? nil : $0.loudestTone }
+        dot = problemDot
+      } else {
+        let tone = problem ? .out : loudest
+        mark = tone == .plain ? nil : tone
+        slotMarks = readings.map { _ in nil }
+        dot = unreadDot
+      }
+    } else {
+      mark = nil
+      slotMarks = readings.map { _ in nil }
+      // Preserve the original Dot rule, including the plain hidden-problem dot when off.
+      dot =
+        if colors && loudest.rank > (problemDot ?? .plain).rank { loudest } else { problemDot }
+    }
 
     let lines: [String]
     if style == .logoAndRoom {
@@ -260,6 +299,13 @@ public struct MenuStatus: Equatable, Sendable {
     }
     if unread > 0 { parts.append("\(unread) unread notifications") }
     summary = parts.joined(separator: ", ")
+  }
+
+  /// Synthetic card previews follow the current Show style, slots and limits view.
+  public static func markSample(preferences: DisplayPreferences) -> MenuStatus {
+    MenuStatus(
+      style: preferences.itemStyle, preferences: preferences, visible: [], sources: [],
+      ready: true, unread: 0, now: Date(timeIntervalSince1970: 0), sample: true, sampleLow: true)
   }
 
   /// "37% left", or the slot's word when it has no figure to give.
@@ -294,12 +340,15 @@ public struct MenuStatus: Equatable, Sendable {
     return best?.column ?? out
   }
 
-  /// True when the label draws in color: a low or out dot, or a provider mark in its own color.
+  /// True for colored dots, chips, stripes, or a provider mark in its own color.
   /// A one-color label is a template image the menu bar tints like any icon.
   public var colored: Bool {
     let marks =
       style == .accounts && logos
       && readings.contains { Presentation.coloredMarks.contains($0.provider) }
-    return (colors && (dot ?? .plain) != .plain) || marks
+    let coloredMark =
+      (markStyle == .chip || markStyle == .stripe)
+      && (mark != nil || slotMarks.contains { $0 != nil })
+    return (colors && (dot ?? .plain) != .plain) || coloredMark || marks
   }
 }

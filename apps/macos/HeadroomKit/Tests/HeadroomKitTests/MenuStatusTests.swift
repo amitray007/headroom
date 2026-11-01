@@ -81,12 +81,13 @@ private struct World {
 
 private func preferences(
   slots: [Slot] = [Slot()], logos: Bool = true, colors: Bool = true, liveRoom: Bool = false,
-  view: DisplayPreferences.LimitsView = .left
+  view: DisplayPreferences.LimitsView = .left, mark: DisplayPreferences.MarkStyle = .dot
 ) -> DisplayPreferences {
   var value = DisplayPreferences()
   value.slots = slots
   value.providerLogos = logos
   value.colorLowOut = colors
+  value.markStyle = mark
   value.liveRoom = liveRoom
   value.limitsView = view
   return value
@@ -802,4 +803,158 @@ private let darkBars: [UInt32] = [0x1E1E1E, 0x3A3A3A, 0x5A5A5A, 0x6090A8]
   }
   // The old yellow meter on the reported wallpaper: why the meters no longer take color.
   #expect(MenuPalette.contrast(0x9A7400, 0x6090A8) < 1.5)
+}
+
+// MARK: Mark styles
+
+@Test(arguments: ["{}", "{\"colorLowOut\":false}", "{\"markStyle\":\"future\"}"])
+func missingOrUnknownMarkStyleLoadsAsDot(json: String) throws {
+  let saved = try JSONDecoder().decode(DisplayPreferences.self, from: Data(json.utf8))
+  #expect(saved.markStyle == .dot)
+}
+
+@Test(arguments: DisplayPreferences.MarkStyle.allCases)
+func markStylesRoundTrip(style: DisplayPreferences.MarkStyle) throws {
+  let original = preferences(mark: style)
+  let saved = try JSONDecoder().decode(
+    DisplayPreferences.self, from: JSONEncoder().encode(original))
+  #expect(saved == original)
+}
+
+@Test(arguments: [DisplayPreferences.MarkStyle.chip, .stripe, .inverted])
+func accountsMarkOnlyAffectedReadings(style: DisplayPreferences.MarkStyle) throws {
+  let world = try World()
+  let slots = [world.charlie, world.bravo, world.delta].map { Slot(account: $0.id) }
+  let result = status(
+    .accounts, preferences(slots: slots, mark: style), visible: world.all)
+  #expect(result.slotMarks == [nil, .low, .out])
+  #expect(result.mark == nil)
+  #expect(result.dot == nil)
+  let unread = status(
+    .accounts, preferences(slots: slots, mark: style), visible: world.all, unread: 1)
+  #expect(unread.dot == .plain)
+}
+
+@Test(arguments: [DisplayPreferences.MarkStyle.chip, .stripe, .inverted])
+func accountsKeepHiddenProblemsInTheDot(style: DisplayPreferences.MarkStyle) throws {
+  let world = try World()
+  let prefs = preferences(slots: [Slot(account: world.bravo.id)], mark: style)
+  let shown = status(.accounts, prefs, visible: [world.bravo])
+  #expect(shown.slotMarks == [.low])
+  #expect(shown.dot == nil)
+  let hidden = status(.accounts, prefs, visible: [world.bravo, world.delta], unread: 1)
+  #expect(hidden.slotMarks == [.low])
+  #expect(hidden.dot == .out)
+  let signedOut = try items([account("gone", .claude, left: 40, state: .reconnect_required)])
+  #expect(status(.accounts, prefs, visible: [world.bravo] + signedOut).dot == .out)
+}
+
+@Test(
+  arguments: [DisplayPreferences.ItemStyle.logo, .logoAndRoom, .liveLogo, .dots],
+  [DisplayPreferences.MarkStyle.chip, .stripe, .inverted])
+func wholeItemMarksKeepOnlyUnreadInTheDot(
+  itemStyle: DisplayPreferences.ItemStyle, markStyle: DisplayPreferences.MarkStyle
+) throws {
+  let world = try World()
+  let prefs = preferences(slots: [Slot(account: world.bravo.id)], mark: markStyle)
+  // The out account has no slot. One-icon styles still include it in the whole-item mark.
+  let result = status(itemStyle, prefs, visible: [world.bravo, world.delta])
+  #expect(result.mark == .out)
+  #expect(result.slotMarks.allSatisfy { $0 == nil })
+  #expect(result.dot == nil)
+  let unread = status(itemStyle, prefs, visible: [world.bravo, world.delta], unread: 2)
+  #expect(unread.mark == .out)
+  #expect(unread.dot == .plain)
+  let signedOut = try items([account("gone", .claude, left: 40, state: .reconnect_required)])
+  #expect(status(itemStyle, prefs, visible: [world.bravo] + signedOut).mark == .out)
+}
+
+@Test(arguments: [DisplayPreferences.ItemStyle.logoAndRoom, .liveLogo, .dots])
+func aShownLowReadingMarksTheWholeItem(itemStyle: DisplayPreferences.ItemStyle) throws {
+  let world = try World()
+  let result = status(itemStyle, preferences(mark: .chip), visible: [world.bravo])
+  #expect(result.mark == .low)
+  #expect(result.dot == nil)
+}
+
+@Test(arguments: DisplayPreferences.ItemStyle.allCases, DisplayPreferences.MarkStyle.allCases)
+func markingOffKeepsOnlyPlainProblemAndUnreadDots(
+  itemStyle: DisplayPreferences.ItemStyle, markStyle: DisplayPreferences.MarkStyle
+) throws {
+  let world = try World()
+  let prefs = preferences(logos: false, colors: false, mark: markStyle)
+  let low = status(itemStyle, prefs, visible: [world.bravo])
+  #expect(low.mark == nil)
+  #expect(low.slotMarks.allSatisfy { $0 == nil })
+  #expect(low.dot == nil)
+  #expect(!low.colored)
+  #expect(status(itemStyle, prefs, visible: [world.bravo], unread: 1).dot == .plain)
+  let problem = status(itemStyle, prefs, visible: [world.bravo, world.delta])
+  #expect(problem.dot == .out)
+  #expect(problem.mark == nil)
+  #expect(!problem.colored)
+}
+
+@Test(arguments: [DisplayPreferences.MarkStyle.chip, .stripe, .inverted])
+func marksControlTemplateRendering(style: DisplayPreferences.MarkStyle) throws {
+  let world = try World()
+  let prefs = preferences(logos: false, mark: style)
+  #expect(status(.accounts, prefs, visible: [world.bravo]).colored == (style != .inverted))
+  #expect(!status(.accounts, prefs, visible: [world.charlie]).colored)
+  #expect(status(.logoAndRoom, prefs, visible: [world.bravo]).colored == (style != .inverted))
+  let logos = preferences(logos: true, mark: style)
+  #expect(status(.accounts, logos, visible: [world.alpha]).colored)
+}
+
+@Test func aLowSessionBarMarksItsAccount() throws {
+  let list = try items([account("both", .codex, left: 90, session: 15)])
+  let result = status(
+    .accounts, preferences(slots: [Slot(look: .bars)], mark: .chip), visible: list)
+  #expect(result.slotMarks == [.low])
+  var reading = try #require(result.readings.first)
+  reading.tone = .plain
+  #expect(reading.loudestTone == .low)
+  reading.bars[0].tone = .out
+  #expect(reading.loudestTone == .out)
+}
+
+@Test func chipContentHasAtLeastFourPointFiveContrast() {
+  for chip in [MenuPalette.chipLow, MenuPalette.chipOut] {
+    #expect(MenuPalette.contrast(chip.fill, chip.ink) >= 4.5)
+  }
+}
+
+@Test(arguments: DisplayPreferences.ItemStyle.allCases, DisplayPreferences.MarkStyle.allCases)
+func markSamplesMarkTheLastAccount(
+  itemStyle: DisplayPreferences.ItemStyle, markStyle: DisplayPreferences.MarkStyle
+) throws {
+  var prefs = preferences(slots: threeTightest, liveRoom: true, mark: markStyle)
+  prefs.itemStyle = itemStyle
+  let sample = MenuStatus.markSample(preferences: prefs)
+  if itemStyle.showsSlots {
+    #expect(sample.readings.map(\.tone) == [.plain, .plain, .low])
+    #expect(sample.readings.last?.left == 15)
+    #expect(sample.readings.last?.bars.map(\.tone) == [.low, .plain])
+  } else {
+    #expect(sample.textTone == .low)
+    if itemStyle == .logoAndRoom { #expect(sample.text == "15% left") }
+  }
+  if markStyle == .dot {
+    #expect(sample.dot == .low)
+    #expect(sample.mark == nil)
+  } else if itemStyle == .accounts {
+    #expect(sample.slotMarks == [nil, nil, .low])
+    #expect(sample.dot == nil)
+  } else {
+    #expect(sample.mark == .low)
+    #expect(sample.dot == nil)
+  }
+  prefs.limitsView = .used
+  let used = MenuStatus.markSample(preferences: prefs)
+  if itemStyle.showsSlots {
+    #expect(used.readings.last?.fill == 85)
+    #expect(used.readings.last?.text == "85%")
+  } else if itemStyle == .logoAndRoom {
+    #expect(used.text == "85% used")
+  }
 }

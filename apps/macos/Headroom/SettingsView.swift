@@ -143,18 +143,47 @@ struct SettingsView: View {
               .toggleStyle(WebSwitchStyle())
           }
         }
-        HStack(spacing: 40) {
-          VStack(alignment: .leading, spacing: 6) {
-            Text("Color when low or out").font(HR.popoverFont(14, .medium)).foregroundStyle(HR.ink)
-            MenuToneLegend(colors: model.preferences.colorLowOut)
-          }
-          .frame(maxWidth: .infinity, alignment: .leading)
-          Toggle("Color when low or out", isOn: $model.preferences.colorLowOut)
+        SettingsRow(title: "Mark low and out") {
+          Toggle("Mark low and out", isOn: $model.preferences.colorLowOut)
             .toggleStyle(WebSwitchStyle())
         }
-        .padding(.vertical, 10)
+        if model.preferences.colorLowOut {
+          HStack(spacing: 8) {
+            ForEach(DisplayPreferences.MarkStyle.allCases, id: \.self) { markStyle in
+              markCard(markStyle)
+            }
+          }
+          .padding(.vertical, 10)
+          .transition(Motion.reveal(reduceMotion))
+        }
       }
+      .animation(Motion.expand(reduceMotion), value: model.preferences.colorLowOut)
     }
+  }
+
+  private func markCard(_ style: DisplayPreferences.MarkStyle) -> some View {
+    var preferences = model.preferences
+    preferences.markStyle = style
+    let selected = style == model.preferences.markStyle
+    return Button {
+      withAnimation(Motion.expand(reduceMotion)) { model.preferences.markStyle = style }
+    } label: {
+      VStack(spacing: 8) {
+        MarkStylePreview(status: .markSample(preferences: preferences))
+          .accessibilityHidden(true)
+        Text(style.label).font(HR.popoverFont(12, .medium)).foregroundStyle(HR.ink)
+      }
+      .padding(.horizontal, 6).padding(.vertical, 10)
+      .frame(maxWidth: .infinity)
+      .background(HR.muted, in: RoundedRectangle(cornerRadius: 8))
+      .overlay {
+        RoundedRectangle(cornerRadius: 8).strokeBorder(selected ? HR.ink : HR.border, lineWidth: 1)
+      }
+      .contentShape(RoundedRectangle(cornerRadius: 8))
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel("\(style.label) mark style")
+    .accessibilityAddTraits(selected ? [.isSelected] : [])
   }
 
   /// One menu bar slot: the account, its look in the Accounts style, and a grip to drag it into
@@ -1019,6 +1048,26 @@ private struct SettingsWindowChrome: NSViewRepresentable {
     static func container(of window: NSWindow) -> NSView? {
       window.standardWindowButton(.closeButton)?.superview?.superview
     }
+  }
+}
+
+/// Fit all sample accounts inside a mark card, including the last, low account.
+private struct MarkStylePreview: View {
+  let status: MenuStatus
+  @State private var width: CGFloat = 0
+
+  var body: some View {
+    GeometryReader { geometry in
+      Color.clear.overlay {
+        MenuItemLabel(status: status).fixedSize()
+          .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+          } action: {
+            width = $0
+          }
+          .scaleEffect(min(1, geometry.size.width / max(1, width)))
+      }
+    }.frame(height: 24)
   }
 }
 

@@ -27,6 +27,18 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
     }
   }
 
+  public enum MarkStyle: String, Codable, CaseIterable, Sendable {
+    case dot, chip, stripe, inverted
+    public var label: String {
+      switch self {
+      case .dot: "Dot"
+      case .chip: "Chip"
+      case .stripe: "Stripe"
+      case .inverted: "Inverted"
+      }
+    }
+  }
+
   /// One account in the menu bar item, with the look it takes in the Accounts style.
   public struct MenuSlot: Codable, Equatable, Sendable {
     public enum Look: String, Codable, CaseIterable, Sendable { case percent, ring, bars }
@@ -52,8 +64,9 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
   }
   /// Each Accounts slot starts with its provider's mark.
   public var providerLogos = true
-  /// Yellow when an account runs low, red when it is out; off keeps the menu bar's color.
+  /// Mark accounts that run low or out; off keeps only problem and unread dots in ink.
   public var colorLowOut = true
+  public var markStyle: MarkStyle = .dot
   /// Live logo adds the figure of the slot with least room beside the glyph.
   public var liveRoom = false
   /// How often this Mac reads its sources while the popover is closed, in seconds. While it is
@@ -93,6 +106,9 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
       try values.decodeIfPresent(Bool.self, forKey: .providerLogos) ?? defaults.providerLogos
     colorLowOut =
       try values.decodeIfPresent(Bool.self, forKey: .colorLowOut) ?? defaults.colorLowOut
+    markStyle =
+      try values.decodeIfPresent(String.self, forKey: .markStyle).flatMap(MarkStyle.init(rawValue:))
+      ?? .dot
     liveRoom = try values.decodeIfPresent(Bool.self, forKey: .liveRoom) ?? defaults.liveRoom
     limitsView =
       try values.decodeIfPresent(LimitsView.self, forKey: .limitsView) ?? defaults.limitsView
