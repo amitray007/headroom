@@ -62,7 +62,8 @@ struct MenuItemLabel: View {
         }
       }
     default:
-      if status.markStyle == .dot || !status.colors {
+      // Without a mark, the glyph keeps the dot in its corner in every style.
+      if status.mark == nil {
         logoContent
       } else {
         withDot {
@@ -109,7 +110,7 @@ struct MenuItemLabel: View {
   private var glyph: some View {
     HeadroomGlyph().frame(width: 23, height: 23)
       .overlay(alignment: .bottomTrailing) {
-        if let dot = status.dot, status.markStyle == .dot || !status.colors {
+        if let dot = status.dot, status.mark == nil {
           // A ringed dot keeps the plain dot's center.
           let shift = -2 + MenuDot.overhang(status)
           MenuDot(tone: dot, colors: status.colors).offset(x: shift, y: shift)

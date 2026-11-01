@@ -143,7 +143,10 @@ struct SettingsView: View {
               .toggleStyle(WebSwitchStyle())
           }
         }
-        SettingsRow(title: "Mark low and out") {
+        SettingsRow(
+          title: "Mark low and out",
+          note: "Meters also show it: a short fill, or a dashed outline when out."
+        ) {
           Toggle("Mark low and out", isOn: $model.preferences.colorLowOut)
             .toggleStyle(WebSwitchStyle())
         }
