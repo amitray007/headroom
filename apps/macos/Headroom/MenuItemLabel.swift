@@ -74,11 +74,15 @@ struct MenuItemLabel: View {
   private var glyph: some View {
     HeadroomGlyph().frame(width: 23, height: 23)
       .overlay(alignment: .bottomTrailing) {
-        if let dot = status.dot { MenuDot(tone: dot, colors: status.colors).offset(x: -2, y: -2) }
+        if let dot = status.dot {
+          // A ringed dot keeps the plain dot's center.
+          let shift = -2 + MenuDot.overhang(status)
+          MenuDot(tone: dot, colors: status.colors).offset(x: shift, y: shift)
+        }
       }
       // The glyph's 64 pt grid leaves 12 pt of air left of the bars; the dot ends 2 pt from the
-      // right edge. Trim both so the item is as wide as what it draws.
-      .padding(.leading, -4).padding(.trailing, -2)
+      // right edge, or 1 pt with its ring. Trim both so the item is as wide as what it draws.
+      .padding(.leading, -4).padding(.trailing, -2 + MenuDot.overhang(status))
   }
 
   /// Meters fill their whole icon, so the dot sits after them.
@@ -99,11 +103,20 @@ struct MenuDot: View {
   let colors: Bool
   var body: some View {
     if colors, let fill = MenuColor.fill(tone) {
-      Circle().fill(fill).frame(width: 5, height: 5)
-        .overlay { Circle().stroke(.primary, lineWidth: 1).frame(width: 6, height: 6) }
+      // The ring sits inside the frame: the menu bar image ends at the frame, so a stroke
+      // past it was cut off.
+      Circle().fill(.primary).frame(width: Self.ringed, height: Self.ringed)
+        .overlay { Circle().fill(fill).padding(1) }
     } else {
       Circle().fill(.primary).frame(width: 5, height: 5)
     }
+  }
+
+  /// A colored dot with its ring; a plain dot is 5 pt.
+  static let ringed: CGFloat = 7
+  /// How far a ringed dot reaches past a plain one on each side.
+  static func overhang(_ status: MenuStatus) -> CGFloat {
+    status.colors && status.dot.flatMap(MenuColor.fill) != nil ? (ringed - 5) / 2 : 0
   }
 }
 
