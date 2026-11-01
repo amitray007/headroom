@@ -269,3 +269,8 @@ func everyNoticeKindHasAnIndependentSwitch(_ kind: NoticeKind) async throws {
   try await store.ingest(sourceID: id, notices: [], now: Date())
   #expect(await store.pendingReads(sourceID: id).isEmpty)
 }
+
+@Test func bannerSubtitleNamesTheAccountAndSourceOrTheSourceAlone() {
+  #expect(BannerTone.subtitle(account: "Codex Work", source: "Home server") == "Codex Work · Home server")
+  #expect(BannerTone.subtitle(account: nil, source: "Home server") == "Home server")
+}

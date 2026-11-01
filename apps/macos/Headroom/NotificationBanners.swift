@@ -45,10 +45,9 @@ final class NotificationBanners: NSObject, UNUserNotificationCenterDelegate {
       }
       let content = UNMutableNotificationContent()
       content.title = item.notice.title
-      content.body = item.notice.message
-      content.subtitle =
-        item.notice.accountID == nil
-        ? item.source.source.name : "\(item.notice.accountLabel) · \(item.source.source.name)"
+      content.subtitle = BannerTone.subtitle(
+        account: item.notice.accountID == nil ? nil : item.notice.accountLabel,
+        source: item.source.source.name)
       content.threadIdentifier = BannerTone.thread(
         sourceID: item.source.id, accountID: item.notice.accountID)
       // Keep display-only content in Notification Center so an older banner can still open
@@ -58,13 +57,7 @@ final class NotificationBanners: NSObject, UNUserNotificationCenterDelegate {
         "sourceID": item.source.id.uuidString, "noticeID": item.notice.id,
         "notice": savedNotice,
       ]
-      switch BannerTone.level(
-        item.notice.tone, timeSensitiveAllowed: settings.timeSensitiveSetting == .enabled)
-      {
-      case .timeSensitive: content.interruptionLevel = .timeSensitive
-      case .active: content.interruptionLevel = .active
-      case .passive: content.interruptionLevel = .passive
-      }
+      content.interruptionLevel = Self.level(item.notice.tone, settings: settings)
       do {
         // Persist before submission: a crash cannot submit the same id twice. If the OS rejects
         // this request, the unread notice is still available in Headroom's list.
@@ -75,6 +68,47 @@ final class NotificationBanners: NSObject, UNUserNotificationCenterDelegate {
           UNNotificationRequest(identifier: item.id, content: content, trigger: nil))
       } catch { continue }
     }
+  }
+
+  private static func level(_ tone: NoticeTone, settings: UNNotificationSettings)
+    -> UNNotificationInterruptionLevel
+  {
+    switch BannerTone.level(tone, timeSensitiveAllowed: settings.timeSensitiveSetting == .enabled) {
+    case .timeSensitive: .timeSensitive
+    case .active: .active
+    case .passive: .passive
+    }
+  }
+
+  /// What macOS currently allows Headroom to show.
+  func authorization() async -> UNAuthorizationStatus {
+    await center.notificationSettings().authorizationStatus
+  }
+
+  enum TestResult: Equatable { case sent, denied, failed }
+
+  /// Posts a made-up banner from Settings. It asks for permission the first time, uses the
+  /// sample's tone like a real banner and stores nothing, so a click on it opens nothing.
+  func sendTest(title: String, subtitle: String, tone: NoticeTone) async -> TestResult {
+    var settings = await center.notificationSettings()
+    if settings.authorizationStatus == .notDetermined {
+      guard (try? await center.requestAuthorization(options: [.alert, .badge, .sound])) == true
+      else { return .denied }
+      settings = await center.notificationSettings()
+    }
+    guard
+      settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+    else { return .denied }
+    let content = UNMutableNotificationContent()
+    content.title = title
+    content.subtitle = subtitle
+    content.threadIdentifier = "test"
+    content.interruptionLevel = Self.level(tone, settings: settings)
+    do {
+      try await center.add(
+        UNNotificationRequest(identifier: "test-\(UUID())", content: content, trigger: nil))
+      return .sent
+    } catch { return .failed }
   }
 
   nonisolated func userNotificationCenter(

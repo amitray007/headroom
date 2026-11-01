@@ -77,6 +77,11 @@ public enum BannerTone {
     case .info: .passive
     }
   }
+  /// A banner names who it is about and stops there: the title says what happened, the
+  /// subtitle the account and source. The message stays in Headroom's Notices list.
+  public static func subtitle(account: String?, source: String) -> String {
+    account.map { "\($0) · \(source)" } ?? source
+  }
   public static func thread(sourceID: UUID, accountID: String?) -> String {
     "\(sourceID.uuidString)/\(accountID ?? "source")"
   }
