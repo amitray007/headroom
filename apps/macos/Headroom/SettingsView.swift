@@ -37,6 +37,7 @@ struct SettingsView: View {
           case .notifications: notifications
           case .sources: sources
           case .general: general
+          case .about: about
           }
         }
         // The pane title sits in the traffic lights' row, 24 pt from the top.
@@ -413,6 +414,7 @@ struct SettingsView: View {
               sourceRow(snapshot, index: index)
             }
           }
+          refreshing
           if !hasThisMac { thisMac }
         }
       }
@@ -420,6 +422,32 @@ struct SettingsView: View {
     .task {
       await model.checkLocal()
       await model.checkRefreshAccess()
+    }
+  }
+
+  /// How often the servers refresh their accounts, and how often this Mac reads them.
+  private var refreshing: some View {
+    SettingsSection("Refreshing") {
+      SettingsRow(title: "Refresh every", note: refreshNote) {
+        WebSelect(value: refreshValue) {
+          ForEach(RefreshInterval.options, id: \.self) { minutes in
+            Button("\(minutes) min") { Task { await model.setRefresh(minutes: minutes) } }
+          }
+        }
+        .disabled(refreshWritable.isEmpty || model.settingRefresh)
+        .opacity(refreshWritable.isEmpty ? 0.5 : 1)
+      }
+      .help(
+        "To change a read-only source, create a token with Can Change Refresh Every in its dashboard, Settings, Devices."
+      )
+      SettingsRow(title: "Check every", note: "How often this Mac reads your servers.") {
+        WebSelect(value: Self.checkLabel(model.preferences.checkSeconds)) {
+          ForEach(DisplayPreferences.checkOptions, id: \.self) { seconds in
+            Button(Self.checkLabel(seconds)) { model.preferences.checkSeconds = seconds }
+          }
+        }
+      }
+      .help("While the menu is open, it reads every 30 seconds, or sooner when this is shorter.")
     }
   }
 
@@ -625,11 +653,11 @@ struct SettingsView: View {
   /// One sentence on where this copy stands, then when that was learned.
   private var updateNote: String {
     let updates = model.updates
-    let running = "Headroom \(updates.running)"
+    let running = "Version \(updates.running)"
     if updates.checking { return "Checking for a newer version…" }
     let status =
       if let found = updates.available {
-        "Headroom \(found.version) is available. You have \(updates.running)."
+        "Version \(found.version) is available. You have \(updates.running)."
       } else if updates.lastCheckFailed {
         "\(running). Could not reach GitHub."
       } else if updates.result == .upToDate {
@@ -662,38 +690,6 @@ struct SettingsView: View {
               }
             }
         }
-        SettingsRow(title: "Refresh every", note: refreshNote) {
-          WebSelect(value: refreshValue) {
-            ForEach(RefreshInterval.options, id: \.self) { minutes in
-              Button("\(minutes) min") { Task { await model.setRefresh(minutes: minutes) } }
-            }
-          }
-          .disabled(refreshWritable.isEmpty || model.settingRefresh)
-          .opacity(refreshWritable.isEmpty ? 0.5 : 1)
-        }
-        .help(
-          "To change a read-only source, create a token with Can Change Refresh Every in its dashboard, Settings, Devices."
-        )
-        .task { await model.checkRefreshAccess() }
-        SettingsRow(title: "Check every", note: "How often this Mac reads your servers.") {
-          WebSelect(value: Self.checkLabel(model.preferences.checkSeconds)) {
-            ForEach(DisplayPreferences.checkOptions, id: \.self) { seconds in
-              Button(Self.checkLabel(seconds)) { model.preferences.checkSeconds = seconds }
-            }
-          }
-        }
-        .help("While the menu is open, it reads every 30 seconds, or sooner when this is shorter.")
-        SettingsRow(title: "Updates", note: updateNote) {
-          Button("Check now") { Task { await model.updates.check() } }
-            .buttonStyle(WebButtonStyle(small: true)).disabled(model.updates.checking)
-        }
-        SettingsRow(
-          title: "Check automatically",
-          note: "At launch and every 6 hours. Nothing installs until you press Update."
-        ) {
-          Toggle("Check automatically", isOn: $model.preferences.checkForUpdates)
-            .toggleStyle(WebSwitchStyle())
-        }
         SettingsRow(
           title: "Show limits as", note: "Room left, or the share used, as on the web."
         ) {
@@ -720,6 +716,40 @@ struct SettingsView: View {
             "Show made-up accounts, figures and notifications, for screenshots and screen sharing. Your sources keep reading in the background."
         ) {
           Toggle("Demo Mode", isOn: $model.preferences.demo).toggleStyle(WebSwitchStyle())
+        }
+      }
+    }
+  }
+
+  // MARK: About
+
+  private static let releasesURL = URL(
+    string: "https://github.com/amitray007/headroom/releases?q=macos-v&expanded=true")!
+  private static let repositoryURL = URL(string: "https://github.com/amitray007/headroom")!
+
+  private var about: some View {
+    SettingsSections {
+      SettingsSection("Updates") {
+        SettingsRow(title: "Headroom for Mac", note: updateNote) {
+          Button("Check now") { Task { await model.updates.check() } }
+            .buttonStyle(WebButtonStyle(small: true)).disabled(model.updates.checking)
+        }
+        SettingsRow(
+          title: "Check automatically",
+          note: "At launch and every 6 hours. Nothing installs until you press Update."
+        ) {
+          Toggle("Check automatically", isOn: $model.preferences.checkForUpdates)
+            .toggleStyle(WebSwitchStyle())
+        }
+      }
+      SettingsSection("Links") {
+        SettingsRow(title: "What's new", note: "Release notes for each Mac version.") {
+          Button("Open") { NSWorkspace.shared.open(Self.releasesURL) }
+            .buttonStyle(WebButtonStyle(small: true))
+        }
+        SettingsRow(title: "Source code", note: "github.com/amitray007/headroom") {
+          Button("Open") { NSWorkspace.shared.open(Self.repositoryURL) }
+            .buttonStyle(WebButtonStyle(small: true))
         }
       }
     }

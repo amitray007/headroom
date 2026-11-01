@@ -31,6 +31,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
   case menuBar = "Menu Bar"
   case accounts = "Accounts"
   case notifications = "Notifications"
+  case about = "About"
   var id: String { rawValue }
 }
 
