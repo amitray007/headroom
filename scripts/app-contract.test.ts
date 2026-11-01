@@ -16,6 +16,20 @@ describe("Mac OpenAPI contract", () => {
     for (const status of ["304", "400", "401", "405", "429"]) expect(text).toContain(`"${status}"`);
     expect(text).toContain('"scheme": "bearer"');
     expect(text).toContain('"additionalProperties": false');
+    const feed = JSON.parse(text).components.schemas.AppFeed;
+    const account = feed.properties.accounts.items;
+    expect(account.properties.lastSuccessAt).toMatchObject({
+      type: ["integer", "null"],
+      minimum: 0,
+    });
+    expect(account.properties.limits.items.properties.percentLeft).toEqual({
+      type: ["number", "null"],
+      minimum: 0,
+      maximum: 100,
+    });
+    expect(account.properties.reconnectReason.enum).toContain(null);
+    expect(account.properties.banked.type).toEqual(["object", "null"]);
+    expect(text).not.toContain('"anyOf"');
   });
 
   test("check detects a missing or stale file without writing; write repairs it", async () => {
