@@ -43,19 +43,18 @@ enum BannerSample: String, CaseIterable, Identifiable {
   }
   func subtitle(source: String) -> String { BannerTone.subtitle(account: account, source: source) }
 
-  /// How macOS treats this tone, in the words of its own Notifications settings.
+  /// How macOS treats this tone, in two or three words.
   var behavior: String {
     switch tone {
-    case .bad:
-      "Time Sensitive: shows through Focus when Headroom may break through it, otherwise a normal banner."
-    case .warn: "A normal banner with sound. Focus holds it back."
-    case .info: "Passive: goes to Notification Center quietly, often without a banner."
+    case .bad: "Urgent"
+    case .warn: "Warning"
+    case .info: "Quiet, no sound"
     }
   }
 }
 
-/// The Notifications pane's first section: a banner preview, what macOS allows, and a button
-/// that sends the preview as a real banner.
+/// The top of the Notifications pane: whether macOS lets Headroom notify, then a banner
+/// preview with a test button.
 struct NotificationTestSection: View {
   @Bindable var model: AppModel
   @State private var sample = BannerSample.almostOut
@@ -66,30 +65,31 @@ struct NotificationTestSection: View {
   private var source: String { model.sources.first?.source.name ?? "Home server" }
 
   var body: some View {
-    SettingsSection("Preview") {
-      BannerPreview(
-        title: sample.title(source: source), subtitle: sample.subtitle(source: source),
-        timeSensitive: sample.tone == .bad && permission?.timeSensitive == true
-      ).padding(.vertical, 10)
-      SettingsRow(title: "Sample", note: sample.behavior) {
-        WebSelect(value: sample.label) {
-          ForEach(BannerSample.allCases) { option in
-            Button(option.label) {
-              sample = option
-              result = nil
+    VStack(alignment: .leading, spacing: 0) {
+      if let permission {
+        PermissionCard(permission: permission, enable: enable)
+          .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 4)
+      }
+      SettingsSection("Preview") {
+        BannerPreview(
+          title: sample.title(source: source), subtitle: sample.subtitle(source: source),
+          timeSensitive: sample.tone == .bad && permission?.timeSensitive == true
+        ).padding(.vertical, 10)
+        SettingsRow(title: "Sample", note: sample.behavior) {
+          WebSelect(value: sample.label) {
+            ForEach(BannerSample.allCases) { option in
+              Button(option.label) {
+                sample = option
+                result = nil
+              }
             }
           }
         }
-      }
-      SettingsRow(title: "Permission", note: permissionNote) {
-        if needsSystemSettings {
-          Button("Open System Settings", action: openSystemSettings)
+        SettingsRow(title: "Send a test", note: sendNote) {
+          Button(sending ? "Sending" : "Send test", action: send)
             .buttonStyle(WebButtonStyle(small: true))
+            .disabled(sending || permission?.canShow == false)
         }
-      }
-      SettingsRow(title: "Send a test banner", note: sendNote) {
-        Button(sending ? "Sending" : "Send test", action: send)
-          .buttonStyle(WebButtonStyle(small: true)).disabled(sending)
       }
     }
     .task { await refresh() }
@@ -99,42 +99,24 @@ struct NotificationTestSection: View {
     }
   }
 
-  private var needsSystemSettings: Bool {
-    guard let permission else { return false }
-    return permission.status == .denied || permission.status == .provisional
-      || (permission.status == .authorized && permission.style == .none)
-  }
-
-  private var permissionNote: String {
-    guard let permission else { return "Checking." }
-    switch permission.status {
-    case .notDetermined:
-      return "Not asked yet. Send test asks first."
-    case .denied:
-      return "Off. Turn on Allow notifications for Headroom in System Settings, Notifications."
-    case .provisional:
-      return "Quiet: notices go to Notification Center without a banner until you allow banners."
-    default:
-      if permission.style == .none {
-        return "Allowed, but the banner style is None, so notices go to Notification Center only. Choose Temporary or Persistent in System Settings."
-      }
-      return permission.timeSensitive
-        ? "Allowed as banners. Time Sensitive is on."
-        : "Allowed as banners. Time Sensitive is off, so urgent notices are normal banners."
-    }
-  }
-
   private var sendNote: String {
     switch result {
-    case .sent:
-      "Sent. No banner? A Focus such as Do Not Disturb holds it back; look in Notification Center."
-    case .failed: "macOS did not accept the test. Try again."
-    case .denied: "Notifications are off for Headroom, so nothing was sent."
-    case nil: "Sends the sample as a real banner. The switches below do not apply to it."
+    case .sent: "Sent"
+    case .failed: "macOS did not accept it. Try again."
+    case .denied: "Notifications are off"
+    case nil: ""
     }
   }
 
   private func refresh() async { permission = await model.banners.permission() }
+
+  /// Asks macOS once; after a refusal only System Settings can turn notifications on.
+  private func enable() {
+    Task {
+      _ = await model.banners.requestPermission()
+      await refresh()
+    }
+  }
 
   private func send() {
     sending = true
@@ -146,8 +128,90 @@ struct NotificationTestSection: View {
       sending = false
     }
   }
+}
 
-  private func openSystemSettings() {
+extension NotificationBanners.Permission {
+  /// Banners can appear: allowed, and a style other than None.
+  var canShow: Bool? {
+    switch status {
+    case .notDetermined: nil
+    case .authorized: style != .none
+    default: false
+    }
+  }
+}
+
+/// One line of state with the action that fixes it: Enable before macOS has asked, System
+/// Settings after a refusal or with banners turned off, Manage when all is well.
+private struct PermissionCard: View {
+  let permission: NotificationBanners.Permission
+  let enable: () -> Void
+
+  private enum Phase { case ask, off, quiet, on }
+  private var state: Phase {
+    switch permission.status {
+    case .notDetermined: .ask
+    case .denied: .off
+    case .provisional: .quiet
+    default: permission.style == .none ? .quiet : .on
+    }
+  }
+
+  var body: some View {
+    HStack(spacing: 12) {
+      Image(systemName: symbol).font(.system(size: 14, weight: .medium))
+        .foregroundStyle(state == .on ? HR.ink : HR.warning)
+        .frame(width: 32, height: 32)
+        .background(HR.muted, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(title).font(HR.popoverFont(14, .medium)).foregroundStyle(HR.ink)
+        Text(detail).font(HR.popoverFont(12)).foregroundStyle(HR.textMuted)
+      }
+      Spacer(minLength: 16)
+      switch state {
+      case .ask:
+        Button("Enable", action: enable).buttonStyle(WebButtonStyle(kind: .primary, small: true))
+      case .off, .quiet:
+        Button("Open System Settings", action: Self.openSystemSettings)
+          .buttonStyle(WebButtonStyle(small: true))
+      case .on:
+        Button("Manage", action: Self.openSystemSettings)
+          .buttonStyle(WebButtonStyle(kind: .quiet, small: true))
+      }
+    }
+    .padding(12)
+    .background(HR.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(HR.border))
+    .accessibilityElement(children: .contain)
+  }
+
+  private var symbol: String {
+    switch state {
+    case .ask: "bell"
+    case .off: "bell.slash"
+    case .quiet: "bell.badge"
+    case .on: "checkmark"
+    }
+  }
+  private var title: String {
+    switch state {
+    case .ask: "Notifications are not on"
+    case .off: "Notifications are off"
+    case .quiet: "Banners are off"
+    case .on: "Notifications are on"
+    }
+  }
+  private var detail: String {
+    switch state {
+    case .ask: "macOS asks once."
+    case .off: "Turn them on for Headroom in System Settings."
+    case .quiet: "Notices go to Notification Center only."
+    case .on: permission.timeSensitive ? "Banners, Time Sensitive" : "Banners"
+    }
+  }
+
+  static func openSystemSettings() {
     let id = Bundle.main.bundleIdentifier ?? "club.theblank.headroom.mac"
     if let url = URL(
       string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)")

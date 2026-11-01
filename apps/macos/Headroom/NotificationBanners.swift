@@ -96,6 +96,16 @@ final class NotificationBanners: NSObject, UNUserNotificationCenterDelegate {
       timeSensitive: settings.timeSensitiveSetting == .enabled)
   }
 
+  /// Shows the system prompt the first time; later calls return the stored answer.
+  func requestPermission() async -> Bool {
+    do {
+      return try await center.requestAuthorization(options: [.alert, .badge, .sound])
+    } catch {
+      log.error("permission request failed: \(error.localizedDescription, privacy: .public)")
+      return false
+    }
+  }
+
   enum TestResult: Equatable { case sent, denied, failed }
 
   /// Posts a made-up banner from Settings. It asks for permission the first time, uses the
