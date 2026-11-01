@@ -1,0 +1,1008 @@
+{
+  "apiVersion": 1,
+  "serverVersion": "synthetic",
+  "generatedAt": 1793286000000,
+  "refreshIntervalMs": 900000,
+  "staleAfterMs": 1800000,
+  "dashboardUrl": "https://headroom.example.invalid",
+  "providerOrder": [
+    "claude",
+    "codex",
+    "cursor",
+    "copilot",
+    "antigravity",
+    "grok",
+    "vercel_ai_gateway"
+  ],
+  "accounts": [
+    {
+      "id": "claude-side",
+      "provider": "claude",
+      "name": "Side",
+      "plan": "Pro",
+      "identity": null,
+      "state": "ready",
+      "reconnectReason": null,
+      "interface": "private",
+      "lastSuccessAt": 1793285580000,
+      "observedAt": 1793285580000,
+      "limits": [
+        {
+          "key": "five_hour",
+          "label": "Session",
+          "window": "5 h",
+          "windowKind": "session",
+          "percentLeft": 28,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793289900000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        },
+        {
+          "key": "seven_day",
+          "label": "Weekly",
+          "window": "7 days",
+          "windowKind": "weekly",
+          "percentLeft": 9,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793696400000,
+          "resetWords": "resets",
+          "runsOutAt": 1793360400000,
+          "part": false,
+          "interface": "private"
+        }
+      ],
+      "charges": [],
+      "banked": null
+    },
+    {
+      "id": "claude-max",
+      "provider": "claude",
+      "name": "Personal",
+      "plan": "Max 5x",
+      "identity": null,
+      "state": "ready",
+      "reconnectReason": null,
+      "interface": "private",
+      "lastSuccessAt": 1793285580000,
+      "observedAt": 1793285580000,
+      "limits": [
+        {
+          "key": "five_hour",
+          "label": "Session",
+          "window": "5 h",
+          "windowKind": "session",
+          "percentLeft": 93,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793293800000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        },
+        {
+          "key": "seven_day",
+          "label": "Weekly",
+          "window": "7 days",
+          "windowKind": "weekly",
+          "percentLeft": 62,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793426400000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        },
+        {
+          "key": "seven_day_sonnet",
+          "label": "Sonnet",
+          "window": "7 days",
+          "windowKind": "weekly",
+          "percentLeft": 86,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793426400000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        }
+      ],
+      "charges": [
+        {
+          "key": "extra_usage",
+          "label": "Extra usage",
+          "kind": "spend",
+          "value": 8.2,
+          "unit": "USD",
+          "cap": {
+            "value": 20,
+            "unit": "USD"
+          },
+          "window": "this month",
+          "unlimited": false,
+          "availability": "available",
+          "interface": "private"
+        }
+      ],
+      "banked": {
+        "count": 1,
+        "unit": "reset grant",
+        "expiries": [1793923200000],
+        "interface": "private"
+      }
+    },
+    {
+      "id": "codex-work",
+      "provider": "codex",
+      "name": "Work",
+      "plan": "Pro",
+      "identity": null,
+      "state": "ready",
+      "reconnectReason": null,
+      "interface": "private",
+      "lastSuccessAt": 1793285520000,
+      "observedAt": 1793285520000,
+      "limits": [
+        {
+          "key": "rate_limit.primary_window",
+          "label": "Weekly",
+          "window": "7 days",
+          "windowKind": "weekly",
+          "percentLeft": 82,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793624400000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        }
+      ],
+      "charges": [
+        {
+          "key": "credits.balance",
+          "label": "Credits",
+          "kind": "balance",
+          "value": 579.74,
+          "unit": "credits",
+          "cap": null,
+          "window": null,
+          "unlimited": false,
+          "availability": "available",
+          "interface": "private"
+        }
+      ],
+      "banked": {
+        "count": 2,
+        "unit": "full reset",
+        "expiries": [1793430000000, 1793862000000],
+        "interface": "private"
+      }
+    },
+    {
+      "id": "codex-personal",
+      "provider": "codex",
+      "name": "Personal",
+      "plan": "Plus",
+      "identity": null,
+      "state": "ready",
+      "reconnectReason": null,
+      "interface": "private",
+      "lastSuccessAt": 1793285520000,
+      "observedAt": 1793285520000,
+      "limits": [
+        {
+          "key": "rate_limit.primary_window",
+          "label": "Session",
+          "window": "5 h",
+          "windowKind": "session",
+          "percentLeft": 0,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793299080000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        },
+        {
+          "key": "rate_limit.secondary_window",
+          "label": "Weekly",
+          "window": "7 days",
+          "windowKind": "weekly",
+          "percentLeft": 73,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793757600000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        }
+      ],
+      "charges": [
+        {
+          "key": "credits.balance",
+          "label": "Credits",
+          "kind": "balance",
+          "value": 363.95,
+          "unit": "credits",
+          "cap": null,
+          "window": null,
+          "unlimited": false,
+          "availability": "available",
+          "interface": "private"
+        }
+      ],
+      "banked": {
+        "count": 0,
+        "unit": "full reset",
+        "expiries": [],
+        "interface": "private"
+      }
+    },
+    {
+      "id": "cursor",
+      "provider": "cursor",
+      "name": "Personal",
+      "plan": "Pro",
+      "identity": null,
+      "state": "ready",
+      "reconnectReason": null,
+      "interface": "private",
+      "lastSuccessAt": 1793285460000,
+      "observedAt": 1793285460000,
+      "limits": [
+        {
+          "key": "included.total_percent",
+          "label": "Included",
+          "window": "billing cycle",
+          "windowKind": "cycle",
+          "percentLeft": 52,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1795651200000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        },
+        {
+          "key": "included.auto_percent",
+          "label": "Auto",
+          "window": "billing cycle",
+          "windowKind": "cycle",
+          "percentLeft": 59,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1795651200000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": true,
+          "interface": "private"
+        },
+        {
+          "key": "included.api_percent",
+          "label": "API",
+          "window": "billing cycle",
+          "windowKind": "cycle",
+          "percentLeft": 37,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1795651200000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": true,
+          "interface": "private"
+        }
+      ],
+      "charges": [
+        {
+          "key": "on_demand",
+          "label": "On-demand",
+          "kind": "spend",
+          "value": 12.4,
+          "unit": "USD",
+          "cap": {
+            "value": 50,
+            "unit": "USD"
+          },
+          "window": "this cycle",
+          "unlimited": false,
+          "availability": "available",
+          "interface": "private"
+        }
+      ],
+      "banked": null
+    },
+    {
+      "id": "copilot",
+      "provider": "copilot",
+      "name": "Personal",
+      "plan": "Pro",
+      "identity": null,
+      "state": "ready",
+      "reconnectReason": null,
+      "interface": "private",
+      "lastSuccessAt": 1793285460000,
+      "observedAt": 1793285460000,
+      "limits": [
+        {
+          "key": "credits.used_percent",
+          "label": "AI credits",
+          "window": "month",
+          "windowKind": "cycle",
+          "percentLeft": 96,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793491200000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        }
+      ],
+      "charges": [
+        {
+          "key": "credits.used_count",
+          "label": "Credits used",
+          "kind": "count",
+          "value": 12,
+          "unit": "credits",
+          "cap": null,
+          "window": null,
+          "unlimited": false,
+          "availability": "available",
+          "interface": "private"
+        },
+        {
+          "key": "chat.used",
+          "label": "Chat",
+          "kind": "count",
+          "value": null,
+          "unit": "requests",
+          "cap": null,
+          "window": null,
+          "unlimited": true,
+          "availability": "available",
+          "interface": "private"
+        }
+      ],
+      "banked": null
+    },
+    {
+      "id": "antigravity",
+      "provider": "antigravity",
+      "name": "Personal",
+      "plan": "Google AI Pro",
+      "identity": null,
+      "state": "ready",
+      "reconnectReason": null,
+      "interface": "private",
+      "lastSuccessAt": 1793285400000,
+      "observedAt": 1793285400000,
+      "limits": [
+        {
+          "key": "quota.gemini-5h",
+          "label": "Gemini",
+          "window": "5 h",
+          "windowKind": "session",
+          "percentLeft": 79,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793293320000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        },
+        {
+          "key": "quota.gemini-weekly",
+          "label": "Gemini wk",
+          "window": "7 days",
+          "windowKind": "weekly",
+          "percentLeft": 65,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793613600000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        },
+        {
+          "key": "quota.3p-5h",
+          "label": "Others",
+          "window": "5 h",
+          "windowKind": "session",
+          "percentLeft": null,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": null,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        },
+        {
+          "key": "quota.3p-weekly",
+          "label": "Others wk",
+          "window": "7 days",
+          "windowKind": "weekly",
+          "percentLeft": 88,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793613600000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        }
+      ],
+      "charges": [
+        {
+          "key": "credits",
+          "label": "Credits",
+          "kind": "balance",
+          "value": null,
+          "unit": "credits",
+          "cap": null,
+          "window": null,
+          "unlimited": false,
+          "availability": "unknown",
+          "interface": "private"
+        }
+      ],
+      "banked": null
+    },
+    {
+      "id": "grok",
+      "provider": "grok",
+      "name": "Personal",
+      "plan": "SuperGrok",
+      "identity": null,
+      "state": "reconnect_required",
+      "reconnectReason": "refresh_rejected",
+      "interface": "private",
+      "lastSuccessAt": 1793102400000,
+      "observedAt": 1793102400000,
+      "limits": [
+        {
+          "key": "weekly_pool.used_percent",
+          "label": "Weekly pool",
+          "window": "7 days",
+          "windowKind": "weekly",
+          "percentLeft": 36,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793386800000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        }
+      ],
+      "charges": [
+        {
+          "key": "on_demand.used",
+          "label": "On-demand",
+          "kind": "spend",
+          "value": 0,
+          "unit": "credits",
+          "cap": {
+            "value": 50,
+            "unit": "credits"
+          },
+          "window": "this week",
+          "unlimited": false,
+          "availability": "available",
+          "interface": "private"
+        },
+        {
+          "key": "prepaid_balance",
+          "label": "Prepaid",
+          "kind": "balance",
+          "value": 8,
+          "unit": "credits",
+          "cap": null,
+          "window": null,
+          "unlimited": false,
+          "availability": "available",
+          "interface": "private"
+        }
+      ],
+      "banked": null
+    },
+    {
+      "id": "vercel",
+      "provider": "vercel_ai_gateway",
+      "name": "Side projects",
+      "plan": "Hobby",
+      "identity": null,
+      "state": "partial",
+      "reconnectReason": null,
+      "interface": "official",
+      "lastSuccessAt": 1793285280000,
+      "observedAt": 1793285280000,
+      "limits": [],
+      "charges": [
+        {
+          "key": "credits.balance",
+          "label": "Credits",
+          "kind": "balance",
+          "value": 18.42,
+          "unit": "USD",
+          "cap": null,
+          "window": null,
+          "unlimited": false,
+          "availability": "available",
+          "interface": "official"
+        },
+        {
+          "key": "credits.total_used",
+          "label": "Used",
+          "kind": "count",
+          "value": 31.58,
+          "unit": "USD",
+          "cap": null,
+          "window": "all time",
+          "unlimited": false,
+          "availability": "available",
+          "interface": "official"
+        },
+        {
+          "key": "spend.30d",
+          "label": "Spend",
+          "kind": "spend",
+          "value": null,
+          "unit": "USD",
+          "cap": null,
+          "window": "30 days",
+          "unlimited": false,
+          "availability": "not_authorized",
+          "interface": "official"
+        }
+      ],
+      "banked": null
+    }
+  ],
+  "summary": {
+    "monthlyPlanTotal": null,
+    "extraSpend": [],
+    "nextLimitBack": null
+  },
+  "notices": [
+    {
+      "schemaVersion": 1,
+      "id": "n1",
+      "kind": "disconnected",
+      "tone": "bad",
+      "occurredAt": 1793102400000,
+      "observedAt": 1793102400000,
+      "provider": "grok",
+      "connection": {
+        "id": "grok",
+        "name": "Personal",
+        "plan": "SuperGrok"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Grok Personal stopped signing in",
+      "message": "The refresh token was rejected. Readings stopped Tue 12:00. Sign in again in the web dashboard.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n2",
+      "kind": "almost_out",
+      "tone": "bad",
+      "occurredAt": 1793284800000,
+      "observedAt": 1793284800000,
+      "provider": "claude",
+      "connection": {
+        "id": "claude-side",
+        "name": "Side",
+        "plan": "Pro"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Claude Side is almost out",
+      "message": "Weekly has 9% left. Resets Tue 09:00.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n3",
+      "kind": "pacing",
+      "tone": "warn",
+      "occurredAt": 1793278800000,
+      "observedAt": 1793278800000,
+      "provider": "claude",
+      "connection": {
+        "id": "claude-side",
+        "name": "Side",
+        "plan": "Pro"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Claude Side runs out early",
+      "message": "Weekly runs out Fri 11:40 if the pace holds, 3 days 21 h before its reset.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n4",
+      "kind": "running_low",
+      "tone": "warn",
+      "occurredAt": 1793275200000,
+      "observedAt": 1793275200000,
+      "provider": "codex",
+      "connection": {
+        "id": "codex-personal",
+        "name": "Personal",
+        "plan": "Plus"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Codex Personal is running low",
+      "message": "Session had 20% left. It ran out at 14:20 and is back 18:38.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n5",
+      "kind": "reset_expiring",
+      "tone": "info",
+      "occurredAt": 1793268000000,
+      "observedAt": 1793268000000,
+      "provider": "codex",
+      "connection": {
+        "id": "codex-work",
+        "name": "Work",
+        "plan": "Pro"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "A banked Codex reset expires soon",
+      "message": "Codex Work has 2 full resets. The first expires Sat 07:00.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n6",
+      "kind": "spend_near_cap",
+      "tone": "warn",
+      "occurredAt": 1793264400000,
+      "observedAt": 1793264400000,
+      "provider": "cursor",
+      "connection": {
+        "id": "cursor",
+        "name": "Personal",
+        "plan": "Pro"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Cursor on-demand spend is near its cap",
+      "message": "12.40 of 50.00 USD this cycle.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n7",
+      "kind": "extra_usage_started",
+      "tone": "info",
+      "occurredAt": 1793199600000,
+      "observedAt": 1793199600000,
+      "provider": "claude",
+      "connection": {
+        "id": "claude-max",
+        "name": "Personal",
+        "plan": "Max 5x"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Claude Personal started extra usage",
+      "message": "8.20 USD of 20.00 USD this month.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n8",
+      "kind": "refresh_failed",
+      "tone": "warn",
+      "occurredAt": 1793192400000,
+      "observedAt": 1793192400000,
+      "provider": "vercel_ai_gateway",
+      "connection": {
+        "id": "vercel",
+        "name": "Side projects",
+        "plan": "Hobby"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Vercel AI Gateway refresh failed twice",
+      "message": "Showing the reading from 12 min before. Headroom keeps trying.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n9",
+      "kind": "balance_low",
+      "tone": "warn",
+      "occurredAt": 1793181600000,
+      "observedAt": 1793181600000,
+      "provider": "vercel_ai_gateway",
+      "connection": {
+        "id": "vercel",
+        "name": "Side projects",
+        "plan": "Hobby"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Vercel AI Gateway balance is low",
+      "message": "18.42 USD left of 50.00 USD.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n10",
+      "kind": "early_reset",
+      "tone": "info",
+      "occurredAt": 1793113200000,
+      "observedAt": 1793113200000,
+      "provider": "claude",
+      "connection": {
+        "id": "claude-max",
+        "name": "Personal",
+        "plan": "Max 5x"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Claude Personal reset early",
+      "message": "Session went back to 100% left before its reset time.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n11",
+      "kind": "reset_granted",
+      "tone": "info",
+      "occurredAt": 1793098800000,
+      "observedAt": 1793098800000,
+      "provider": "claude",
+      "connection": {
+        "id": "claude-max",
+        "name": "Personal",
+        "plan": "Max 5x"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Claude granted a reset",
+      "message": "Claude Personal now has 1 reset grant.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n12",
+      "kind": "top_up_detected",
+      "tone": "info",
+      "occurredAt": 1793026800000,
+      "observedAt": 1793026800000,
+      "provider": "vercel_ai_gateway",
+      "connection": {
+        "id": "vercel",
+        "name": "Side projects",
+        "plan": "Hobby"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Vercel AI Gateway was topped up",
+      "message": "Balance went up by 20.00 USD.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n13",
+      "kind": "credits_expiring",
+      "tone": "warn",
+      "occurredAt": 1793019600000,
+      "observedAt": 1793019600000,
+      "provider": "claude",
+      "connection": {
+        "id": "claude-max",
+        "name": "Personal",
+        "plan": "Max 5x"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Claude usage credits expire soon",
+      "message": "5.00 USD of credits expire Mon 2 Nov.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n14",
+      "kind": "budget_near",
+      "tone": "warn",
+      "occurredAt": 1792940400000,
+      "observedAt": 1792940400000,
+      "provider": "cursor",
+      "connection": {
+        "id": "cursor",
+        "name": "Personal",
+        "plan": "Pro"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Cursor is near your budget",
+      "message": "12.40 of your 15.00 USD budget this cycle.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n15",
+      "kind": "budget_exceeded",
+      "tone": "bad",
+      "occurredAt": 1792929600000,
+      "observedAt": 1792929600000,
+      "provider": "claude",
+      "connection": {
+        "id": "claude-max",
+        "name": "Personal",
+        "plan": "Max 5x"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Claude Personal is over your budget",
+      "message": "8.20 USD spent; your budget is 8.00 USD this month.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n16",
+      "kind": "spend_cap_reached",
+      "tone": "bad",
+      "occurredAt": 1792854000000,
+      "observedAt": 1792854000000,
+      "provider": "grok",
+      "connection": {
+        "id": "grok",
+        "name": "Personal",
+        "plan": "SuperGrok"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Grok on-demand spend hit its cap",
+      "message": "50 of 50 credits last week.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "n17",
+      "kind": "auto_reset",
+      "tone": "info",
+      "occurredAt": 1792767600000,
+      "observedAt": 1792767600000,
+      "provider": "codex",
+      "connection": {
+        "id": "codex-work",
+        "name": "Work",
+        "plan": "Pro"
+      },
+      "subject": {
+        "metricKey": null,
+        "label": null,
+        "window": null
+      },
+      "figures": {},
+      "title": "Auto-reset used a banked reset",
+      "message": "Codex Work went back to 100% left. The server rule ran it.",
+      "links": {
+        "dashboard": "https://headroom.example.invalid"
+      }
+    }
+  ]
+}
