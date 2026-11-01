@@ -259,3 +259,116 @@ private actor HeldReader: FeedReading {
   try await cache.remove(sourceID: source.id)
   #expect(try await cache.load(sourceID: source.id) == nil)
 }
+
+@Test(.timeLimit(.minutes(1))) func checkEverySetsTheBackgroundIntervalAndCapsTheOpenOne()
+  async throws
+{
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let source = try source()
+  let feed = try fixture()
+  let clock = ManualClock()
+  let reader = QueuedReader(Array(repeating: .updated(feed, etag: "synthetic"), count: 10))
+  let poller = try await makePoller(
+    directory: directory, sources: [source], reader: reader, clock: clock)
+  // Set before start: no loop starts early, and the first wait uses the new interval.
+  await poller.setBackgroundInterval(seconds: 300)
+  #expect(await reader.calls == 0)
+  await poller.start()
+  #expect(await clock.nextSleep() == .seconds(300))
+  // A change while running starts the wait over on the new interval, never under 30 seconds.
+  await poller.setBackgroundInterval(seconds: 5)
+  #expect(await clock.nextSleep() == .seconds(30))
+  await poller.setBackgroundInterval(seconds: 600)
+  #expect(await clock.nextSleep() == .seconds(600))
+  // While the popover is open the app reads every 30 seconds, or sooner when Check every is.
+  await clock.advance(31)
+  await poller.setPopoverOpen(true)
+  #expect(await clock.nextSleep() == .seconds(30))
+  await poller.stop()
+}
+
+private actor MarkingReader: FeedReading {
+  var feed: AppFeed
+  var accept: Bool
+  var marks: [([String], Bool)] = []
+  init(feed: AppFeed, accept: Bool) {
+    self.feed = feed
+    self.accept = accept
+  }
+  func read(source: Source, token: String, etag: String?) -> FeedRead {
+    .updated(feed, etag: nil)
+  }
+  func markRead(source: Source, token: String, ids: [String], read: Bool) -> Bool {
+    marks.append((ids, read))
+    if accept {
+      for index in feed.notices.indices where ids.contains(feed.notices[index].id) {
+        feed.notices[index].read = read
+      }
+    }
+    return accept
+  }
+  func setAccept(_ value: Bool) { accept = value }
+}
+
+@Test func readMarksReachTheServerAfterAReadAndStayQueuedOnFailure() async throws {
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let source = try source()
+  let feed = try fixture()
+  let notice = try #require(feed.notices.first)
+  let reader = MarkingReader(feed: feed, accept: false)
+  let poller = try await makePoller(directory: directory, sources: [source], reader: reader)
+  await poller.refresh()
+  #expect(await reader.marks.isEmpty)
+  let notices = try NoticeStore(directory: directory)
+  try await notices.setRead(true, id: notice.id, sourceID: source.id)
+  // The poller keeps its own store; a fresh poller reads the saved queue.
+  let next = try await makePoller(directory: directory, sources: [source], reader: reader)
+  await next.syncReads()
+  #expect(await reader.marks.map(\.0) == [[notice.id]])
+  let kept = try NoticeStore(directory: directory)
+  #expect(await kept.pendingReads(sourceID: source.id) == [notice.id: true])
+  #expect(await kept.records(sourceID: source.id)[notice.id]?.read == true)
+  await reader.setAccept(true)
+  await next.syncReads()
+  let saved = try NoticeStore(directory: directory)
+  #expect(await saved.pendingReads(sourceID: source.id).isEmpty)
+  #expect(await saved.records(sourceID: source.id)[notice.id]?.read == true)
+  // The next feed carries the server's flag, so the mark holds without the queue.
+  await next.refresh()
+  #expect(await saved.records(sourceID: source.id)[notice.id]?.read == true)
+}
+
+@Test func newWidgetSettingsRewriteTheCacheWithoutAPoll() async throws {
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let reader = QueuedReader([])
+  let poller = try await makePoller(directory: directory, sources: [try source()], reader: reader)
+  let cache = WidgetCacheReader(
+    location: WidgetCacheLocation(url: directory.appending(path: "widget-cache.json")))
+  #expect(try cache.read() == nil)
+  let settings = WidgetPreferences(used: true, accountIDs: ["synthetic"])
+  await poller.setWidgetSettings(settings)
+  #expect(try cache.read()?.settings == settings)
+  #expect(await reader.validators.isEmpty)
+}
+
+@Test func demoSourcesReplaceTheWidgetReadingsUntilCleared() async throws {
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let poller = try await makePoller(
+    directory: directory, sources: [try source()], reader: QueuedReader([]))
+  let cache = WidgetCacheReader(
+    location: WidgetCacheLocation(url: directory.appending(path: "widget-cache.json")))
+  let feed = try fixture()
+  let demo = try Source(
+    id: UUID(), name: "Demo", baseURL: URL(string: "https://demo.example.invalid")!)
+  let snapshot = SourceSnapshot(
+    source: demo, state: .connected, cached: CachedFeed(feed: feed, etag: nil, readAt: Date()))
+  await poller.setWidgetSources([snapshot])
+  #expect(try cache.read()?.sources.map(\.name) == ["Demo"])
+  #expect(try cache.read()?.rows.count == feed.accounts.count)
+  await poller.setWidgetSources(nil)
+  #expect(try cache.read()?.sources.map(\.name) != ["Demo"])
+}

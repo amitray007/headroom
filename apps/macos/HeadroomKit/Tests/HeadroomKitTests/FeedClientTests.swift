@@ -118,12 +118,47 @@ func networkErrorsAreOffline(_ error: URLError.Code) async throws {
   }
 }
 
-@Test func invalidJSONIsOfflineAndFutureAPIVersionNeedsUpdate() async throws {
+@Test func invalidJSONIsOfflineAndAnOlderOrFutureFeedNeedsUpdate() async throws {
   let client = FeedClient(protocolClasses: [StubProtocol.self])
-  let malformed = try StubProtocol.register(Stub(body: Data("{}".utf8)))
+  let malformed = try StubProtocol.register(Stub(body: Data("not json".utf8)))
   guard case .failed(.offline) = await client.read(source: malformed, token: "synthetic", etag: nil)
   else {
     Issue.record("Expected decode failure")
+    return
+  }
+  // A server from before read sync sends notices without the read flag.
+  var older =
+    try JSONSerialization.jsonObject(with: JSONEncoder().encode(fixture()))
+    as? [String: Any] ?? [:]
+  older["notices"] = (older["notices"] as? [[String: Any]])?.map {
+    $0.filter { $0.key != "read" }
+  }
+  let old = try StubProtocol.register(
+    Stub(body: JSONSerialization.data(withJSONObject: older)))
+  guard case .failed(.needsUpdate) = await client.read(source: old, token: "synthetic", etag: nil)
+  else {
+    Issue.record("Expected an older feed to need an update")
+    return
+  }
+  // A newer server: an added field is ignored, a provider this build does not know is not.
+  var newer =
+    try JSONSerialization.jsonObject(with: JSONEncoder().encode(fixture()))
+    as? [String: Any] ?? [:]
+  newer["addedLater"] = ["synthetic": true]
+  let added = try StubProtocol.register(Stub(body: JSONSerialization.data(withJSONObject: newer)))
+  guard case .updated = await client.read(source: added, token: "synthetic", etag: nil) else {
+    Issue.record("Expected an unknown field to be ignored")
+    return
+  }
+  var accounts = newer["accounts"] as? [[String: Any]] ?? []
+  accounts[0]["provider"] = "synthetic_provider"
+  newer["accounts"] = accounts
+  let unknown = try StubProtocol.register(
+    Stub(body: JSONSerialization.data(withJSONObject: newer)))
+  guard
+    case .failed(.needsUpdate) = await client.read(source: unknown, token: "synthetic", etag: nil)
+  else {
+    Issue.record("Expected an unknown provider to need an update")
     return
   }
   var future = try fixture()
@@ -223,4 +258,83 @@ func verificationRejectsFailures(_ status: Int, _ expected: SourceSetupError) as
   #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
   StubProtocol.state.withLock { $0.stubs["127.0.0.1"] = Stub(status: 404) }
   #expect(await client.thisMacAvailable() == false)
+}
+
+@Test func refreshAccessFollowsTheTokenScopes() async throws {
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  func whoami(_ scopes: String?) throws -> Source {
+    let field = scopes.map { #","scopes":\#($0)"# } ?? ""
+    return try StubProtocol.register(
+      Stub(
+        body: Data(
+          #"{"apiVersion":1,"serverVersion":"0.1.16","tokenName":"Mac"\#(field)}"#.utf8)))
+  }
+  #expect(
+    await client.refreshAccess(source: try whoami(#"["read","refresh"]"#), token: "t") == .allowed)
+  #expect(await client.refreshAccess(source: try whoami(#"["read"]"#), token: "t") == .readOnly)
+  // A server from before the refresh scope sends no scopes; its tokens only read.
+  #expect(await client.refreshAccess(source: try whoami(nil), token: "t") == .readOnly)
+  let offline = try StubProtocol.register(Stub(error: .notConnectedToInternet))
+  #expect(await client.refreshAccess(source: offline, token: "t") == .unknown)
+  let revoked = try StubProtocol.register(Stub(status: 401))
+  #expect(await client.refreshAccess(source: revoked, token: "t") == .unknown)
+}
+
+@Test func setRefreshSendsOnePutWithTheIntervalAndBearer() async throws {
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  let source = try StubProtocol.register(
+    Stub(body: Data(#"{"refreshIntervalMinutes":2}"#.utf8)))
+  #expect(await client.setRefresh(source: source, token: "synthetic", minutes: 2))
+  let request = try #require(StubProtocol.requests(for: source).first)
+  #expect(request.httpMethod == "PUT")
+  #expect(request.url?.path == "/api/app/v1/settings/refresh")
+  #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic")
+  let body = try #require(request.httpBody ?? request.httpBodyStream.map(Data.init(reading:)))
+  #expect(String(decoding: body, as: UTF8.self) == #"{"refreshIntervalMinutes":2}"#)
+
+  // An interval the server does not offer never leaves the Mac; a refusal reports failure.
+  let unused = try StubProtocol.register(Stub())
+  #expect(!(await client.setRefresh(source: unused, token: "synthetic", minutes: 7)))
+  #expect(StubProtocol.requests(for: unused).isEmpty)
+  let readOnly = try StubProtocol.register(Stub(status: 403))
+  #expect(!(await client.setRefresh(source: readOnly, token: "synthetic", minutes: 5)))
+}
+
+@Test func readMarksGoAsPutsOfAtMostFiveHundredIds() async throws {
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  let source = try StubProtocol.register(Stub(body: Data(#"{"ids":["a"],"read":true}"#.utf8)))
+  let ids = (0..<501).map { "notice-\($0)" }
+  #expect(await client.markRead(source: source, token: "synthetic", ids: ids, read: true))
+  let requests = StubProtocol.requests(for: source)
+  #expect(requests.count == 2)
+  let request = try #require(requests.first)
+  #expect(request.httpMethod == "PUT")
+  #expect(request.url?.path == "/api/app/v1/notices/read")
+  #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic")
+  struct Body: Decodable {
+    let ids: [String]
+    let read: Bool
+  }
+  let bodies = try requests.map {
+    try JSONDecoder().decode(
+      Body.self, from: try #require($0.httpBody ?? $0.httpBodyStream.map(Data.init(reading:))))
+  }
+  #expect(bodies.map(\.ids.count) == [500, 1])
+  #expect(bodies.allSatisfy { $0.read })
+  let refused = try StubProtocol.register(Stub(status: 401))
+  #expect(!(await client.markRead(source: refused, token: "synthetic", ids: ["a"], read: false)))
+}
+
+extension Data {
+  fileprivate init(reading stream: InputStream) {
+    self.init()
+    stream.open()
+    defer { stream.close() }
+    var buffer = [UInt8](repeating: 0, count: 1024)
+    while stream.hasBytesAvailable {
+      let count = stream.read(&buffer, maxLength: buffer.count)
+      guard count > 0 else { break }
+      append(buffer, count: count)
+    }
+  }
 }

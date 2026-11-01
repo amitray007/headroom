@@ -88,6 +88,23 @@ func refusedSources(_ value: String) {
   }
 }
 
+@Test func aCacheFromAnOlderBuildIsDroppedNotReported() async throws {
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let id = UUID()
+  let cache = FeedCache(directory: directory)
+  try await cache.save(CachedFeed(feed: fixture(), etag: "old", readAt: Date()), sourceID: id)
+  // Before read sync, cached notices had no read flag.
+  let file = directory.appending(path: "feed-\(id.uuidString).json")
+  var json = try #require(
+    JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+  var feed = try #require(json["feed"] as? [String: Any])
+  feed["notices"] = (feed["notices"] as? [[String: Any]])?.map { $0.filter { $0.key != "read" } }
+  json["feed"] = feed
+  try JSONSerialization.data(withJSONObject: json).write(to: file)
+  #expect(try await cache.load(sourceID: id) == nil)
+}
+
 @Test func generatedFixturesKeepUnknownSeparateFromZero() throws {
   let feed = try fixture()
   #expect(feed.accounts.contains { $0.limits.contains { $0.percentLeft == nil } })
@@ -115,5 +132,7 @@ func refusedSources(_ value: String) {
   ] {
     #expect(throws: SourceError.insecureURL) { try Source.validate(URL(string: refused)!) }
   }
-  #expect(throws: Never.self) { try Source.validate(URL(string: "https://headroom.example.ts.net")!) }
+  #expect(throws: Never.self) {
+    try Source.validate(URL(string: "https://headroom.example.ts.net")!)
+  }
 }

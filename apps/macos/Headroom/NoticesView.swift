@@ -1,34 +1,44 @@
 import HeadroomKit
 import SwiftUI
 
+/// The web app's notification centre at popover size: a status header, All and Unread, then
+/// rows grouped by day. Clicking a row marks it read; clicking it again marks it unread.
 struct NoticesView: View {
   @Bindable var model: AppModel
+  /// Fill the height the popover gives, the account page's, instead of sizing to the list.
+  var fill = false
   var back: () -> Void
   @State private var unreadOnly = false
-  @State private var expanded: Set<String> = []
+  /// Rows read while Unread is shown stay put until the filter changes, so a click never
+  /// pulls a row out from under the pointer.
+  @State private var kept: Set<String> = []
+  @State private var listHeight: CGFloat = 0
   @FocusState private var focused: String?
+  @Namespace private var filter
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+  private var all: [NoticeItem] { model.popoverNotices }
+  private var unread: Int { all.filter { !$0.read }.count }
   private var items: [NoticeItem] {
-    model.notices.filter { !unreadOnly || !$0.read || expanded.contains($0.id) }
+    all.filter { !unreadOnly || !$0.read || kept.contains($0.id) }
+  }
+  /// One pass over the list: each notice's day is worked out once.
+  private var days: [(day: NoticeDay, items: [NoticeItem])] {
+    var byDay: [NoticeDay: [NoticeItem]] = [:]
+    for item in items {
+      byDay[NoticeDay(item.notice.occurredAt, now: model.now), default: []].append(item)
+    }
+    return NoticeDay.allCases.compactMap { day in byDay[day].map { (day, $0) } }
   }
 
   var body: some View {
     VStack(spacing: 0) {
-      HStack {
-        Text("Notices").font(HR.popoverFont(16, .medium)).accessibilityAddTraits(.isHeader)
-        Spacer()
-        if model.noticePhase == .ready && !items.isEmpty {
-          Text("\(model.unread) unread").font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
-            .accessibilityLabel("\(model.unread) unread notices")
-        }
-        Button("Close", action: back).buttonStyle(.plain).font(HR.popoverFont(12))
-          .padding(.leading, 8).accessibilityLabel("Back to Home")
-      }.padding(.horizontal, 16).frame(height: 52)
+      header
       if model.noticePhase == .loading {
         skeletons
       } else if model.noticePhase == .failed {
         PopoverState(
-          art: "source-offline", title: "Notices could not load",
+          art: "source-offline", title: "Notifications could not load",
           message: "Account readings are still available."
         ) {
           Button("Try again") {
@@ -36,171 +46,310 @@ struct NoticesView: View {
               await model.readSources()
               await model.loadNotices()
             }
-          }.buttonStyle(.plain)
-        }
-      } else if model.notices.isEmpty {
-        PopoverState(
-          art: "no-notices", title: "All clear",
-          message: "No new notices. Your accounts are in Home."
-        ) {
-          Button("View accounts", action: back).buttonStyle(.plain)
-        }
+          }.buttonStyle(PopoverActionStyle())
+        }.frame(maxHeight: fill ? .infinity : nil)
       } else {
-        toolbar
-        ScrollViewReader { proxy in
-          ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-              if items.isEmpty {
-                PopoverState(
-                  art: "no-notices", title: "All caught up", message: "No unread notices."
-                ) { EmptyView() }
-              }
-              ForEach(items) { item in noticeRow(item).id(item.id) }
-            }.padding(.horizontal, 16)
-          }.frame(height: items.isEmpty ? 330 : 588)
-            .onChange(of: model.bannerNoticeID) { _, id in
-              if let id { proxy.scrollTo(id, anchor: .top) }
-            }
-            .onChange(of: focused) { _, id in
-              if let id { proxy.scrollTo(id) }
-            }
+        filters
+        Rectangle().fill(HR.borderSubtle).frame(height: 1)
+        if items.isEmpty {
+          empty
+        } else {
+          list
         }
       }
     }
+    .frame(maxHeight: fill ? .infinity : nil, alignment: .top)
     .onAppear {
-      if model.synthetic && model.captureState == "notice-expanded", let first = model.notices.first
-      {
-        expand(first)
+      if model.synthetic && model.captureState == "notice-expanded", let first = all.first {
+        toggle(first)
       }
       selectBanner()
     }
     .onChange(of: model.bannerNoticeID) { _, _ in selectBanner() }
+    .onChange(of: unreadOnly) { _, _ in kept.removeAll() }
     .onKeyPress(.escape) {
-      if let id = focused, expanded.contains(id) {
-        expanded.remove(id)
-      } else {
-        back()
-      }
+      back()
       return .handled
     }
   }
 
-  private var toolbar: some View {
-    HStack(spacing: 4) {
-      Button("All") { unreadOnly = false }.buttonStyle(NoticeFilterStyle(selected: !unreadOnly))
-        .accessibilityAddTraits(!unreadOnly ? .isSelected : [])
-      Button("Unread") { unreadOnly = true }.buttonStyle(NoticeFilterStyle(selected: unreadOnly))
-        .focused($focused, equals: "unread-filter").accessibilityAddTraits(
-          unreadOnly ? .isSelected : [])
-      Spacer()
-      Button("Mark all as read") {
-        Task {
-          await model.markAllRead()
-          if unreadOnly { expanded.removeAll() }
-        }
+  private var header: some View {
+    HStack(spacing: 10) {
+      Button(action: back) {
+        Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold))
+          .foregroundStyle(HR.secondary).frame(width: 28, height: 28)
+          .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(HR.border))
+          .contentShape(Rectangle())
+      }.buttonStyle(.plain).help("Back to accounts").accessibilityLabel("Back to accounts")
+      VStack(alignment: .leading, spacing: 1) {
+        Text("Notifications").font(HR.popoverFont(16, .medium)).accessibilityAddTraits(.isHeader)
+        Text(status).font(HR.popoverFont(12)).foregroundStyle(HR.secondary)
+          .contentTransition(.numericText()).animation(Motion.data, value: unread)
       }
-      .buttonStyle(.plain).underline().disabled(model.unread == 0)
-    }.font(HR.popoverFont(11)).padding(.horizontal, 16).padding(.bottom, 12)
-      .overlay(alignment: .bottom) { Rectangle().fill(HR.border).frame(height: 1) }
+      Spacer()
+      if model.noticePhase == .ready && !all.isEmpty {
+        Button("Mark all read") {
+          Task {
+            await model.markAllRead()
+            if unreadOnly { kept.removeAll() }
+          }
+        }.buttonStyle(NoticePillStyle()).disabled(unread == 0)
+      }
+    }.padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
   }
 
-  private func expand(_ item: NoticeItem) {
-    expanded.insert(item.id)
-    Task { await model.setRead(true, item: item) }
+  private var status: String {
+    switch model.noticePhase {
+    case .loading: "Reading notifications"
+    case .failed: "Not available right now"
+    case .ready:
+      unread == 0
+        ? "You are all caught up"
+        : "\(unread) \(unread == 1 ? "update" : "updates") waiting for you"
+    }
+  }
+
+  private var filters: some View {
+    HStack(spacing: 0) {
+      filterButton("All", count: all.count, selected: !unreadOnly) { unreadOnly = false }
+      filterButton("Unread", count: unread, selected: unreadOnly) { unreadOnly = true }
+        .focused($focused, equals: "unread-filter")
+    }.padding(2).background(HR.muted, in: RoundedRectangle(cornerRadius: 8))
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.horizontal, 16).padding(.bottom, 12)
+  }
+
+  private func filterButton(
+    _ title: String, count: Int, selected: Bool, action: @escaping () -> Void
+  ) -> some View {
+    Button {
+      withAnimation(Motion.expand(reduceMotion)) { action() }
+    } label: {
+      HStack(spacing: 6) {
+        Text(title).font(HR.popoverFont(12, selected ? .medium : .regular))
+          .foregroundStyle(selected ? HR.ink : HR.secondary)
+        Text("\(count)").font(HR.popoverFont(11)).foregroundStyle(HR.textMuted)
+          .contentTransition(.numericText()).animation(Motion.data, value: count)
+      }.padding(.horizontal, 12).frame(height: 24)
+        .background {
+          if selected {
+            RoundedRectangle(cornerRadius: 6).fill(HR.surface)
+              .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(HR.border))
+              .shadow(color: .black.opacity(0.18), radius: 1, y: 1)
+              .matchedGeometryEffect(id: "filter", in: filter)
+          }
+        }
+        .contentShape(Rectangle())
+    }.buttonStyle(.plain).accessibilityLabel("\(title), \(count)")
+      .accessibilityAddTraits(selected ? .isSelected : [])
+  }
+
+  private var list: some View {
+    ScrollViewReader { proxy in
+      ScrollView {
+        LazyVStack(alignment: .leading, spacing: 2, pinnedViews: [.sectionHeaders]) {
+          ForEach(days, id: \.day) { group in
+            Section {
+              ForEach(group.items) { item in
+                NoticeRow(item: item, now: model.now) { toggle(item) }.equatable()
+                  .focused($focused, equals: item.id).id(item.id)
+              }
+            } header: {
+              Text(group.day.rawValue).font(HR.popoverFont(11, .medium))
+                .foregroundStyle(HR.textMuted).padding(.horizontal, 8).padding(.top, 12)
+                .padding(.bottom, 6).frame(maxWidth: .infinity, alignment: .leading)
+                .background(HR.surface).accessibilityAddTraits(.isHeader)
+            }
+          }
+        }.padding(.horizontal, 8).padding(.bottom, 8)
+          .onGeometryChange(for: CGFloat.self) {
+            $0.size.height
+          } action: {
+            listHeight = $0
+          }
+      }.frame(height: fill ? nil : min(max(listHeight, 120), 588))
+        .frame(maxHeight: fill ? .infinity : nil)
+        .onChange(of: model.bannerNoticeID) { _, id in
+          if let id { proxy.scrollTo(id, anchor: .top) }
+        }
+        .onChange(of: focused) { _, id in
+          if let id { proxy.scrollTo(id) }
+        }
+    }
+  }
+
+  /// No notices at all, or none unread under the Unread filter. Centered in the space the
+  /// page has.
+  private var empty: some View {
+    let caughtUp = unreadOnly && !all.isEmpty
+    return PopoverState(
+      art: caughtUp ? "all-clear" : "no-notices", title: caughtUp ? "All caught up" : "Nothing new",
+      message: caughtUp
+        ? "Every notification is read." : "Limits, resets and sign-in problems show up here."
+    ) { EmptyView() }
+    .frame(maxHeight: fill ? .infinity : nil)
+  }
+
+  private func toggle(_ item: NoticeItem) {
+    if unreadOnly { kept.insert(item.id) }
+    Task { await model.setRead(!item.read, item: item) }
   }
   private func selectBanner() {
-    guard let id = model.bannerNoticeID, let item = model.notices.first(where: { $0.id == id })
+    guard let id = model.bannerNoticeID, let item = all.first(where: { $0.id == id })
     else { return }
     unreadOnly = false
-    expand(item)
+    if !item.read { toggle(item) }
     focused = id
     model.bannerNoticeID = nil
   }
 
-  private func noticeRow(_ item: NoticeItem) -> some View {
-    let open = expanded.contains(item.id)
-    return VStack(alignment: .leading, spacing: 0) {
-      Button {
-        if open { expanded.remove(item.id) } else { expand(item) }
-      } label: {
-        HStack(alignment: .top, spacing: 8) {
-          Circle().fill(item.read ? .clear : HR.ink).frame(width: 5, height: 5).padding(.top, 5)
-            .frame(width: 7)
-          VStack(alignment: .leading, spacing: 2) {
-            Text(item.notice.title).font(HR.popoverFont(12, item.read ? .regular : .medium))
-              .foregroundStyle(item.read ? HR.secondary : HR.ink)
-              .lineSpacing(2).fixedSize(horizontal: false, vertical: true)
-            Text(
-              "\(item.notice.accountLabel) · \(Formatting.age(item.notice.occurredAt, now: model.now))"
-            )
-            .font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
-          }.frame(maxWidth: .infinity, alignment: .leading)
-          Image(systemName: open ? "chevron.down" : "chevron.right")
-            .font(.system(size: 9)).foregroundStyle(HR.secondary).frame(width: 10).padding(.top, 4)
-        }.padding(.vertical, 6).contentShape(Rectangle())
-      }.buttonStyle(.plain).focused($focused, equals: item.id)
-        .accessibilityLabel(
-          "\(item.read ? "Read" : "Unread"). \(item.notice.title). \(item.notice.accountLabel). \(Formatting.age(item.notice.occurredAt, now: model.now))"
-        )
-        .accessibilityValue(open ? "Expanded" : "Collapsed")
-      if open {
-        Text(item.notice.message).font(HR.popoverFont(12)).lineSpacing(5)
-          .fixedSize(horizontal: false, vertical: true).padding(.leading, 15).padding(.top, 4)
-          .padding(.bottom, 8)
-        HStack {
-          Button("Mark unread") {
-            Task {
-              await model.setRead(false, item: item)
-              expanded.remove(item.id)
-              focused = item.id
-            }
-          }.accessibilityLabel("Mark \(item.notice.title) as unread")
-          Spacer()
-          Button("Open dashboard") {
-            model.openDashboard(item.source.source, accountID: item.notice.accountID)
-          }
-        }.font(HR.popoverFont(11)).buttonStyle(.plain).underline().foregroundStyle(HR.secondary)
-          .padding(.leading, 15).frame(minHeight: 24)
-      }
-    }
-    .padding(.horizontal, open ? 8 : 0).padding(.top, open ? 4 : 0).padding(.bottom, open ? 8 : 0)
-    .background(open ? HR.muted : HR.surface, in: RoundedRectangle(cornerRadius: 5))
-    .padding(.vertical, 8)
-    .overlay(alignment: .bottom) { Rectangle().fill(HR.border).frame(height: 1) }
-  }
-
   private var skeletons: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      Text("Reading notices…").font(HR.popoverFont(11)).foregroundStyle(HR.secondary).frame(
-        height: 16
-      ).padding(
-        .bottom, 12)
-      ForEach(0..<7, id: \.self) { _ in
-        HStack {
-          GeometryReader { geometry in
-            VStack(alignment: .leading, spacing: 7) {
-              Rectangle().fill(HR.muted).frame(width: geometry.size.width * 0.6, height: 10)
-              Rectangle().fill(HR.muted).frame(width: geometry.size.width * 0.35, height: 10)
-            }
-          }.frame(height: 27)
-          Spacer(minLength: 16)
-          Rectangle().fill(HR.muted).frame(width: 14, height: 14)
-        }.frame(height: 49)
-        Divider().overlay(HR.border)
+    VStack(alignment: .leading, spacing: 2) {
+      ForEach(0..<6, id: \.self) { _ in
+        HStack(alignment: .top, spacing: 12) {
+          RoundedRectangle(cornerRadius: 9).fill(HR.muted).frame(width: 32, height: 32)
+          VStack(alignment: .leading, spacing: 7) {
+            Rectangle().fill(HR.muted).frame(width: 260, height: 10)
+            Rectangle().fill(HR.muted).frame(width: 180, height: 10)
+          }.padding(.top, 4)
+          Spacer()
+        }.padding(10)
       }
-    }.padding(.horizontal, 16).accessibilityElement(children: .ignore).accessibilityLabel(
-      "Reading notices")
+    }.padding(.horizontal, 8).padding(.vertical, 8)
+      .overlay(alignment: .top) { Rectangle().fill(HR.borderSubtle).frame(height: 1) }
+      .accessibilityElement(children: .ignore).accessibilityLabel("Reading notifications")
   }
 }
 
-private struct NoticeFilterStyle: ButtonStyle {
-  let selected: Bool
-  func makeBody(configuration: Configuration) -> some View {
-    configuration.label.padding(.horizontal, 8).padding(.vertical, 6)
+/// Equatable on what it shows, so marking one notice read redraws that row only.
+private struct NoticeRow: View, Equatable {
+  nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.item.shows(like: rhs.item) && lhs.now == rhs.now
+  }
+
+  let item: NoticeItem
+  let now: Date
+  let toggle: () -> Void
+  @State private var hovered = false
+  private var notice: NativeNotice { item.notice }
+  private var unread: Bool { !item.read }
+
+  var body: some View {
+    Button(action: toggle) {
+      HStack(alignment: .top, spacing: 12) {
+        tile
+        VStack(alignment: .leading, spacing: 3) {
+          // The weight changes at once. An animated weight change redraws the text on the CPU
+          // on every frame, about 150 ms per click.
+          Text(notice.title).font(HR.popoverFont(13, unread ? .medium : .regular))
+            .foregroundStyle(unread ? HR.ink : HR.secondary).lineLimit(1)
+            .animation(nil, value: unread)
+          Text(notice.message).font(HR.popoverFont(12)).foregroundStyle(HR.secondary)
+            .lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+          HStack(spacing: 6) {
+            if let provider = notice.provider {
+              ProviderMark(provider: provider).frame(width: 12, height: 12)
+            }
+            Text(notice.accountLabel).font(HR.popoverFont(11)).foregroundStyle(HR.textMuted)
+          }.lineLimit(1).padding(.top, 1)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .trailing, spacing: 6) {
+          Text(Formatting.elapsed(notice.occurredAt, now: now)).font(HR.popoverFont(11))
+            .foregroundStyle(HR.textMuted).fixedSize()
+          readMark
+        }.padding(.top, 2)
+      }.padding(10)
+    }
+    .buttonStyle(NoticeRowStyle(unread: unread, hovered: hovered))
+    .onHover { hovered = $0 }
+    .pointerStyle(.link)
+    .help(unread ? "Mark as read" : "Mark as unread")
+    .accessibilityLabel(
+      "\(unread ? "Unread" : "Read"). \(notice.title). \(notice.message) \(notice.accountLabel). \(Formatting.age(notice.occurredAt, now: now))"
+    )
+    .accessibilityHint(unread ? "Marks as read" : "Marks as unread")
+  }
+
+  /// The unread dot; under the pointer it previews what a click does: a check to mark read, a
+  /// ring to mark unread.
+  private var readMark: some View {
+    ZStack {
+      if hovered {
+        Image(systemName: unread ? "checkmark.circle.fill" : "circle")
+          .font(.system(size: 13, weight: .medium))
+          .foregroundStyle(unread ? HR.ink : HR.textMuted)
+          .transition(.scale(scale: 0.6).combined(with: .opacity))
+      } else if unread {
+        Circle().fill(HR.ink).frame(width: 7, height: 7)
+          .transition(.scale(scale: 0.4).combined(with: .opacity))
+      }
+    }.frame(width: 14, height: 14).animation(Motion.hover, value: hovered)
+      .animation(Motion.hover, value: unread).accessibilityHidden(true)
+  }
+
+  private var tile: some View {
+    let color: Color =
+      switch notice.tone {
+      case .bad: HR.popoverDanger
+      case .warn: HR.popoverWarning
+      case .info: HR.secondary
+      }
+    let quiet = !unread
+    return Image(systemName: symbol).font(.system(size: 13, weight: .medium))
+      .foregroundStyle(quiet ? HR.textMuted : color).frame(width: 32, height: 32)
       .background(
-        selected || configuration.isPressed ? HR.muted : .clear,
-        in: RoundedRectangle(cornerRadius: 6)
+        quiet || notice.tone == .info ? HR.muted : color.opacity(0.16),
+        in: RoundedRectangle(cornerRadius: 9)
+      ).accessibilityHidden(true)
+  }
+
+  private var symbol: String {
+    switch notice.kind {
+    case .disconnected: "exclamationmark.triangle"
+    case .refresh_failed: "arrow.triangle.2.circlepath"
+    case .almost_out, .running_low, .pacing: "gauge.with.dots.needle.33percent"
+    case .reset_expiring, .credits_expiring: "hourglass"
+    case .reset_granted, .early_reset, .auto_reset: "arrow.counterclockwise"
+    case .top_up_detected: "plus.circle"
+    case .balance_low, .spend_near_cap, .spend_cap_reached, .extra_usage_started, .budget_near,
+      .budget_exceeded:
+      "dollarsign.circle"
+    }
+  }
+}
+
+/// The whole row is the button: a fill under the pointer, a darker fill and a small press.
+private struct NoticeRowStyle: ButtonStyle {
+  let unread: Bool
+  let hovered: Bool
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label.contentShape(RoundedRectangle(cornerRadius: 10))
+      .background(
+        configuration.isPressed
+          ? HR.track : hovered ? HR.muted : unread ? HR.ink.opacity(0.05) : .clear,
+        in: RoundedRectangle(cornerRadius: 10)
       )
-      .contentShape(Rectangle())
+      .overlay {
+        if hovered { RoundedRectangle(cornerRadius: 10).strokeBorder(HR.border) }
+      }
+      .scaleEffect(configuration.isPressed ? 0.99 : 1)
+      .animation(Motion.press(configuration.isPressed), value: configuration.isPressed)
+      .animation(Motion.hover, value: hovered)
+      .animation(Motion.hover, value: unread)
+  }
+}
+
+/// A bordered pill for the Notices actions.
+private struct NoticePillStyle: ButtonStyle {
+  @Environment(\.isEnabled) private var enabled
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label.font(HR.popoverFont(12, .medium))
+      .foregroundStyle(enabled ? HR.ink : HR.textMuted)
+      .padding(.horizontal, 12).frame(height: 28)
+      .background(configuration.isPressed ? HR.track : HR.surface, in: Capsule())
+      .overlay(Capsule().strokeBorder(HR.border))
+      .scaleEffect(configuration.isPressed && enabled ? 0.97 : 1)
+      .animation(Motion.press(configuration.isPressed), value: configuration.isPressed)
+      .contentShape(Capsule())
   }
 }

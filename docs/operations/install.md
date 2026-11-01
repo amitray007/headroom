@@ -54,14 +54,22 @@ In the dashboard, create a read-only token in Settings > Devices. Add the server
 
 The app has an ad-hoc signature, with no Apple Developer ID or notarization, as chosen in [ADR 0004](../decisions/0004-mac-app.md#build-and-release). The cask's `postflight` runs `/usr/bin/xattr -dr com.apple.quarantine` on `/Applications/Headroom.app`. This removes the downloaded-file quarantine attribute from the app and its contents so Gatekeeper does not block it. It does not add an Apple signature or notarization. Install only from a source you trust. Homebrew checks the ZIP against the cask's SHA-256 checksum before installation.
 
-Quit the app before updating:
+### Mac updates
+
+Headroom checks GitHub for a newer Mac release 8 seconds after launch and then every 6 hours. It counts only releases tagged `macos-vX.Y.Z`, so a server release never offers a Mac update. In Settings > About, **Check now** runs one check, and turning off **Check automatically** stops the checks.
+
+When a newer version exists, the popover header shows a capsule with its version. Click the capsule to see what's new. **Update now** runs `brew upgrade --cask amitray007/headroom/headroom-mac` and reopens Headroom when it finishes. Nothing installs until you press it. The upgrade runs the cask's `postflight` again, so the new copy has no quarantine attribute either. If the upgrade fails, the card shows the reason, **Try again** and **Copy command**.
+
+To update from Terminal instead:
 
 ```sh
 brew upgrade --cask amitray007/headroom/headroom-mac
 open /Applications/Headroom.app
 ```
 
-There is no in-app updater. To uninstall, quit and run `brew uninstall --cask headroom-mac`. Add `--zap` to remove the client source list, feed caches, notices, display settings, preferences and widget container. The app keeps its files in `~/Library/Application Support/club.theblank.headroom.mac`, apart from the local server's `~/Library/Application Support/Headroom`, so a zap never touches server data or keys. It leaves the Keychain item; remove that item in Keychain Access if you want to erase stored tokens too. Before the first owner release, the bootstrap cask is disabled.
+If Headroom cannot find Homebrew, the card offers **Download**. A browser keeps the quarantine attribute on the ZIP, so macOS blocks the first launch. Replace Headroom in Applications with the download and open it once. Then choose **Open Anyway** in System Settings > Privacy & Security. The cask install avoids this step.
+
+To uninstall, quit and run `brew uninstall --cask headroom-mac`. Add `--zap` to remove the client source list, feed caches, notices, display settings, preferences and widget container. The app keeps its files in `~/Library/Application Support/club.theblank.headroom.mac`, apart from the local server's `~/Library/Application Support/Headroom`, so a zap never touches server data or keys. It leaves the Keychain item; remove that item in Keychain Access if you want to erase stored tokens too. Before the first owner release, the bootstrap cask is disabled.
 
 ## Package runners
 

@@ -98,6 +98,12 @@ The clean-runner cask install proves the installed app starts. Widget availabili
 
 Quit Headroom and revert the cask bot commit on `main` to the last known good version. Run `brew update`, then `brew reinstall --cask amitray007/headroom/headroom-mac`. The previous release assets must remain available. Keep the Mac release marked not latest and the newest stable server release marked latest. Leave version tags and published assets unchanged; ship the fix as a new `fix:` release. If a release failed while still a draft, keep it private and retry the same version after fixing the failure.
 
+## Pushes to main
+
+The `Protect main` ruleset requires a pull request with passing checks for every change to `main`. Three workflows still commit to `main` directly: Homebrew (`Formula/headroom.rb`), the Mac release (`Casks/headroom-mac.rb`) and Release As. They check out with the `release bot` deploy key, stored as the `RELEASE_DEPLOY_KEY` secret, and the ruleset lets deploy keys bypass it. `GITHUB_TOKEN` cannot bypass a ruleset on a personal repository. Each bot commit carries `[skip ci]`, so it starts no other workflow.
+
+To rotate the key, make a new ed25519 key pair, add the public key under Settings > Deploy keys with write access, save the private key as `RELEASE_DEPLOY_KEY` and delete the old deploy key.
+
 ## The public site
 
 The `Pages` workflow runs `mise run site:build` and deploys `dist-site/` to GitHub Pages: the landing page from `site/index.html` at the root and the demo (D34) at `demo/`. It runs after each release and by hand from the Actions tab, so the site shows the released app, not `main`. The `site` job in CI builds it on every pull request. How the build works is in [site/README.md](../../site/README.md).

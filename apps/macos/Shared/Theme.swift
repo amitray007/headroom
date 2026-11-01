@@ -15,6 +15,9 @@ enum HR {
   static let danger = color(light: 0xD20D2D, dark: 0xFF686B)
   static let track = color(light: 0xE9E9E9, dark: 0x292929)
   static let fill = color(light: 0x606060, dark: 0x969696)
+  // The popover's and widgets' low and out colors, shared so the ledger cells match.
+  static let popoverWarning = color(light: 0x8A4C00, dark: 0xF1CD7E)
+  static let popoverDanger = color(light: 0xCD1526, dark: 0xFF746E)
 
   static func color(light: UInt32, dark: UInt32) -> Color {
     Color(

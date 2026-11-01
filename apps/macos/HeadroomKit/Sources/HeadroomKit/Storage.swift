@@ -3,9 +3,9 @@ import Foundation
 public enum HeadroomStorage {
   /// The bundle id, not "Headroom": a native Headroom server keeps its database and keys in
   /// `Application Support/Headroom`, and neither app may touch the other's files.
+  public static let folder = "club.theblank.headroom.mac"
   public static var directory: URL {
-    URL.applicationSupportDirectory.appending(
-      path: "club.theblank.headroom.mac", directoryHint: .isDirectory)
+    URL.applicationSupportDirectory.appending(path: folder, directoryHint: .isDirectory)
   }
 
   static func read<Value: Decodable>(_ type: Value.Type, at url: URL) throws -> Value? {
@@ -64,8 +64,14 @@ public actor FeedCache {
 
   public init(directory: URL = HeadroomStorage.directory) { self.directory = directory }
 
+  /// A cache written by an older build, in a shape this one cannot read, is dropped: the next
+  /// poll writes it again. A file that is not JSON at all is still reported.
   public func load(sourceID: UUID) throws -> CachedFeed? {
-    try HeadroomStorage.read(CachedFeed.self, at: file(sourceID))
+    do {
+      return try HeadroomStorage.read(CachedFeed.self, at: file(sourceID))
+    } catch  where FeedClient.wrongShape(error) {
+      return nil
+    }
   }
 
   public func save(_ entry: CachedFeed, sourceID: UUID) throws {

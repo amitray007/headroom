@@ -16,6 +16,8 @@ public struct LedgerRow: Identifiable, Sendable {
     public let note: String
     public let alarm: Bool
     public let runsOut: Bool
+    /// A session window, as opposed to a weekly or longer one.
+    public var session = false
   }
 
   public struct Extra: Equatable, Sendable {
@@ -26,12 +28,32 @@ public struct LedgerRow: Identifiable, Sendable {
   public let column: RoomColumn
   public let meters: [Meter]
   public let extra: Extra?
+  /// The time the row was built for, so a view can describe it without reading the clock.
+  public let now: Date
   public var item: AccountItem { column.item }
   public var id: String { column.id }
 
-  public init(column: RoomColumn, now: Date, timeZone: TimeZone = .current) {
+  /// `view` picks room left or the share used for each limit's figure and cells; the tone
+  /// always follows room left.
+  public init(
+    column: RoomColumn, now: Date, timeZone: TimeZone = .current,
+    view: DisplayPreferences.LimitsView = .left
+  ) {
     self.column = column
+    self.now = now
     let account = column.item.account
+    let limits = Self.limits(account, now: now)
+    if limits.isEmpty, let balance = Self.balance(account) {
+      meters = [balance]
+      extra = nil
+      return
+    }
+    meters = limits.map { Self.meter($0, now: now, timeZone: timeZone, view: view) }
+    extra = Self.extra(account, now: now, timeZone: timeZone)
+  }
+
+  /// The tightest session limit, then the binding longer window.
+  static func limits(_ account: FeedAccount, now: Date) -> [FeedAccount.limitsPayloadPayload] {
     let known = account.limits.filter {
       !$0.part && !$0.unlimited && !$0.notStarted && $0.percentLeft?.isFinite == true
     }
@@ -41,14 +63,7 @@ public struct LedgerRow: Identifiable, Sendable {
     var longer = account
     longer.limits = known.filter { $0.windowKind != .session }
     let period = RoomNow.binding(longer, now: now)
-    let limits = [session, period].compactMap { $0 }
-    if limits.isEmpty, let balance = Self.balance(account) {
-      meters = [balance]
-      extra = nil
-      return
-    }
-    meters = limits.map { Self.meter($0, now: now, timeZone: timeZone) }
-    extra = Self.extra(account, now: now, timeZone: timeZone)
+    return [session, period].compactMap { $0 }
   }
 
   public var outCount: Int { meters.contains { $0.tone == .out } ? 1 : 0 }
@@ -56,29 +71,34 @@ public struct LedgerRow: Identifiable, Sendable {
     outCount == 0 && meters.contains { $0.tone == .tight } ? 1 : 0
   }
 
-  static func meter(_ limit: FeedAccount.limitsPayloadPayload, now: Date, timeZone: TimeZone)
-    -> Meter
-  {
+  static func meter(
+    _ limit: FeedAccount.limitsPayloadPayload, now: Date, timeZone: TimeZone,
+    view: DisplayPreferences.LimitsView = .left
+  ) -> Meter {
     let left = min(100, max(0, limit.percentLeft ?? 0))
+    // The figure and the cells follow the view; the tone and notes follow room left.
+    let shown = Formatting.shown(left, view: view) ?? left
+    let value = Formatting.barePercent(shown)
     let reset = Formatting.date(milliseconds: limit.resetsAt)
     let label = windowLabel(limit)
+    let session = limit.windowKind == .session
     if left == 0 {
       return Meter(
-        fill: 0, value: Formatting.barePercent(left), label: label, tone: .out,
+        fill: shown, value: value, label: label, tone: .out,
         note: "back \(Formatting.when(reset, now: now, timeZone: timeZone))", alarm: true,
-        runsOut: false)
+        runsOut: false, session: session)
     }
     if let runOut = RoomNow.projection(limit, now: now) {
       return Meter(
-        fill: left, value: Formatting.barePercent(left), label: label, tone: .tight,
+        fill: shown, value: value, label: label, tone: .tight,
         note: "out \(Formatting.when(runOut, now: now, timeZone: timeZone))", alarm: true,
-        runsOut: true)
+        runsOut: true, session: session)
     }
     return Meter(
-      fill: left, value: Formatting.barePercent(left), label: label,
+      fill: shown, value: value, label: label,
       tone: left <= 20 ? .tight : .room,
       note: reset.map { Formatting.countdown(to: $0, now: now) } ?? "", alarm: false,
-      runsOut: false)
+      runsOut: false, session: session)
   }
 
   /// "Session" and "Weekly" say their window; other labels add it ("Included, billing cycle").

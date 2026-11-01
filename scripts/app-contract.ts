@@ -8,6 +8,7 @@ import {
   appFeedSchema,
   appRefreshSchema,
   appWhoamiSchema,
+  noticeReadBodySchema,
 } from "../packages/view-model/src/app-feed.ts";
 
 const contractPath = fileURLToPath(new URL("../apps/macos/Contract/openapi.json", import.meta.url));
@@ -15,7 +16,22 @@ const errorSchema = z.strictObject({ error: z.string() });
 
 function json(schema: z.ZodType) {
   const { $schema: _dialect, ...body } = z.toJSONSchema(schema, { target: "draft-2020-12" });
-  return nullableTypes(body);
+  return openObjects(nullableTypes(body));
+}
+
+/**
+ * The server's Zod objects are strict, but Apple's generator turns `additionalProperties: false`
+ * into a decoder that throws on any unknown key. A field added by a newer server would then fail
+ * every installed Mac app's feed read. Clients accept and ignore unknown fields (D46).
+ */
+function openObjects(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(openObjects);
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key, item]) => !(key === "additionalProperties" && item === false))
+      .map(([key, item]) => [key, openObjects(item)]),
+  );
 }
 
 /** Apple's generator needs type unions rather than anyOf for nullable fields. */
@@ -126,6 +142,32 @@ const putRefresh = {
   },
 };
 
+/** The read marks: allowed for every valid token, because they change only Headroom's own state. */
+const putNoticesRead = {
+  operationId: "putAppNoticesRead",
+  security: [{ appToken: [] }],
+  requestBody: {
+    required: true,
+    content: { "application/json": { schema: { $ref: "#/components/schemas/NoticeRead" } } },
+  },
+  responses: {
+    "200": {
+      description: "The ids and state now saved. A notice in the feed carries its own `read` flag.",
+      content: { "application/json": { schema: { $ref: "#/components/schemas/NoticeRead" } } },
+    },
+    "400": error("The body is not { ids, read } with at most 500 ids: invalid_body."),
+    "401": error("Missing, expired, revoked or invalid token: invalid_token."),
+    "405": {
+      ...error("Only PUT is allowed: method_not_allowed."),
+      headers: { Allow: { schema: { type: "string", const: "PUT" } } },
+    },
+    "429": {
+      ...error("Too many authentication attempts: rate_limited."),
+      headers: { "Retry-After": { schema: { type: "string" } } },
+    },
+  },
+};
+
 export async function appContract(): Promise<string> {
   const document = {
     openapi: "3.1.0",
@@ -147,6 +189,7 @@ export async function appContract(): Promise<string> {
         },
       },
       "/api/app/v1/whoami": { get: operation("getAppWhoami", "AppWhoami") },
+      "/api/app/v1/notices/read": { put: putNoticesRead },
       "/api/app/v1/settings/refresh": { put: putRefresh },
     },
     components: {
@@ -157,6 +200,7 @@ export async function appContract(): Promise<string> {
         AppFeed: json(appFeedSchema),
         AppRefresh: json(appRefreshSchema),
         AppWhoami: json(appWhoamiSchema),
+        NoticeRead: json(noticeReadBodySchema),
         Error: json(errorSchema),
       },
     },

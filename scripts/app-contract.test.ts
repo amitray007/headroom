@@ -11,11 +11,12 @@ describe("Mac OpenAPI contract", () => {
     expect(await syncAppContract(true)).toBe(true);
     const text = await appContract();
     expect(text).toContain('"openapi": "3.1.0"');
-    for (const path of ["/api/app/v1/feed", "/api/app/v1/whoami"])
+    for (const path of ["/api/app/v1/feed", "/api/app/v1/whoami", "/api/app/v1/notices/read"])
       expect(text).toContain(`"${path}"`);
     for (const status of ["304", "400", "401", "405", "429"]) expect(text).toContain(`"${status}"`);
     expect(text).toContain('"scheme": "bearer"');
-    expect(text).toContain('"additionalProperties": false');
+    // A newer server may add fields; the Mac decoder must not reject them (D46).
+    expect(text).not.toContain('"additionalProperties": false');
     const feed = JSON.parse(text).components.schemas.AppFeed;
     const account = feed.properties.accounts.items;
     expect(account.properties.lastSuccessAt).toMatchObject({

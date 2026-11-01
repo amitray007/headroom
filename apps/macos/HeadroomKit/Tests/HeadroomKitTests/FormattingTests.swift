@@ -85,6 +85,12 @@ func durationsMatchTheMockup(_ seconds: Double, _ expected: String) {
   #expect(Formatting.charge(charge) == "8.20 / 20.00 USD")
   charge.cap = .init(unit: "credits", value: 20)
   #expect(Formatting.charge(charge) == "8.20 USD / 20 credits")
+  charge.value = 61068.3876350001
+  charge.unit = "codex_credits"
+  charge.cap = nil
+  #expect(Formatting.charge(charge) == "61,068.39 Codex credits")
+  charge.value = 400
+  #expect(Formatting.charge(charge) == "400 Codex credits")
   charge.value = nil
   charge.availability = .unknown
   #expect(Formatting.charge(charge) == "Unknown")
@@ -134,4 +140,22 @@ func durationsMatchTheMockup(_ seconds: Double, _ expected: String) {
   var single = account
   single.limits = [model]
   #expect(Presentation.limitLabel(model, in: single) == "Weekly")
+}
+
+@Test func lastCheckCountsSecondsThenMinutes() {
+  let now = Date(timeIntervalSince1970: 1_000_000)
+  #expect(Formatting.checked(now.addingTimeInterval(-2), now: now) == "just now")
+  #expect(Formatting.checked(now.addingTimeInterval(-12), now: now) == "12 sec ago")
+  #expect(Formatting.checked(now.addingTimeInterval(-59), now: now) == "59 sec ago")
+  #expect(Formatting.checked(now.addingTimeInterval(-61), now: now) == "1 min ago")
+  #expect(Formatting.checked(nil, now: now) == "Unknown")
+}
+
+@Test func limitsShowRoomLeftOrShareUsed() {
+  #expect(Formatting.shown(37, view: .left) == 37)
+  #expect(Formatting.shown(37, view: .used) == 63)
+  #expect(Formatting.shown(nil, view: .used) == nil)
+  #expect(Formatting.share(37, view: .left) == "37% left")
+  #expect(Formatting.share(37, view: .used) == "63% used")
+  #expect(Formatting.share(nil, view: .used) == "Unknown")
 }

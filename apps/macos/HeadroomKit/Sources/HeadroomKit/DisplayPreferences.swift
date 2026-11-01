@@ -3,23 +3,133 @@ import HeadroomAPI
 
 public struct DisplayPreferences: Codable, Equatable, Sendable {
   public enum ItemStyle: String, Codable, CaseIterable, Sendable {
-    case logoAndPercentage, percentage, logoAndBadge, pinned
+    case logo, logoAndRoom, liveLogo, dots, accounts
     public var label: String {
       switch self {
-      case .logoAndPercentage: "Logo and percentage"
-      case .percentage: "Percentage only"
-      case .logoAndBadge: "Logo and badge"
-      case .pinned: "Pinned account"
+      case .logo: "Logo"
+      case .logoAndRoom: "Logo and room"
+      case .liveLogo: "Live logo"
+      case .dots: "Dots"
+      case .accounts: "Accounts"
+      }
+    }
+    /// Live logo, Dots and Accounts show every slot; Logo and room follows the first one.
+    public var showsSlots: Bool { self == .liveLogo || self == .dots || self == .accounts }
+
+    /// Styles saved by earlier versions: the percentage styles become Logo and room, the badge
+    /// becomes Logo and a pinned account becomes one Accounts slot.
+    init(saved: String) {
+      switch saved {
+      case "logoAndBadge": self = .logo
+      case "pinned": self = .accounts
+      default: self = ItemStyle(rawValue: saved) ?? .logoAndRoom
       }
     }
   }
+
+  public enum MarkStyle: String, Codable, CaseIterable, Sendable {
+    case dot, chip, stripe, inverted
+    public var label: String {
+      switch self {
+      case .dot: "Dot"
+      case .chip: "Chip"
+      case .stripe: "Stripe"
+      case .inverted: "Inverted"
+      }
+    }
+  }
+
+  /// One account in the menu bar item, with the look it takes in the Accounts style.
+  public struct MenuSlot: Codable, Equatable, Sendable {
+    public enum Look: String, Codable, CaseIterable, Sendable { case percent, ring, bars }
+    /// An account key, or nil for the tightest account with room that no other slot shows.
+    public var account: String?
+    public var look: Look
+    public init(account: String? = nil, look: Look = .percent) {
+      self.account = account
+      self.look = look
+    }
+  }
+  public static let maxSlots = 3
+
   public enum Appearance: String, Codable, CaseIterable, Sendable { case system, light, dark }
-  public var itemStyle: ItemStyle = .logoAndPercentage
-  public var followedAccount: String?
+  /// Show each limit's room left or its share used, as the web's Limits view does. Colors
+  /// still follow room left.
+  public enum LimitsView: String, Codable, CaseIterable, Sendable { case left, used }
+  public var limitsView: LimitsView = .left
+  public var itemStyle: ItemStyle = .logoAndRoom
+  /// One to three slots, left to right in the menu bar and top to bottom in a one-icon style.
+  public var slots: [MenuSlot] = [MenuSlot()] {
+    didSet { if slots.count > Self.maxSlots { slots = Array(slots.prefix(Self.maxSlots)) } }
+  }
+  /// Each Accounts slot starts with its provider's mark.
+  public var providerLogos = true
+  /// Mark accounts that run low or out; off keeps only problem and unread dots in ink.
+  public var colorLowOut = true
+  public var markStyle: MarkStyle = .dot
+  /// Live logo adds the figure of the slot with least room beside the glyph.
+  public var liveRoom = false
+  /// How often this Mac reads its sources while the popover is closed, in seconds. While it is
+  /// open the app reads every 30 seconds, or sooner when this is shorter.
+  public var checkSeconds = 120
+  public static let checkOptions = [30, 60, 120, 300, 600]
   public var hiddenAccounts: Set<String> = []
   public var accountOrder: [String] = []
   public var appearance: Appearance = .system
+  /// Blur account emails until the pointer is over the row.
+  public var privacy = false
+  /// Show made-up accounts and notices, for screenshots and screen sharing.
+  public var demo = false
+  /// Look for a new Mac release at launch and every six hours. Updating always needs a press.
+  public var checkForUpdates = true
+  /// The popover shows only this source; nil, or a source that no longer exists, shows all.
+  public var sourceFilter: UUID?
+  /// The Share window's last look: style, size, theme, backdrop and what it hides.
+  public var share = ShareOptions()
+  /// What the widgets show; the app writes it into the widget cache.
+  public var widgets = WidgetPreferences()
   public init() {}
+
+  private enum Saved: String, CodingKey { case followedAccount }
+
+  // Files saved before a field existed still load, with that field at its default.
+  public init(from decoder: any Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    let saved = try decoder.container(keyedBy: Saved.self)
+    let defaults = DisplayPreferences()
+    itemStyle =
+      try values.decodeIfPresent(String.self, forKey: .itemStyle).map(ItemStyle.init(saved:))
+      ?? defaults.itemStyle
+    let followed = try saved.decodeIfPresent(String.self, forKey: .followedAccount)
+    let slots = try values.decodeIfPresent([MenuSlot].self, forKey: .slots) ?? []
+    self.slots =
+      slots.isEmpty ? [MenuSlot(account: followed)] : Array(slots.prefix(Self.maxSlots))
+    providerLogos =
+      try values.decodeIfPresent(Bool.self, forKey: .providerLogos) ?? defaults.providerLogos
+    colorLowOut =
+      try values.decodeIfPresent(Bool.self, forKey: .colorLowOut) ?? defaults.colorLowOut
+    markStyle =
+      try values.decodeIfPresent(String.self, forKey: .markStyle).flatMap(MarkStyle.init(rawValue:))
+      ?? .dot
+    liveRoom = try values.decodeIfPresent(Bool.self, forKey: .liveRoom) ?? defaults.liveRoom
+    limitsView =
+      try values.decodeIfPresent(LimitsView.self, forKey: .limitsView) ?? defaults.limitsView
+    checkSeconds =
+      try values.decodeIfPresent(Int.self, forKey: .checkSeconds)
+      .flatMap { Self.checkOptions.contains($0) ? $0 : nil } ?? defaults.checkSeconds
+    hiddenAccounts = try values.decodeIfPresent(Set<String>.self, forKey: .hiddenAccounts) ?? []
+    accountOrder = try values.decodeIfPresent([String].self, forKey: .accountOrder) ?? []
+    appearance =
+      try values.decodeIfPresent(Appearance.self, forKey: .appearance) ?? defaults.appearance
+    privacy = try values.decodeIfPresent(Bool.self, forKey: .privacy) ?? defaults.privacy
+    demo = try values.decodeIfPresent(Bool.self, forKey: .demo) ?? defaults.demo
+    checkForUpdates =
+      try values.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? defaults.checkForUpdates
+    sourceFilter = try values.decodeIfPresent(UUID.self, forKey: .sourceFilter)
+    share = (try? values.decodeIfPresent(ShareOptions.self, forKey: .share)) ?? defaults.share
+    widgets =
+      (try? values.decodeIfPresent(WidgetPreferences.self, forKey: .widgets)) ?? defaults.widgets
+  }
 }
 
 public actor DisplayPreferenceStore {
@@ -42,6 +152,11 @@ public struct AccountItem: Identifiable, Sendable {
   public static func key(sourceID: UUID, accountID: String) -> String {
     "\(sourceID.uuidString)/\(accountID)"
   }
+  /// The account's ID in the widget cache.
+  public var widgetID: String { Self.widgetID(sourceID: snapshot.id, accountID: account.id) }
+  public static func widgetID(sourceID: UUID, accountID: String) -> String {
+    "\(sourceID.uuidString):\(accountID)"
+  }
   public init(snapshot: SourceSnapshot, account: FeedAccount) {
     self.snapshot = snapshot
     self.account = account
@@ -52,6 +167,9 @@ public struct AccountItem: Identifiable, Sendable {
 }
 
 public enum Presentation {
+  /// Provider marks drawn in their own color; the rest draw in one color.
+  public static let coloredMarks: Set<String> = ["claude", "antigravity"]
+
   public static func providerName(_ id: String) -> String {
     switch id {
     case "claude": "Claude"
@@ -109,23 +227,16 @@ public enum Presentation {
     }.map(\.element)
   }
 
+  /// The source name only tells accounts apart when the same account name and plan appear on
+  /// another source. With one source it adds nothing, and offline rows already say so.
   public static func needsSource(_ item: AccountItem, among items: [AccountItem]) -> Bool {
-    item.snapshot.state != .connected
-      || items.contains {
-        $0.id != item.id && $0.account.provider == item.account.provider
-          && $0.account.name == item.account.name && $0.account.plan == item.account.plan
-      }
+    items.contains {
+      $0.snapshot.id != item.snapshot.id && $0.account.provider == item.account.provider
+        && $0.account.name == item.account.name && $0.account.plan == item.account.plan
+    }
   }
 
-  /// Dashboard navigation always stays on the configured source. Feed URLs cannot redirect a token
-  /// recovery or an account link to another host. Opening a browser never carries the API token.
-  public static func dashboard(_ source: Source, accountID: String? = nil)
-    -> URL
-  {
-    guard accountID != nil else { return source.baseURL }
-    // The web app routes by hash. It has no per-account or Devices URL yet.
-    var components = URLComponents(url: source.baseURL, resolvingAgainstBaseURL: false)
-    components?.fragment = "/detailed"
-    return components?.url ?? source.baseURL
-  }
+  /// Dashboard navigation always stays on the configured source. Feed URLs cannot redirect a
+  /// token recovery to another host. Opening a browser never carries the API token.
+  public static func dashboard(_ source: Source) -> URL { source.baseURL }
 }

@@ -14,12 +14,12 @@ import {
   expiringTopUps,
   type ExpiringTopUp,
   type NotificationSettings,
+  clearRead,
   loadRead,
   markAllRead,
   markRead,
   pruneRead,
   readKey,
-  saveRead,
 } from "./notifications.ts";
 import type { Metric } from "./overview.ts";
 import { connection, credit, metric, percent } from "./test-fixtures.ts";
@@ -285,17 +285,19 @@ const memory = () => {
   const data = new Map<string, string>();
   return {
     getItem: (key: string) => data.get(key) ?? null,
-    setItem: (key: string, value: string) => void data.set(key, value),
+    removeItem: (key: string) => void data.delete(key),
     data,
   };
 };
 
 describe("read state", () => {
-  test("round trip through storage", () => {
+  test("loads the ids an older version saved, then clears them", () => {
     const store = memory();
-    saveRead(store, new Set(["b", "a"]));
-    expect(store.data.get(readKey)).toBe('["a","b"]');
-    expect([...loadRead(store)]).toEqual(["a", "b"]);
+    store.data.set(readKey, '["b","a"]');
+    expect([...loadRead(store)]).toEqual(["b", "a"]);
+    clearRead(store);
+    expect(store.data.has(readKey)).toBe(false);
+    expect(loadRead(store).size).toBe(0);
   });
   test("bad stored data reads as empty", () => {
     const store = memory();
