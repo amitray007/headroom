@@ -386,10 +386,10 @@ struct SettingsView: View {
       ) {
         Button("Add a source", action: addSource).buttonStyle(WebButtonStyle(kind: .primary))
       }
-      SettingsSections { NotificationTestSection(model: model) }
+      SettingsSections { NotificationPreviewSection(model: model) }
     } else {
       SettingsSections {
-        NotificationTestSection(model: model)
+        NotificationPreviewSection(model: model)
         ForEach(noticeGroups, id: \.0) { group in
           SettingsSection(group.0) {
             ForEach(group.1, id: \.self) { kind in

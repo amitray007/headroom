@@ -106,44 +106,6 @@ final class NotificationBanners: NSObject, UNUserNotificationCenterDelegate {
     }
   }
 
-  enum TestResult: Equatable { case sent, denied, failed }
-
-  /// Posts a made-up banner from Settings. It asks for permission the first time, uses the
-  /// sample's tone like a real banner and stores nothing, so a click on it opens nothing.
-  func sendTest(title: String, subtitle: String, tone: NoticeTone) async -> TestResult {
-    var settings = await center.notificationSettings()
-    if settings.authorizationStatus == .notDetermined {
-      do {
-        guard try await center.requestAuthorization(options: [.alert, .badge, .sound]) else {
-          return .denied
-        }
-      } catch {
-        log.error("permission request failed: \(error.localizedDescription, privacy: .public)")
-        return .failed
-      }
-      settings = await center.notificationSettings()
-    }
-    log.info(
-      "test banner: status \(settings.authorizationStatus.rawValue, privacy: .public), style \(settings.alertStyle.rawValue, privacy: .public)"
-    )
-    guard
-      settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
-    else { return .denied }
-    let content = UNMutableNotificationContent()
-    content.title = title
-    content.subtitle = subtitle
-    content.threadIdentifier = "test"
-    content.interruptionLevel = Self.level(tone, settings: settings)
-    do {
-      try await center.add(
-        UNNotificationRequest(identifier: "test-\(UUID())", content: content, trigger: nil))
-      return .sent
-    } catch {
-      log.error("test banner rejected: \(error.localizedDescription, privacy: .public)")
-      return .failed
-    }
-  }
-
   nonisolated func userNotificationCenter(
     _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
   ) async {

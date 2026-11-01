@@ -3,7 +3,7 @@ import HeadroomKit
 import SwiftUI
 import UserNotifications
 
-/// Made-up notices for Settings: one per kind of interruption, with synthetic account names.
+/// Made-up notices for the Settings preview: one per kind of interruption, with synthetic account names.
 enum BannerSample: String, CaseIterable, Identifiable {
   case almostOut, runningLow, resetGranted, disconnected, signedOut
   var id: String { rawValue }
@@ -43,24 +43,14 @@ enum BannerSample: String, CaseIterable, Identifiable {
   }
   func subtitle(source: String) -> String { BannerTone.subtitle(account: account, source: source) }
 
-  /// How macOS treats this tone, in two or three words.
-  var behavior: String {
-    switch tone {
-    case .bad: "Urgent"
-    case .warn: "Warning"
-    case .info: "Quiet, no sound"
-    }
-  }
 }
 
 /// The top of the Notifications pane: whether macOS lets Headroom notify, then a banner
-/// preview with a test button.
-struct NotificationTestSection: View {
+/// preview.
+struct NotificationPreviewSection: View {
   @Bindable var model: AppModel
   @State private var sample = BannerSample.almostOut
   @State private var permission: NotificationBanners.Permission?
-  @State private var result: NotificationBanners.TestResult?
-  @State private var sending = false
 
   private var source: String { model.sources.first?.source.name ?? "Home server" }
 
@@ -71,40 +61,22 @@ struct NotificationTestSection: View {
           .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 4)
       }
       SettingsSection("Preview") {
+        WebSelect(value: sample.label) {
+          ForEach(BannerSample.allCases) { option in
+            Button(option.label) { sample = option }
+          }
+        }
+      } content: {
         BannerPreview(
           title: sample.title(source: source), subtitle: sample.subtitle(source: source),
           timeSensitive: sample.tone == .bad && permission?.timeSensitive == true
         ).padding(.vertical, 10)
-        SettingsRow(title: "Sample", note: sample.behavior) {
-          WebSelect(value: sample.label) {
-            ForEach(BannerSample.allCases) { option in
-              Button(option.label) {
-                sample = option
-                result = nil
-              }
-            }
-          }
-        }
-        SettingsRow(title: "Send a test", note: sendNote) {
-          Button(sending ? "Sending" : "Send test", action: send)
-            .buttonStyle(WebButtonStyle(small: true))
-            .disabled(sending || permission?.canShow == false)
-        }
       }
     }
     .task { await refresh() }
     // Permission can change in System Settings while this pane is open.
     .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) {
       _ in Task { await refresh() }
-    }
-  }
-
-  private var sendNote: String {
-    switch result {
-    case .sent: "Sent"
-    case .failed: "macOS did not accept it. Try again."
-    case .denied: "Notifications are off"
-    case nil: ""
     }
   }
 
@@ -118,27 +90,6 @@ struct NotificationTestSection: View {
     }
   }
 
-  private func send() {
-    sending = true
-    Task {
-      result = await model.banners.sendTest(
-        title: sample.title(source: source), subtitle: sample.subtitle(source: source),
-        tone: sample.tone)
-      await refresh()
-      sending = false
-    }
-  }
-}
-
-extension NotificationBanners.Permission {
-  /// Banners can appear: allowed, and a style other than None.
-  var canShow: Bool? {
-    switch status {
-    case .notDetermined: nil
-    case .authorized: style != .none
-    default: false
-    }
-  }
 }
 
 /// One line of state with the action that fixes it: Enable before macOS has asked, System
