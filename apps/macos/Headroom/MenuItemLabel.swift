@@ -16,7 +16,9 @@ struct MenuItemLabel: View {
   let status: MenuStatus
 
   var body: some View {
-    content
+    // Ideal size always: the stripe's fractional widths rounded a figure's frame below its
+    // text, and the figure truncated to "2…".
+    content.fixedSize()
       .foregroundStyle(.primary)
       .accessibilityElement(children: .ignore)
       .accessibilityLabel(status.summary)

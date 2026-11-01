@@ -3,9 +3,9 @@ import Foundation
 public enum HeadroomStorage {
   /// The bundle id, not "Headroom": a native Headroom server keeps its database and keys in
   /// `Application Support/Headroom`, and neither app may touch the other's files.
+  public static let folder = "club.theblank.headroom.mac"
   public static var directory: URL {
-    URL.applicationSupportDirectory.appending(
-      path: "club.theblank.headroom.mac", directoryHint: .isDirectory)
+    URL.applicationSupportDirectory.appending(path: folder, directoryHint: .isDirectory)
   }
 
   static func read<Value: Decodable>(_ type: Value.Type, at url: URL) throws -> Value? {

@@ -4,9 +4,11 @@ public struct WidgetCacheLocation: Sendable {
   public let url: URL
 
   public init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) {
+    // The extension reads `HeadroomStorage.directory` inside its sandbox, so the app writes
+    // the same folder name inside the extension's container.
     url = homeDirectory.appending(
       path:
-        "Library/Containers/club.theblank.headroom.mac.widgets/Data/Library/Application Support/Headroom/widget-cache.json"
+        "Library/Containers/club.theblank.headroom.mac.widgets/Data/Library/Application Support/\(HeadroomStorage.folder)/widget-cache.json"
     )
   }
 

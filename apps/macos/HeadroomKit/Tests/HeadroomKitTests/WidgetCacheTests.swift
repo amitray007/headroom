@@ -7,9 +7,11 @@ import Testing
   let location = WidgetCacheLocation(homeDirectory: URL(filePath: "/synthetic-home"))
   #expect(
     location.url.path
-      == "/synthetic-home/Library/Containers/club.theblank.headroom.mac.widgets/Data/Library/Application Support/Headroom/widget-cache.json"
+      == "/synthetic-home/Library/Containers/club.theblank.headroom.mac.widgets/Data/Library/Application Support/club.theblank.headroom.mac/widget-cache.json"
   )
-  #expect(WidgetCacheLocation.ownContainer.url.lastPathComponent == "widget-cache.json")
+  // The extension resolves its own Application Support; the app's path must end the same way.
+  let own = WidgetCacheLocation.ownContainer.url.pathComponents.suffix(2)
+  #expect(Array(location.url.pathComponents.suffix(2)) == Array(own))
 }
 
 @Test func widgetCacheMergesSourcesAndContainsOnlyFormattedRows() throws {
