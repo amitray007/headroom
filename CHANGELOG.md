@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.1.15](https://github.com/amitray007/headroom/compare/v0.1.14...v0.1.15) (2026-11-01)
+
+
+### Features
+
+* add read-only app tokens and device management ([4ed5dea](https://github.com/amitray007/headroom/commit/4ed5deabf7ae75a33b86b4e250cd472ae5ddd22f))
+* add read-only Mac app feed and generated API contract ([9707c79](https://github.com/amitray007/headroom/commit/9707c79fccc5f3dff5cb2e21adfa5ca714fd42ff))
+* add the Mac app feed and its generated API contract ([653af79](https://github.com/amitray007/headroom/commit/653af79cc0ac851492964666d5408e23902d0584))
+* let a Mac token change Refresh Every ([897805b](https://github.com/amitray007/headroom/commit/897805b8de96efd0fd8849113ee40faf58df41f2))
+* let a Mac token change Refresh Every ([8857e14](https://github.com/amitray007/headroom/commit/8857e14f8018bee246e570ec4ca0b024112f5202))
+* move Settings to a sidebar and redo the Devices tab ([b89a5ef](https://github.com/amitray007/headroom/commit/b89a5ef68f93caeebc14176fb38de5d6a041c85a))
+* move Settings to a sidebar and redo the Devices tab ([97c8d22](https://github.com/amitray007/headroom/commit/97c8d22f63267ad648e4475d6a196571e5f58d35))
+* open the Rhythm report on By Account ([23efbb9](https://github.com/amitray007/headroom/commit/23efbb95fc86e897c7d6770995901d603a537397))
+* open the Rhythm report on By Account ([f2da57f](https://github.com/amitray007/headroom/commit/f2da57f971e576f3a6ec21fc6200fe3bf16b1f9f))
+* show Analytics as one report at a time behind report tabs ([f531e8a](https://github.com/amitray007/headroom/commit/f531e8a0540de0ef815e019f44781ad610e8f1a1))
+* show Analytics as one report at a time behind report tabs ([0290f47](https://github.com/amitray007/headroom/commit/0290f47b15c4194d44c882a7d3f056e6a7890180))
+* sync notification read state through the server ([d9c8ac7](https://github.com/amitray007/headroom/commit/d9c8ac7806a562bb249ef5c7fb55f074661af5aa))
+* sync notification read state through the server ([22d94dc](https://github.com/amitray007/headroom/commit/22d94dcb8dfe373d7e3935f421e2f8c1764592b2))
+* use a banked Codex reset before it expires unused ([5b1b46b](https://github.com/amitray007/headroom/commit/5b1b46b864113e2ca695f4fafcd7983070f16b37))
+* use a banked Codex reset before it expires unused ([7b2c2a2](https://github.com/amitray007/headroom/commit/7b2c2a25a24c53d19367a7cc1db4e1378be22e04))
+
+
+### Bug Fixes
+
+* choose the token's Access Type under the Devices name field ([172b7db](https://github.com/amitray007/headroom/commit/172b7db551c189dc96afe4bd81c32ccb1bd45676))
+* close the Dependabot alerts and drop the charts-fill-in note ([9c677d8](https://github.com/amitray007/headroom/commit/9c677d8d03bb95acd1a954732401732c5d471068))
+* **deps:** override zod and fast-uri in the launch video project ([f530a18](https://github.com/amitray007/headroom/commit/f530a18a792dde9ce5fa0697d4b7adac535b1ddf))
+* **deps:** update zod to 4.6.7 and undici to 7.30.1 for high advisories ([d8749da](https://github.com/amitray007/headroom/commit/d8749da6a95844ac3b81484760a17ae0a8e97933))
+* drop the charts-fill-in sentence from the Analytics note ([94a3889](https://github.com/amitray007/headroom/commit/94a3889ad01bb87440fa5ef61488b7c1c3e9cc16))
+* keep a steadily polled app token from locking itself out ([cf611bb](https://github.com/amitray007/headroom/commit/cf611bb3376378edec5ee6c5703c4cf4df4411c7))
+* keep Rhythm account names out of the hour grid ([7d514f6](https://github.com/amitray007/headroom/commit/7d514f6ba44ef110e080183234b861e06fc5d86a))
+* keep Rhythm account names out of the hour grid ([71a43fb](https://github.com/amitray007/headroom/commit/71a43fb9f1cf1a5a4d0aa46793b599c18d2ca701))
+* label Devices tokens Read Only or Read & Write ([f244b57](https://github.com/amitray007/headroom/commit/f244b5712d7813a652eff195824f4237a5119400))
+* lay out the Devices refresh switch as a settings row ([0547669](https://github.com/amitray007/headroom/commit/054766934b4cb18c53bfae100421893d0c648821))
+* leave a zero spend cap out of the app feed ([f8aae42](https://github.com/amitray007/headroom/commit/f8aae42b62abc70a0722192e96c449d4645a67f5))
+* let other tailnet sites show Headroom's icons ([59d8db7](https://github.com/amitray007/headroom/commit/59d8db72f272e78ee1a75279e3bdc3c02cdeb167))
+* let other tailnet sites show Headroom's icons ([6f04afc](https://github.com/amitray007/headroom/commit/6f04afcbacd85006d10de71287060d10d4eaa23f))
+* offer the Devices refresh scope as a checkbox under the name ([4122e43](https://github.com/amitray007/headroom/commit/4122e4355649708139d4dc11ff831d941d5f6b50))
+* put the token access choice beside the Devices name heading ([1d46b49](https://github.com/amitray007/headroom/commit/1d46b49a8de67a0d7984dbfa0a116bc68ab9519c))
+* put the token access choice beside the Devices name heading ([adeee95](https://github.com/amitray007/headroom/commit/adeee95a4d83f10c38af48bd2c0894310f17f825))
+* retry a banked reset only on a reading taken after the last attempt ([1f68d89](https://github.com/amitray007/headroom/commit/1f68d891ee9b0016c9ee747533779cd8a15f9dfb))
+* warn once per outcome when a banked reset retries before expiry ([22e95dd](https://github.com/amitray007/headroom/commit/22e95dd180fb656e6a190c637869165127aff345))
+* wrap long notes in the wallet popovers instead of scrolling ([ef50258](https://github.com/amitray007/headroom/commit/ef502585477dad7d5c9934e17211d193f724c79d))
+* wrap long notes in the wallet popovers instead of scrolling ([5b0b633](https://github.com/amitray007/headroom/commit/5b0b633dc9b2b855de1880398fb49c639dab276f))
+
 ## [0.1.14](https://github.com/amitray007/headroom/compare/v0.1.13...v0.1.14) (2026-10-22)
 
 
