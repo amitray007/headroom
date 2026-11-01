@@ -342,15 +342,16 @@ struct SettingsView: View {
         ForEach(0..<WidgetPreferences.maxAccounts, id: \.self) { index in
           accountsSlot(index, accounts: accounts)
         }
-        Text("Automatic shows the accounts that need attention first.")
-          .font(HR.popoverFont(12)).foregroundStyle(HR.textMuted).padding(.vertical, 10)
       }
+      // Nothing to choose here, but the previews show what the two sizes draw.
       SettingsSection("All accounts") {
-        Text(
-          "Large shows the eight accounts that need attention first; Extra large shows every limit."
-        )
-        .font(HR.popoverFont(13)).foregroundStyle(HR.secondary)
-        .fixedSize(horizontal: false, vertical: true).padding(.vertical, 10)
+        ForEach([WidgetKind.allAccounts, .detail], id: \.self) { size in
+          VStack(alignment: .leading, spacing: 6) {
+            Text(size == .detail ? "Extra large" : "Large").font(HR.popoverFont(12))
+              .foregroundStyle(HR.textMuted)
+            WidgetPreview(cache: cache, kind: size, date: model.now)
+          }.padding(.vertical, 8)
+        }
       }
     }
   }
