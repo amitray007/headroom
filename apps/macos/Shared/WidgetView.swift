@@ -64,7 +64,7 @@ struct HeadroomWidgetView: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 9) {
+    VStack(alignment: .leading, spacing: 0) {
       if cache == nil {
         empty(art: "loading", title: "No readings yet", message: "Open Headroom to load accounts.")
       } else if cache?.sources.isEmpty == true {
@@ -86,37 +86,16 @@ struct HeadroomWidgetView: View {
             message: "Open the web dashboard to add one.")
         }
       } else {
-        header
-        if let offline {
-          Text(
-            offline.state == .signedOut
-              ? "Sign in again · last readings kept" : "Last readings kept · refresh paused"
-          )
-          .font(WidgetStyle.font(11)).foregroundStyle(muted).lineLimit(1)
-        }
         switch kind {
-        case .account:
-          if let row = rows.first {
-            if row.signIn && row.state != .signedOut {
-              Text("Sign in again").font(WidgetStyle.font(11)).foregroundStyle(HR.danger)
-            } else if row.state == .connected && stale(row) {
-              Text("Stale · last reading kept").font(WidgetStyle.font(11)).foregroundStyle(muted)
-            }
-            ForEach(row.limits.filter { limitKey == nil || $0.key == limitKey }) { limit in
-              limitView(limit)
-            }
-            if row.limits.isEmpty {
-              Text(row.balance ?? "Unknown").font(WidgetStyle.font(12, .semibold))
-            }
-          }
-          Spacer(minLength: 0)
-        case .overall: overall
-        case .accounts, .allAccounts: accountList
-        case .detail: detailList
+        case .account: smallAccount
+        case .overall: smallOverall
+        case .accounts: medium
+        case .allAccounts: large
+        case .detail: extraLarge
         }
       }
     }
-    .padding(.horizontal, 15).padding(.vertical, 14)
+    .padding(16)
     .font(WidgetStyle.font(12)).foregroundStyle(ink).monospacedDigit()
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .background(surface)
@@ -125,24 +104,6 @@ struct HeadroomWidgetView: View {
     .widgetURL(URL(string: "headroom://popover"))
   }
 
-  private var header: some View {
-    HStack(alignment: .firstTextBaseline, spacing: 8) {
-      Text(
-        offline.map { "\($0.name) \($0.state == .signedOut ? "signed out" : "offline")" }
-          ?? (kind == .account
-            ? rows.first.map { "\(Presentation.providerName($0.provider)) \($0.name)" } : nil)
-          ?? kind.title
-      )
-      // A long account name shrinks a little, then truncates; the age always shows whole.
-      .font(WidgetStyle.font(12, .semibold)).lineLimit(1).minimumScaleFactor(0.85)
-      if kind == .detail {
-        Spacer(minLength: 4)
-        Text(countText).font(WidgetStyle.font(11)).foregroundStyle(secondary).lineLimit(1)
-      }
-      Spacer(minLength: 0)
-      Text(age).font(WidgetStyle.font(11)).foregroundStyle(muted).lineLimit(1).fixedSize()
-    }.frame(height: 12)
-  }
   private func empty(art: String, title: String, message: String) -> some View {
     VStack(spacing: 6) {
       artwork(art).frame(width: 76, height: 64).accessibilityHidden(true)
@@ -166,188 +127,331 @@ struct HeadroomWidgetView: View {
     }
   }
 
-  private var accountList: some View {
-    let shown = Array(rows.prefix(kind == .accounts ? 3 : 8))
-    return VStack(spacing: 0) {
-      ForEach(Array(shown.enumerated()), id: \.element.id) { index, row in
-        accountRow(row)
-        if index < shown.count - 1 { Spacer(minLength: offline == nil ? 9 : 5) }
-      }
-      if kind == .allAccounts && rows.count > 8 {
-        Text("+\(rows.count - 8) more").font(WidgetStyle.font(11)).foregroundStyle(muted).frame(
-          maxWidth: .infinity, alignment: .leading)
-      }
-    }.frame(maxHeight: .infinity, alignment: .top)
-  }
-  private var detailList: some View {
-    // Pack by rendered rows, with secondary limits directly below their account.
-    let groups = detailColumns
-    return HStack(alignment: .top, spacing: 22) {
-      ForEach(0..<2) { column in
-        VStack(alignment: .leading, spacing: 8) {
-          ForEach(groups[column]) { row in
-            accountRow(row)
-            ForEach(row.limits.filter { !$0.part && $0.key != row.bindingKey }) { limit in
-              limitView(limit, showNext: false).padding(.leading, 19)
-            }
+  // MARK: Ledger sizes
+
+  /// Small, one account: the binding limit as a large figure, the session as a cell row below.
+  private var smallAccount: some View {
+    let row = rows[0]
+    let chosen = limitKey.flatMap { key in row.limits.first { $0.key == key } }
+    let all = chosen.map { [WidgetLedger.meter($0, at: date, timeZone: timeZone, used: used)] }
+      ?? WidgetLedger.meters(row, at: date, timeZone: timeZone, used: used)
+    // The longer window leads; a session limit sits below it.
+    let big = all.first { !$0.session } ?? all.first
+    let rest = all.filter { $0 != big }
+    return VStack(alignment: .leading, spacing: 0) {
+      who(row, plan: true)
+      Spacer(minLength: 6)
+      if let big {
+        VStack(alignment: .leading, spacing: 5) {
+          HStack(alignment: .center, spacing: 8) {
+            Text(big.value).font(WidgetStyle.font(30, .medium)).tracking(-0.6)
+              .foregroundStyle(valueColor(big, row: row)).lineLimit(1).minimumScaleFactor(0.6)
+            VStack(alignment: .leading, spacing: 1) {
+              Text(big.label).font(WidgetStyle.font(11.5)).foregroundStyle(muted)
+              note(big, row: row)
+            }.lineLimit(1)
           }
-          Spacer(minLength: 0)
-        }.frame(maxWidth: .infinity, alignment: .topLeading)
+          cells(big, row: row)
+        }
+      }
+      ForEach(Array(rest.prefix(1).enumerated()), id: \.offset) { _, meter in
+        meterView(meter, row: row).padding(.top, 8)
+      }
+      Spacer(minLength: 6)
+      footer(twoLines: true)
+    }
+    .accessibilityElement(children: .ignore).accessibilityLabel(reading(row, meters: all))
+  }
+
+  /// Small, every account: the count line over the three accounts that need attention first.
+  private var smallOverall: some View {
+    let ranked = WidgetLedger.tightest(rows, at: date)
+    let shown = Array(ranked.prefix(3))
+    let hidden = ranked.dropFirst(3)
+    let summary = WidgetLedger.summary(rows, at: date)
+    let hiddenLow = WidgetLedger.summary(Array(hidden), at: date)
+    return VStack(alignment: .leading, spacing: 8) {
+      summaryLine(summary, age: false)
+      VStack(alignment: .leading, spacing: 7) {
+        ForEach(shown, id: \.id) { row in
+          let meter = WidgetLedger.meters(row, at: date, timeZone: timeZone, used: used)
+            .first { !$0.session } ?? WidgetLedger.meters(row, at: date, used: used).first
+          VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+              mark(row, size: 14)
+              Text(meter?.value ?? "Unknown").font(WidgetStyle.font(13, .medium))
+                .foregroundStyle(meter.map { valueColor($0, row: row) } ?? secondary)
+              Spacer(minLength: 4)
+              if let meter { note(meter, row: row) }
+            }.lineLimit(1)
+            if let meter { cells(meter, row: row) }
+          }
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel(reading(row, meters: meter.map { [$0] } ?? []))
+        }
+      }.frame(maxHeight: .infinity)
+      if !hidden.isEmpty {
+        let low = hiddenLow.out + hiddenLow.runsOut + hiddenLow.low
+        Text("\(hidden.count) more, \(low == 0 ? "none" : "\(low)") low")
+          .font(WidgetStyle.font(11)).foregroundStyle(muted).lineLimit(1)
+      } else {
+        footer(twoLines: false)
       }
     }
   }
+
+  /// Medium: up to three chosen accounts, one cell row each, extras pinned right.
+  private var medium: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      VStack(spacing: 0) {
+        ForEach(rows.prefix(3), id: \.id) { row in
+          ledgerRow(row, every: false, whoWidth: 120, extraWidth: 40)
+            .frame(maxHeight: .infinity)
+        }
+      }.frame(maxHeight: .infinity)
+      footer(twoLines: false).padding(.top, 4)
+    }
+  }
+
+  /// Large: every account, its ledger row each; "+N more" only when they do not fit.
+  private var large: some View {
+    let fit = rows.count > 10 ? 9 : rows.count
+    return VStack(alignment: .leading, spacing: 0) {
+      summaryLine(WidgetLedger.summary(rows, at: date), age: true).padding(.bottom, 8)
+      VStack(spacing: 0) {
+        ForEach(rows.prefix(fit), id: \.id) { row in
+          ledgerRow(row, every: false, whoWidth: 120, extraWidth: 40)
+            .frame(maxHeight: .infinity)
+        }
+      }.frame(maxHeight: .infinity)
+      if rows.count > fit {
+        Text("+\(rows.count - fit) more").font(WidgetStyle.font(11)).foregroundStyle(muted)
+      }
+    }
+  }
+
+  /// Extra large: two columns, every limit stacked per account, hairlines between accounts.
+  private var extraLarge: some View {
+    let columns = detailColumns
+    let hidden = rows.count - columns[0].count - columns[1].count
+    return VStack(alignment: .leading, spacing: 0) {
+      summaryLine(WidgetLedger.summary(rows, at: date), age: true).padding(.bottom, 8)
+      HStack(alignment: .top, spacing: 20) {
+        ForEach(0..<2, id: \.self) { index in
+          VStack(spacing: 0) {
+            ForEach(Array(columns[index].enumerated()), id: \.element.id) { position, row in
+              if position > 0 { Rectangle().fill(hairline).frame(height: 1) }
+              ledgerRow(row, every: true, whoWidth: 122, extraWidth: 46)
+                .padding(.top, position == 0 ? 0 : 6)
+                .padding(.bottom, position == columns[index].count - 1 ? 0 : 6)
+                .frame(maxHeight: .infinity)
+            }
+            if index == 1 && hidden > 0 {
+              Text("+\(hidden) more").font(WidgetStyle.font(11)).foregroundStyle(muted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+          }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+      }.frame(maxHeight: .infinity)
+    }
+  }
+
+  /// Fill the left column first, then the right, by meter count; seven meters a column.
   private var detailColumns: [[WidgetAccountRow]] {
     var columns: [[WidgetAccountRow]] = [[], []]
     var counts = [0, 0]
     var column = 0
     for row in rows {
-      let count = 1 + row.limits.filter { !$0.part && $0.key != row.bindingKey }.count
-      if counts[column] + count > 8 && column == 0 { column = 1 }
-      guard counts[column] + count <= 8 else { continue }
+      let count = max(1, WidgetLedger.everyLimit(row).count)
+      if counts[column] + count > 7 && column == 0 { column = 1 }
+      guard counts[column] + count <= 7 else { continue }
       columns[column].append(row)
       counts[column] += count
     }
     return columns
   }
-  private func stale(_ row: WidgetAccountRow) -> Bool { row.staleAt.map { $0 <= date } ?? true }
-  private func binding(_ row: WidgetAccountRow) -> WidgetLimitRow? {
-    row.limits.first { $0.key == row.bindingKey } ?? row.limits.first { !$0.part }
-  }
-  private func value(_ limit: WidgetLimitRow) -> String {
-    if limit.unlimited { return "Unlimited" }
-    let left = WidgetTimeline.percent(limit, at: date)
-    return used
-      ? left.map { "\(Formatting.barePercent(100 - $0)) used" } ?? "Unknown"
-      : Formatting.percentLeft(left)
-  }
-  private func tone(_ limit: WidgetLimitRow) -> Color {
-    guard let left = WidgetTimeline.percent(limit, at: date) else { return muted }
-    if left == 0 { return HR.danger }
-    return left <= 20 || limit.runsOutAt != nil ? warning : ink
-  }
-  private func next(_ row: WidgetAccountRow, limit: WidgetLimitRow?) -> String {
-    if row.signIn || row.state == .signedOut {
-      return "Sign in again · \(Formatting.age(row.observedAt, now: date))"
+
+  // MARK: Ledger parts
+
+  /// One account: who it is, its meters, and the one extra pinned right.
+  private func ledgerRow(_ row: WidgetAccountRow, every: Bool, whoWidth: CGFloat, extraWidth: CGFloat)
+    -> some View
+  {
+    let meters = WidgetLedger.meters(row, at: date, timeZone: timeZone, used: used, every: every)
+    return HStack(alignment: .center, spacing: 10) {
+      who(row, plan: true).frame(width: whoWidth, alignment: .leading)
+      VStack(spacing: 7) {
+        ForEach(Array(meters.enumerated()), id: \.offset) { _, meter in
+          meterView(meter, row: row)
+        }
+        if meters.isEmpty {
+          Text("Unknown").font(WidgetStyle.font(13, .medium)).foregroundStyle(secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+      }.frame(maxWidth: .infinity)
+      if let extra = row.extra {
+        VStack(alignment: .trailing, spacing: 0) {
+          Text(extra.value).font(WidgetStyle.font(12.5, .medium))
+          Text(extra.label).font(WidgetStyle.font(11)).foregroundStyle(muted)
+        }.lineLimit(1).minimumScaleFactor(0.8).frame(width: extraWidth, alignment: .trailing)
+      }
     }
-    if row.state != .connected {
-      return "Kept reading · \(Formatting.age(row.observedAt, now: date))"
-    }
-    if stale(row) { return "Stale · \(Formatting.age(row.observedAt, now: date))" }
-    guard let limit else { return row.balanceLabel ?? "Unknown" }
-    return "\(limit.label) · \(WidgetTimeline.next(limit, at: date, timeZone: timeZone))"
+    .accessibilityElement(children: .ignore).accessibilityLabel(reading(row, meters: meters))
   }
-  private func accountRow(_ row: WidgetAccountRow) -> some View {
-    let limit = binding(row)
-    let isQuiet = row.signIn || row.state == .signedOut || stale(row)
+
+  /// The mark, provider faint and account name, with the plan below. The provider word gives
+  /// way first when the column is too narrow; the mark still names the provider.
+  private func who(_ row: WidgetAccountRow, plan showPlan: Bool) -> some View {
     let duplicate = rows.contains {
       $0.id != row.id && $0.provider == row.provider && $0.name == row.name
     }
-    let danger =
-      row.signIn || row.state == .signedOut
-      || (!isQuiet && (limit?.percentLeft == 0 || limit?.runsOutAt != nil))
-    return VStack(alignment: .leading, spacing: 5) {
-      HStack(spacing: 6) {
-        ProviderMark(provider: row.provider).frame(width: 13, height: 13).saturation(quiet ? 0 : 1)
-          .opacity(quiet ? 0.65 : 1)
-        (Text(Presentation.providerName(row.provider) + " ").foregroundColor(secondary)
-          + Text(row.name).font(WidgetStyle.font(12, .semibold))
-          + Text(duplicate ? " · \(row.sourceName)" : "").foregroundColor(secondary))
-          .lineLimit(1).truncationMode(.tail)
-        Spacer(minLength: 0)
-        Text(limit.map(value) ?? row.balance ?? "Unknown").font(WidgetStyle.font(12, .semibold))
-          .foregroundStyle(isQuiet ? muted : limit.map(tone) ?? ink).fixedSize()
-      }.frame(height: 13.2)
-      HStack(spacing: 10) {
-        if let limit {
-          RoomBar(
-            left: WidgetTimeline.percent(limit, at: date), unlimited: limit.unlimited,
-            quiet: isQuiet, projected: limit.runsOutAt != nil, height: 4
-          )
-          .frame(minWidth: 60).frame(height: 4)
-        } else {
-          Spacer(minLength: 0)
-        }
-        Text(next(row, limit: limit)).font(WidgetStyle.font(11)).foregroundStyle(
-          danger ? HR.danger : muted
-        ).lineLimit(1)
-          .help(
-            limit?.runsOutAt == nil
-              ? next(row, limit: limit) : next(row, limit: limit) + " if the pace holds"
-          )
-          .layoutPriority(1)
-      }.frame(height: 12.1).padding(.leading, 19)
-    }.accessibilityElement(children: .combine)
-      .accessibilityValue("\(limit?.interface ?? row.balanceInterface ?? "unknown") interface")
-  }
-  private func limitView(_ limit: WidgetLimitRow, showNext: Bool = true) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack {
-        Text(limit.label).foregroundStyle(secondary).lineLimit(1)
-        Spacer(minLength: 4)
-        Text(value(limit)).font(WidgetStyle.font(12, .semibold)).foregroundStyle(tone(limit))
-          .fixedSize()
-      }.frame(height: 13.2)
-      RoomBar(
-        left: WidgetTimeline.percent(limit, at: date), unlimited: limit.unlimited,
-        projected: limit.runsOutAt != nil, height: 4
-      ).frame(height: 4)
-      if showNext {
-        Text(WidgetTimeline.next(limit, at: date, timeZone: timeZone)).font(WidgetStyle.font(11))
-          .foregroundStyle(limit.percentLeft == 0 || limit.runsOutAt != nil ? HR.danger : muted)
-          .lineLimit(1)
-          .frame(height: 12.1)
-          .accessibilityLabel(
-            WidgetTimeline.next(limit, at: date, timeZone: timeZone)
-              + (limit.runsOutAt == nil ? "" : " if the pace holds"))
-      }
-    }.accessibilityElement(children: .combine)
-      .accessibilityValue("\(limit.interface) interface")
-  }
-  private var counts: [(String, String, Color)] {
-    let out = rows.filter { binding($0).map { WidgetTimeline.percent($0, at: date) == 0 } ?? false }
-      .count
-    let runs = rows.filter { binding($0)?.runsOutAt != nil }.count
-    let signIn = rows.filter { $0.signIn || $0.state == .signedOut }.count
-    let inventory = rows.compactMap(\.bankedCount).reduce(0, +)
-    let inventoryLabel =
-      rows.contains { $0.banked != nil && $0.bankedCount == nil }
-      ? "Unknown" : String(format: "%.0f", inventory)
-    return [
-      ("\(out)", "Out now", out > 0 ? HR.danger : muted),
-      ("\(runs)", "Runs out", runs > 0 ? warning : muted),
-      ("\(signIn)", "Sign in", signIn > 0 ? HR.danger : muted),
-      (inventoryLabel, "Banked resets", ink),
-    ]
-  }
-  private var countText: String {
-    counts.map { "\($0.0) \($0.1.lowercased())" }.joined(separator: " · ")
-  }
-  private var overall: some View {
-    VStack(alignment: .leading, spacing: 9) {
-      LazyVGrid(
-        columns: [
-          GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading),
-        ], alignment: .leading, spacing: 10
-      ) {
-        ForEach(0..<counts.count, id: \.self) { index in
-          let count = counts[index]
-          VStack(alignment: .leading, spacing: 3) {
-            Text(count.0).font(WidgetStyle.font(22, .semibold)).foregroundStyle(count.2).frame(
-              height: 22)
-            Text(count.1).font(WidgetStyle.font(11)).foregroundStyle(muted)
-              .fixedSize(horizontal: false, vertical: true)
-              .frame(height: count.1 == "Banked resets" ? 24.2 : 12.1, alignment: .topLeading)
+    let plan = [row.plan, duplicate ? row.sourceName : nil].compactMap { $0 }
+      .joined(separator: " · ")
+    return HStack(spacing: 8) {
+      mark(row, size: 16)
+      VStack(alignment: .leading, spacing: 1) {
+        ViewThatFits(in: .horizontal) {
+          HStack(spacing: 4) {
+            Text(Presentation.providerName(row.provider)).foregroundStyle(secondary)
+            Text(row.name).font(WidgetStyle.font(12.5, .medium))
           }
+          Text(row.name).font(WidgetStyle.font(12.5, .medium)).truncationMode(.tail)
         }
-      }
-      let reset = rows.flatMap(\.limits).filter { $0.percentLeft == 0 }.compactMap(\.resetsAt)
-        .filter { $0 > date }.min()
-      if let reset {
-        Text("Next back \(Formatting.when(reset, now: date, timeZone: timeZone))").font(
-          WidgetStyle.font(11)
-        ).foregroundStyle(muted).frame(height: 12.1)
+        .font(WidgetStyle.font(12.5)).lineLimit(1)
+        if showPlan && !plan.isEmpty {
+          Text(plan).font(WidgetStyle.font(11)).foregroundStyle(muted).lineLimit(1)
+        }
       }
     }
+  }
+
+  private func mark(_ row: WidgetAccountRow, size: CGFloat) -> some View {
+    ProviderMark(provider: row.provider).frame(width: size, height: size)
+      .saturation(quiet ? 0 : 1).opacity(quiet ? 0.65 : 1)
+  }
+
+  /// "70%  weekly            ● out Fri 09:23" over ten cells.
+  private func meterView(_ meter: LedgerRow.Meter, row: WidgetAccountRow) -> some View {
+    VStack(spacing: 4) {
+      HStack(alignment: .firstTextBaseline, spacing: 5) {
+        Text(meter.value).font(WidgetStyle.font(13, .medium))
+          .foregroundStyle(valueColor(meter, row: row)).fixedSize()
+        // The window name gives way first; the figure and the note stay whole.
+        Text(meter.label).font(WidgetStyle.font(11.5)).foregroundStyle(muted)
+          .truncationMode(.tail).layoutPriority(-1)
+        Spacer(minLength: 2)
+        note(meter, row: row).fixedSize()
+      }.lineLimit(1)
+      cells(meter, row: row)
+    }
+  }
+
+  @ViewBuilder private func note(_ meter: LedgerRow.Meter, row: WidgetAccountRow) -> some View {
+    if row.signIn {
+      Text("sign in again").font(WidgetStyle.font(11)).foregroundStyle(HR.popoverDanger)
+    } else if !meter.note.isEmpty {
+      HStack(spacing: 4) {
+        if meter.runsOut && live(row) {
+          Circle().fill(HR.popoverDanger).frame(width: 6, height: 6)
+        }
+        Text(meter.note).font(WidgetStyle.font(11))
+          .foregroundStyle(meter.alarm && live(row) ? HR.popoverDanger : secondary)
+      }
+    }
+  }
+
+  private func cells(_ meter: LedgerRow.Meter, row: WidgetAccountRow) -> some View {
+    Cells(fill: meter.fill, tone: meter.tone).opacity(live(row) ? 1 : 0.62)
+  }
+
+  private func valueColor(_ meter: LedgerRow.Meter, row: WidgetAccountRow) -> Color {
+    guard live(row) else { return secondary }
+    switch meter.tone {
+    case .out: return HR.popoverDanger
+    case .tight: return HR.popoverWarning
+    case .unknown: return secondary
+    case .room: return ink
+    }
+  }
+
+  /// "1 out  1 runs out  4 banked", with the reading age at the right.
+  private func summaryLine(_ summary: WidgetLedger.Summary, age showAge: Bool) -> some View {
+    HStack(alignment: .firstTextBaseline, spacing: 8) {
+      count(summary.out, "out", alarm: summary.out > 0)
+      count(summary.runsOut, "runs out", alarm: summary.runsOut > 0)
+      if summary.signIn > 0 { count(summary.signIn, "sign in", alarm: true) }
+      if let banked = summary.banked {
+        count(banked, "banked", alarm: false)
+      } else {
+        Text("banked unknown").foregroundStyle(secondary)
+      }
+      if showAge {
+        Spacer(minLength: 4)
+        Text(kind == .detail ? ageAndSource : age).foregroundStyle(muted)
+      }
+    }.font(WidgetStyle.font(11)).lineLimit(1)
+  }
+
+  private func count(_ value: Int, _ label: String, alarm: Bool) -> some View {
+    (Text("\(value)").font(WidgetStyle.font(11, .medium))
+      .foregroundColor(alarm ? HR.popoverDanger : ink)
+      + Text(" \(label)").foregroundColor(secondary))
+  }
+
+  /// The reading age and source; offline, the source state and the age of the kept reading.
+  @ViewBuilder private func footer(twoLines: Bool) -> some View {
+    if let offline {
+      let state = offline.state == .signedOut ? "signed out" : "offline"
+      if twoLines {
+        VStack(alignment: .leading, spacing: 1) {
+          HStack(spacing: 6) {
+            ring
+            Text("\(offline.name) \(state)")
+          }.foregroundStyle(secondary)
+          Text("Last reading, \(oldAge)").foregroundStyle(muted)
+        }.font(WidgetStyle.font(11)).lineLimit(1)
+      } else {
+        HStack(spacing: 6) {
+          ring
+          Text("\(offline.name) \(state) · last reading, \(oldAge)")
+        }.font(WidgetStyle.font(11)).foregroundStyle(secondary).lineLimit(1)
+      }
+    } else {
+      Text(kind == .account ? age : ageAndSource).font(WidgetStyle.font(11))
+        .foregroundStyle(muted).lineLimit(1)
+    }
+  }
+
+  private var ring: some View {
+    Circle().strokeBorder(secondary, lineWidth: 1.5).frame(width: 7, height: 7)
+  }
+
+  /// "2 h old" for a kept reading.
+  private var oldAge: String { age.replacingOccurrences(of: " ago", with: " old") }
+
+  private var ageAndSource: String {
+    let sources = cache?.sources ?? []
+    let place = sources.count == 1 ? sources[0].name : "\(sources.count) sources"
+    return sources.isEmpty ? age : "\(age) · \(place)"
+  }
+
+  private var hairline: Color { HR.color(light: 0xE3E3E3, dark: 0x2E2E2E) }
+
+  /// A row reads as current: connected, not stale and signed in.
+  private func live(_ row: WidgetAccountRow) -> Bool {
+    offline == nil && row.state == .connected && !row.signIn && !stale(row)
+  }
+  private func stale(_ row: WidgetAccountRow) -> Bool { row.staleAt.map { $0 <= date } ?? true }
+
+  private func reading(_ row: WidgetAccountRow, meters: [LedgerRow.Meter]) -> String {
+    let name = "\(Presentation.providerName(row.provider)) \(row.name)"
+    let parts = meters.map { meter in
+      let value = meter.tone == .unknown ? meter.value : "\(meter.value) \(used ? "used" : "left")"
+      let note = meter.runsOut ? "\(meter.note) if the pace holds" : meter.note
+      return [meter.label, value, note].filter { !$0.isEmpty }.joined(separator: ", ")
+    }
+    let extra = row.extra.map { "\($0.value) \($0.label)" }
+    return ([name] + parts + [extra].compactMap { $0 }).joined(separator: ". ")
   }
 }
 

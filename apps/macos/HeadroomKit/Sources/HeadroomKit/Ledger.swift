@@ -42,6 +42,18 @@ public struct LedgerRow: Identifiable, Sendable {
     self.column = column
     self.now = now
     let account = column.item.account
+    let limits = Self.limits(account, now: now)
+    if limits.isEmpty, let balance = Self.balance(account) {
+      meters = [balance]
+      extra = nil
+      return
+    }
+    meters = limits.map { Self.meter($0, now: now, timeZone: timeZone, view: view) }
+    extra = Self.extra(account, now: now, timeZone: timeZone)
+  }
+
+  /// The tightest session limit, then the binding longer window.
+  static func limits(_ account: FeedAccount, now: Date) -> [FeedAccount.limitsPayloadPayload] {
     let known = account.limits.filter {
       !$0.part && !$0.unlimited && !$0.notStarted && $0.percentLeft?.isFinite == true
     }
@@ -51,14 +63,7 @@ public struct LedgerRow: Identifiable, Sendable {
     var longer = account
     longer.limits = known.filter { $0.windowKind != .session }
     let period = RoomNow.binding(longer, now: now)
-    let limits = [session, period].compactMap { $0 }
-    if limits.isEmpty, let balance = Self.balance(account) {
-      meters = [balance]
-      extra = nil
-      return
-    }
-    meters = limits.map { Self.meter($0, now: now, timeZone: timeZone, view: view) }
-    extra = Self.extra(account, now: now, timeZone: timeZone)
+    return [session, period].compactMap { $0 }
   }
 
   public var outCount: Int { meters.contains { $0.tone == .out } ? 1 : 0 }

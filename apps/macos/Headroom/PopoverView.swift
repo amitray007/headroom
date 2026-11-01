@@ -729,8 +729,6 @@ struct PopoverState<Actions: View>: View {
 
 // Static Geist faces avoid variable-font weight substitution in AppKit hosting.
 extension HR {
-  static let popoverWarning = color(light: 0x8A4C00, dark: 0xF1CD7E)
-  static let popoverDanger = color(light: 0xCD1526, dark: 0xFF746E)
   static let popoverSuccess = color(light: 0x1A7F37, dark: 0x6BD68F)
   static let popoverBaseline = color(light: 0xC4C4C4, dark: 0x484848)
   static let popoverNoData = color(light: 0x8A8A8A, dark: 0x7A7A7A)

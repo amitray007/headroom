@@ -20,6 +20,25 @@ public struct WidgetAccountRow: Codable, Identifiable, Sendable {
   public let limits: [WidgetLimitRow]
   public let charges: [String]
   public let banked: String?
+  // The ledger, as the popover picks it. Optional so a cache written before them still reads.
+  public var plan: String? = nil
+  /// The session limit, then the binding longer window: the limits a one-row view shows.
+  public var ledgerKeys: [String]? = nil
+  /// The one extra pinned right: banked resets, capped spend, then a credit balance.
+  public var extra: WidgetExtra? = nil
+  /// An account with no quota: its balance as the meter.
+  public var balanceMeter: WidgetBalanceMeter? = nil
+}
+
+public struct WidgetExtra: Codable, Equatable, Sendable {
+  public let value: String
+  public let label: String
+}
+
+public struct WidgetBalanceMeter: Codable, Equatable, Sendable {
+  public let value: String
+  public let fill: Double?
+  public let note: String
 }
 
 public struct WidgetLimitRow: Codable, Identifiable, Sendable {
@@ -35,6 +54,10 @@ public struct WidgetLimitRow: Codable, Identifiable, Sendable {
   public let left: String
   public let reset: String
   public let runOut: String?
+  /// The ledger's window name ("Weekly", "Included, monthly").
+  public var window: String? = nil
+  public var session: Bool? = nil
+  public var notStarted: Bool? = nil
 }
 
 public struct WidgetSourceRow: Codable, Sendable {
@@ -90,11 +113,21 @@ public struct WidgetCacheWriter: Sendable {
                 Formatting.date(milliseconds: limit.resetsAt), now: now, timeZone: timeZone),
               runOut: Formatting.date(milliseconds: limit.runsOutAt).map {
                 Formatting.runOut($0, now: now, timeZone: timeZone)
-              }
+              },
+              window: LedgerRow.windowLabel(limit), session: limit.windowKind == .session,
+              notStarted: limit.notStarted
             )
           },
           charges: account.charges.map { "\($0.label): \(Formatting.charge($0))" },
-          banked: account.banked.map { Formatting.inventory($0.count, unit: $0.unit) }
+          banked: account.banked.map { Formatting.inventory($0.count, unit: $0.unit) },
+          plan: account.plan,
+          ledgerKeys: LedgerRow.limits(account, now: now).map(\.key),
+          extra: LedgerRow.extra(account, now: now, timeZone: timeZone).map {
+            WidgetExtra(value: $0.value, label: $0.label)
+          },
+          balanceMeter: LedgerRow.balance(account).map {
+            WidgetBalanceMeter(value: $0.value, fill: $0.fill, note: $0.note)
+          }
         )
       }
     }
