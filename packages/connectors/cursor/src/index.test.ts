@@ -11,6 +11,7 @@ import {
   usageUrl,
 } from "./endpoints.ts";
 import grokBotUsage from "./fixtures/grok-bot-usage.json";
+import periodUsageBusiness from "./fixtures/period-usage-business.json";
 import periodUsageEnterprise from "./fixtures/period-usage-enterprise.json";
 import periodUsageLiveShape from "./fixtures/period-usage-live-shape.json";
 import periodUsageWeekly from "./fixtures/period-usage-weekly.json";
@@ -66,6 +67,27 @@ function collectWithSpend(spendLimitUsage: unknown) {
 }
 
 describe("Cursor connector", () => {
+  test("a Business seat's int64 pool fields arrive as decimal strings and still parse", async () => {
+    const result = await createCursorConnector({
+      fetch: fakeFetch({ [usageUrl]: () => json(periodUsageBusiness) }).fetch,
+    }).collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["included.total_percent"]).toMatchObject({
+      valueText: "45",
+      scope: "billing_cycle",
+    });
+    expect(byKey["on_demand.used"]).toMatchObject({ valueText: "12.00", scope: "on_demand:team" });
+    expect(byKey["on_demand.limit"]).toMatchObject({
+      valueText: "412.34",
+      scope: "on_demand:team",
+    });
+  });
+
+  test("a non-numeric pool limit is still shape drift", async () => {
+    const error = await rejection(collectWithSpend({ pooledLimit: "12.5", limitType: "team" }));
+    expect(error).toMatchObject({ category: "invalid_response" });
+  });
+
   test("login URL carries the S256 challenge, uuid and cli redirect target", () => {
     const url = new URL(buildLoginUrl(pkce("verifier"), "uuid-1"));
     expect(url.origin + url.pathname).toBe("https://cursor.com/loginDeepControl");
