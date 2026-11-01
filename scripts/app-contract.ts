@@ -16,7 +16,22 @@ const errorSchema = z.strictObject({ error: z.string() });
 
 function json(schema: z.ZodType) {
   const { $schema: _dialect, ...body } = z.toJSONSchema(schema, { target: "draft-2020-12" });
-  return nullableTypes(body);
+  return openObjects(nullableTypes(body));
+}
+
+/**
+ * The server's Zod objects are strict, but Apple's generator turns `additionalProperties: false`
+ * into a decoder that throws on any unknown key. A field added by a newer server would then fail
+ * every installed Mac app's feed read. Clients accept and ignore unknown fields (D46).
+ */
+function openObjects(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(openObjects);
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key, item]) => !(key === "additionalProperties" && item === false))
+      .map(([key, item]) => [key, openObjects(item)]),
+  );
 }
 
 /** Apple's generator needs type unions rather than anyOf for nullable fields. */

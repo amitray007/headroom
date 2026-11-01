@@ -42,12 +42,12 @@ final class AppUpdater {
   }
 
   /// Checks after a short delay, then every six hours, while `enabled`. Turning it off stops the
-  /// schedule and clears a found update that is not being installed.
+  /// schedule and clears a found update that is not being installed; an up-to-date result stays.
   func schedule(enabled: Bool) {
     schedule?.cancel()
     schedule = nil
     guard enabled else {
-      if install != .running { result = nil }
+      if install != .running, available != nil { result = nil }
       return
     }
     schedule = Task { [weak self] in

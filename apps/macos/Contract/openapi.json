@@ -2,14 +2,11 @@
   "components": {
     "schemas": {
       "AppFeed": {
-        "additionalProperties": false,
         "properties": {
           "accounts": {
             "items": {
-              "additionalProperties": false,
               "properties": {
                 "banked": {
-                  "additionalProperties": false,
                   "properties": {
                     "count": {
                       "minimum": 0,
@@ -36,7 +33,6 @@
                 },
                 "charges": {
                   "items": {
-                    "additionalProperties": false,
                     "properties": {
                       "availability": {
                         "enum": [
@@ -49,7 +45,6 @@
                         "type": "string"
                       },
                       "cap": {
-                        "additionalProperties": false,
                         "properties": {
                           "unit": {
                             "type": "string"
@@ -121,7 +116,6 @@
                 },
                 "limits": {
                   "items": {
-                    "additionalProperties": false,
                     "properties": {
                       "interface": {
                         "enum": ["official", "private"],
@@ -259,10 +253,8 @@
           },
           "notices": {
             "items": {
-              "additionalProperties": false,
               "properties": {
                 "connection": {
-                  "additionalProperties": false,
                   "properties": {
                     "id": {
                       "minLength": 1,
@@ -284,10 +276,8 @@
                   "type": "object"
                 },
                 "figures": {
-                  "additionalProperties": false,
                   "properties": {
                     "amount": {
-                      "additionalProperties": false,
                       "properties": {
                         "unit": {
                           "enum": [
@@ -307,7 +297,6 @@
                       "type": "object"
                     },
                     "cap": {
-                      "additionalProperties": false,
                       "properties": {
                         "unit": {
                           "enum": [
@@ -377,7 +366,6 @@
                   "type": "string"
                 },
                 "links": {
-                  "additionalProperties": false,
                   "properties": {
                     "dashboard": {
                       "format": "uri",
@@ -420,7 +408,6 @@
                   "type": "number"
                 },
                 "subject": {
-                  "additionalProperties": false,
                   "properties": {
                     "label": {
                       "type": ["string", "null"]
@@ -493,11 +480,9 @@
             "type": "integer"
           },
           "summary": {
-            "additionalProperties": false,
             "properties": {
               "extraSpend": {
                 "items": {
-                  "additionalProperties": false,
                   "properties": {
                     "unit": {
                       "type": "string"
@@ -512,7 +497,6 @@
                 "type": "array"
               },
               "monthlyPlanTotal": {
-                "additionalProperties": false,
                 "properties": {
                   "currency": {
                     "enum": ["USD", "EUR", "GBP", "INR", "CAD", "AUD", "JPY", "SGD", "CHF", "BRL"],
@@ -528,7 +512,6 @@
                 "type": ["object", "null"]
               },
               "nextLimitBack": {
-                "additionalProperties": false,
                 "properties": {
                   "accountId": {
                     "type": "string"
@@ -565,7 +548,6 @@
         "type": "object"
       },
       "AppRefresh": {
-        "additionalProperties": false,
         "properties": {
           "refreshIntervalMinutes": {
             "enum": [2, 5, 10, 15, 30],
@@ -576,7 +558,6 @@
         "type": "object"
       },
       "AppWhoami": {
-        "additionalProperties": false,
         "properties": {
           "apiVersion": {
             "const": 1,
@@ -600,7 +581,6 @@
         "type": "object"
       },
       "Error": {
-        "additionalProperties": false,
         "properties": {
           "error": {
             "type": "string"
@@ -610,7 +590,6 @@
         "type": "object"
       },
       "NoticeRead": {
-        "additionalProperties": false,
         "properties": {
           "ids": {
             "items": {

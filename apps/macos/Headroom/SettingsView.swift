@@ -9,6 +9,8 @@ struct SettingsView: View {
   @State private var remove: SourceSnapshot?
   @State private var dropTarget: String?
   @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+  /// The source whose More menu is open.
+  @State private var sourceMenu: UUID?
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
@@ -45,6 +47,13 @@ struct SettingsView: View {
       .background(HR.raisedSurface)
     }
     .font(HR.popoverFont(14)).foregroundStyle(HR.ink).tint(HR.ink)
+    .overlayPreferenceValue(SourceMenuAnchors.self) { anchors in sourceMenuLayer(anchors) }
+    .onKeyPress(.escape) {
+      guard sourceMenu != nil else { return .ignored }
+      closeSourceMenu()
+      return .handled
+    }
+    .onChange(of: model.selectedPane) { _, _ in sourceMenu = nil }
     // The window is 598 pt of content plus the title bar. The panes fill both: they stretch up
     // under the transparent title bar, while the outer frame still sizes the window.
     .frame(width: 700).frame(maxHeight: .infinity)
@@ -504,22 +513,79 @@ struct SettingsView: View {
     HStack(spacing: 6) {
       Button("Open") { model.openDashboard(snapshot.source) }
         .buttonStyle(WebButtonStyle(small: true))
-      Menu {
-        Button("Edit") { editing = SourceDraft(snapshot.source) }
-        Button("Move up") { Task { await model.moveSource(snapshot, by: -1) } }
-          .disabled(index == 0)
-        Button("Move down") { Task { await model.moveSource(snapshot, by: 1) } }
-          .disabled(index == model.sources.count - 1)
-        Divider()
-        Button("Remove…", role: .destructive) { remove = snapshot }
+      Button {
+        withAnimation(Motion.expand(reduceMotion)) {
+          sourceMenu = sourceMenu == snapshot.id ? nil : snapshot.id
+        }
       } label: {
         Image(systemName: "ellipsis").font(.system(size: 13, weight: .medium))
           .foregroundStyle(HR.secondary).frame(width: 30, height: 30).contentShape(Circle())
       }
-      .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+      .buttonStyle(.plain).fixedSize()
+      .anchorPreference(key: SourceMenuAnchors.self, value: .bounds) { [snapshot.id: $0] }
       .disabled(model.busy).accessibilityLabel("More for \(snapshot.source.name)")
     }
   }
+
+  /// The open source menu, drawn like the popover's menus. It opens under its button, or above
+  /// it when the window ends first, with its trailing edge on the button's.
+  @ViewBuilder private func sourceMenuLayer(_ anchors: [UUID: Anchor<CGRect>]) -> some View {
+    GeometryReader { proxy in
+      if let id = sourceMenu, let anchor = anchors[id],
+        let index = model.sources.firstIndex(where: { $0.id == id })
+      {
+        let snapshot = model.sources[index]
+        let button = proxy[anchor]
+        let up = button.maxY + 190 > proxy.size.height
+        ZStack(alignment: up ? .bottomTrailing : .topTrailing) {
+          // A click anywhere else closes the menu, as a menu does.
+          Color.clear.contentShape(Rectangle()).onTapGesture { closeSourceMenu() }
+            .accessibilityHidden(true)
+          PopoverMenuCard(label: "More for \(snapshot.source.name)") {
+            sourceMenuItems(snapshot, index: index)
+          }
+          .padding(.trailing, proxy.size.width - button.maxX)
+          .padding(
+            up ? .bottom : .top, up ? proxy.size.height - button.minY + 4 : button.maxY + 4)
+        }
+        .frame(width: proxy.size.width, height: proxy.size.height)
+        .transition(
+          .opacity.combined(
+            with: .scale(scale: 0.96, anchor: up ? .bottomTrailing : .topTrailing)))
+      }
+    }
+  }
+
+  @ViewBuilder private func sourceMenuItems(_ snapshot: SourceSnapshot, index: Int) -> some View {
+    PopoverMenuItem(title: "Refresh now", symbol: "arrow.clockwise") {
+      closeSourceMenu()
+      Task { await model.readSources() }
+    }
+    PopoverMenuItem(title: "Edit…", symbol: "pencil") {
+      closeSourceMenu()
+      editing = SourceDraft(snapshot.source)
+    }
+    // Only the moves that can happen are offered.
+    if index > 0 {
+      PopoverMenuItem(title: "Move up", symbol: "arrow.up") {
+        closeSourceMenu()
+        Task { await model.moveSource(snapshot, by: -1) }
+      }
+    }
+    if index < model.sources.count - 1 {
+      PopoverMenuItem(title: "Move down", symbol: "arrow.down") {
+        closeSourceMenu()
+        Task { await model.moveSource(snapshot, by: 1) }
+      }
+    }
+    PopoverMenuDivider()
+    PopoverMenuItem(title: "Remove…", symbol: "trash") {
+      closeSourceMenu()
+      remove = snapshot
+    }
+  }
+
+  private func closeSourceMenu() { withAnimation(Motion.expand(reduceMotion)) { sourceMenu = nil } }
 
   /// This Mac as a source: add it when it answers, start it when installed, else how to install.
   private var thisMac: some View {
@@ -556,25 +622,24 @@ struct SettingsView: View {
 
   // MARK: General
 
-  /// The running version, what the last check found and when.
+  /// One sentence on where this copy stands, then when that was learned.
   private var updateNote: String {
     let updates = model.updates
-    var parts = ["Headroom \(updates.running)"]
-    if updates.checking {
-      parts.append("Checking…")
-    } else if let found = updates.available {
-      parts.append("\(found.version) available")
-    } else if updates.result == .upToDate {
-      parts.append("Up to date")
-    } else if !model.preferences.checkForUpdates {
-      parts.append("Automatic checks are off")
-    }
-    if updates.lastCheckFailed && !updates.checking {
-      parts.append("Could not check")
-    } else if let at = updates.checkedAt, !updates.checking {
-      parts.append("Checked \(Formatting.checked(at, now: model.now))")
-    }
-    return parts.joined(separator: " · ")
+    let running = "Headroom \(updates.running)"
+    if updates.checking { return "Checking for a newer version…" }
+    let status =
+      if let found = updates.available {
+        "Headroom \(found.version) is available. You have \(updates.running)."
+      } else if updates.lastCheckFailed {
+        "\(running). Could not reach GitHub."
+      } else if updates.result == .upToDate {
+        "\(running) is up to date."
+      } else {
+        "\(running)."
+      }
+    guard let at = updates.checkedAt else { return status }
+    let when = Formatting.checked(at, now: model.now)
+    return "\(status) \(updates.lastCheckFailed ? "Last checked" : "Checked") \(when)."
   }
 
   private var general: some View {
@@ -619,14 +684,16 @@ struct SettingsView: View {
         }
         .help("While the menu is open, it reads every 30 seconds, or sooner when this is shorter.")
         SettingsRow(title: "Updates", note: updateNote) {
-          HStack(spacing: 12) {
-            Toggle("Check for updates", isOn: $model.preferences.checkForUpdates)
-              .toggleStyle(WebSwitchStyle())
-            Button("Check now") { Task { await model.updates.check() } }
-              .buttonStyle(WebButtonStyle(small: true)).disabled(model.updates.checking)
-          }
+          Button("Check now") { Task { await model.updates.check() } }
+            .buttonStyle(WebButtonStyle(small: true)).disabled(model.updates.checking)
         }
-        .help("Looks for a new version at launch and every 6 hours. Updating needs your press.")
+        SettingsRow(
+          title: "Check automatically",
+          note: "At launch and every 6 hours. Nothing installs until you press Update."
+        ) {
+          Toggle("Check automatically", isOn: $model.preferences.checkForUpdates)
+            .toggleStyle(WebSwitchStyle())
+        }
         SettingsRow(
           title: "Show limits as", note: "Room left, or the share used, as on the web."
         ) {
@@ -973,5 +1040,15 @@ private struct MenuBarPreview: View {
     }
     .font(.system(size: 13, weight: .medium)).foregroundStyle(.primary)
     .padding(.horizontal, 10).frame(height: 24)
+  }
+}
+
+/// Where each source's More button sits, so its menu lines up with it.
+private struct SourceMenuAnchors: PreferenceKey {
+  static let defaultValue: [UUID: Anchor<CGRect>] = [:]
+  static func reduce(
+    value: inout [UUID: Anchor<CGRect>], nextValue: () -> [UUID: Anchor<CGRect>]
+  ) {
+    value.merge(nextValue()) { $1 }
   }
 }

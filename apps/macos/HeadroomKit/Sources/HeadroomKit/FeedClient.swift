@@ -12,6 +12,15 @@ public enum FeedRead: Sendable {
 
 public protocol FeedReading: Sendable {
   func read(source: Source, token: String, etag: String?) async -> FeedRead
+  /// Saves read marks on the server. True when the server saved them.
+  func markRead(source: Source, token: String, ids: [String], read: Bool) async -> Bool
+}
+
+extension FeedReading {
+  /// A reader with no server keeps every mark queued.
+  public func markRead(source: Source, token: String, ids: [String], read: Bool) async -> Bool {
+    false
+  }
 }
 
 public struct FeedClient: FeedReading, Sendable {
@@ -62,7 +71,43 @@ public struct FeedClient: FeedReading, Sendable {
       case .undocumented(statusCode: 404, _): return .failed(.needsUpdate)
       default: return .failed(.offline)
       }
+    } catch let error as ClientError where Self.wrongShape(error.underlyingError) {
+      // JSON in a shape this build cannot read comes from a server older than the app, such
+      // as one that sends no read flag on its notices.
+      return .failed(.needsUpdate)
     } catch { return .failed(.offline) }
+  }
+
+  /// A missing or mistyped field, or a value this build does not know, such as a new provider.
+  /// A body that is not JSON at all fails at the root and is a network fault instead.
+  static func wrongShape(_ error: any Error) -> Bool {
+    switch error as? DecodingError {
+    case .keyNotFound, .typeMismatch, .valueNotFound: true
+    case .dataCorrupted(let context): !context.codingPath.isEmpty
+    default: false
+    }
+  }
+
+  /// The server takes at most 500 ids in one request.
+  static let readBatch = 500
+
+  public func markRead(source: Source, token: String, ids: [String], read: Bool) async -> Bool {
+    guard (try? Source.validate(source.baseURL)) != nil, !token.isEmpty,
+      !token.contains(where: { $0.isNewline })
+    else { return false }
+    let client = Client(
+      serverURL: source.baseURL,
+      transport: URLSessionTransport(configuration: .init(session: session)),
+      middlewares: [FeedHeaders(token: token, etag: nil)])
+    for start in stride(from: 0, to: ids.count, by: Self.readBatch) {
+      let batch = Array(ids[start..<min(start + Self.readBatch, ids.count)])
+      do {
+        guard
+          case .ok = try await client.putAppNoticesRead(body: .json(.init(ids: batch, read: read)))
+        else { return false }
+      } catch { return false }
+    }
+    return true
   }
 }
 

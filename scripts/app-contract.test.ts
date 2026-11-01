@@ -15,7 +15,8 @@ describe("Mac OpenAPI contract", () => {
       expect(text).toContain(`"${path}"`);
     for (const status of ["304", "400", "401", "405", "429"]) expect(text).toContain(`"${status}"`);
     expect(text).toContain('"scheme": "bearer"');
-    expect(text).toContain('"additionalProperties": false');
+    // A newer server may add fields; the Mac decoder must not reject them (D46).
+    expect(text).not.toContain('"additionalProperties": false');
     const feed = JSON.parse(text).components.schemas.AppFeed;
     const account = feed.properties.accounts.items;
     expect(account.properties.lastSuccessAt).toMatchObject({

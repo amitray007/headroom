@@ -485,17 +485,21 @@ func slotStylesShowEverySlot(style: DisplayPreferences.ItemStyle) throws {
 
 // MARK: The dot
 
+// These read the dot with color off. With it on, a low or out slot raises a colored dot too;
+// colorReachesOnlyTheDotAndOutOutranksLow covers that.
+private let plain = preferences(colors: false)
+
 @Test func unreadNotificationsShowAPlainDot() throws {
   let world = try World()
-  let result = status(.accounts, visible: world.healthy, unread: 2)
+  let result = status(.accounts, plain, visible: world.healthy, unread: 2)
   #expect(result.dot == .plain)
   #expect(result.summary.hasSuffix(", 2 unread notifications"))
 }
 
 @Test func noUnreadAndNoProblemShowsNoDot() throws {
   let world = try World()
-  #expect(status(.accounts, visible: world.healthy).dot == nil)
-  #expect(!status(.accounts, visible: world.healthy).summary.contains("unread"))
+  #expect(status(.accounts, plain, visible: world.healthy).dot == nil)
+  #expect(!status(.accounts, plain, visible: world.healthy).summary.contains("unread"))
 }
 
 @Test func anOutAccountOutsideTheSlotsShowsAnOutDot() throws {
@@ -519,17 +523,19 @@ func slotStylesShowEverySlot(style: DisplayPreferences.ItemStyle) throws {
 
 @Test func aProblemInsideASlotShowsNoDot() throws {
   let world = try World()
-  let result = status(.accounts, preferences(slots: [Slot()]), visible: [world.delta])
+  let result = status(
+    .accounts, preferences(slots: [Slot()], colors: false), visible: [world.delta])
   #expect(names(result) == ["Grok Delta"])
   #expect(result.dot == nil)
   let pinned = status(
-    .accounts, preferences(slots: [Slot(account: world.delta.id), Slot()]), visible: world.all)
+    .accounts, preferences(slots: [Slot(account: world.delta.id), Slot()], colors: false),
+    visible: world.all)
   #expect(pinned.dot == nil)
 }
 
 @Test func aProblemInsideASlotStillShowsTheUnreadDot() throws {
   let world = try World()
-  let result = status(.accounts, visible: [world.delta], unread: 1)
+  let result = status(.accounts, plain, visible: [world.delta], unread: 1)
   #expect(result.dot == .plain)
 }
 
@@ -756,4 +762,44 @@ func slotStylesShowEverySlot(style: DisplayPreferences.ItemStyle) throws {
     style: .accounts, preferences: preferences(), visible: world.healthy, sources: [.connected],
     ready: true, unread: 0, now: now.addingTimeInterval(60))
   #expect(status(.accounts, visible: world.healthy) == later)
+}
+
+// MARK: Color
+
+@Test func colorReachesOnlyTheDotAndOutOutranksLow() throws {
+  let world = try World()
+  // Bravo is low and Delta is out, both inside the slots.
+  let low = status(.accounts, preferences(logos: false), visible: [world.bravo])
+  #expect(low.dot == .low)
+  #expect(low.colored)
+  let off = status(.accounts, preferences(logos: false, colors: false), visible: [world.bravo])
+  #expect(off.dot == nil)
+  #expect(!off.colored)
+  let both = status(
+    .accounts, preferences(slots: [Slot(), Slot()], logos: false),
+    visible: [world.bravo, world.delta], unread: 3)
+  #expect(both.dot == .out)
+  // A healthy label with unread notifications keeps the plain dot and stays one color.
+  let unread = status(.accounts, preferences(logos: false), visible: [world.charlie], unread: 1)
+  #expect(unread.dot == .plain)
+  #expect(!unread.colored)
+}
+
+/// The menu bar shows the wallpaper through it; macOS draws its text black over a light
+/// wallpaper and white over a dark one. These are the middle tones where that choice is
+/// closest, including the one where a yellow meter vanished.
+private let lightBars: [UInt32] = [0xF5F5F5, 0xC8C8C8, 0x8C8C8C, 0x7A7A7A, 0x6090A8]
+private let darkBars: [UInt32] = [0x1E1E1E, 0x3A3A3A, 0x5A5A5A, 0x6090A8]
+
+@Test func theDotShowsOnEveryMenuBar() {
+  // The ring is ink, so the dot's edge stands out wherever the system's own text does.
+  for bar in lightBars { #expect(MenuPalette.contrast(MenuPalette.ink.light, bar) >= 3, "\(bar)") }
+  for bar in darkBars { #expect(MenuPalette.contrast(MenuPalette.ink.dark, bar) >= 3, "\(bar)") }
+  // The fill stands apart from its ring, so the tone reads inside it.
+  for pair in [MenuPalette.low, MenuPalette.out] {
+    #expect(MenuPalette.contrast(pair.light, MenuPalette.ink.light) >= 3)
+    #expect(MenuPalette.contrast(pair.dark, MenuPalette.ink.dark) >= 3)
+  }
+  // The old yellow meter on the reported wallpaper: why the meters no longer take color.
+  #expect(MenuPalette.contrast(0x9A7400, 0x6090A8) < 1.5)
 }

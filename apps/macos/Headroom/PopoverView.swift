@@ -286,8 +286,9 @@ extension View {
   }
 }
 
-/// A menu card in the popover style: raised surface, thin border, soft shadow.
-private struct PopoverMenuCard<Content: View>: View {
+/// A menu card in the popover style: raised surface, thin border, soft shadow. Settings uses it
+/// too, so every menu Headroom draws looks the same.
+struct PopoverMenuCard<Content: View>: View {
   let label: String
   @ViewBuilder var content: Content
   var body: some View {

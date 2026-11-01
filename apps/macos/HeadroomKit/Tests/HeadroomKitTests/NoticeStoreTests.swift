@@ -203,3 +203,69 @@ func everyNoticeKindHasAnIndependentSwitch(_ kind: NoticeKind) async throws {
     #expect(value.message == notice.message)
   }
 }
+
+@Test func theServerFlagWinsUnlessAMarkWaitsToBeSent() async throws {
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let store = try NoticeStore(directory: directory)
+  let id = UUID()
+  var notice = try #require(fixture().notices.first)
+  notice.read = true
+  // Read in the web dashboard before this Mac saw it: read, and never a banner.
+  try await store.ingest(sourceID: id, notices: [notice], now: Date())
+  #expect(await store.records(sourceID: id)[notice.id]?.read == true)
+  notice.read = false
+  try await store.ingest(sourceID: id, notices: [notice], now: Date())
+  #expect(await store.records(sourceID: id)[notice.id]?.read == false)
+  // A mark made here holds against an older feed until the server saves it.
+  try await store.setRead(true, id: notice.id, sourceID: id)
+  #expect(await store.pendingReads(sourceID: id) == [notice.id: true])
+  try await store.ingest(sourceID: id, notices: [notice], now: Date())
+  #expect(await store.records(sourceID: id)[notice.id]?.read == true)
+  // A confirm for a mark changed since it was sent keeps the newer one queued.
+  try await store.setRead(false, id: notice.id, sourceID: id)
+  try await store.confirmReads([notice.id: true], sourceID: id)
+  #expect(await store.pendingReads(sourceID: id) == [notice.id: false])
+  try await store.confirmReads([notice.id: false], sourceID: id)
+  #expect(await store.pendingReads(sourceID: id).isEmpty)
+  // The source sign-out notice lives only on this Mac.
+  try await store.updateSourceState(sourceID: id, signedOut: true, now: Date())
+  try await store.setRead(true, id: NoticeStore.sourceSignOutID, sourceID: id)
+  #expect(await store.pendingReads(sourceID: id).isEmpty)
+  try await store.markAllRead()
+  #expect(await store.pendingReads(sourceID: id) == [notice.id: true])
+  try await store.remove(sourceID: id)
+  #expect(await store.pendingReads(sourceID: id).isEmpty)
+}
+
+@Test func marksFromBeforeReadSyncGoToTheServerOnce() async throws {
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let id = UUID()
+  let notices = try fixture().notices
+  let first = try #require(notices.first)
+  let store = try NoticeStore(directory: directory)
+  try await store.ingest(sourceID: id, notices: notices, now: Date())
+  try await store.setRead(true, id: first.id, sourceID: id)
+  // Drop the queue, as a file written before read sync has none.
+  let file = directory.appending(path: "notices.json")
+  var json = try #require(
+    JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+  json["pendingReads"] = nil
+  try JSONSerialization.data(withJSONObject: json).write(to: file)
+  let upgraded = try NoticeStore(directory: directory)
+  #expect(await upgraded.pendingReads(sourceID: id) == [first.id: true])
+}
+
+@Test func aNoticeThatLeavesTheFeedTakesItsMarkWithIt() async throws {
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let store = try NoticeStore(directory: directory)
+  let id = UUID()
+  let notice = try #require(fixture().notices.first)
+  try await store.ingest(sourceID: id, notices: [notice], now: Date())
+  try await store.setRead(true, id: notice.id, sourceID: id)
+  try await store.ingest(sourceID: id, notices: [], now: Date())
+  try await store.ingest(sourceID: id, notices: [], now: Date())
+  #expect(await store.pendingReads(sourceID: id).isEmpty)
+}

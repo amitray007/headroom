@@ -17,6 +17,9 @@ public actor NoticeStore {
     var bannerHistory: [UUID: Set<String>]?
     var disconnectedAccounts: [UUID: Set<String>]?
     var sourceSignOut: [UUID: NoticeRecord]?
+    /// Read marks made on this Mac that the server has not saved yet, by source and notice.
+    /// `nil` in a file from before read sync (D45).
+    var pendingReads: [UUID: [String: Bool]]?
   }
   private let file: URL
   private var state: State
@@ -24,6 +27,12 @@ public actor NoticeStore {
   public init(directory: URL = HeadroomStorage.directory) throws {
     file = directory.appending(path: "notices.json")
     state = try HeadroomStorage.read(State.self, at: file) ?? State()
+    if state.pendingReads == nil {
+      // Notices read on this Mac before read sync go to the server once, so they stay read.
+      state.pendingReads = state.sources.mapValues { records in
+        records.filter(\.value.read).mapValues { _ in true }
+      }.filter { !$0.value.isEmpty }
+    }
   }
 
   public func ingest(sourceID: UUID, notices: [FeedNotice], now: Date) throws {
@@ -36,14 +45,21 @@ public actor NoticeStore {
     }
     for id in Array(entries.keys) where !present.contains(id) {
       entries[id]?.missingFeeds += 1
-      if (entries[id]?.missingFeeds ?? 0) >= 2 { entries[id] = nil }
+      if (entries[id]?.missingFeeds ?? 0) >= 2 {
+        entries[id] = nil
+        state.pendingReads?[sourceID]?[id] = nil
+      }
     }
+    // The server's flag wins, except for a mark this Mac has not sent yet.
+    let pending = state.pendingReads?[sourceID] ?? [:]
     for notice in notices {
+      let read = pending[notice.id] ?? notice.read
       if entries[notice.id] != nil {
         entries[notice.id]?.missingFeeds = 0
+        entries[notice.id]?.read = read
       } else {
         entries[notice.id] = NoticeRecord(
-          firstSeen: now, read: false, bannered: false, kind: notice.kind,
+          firstSeen: now, read: read, bannered: false, kind: notice.kind,
           missingFeeds: 0,
           eligibleForBanner: hasReadSource
             && !(state.bannerHistory?[sourceID]?.contains(notice.id) ?? false),
@@ -94,6 +110,7 @@ public actor NoticeStore {
       state.sourceSignOut?[sourceID]?.read = read
     } else {
       state.sources[sourceID]?[id]?.read = read
+      queue(read, ids: [id], sourceID: sourceID)
     }
     try persist()
   }
@@ -103,11 +120,31 @@ public actor NoticeStore {
       state.sourceSignOut?[source]?.read = true
     }
     for source in Array(state.sources.keys) {
-      for id in Array(state.sources[source]?.keys ?? [String: NoticeRecord]().keys) {
-        state.sources[source]?[id]?.read = true
-      }
+      let ids = Array(state.sources[source]?.keys ?? [String: NoticeRecord]().keys)
+      for id in ids { state.sources[source]?[id]?.read = true }
+      queue(true, ids: ids, sourceID: source)
     }
     try persist()
+  }
+
+  /// Marks waiting for the server, by notice id.
+  public func pendingReads(sourceID: UUID) -> [String: Bool] {
+    state.pendingReads?[sourceID] ?? [:]
+  }
+
+  /// Drops the marks the server saved. A mark changed again since it was sent stays queued.
+  public func confirmReads(_ sent: [String: Bool], sourceID: UUID) throws {
+    for (id, read) in sent where state.pendingReads?[sourceID]?[id] == read {
+      state.pendingReads?[sourceID]?[id] = nil
+    }
+    if state.pendingReads?[sourceID]?.isEmpty == true { state.pendingReads?[sourceID] = nil }
+    try persist()
+  }
+
+  private func queue(_ read: Bool, ids: [String], sourceID: UUID) {
+    guard !ids.isEmpty else { return }
+    if state.pendingReads == nil { state.pendingReads = [:] }
+    for id in ids { state.pendingReads?[sourceID, default: [:]][id] = read }
   }
 
   public func claimBanner(id: String, sourceID: UUID) throws -> Bool {
@@ -145,6 +182,7 @@ public actor NoticeStore {
     state.sourceSignOut?[sourceID] = nil
     state.bannerHistory?[sourceID] = nil
     state.disconnectedAccounts?[sourceID] = nil
+    state.pendingReads?[sourceID] = nil
     try persist()
   }
 

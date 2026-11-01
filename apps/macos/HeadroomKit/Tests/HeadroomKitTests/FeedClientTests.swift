@@ -118,12 +118,47 @@ func networkErrorsAreOffline(_ error: URLError.Code) async throws {
   }
 }
 
-@Test func invalidJSONIsOfflineAndFutureAPIVersionNeedsUpdate() async throws {
+@Test func invalidJSONIsOfflineAndAnOlderOrFutureFeedNeedsUpdate() async throws {
   let client = FeedClient(protocolClasses: [StubProtocol.self])
-  let malformed = try StubProtocol.register(Stub(body: Data("{}".utf8)))
+  let malformed = try StubProtocol.register(Stub(body: Data("not json".utf8)))
   guard case .failed(.offline) = await client.read(source: malformed, token: "synthetic", etag: nil)
   else {
     Issue.record("Expected decode failure")
+    return
+  }
+  // A server from before read sync sends notices without the read flag.
+  var older =
+    try JSONSerialization.jsonObject(with: JSONEncoder().encode(fixture()))
+    as? [String: Any] ?? [:]
+  older["notices"] = (older["notices"] as? [[String: Any]])?.map {
+    $0.filter { $0.key != "read" }
+  }
+  let old = try StubProtocol.register(
+    Stub(body: JSONSerialization.data(withJSONObject: older)))
+  guard case .failed(.needsUpdate) = await client.read(source: old, token: "synthetic", etag: nil)
+  else {
+    Issue.record("Expected an older feed to need an update")
+    return
+  }
+  // A newer server: an added field is ignored, a provider this build does not know is not.
+  var newer =
+    try JSONSerialization.jsonObject(with: JSONEncoder().encode(fixture()))
+    as? [String: Any] ?? [:]
+  newer["addedLater"] = ["synthetic": true]
+  let added = try StubProtocol.register(Stub(body: JSONSerialization.data(withJSONObject: newer)))
+  guard case .updated = await client.read(source: added, token: "synthetic", etag: nil) else {
+    Issue.record("Expected an unknown field to be ignored")
+    return
+  }
+  var accounts = newer["accounts"] as? [[String: Any]] ?? []
+  accounts[0]["provider"] = "synthetic_provider"
+  newer["accounts"] = accounts
+  let unknown = try StubProtocol.register(
+    Stub(body: JSONSerialization.data(withJSONObject: newer)))
+  guard
+    case .failed(.needsUpdate) = await client.read(source: unknown, token: "synthetic", etag: nil)
+  else {
+    Issue.record("Expected an unknown provider to need an update")
     return
   }
   var future = try fixture()
@@ -263,6 +298,31 @@ func verificationRejectsFailures(_ status: Int, _ expected: SourceSetupError) as
   #expect(StubProtocol.requests(for: unused).isEmpty)
   let readOnly = try StubProtocol.register(Stub(status: 403))
   #expect(!(await client.setRefresh(source: readOnly, token: "synthetic", minutes: 5)))
+}
+
+@Test func readMarksGoAsPutsOfAtMostFiveHundredIds() async throws {
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  let source = try StubProtocol.register(Stub(body: Data(#"{"ids":["a"],"read":true}"#.utf8)))
+  let ids = (0..<501).map { "notice-\($0)" }
+  #expect(await client.markRead(source: source, token: "synthetic", ids: ids, read: true))
+  let requests = StubProtocol.requests(for: source)
+  #expect(requests.count == 2)
+  let request = try #require(requests.first)
+  #expect(request.httpMethod == "PUT")
+  #expect(request.url?.path == "/api/app/v1/notices/read")
+  #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic")
+  struct Body: Decodable {
+    let ids: [String]
+    let read: Bool
+  }
+  let bodies = try requests.map {
+    try JSONDecoder().decode(
+      Body.self, from: try #require($0.httpBody ?? $0.httpBodyStream.map(Data.init(reading:))))
+  }
+  #expect(bodies.map(\.ids.count) == [500, 1])
+  #expect(bodies.allSatisfy { $0.read })
+  let refused = try StubProtocol.register(Stub(status: 401))
+  #expect(!(await client.markRead(source: refused, token: "synthetic", ids: ["a"], read: false)))
 }
 
 extension Data {

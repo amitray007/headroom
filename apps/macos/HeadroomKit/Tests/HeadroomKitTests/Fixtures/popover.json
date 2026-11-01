@@ -602,7 +602,8 @@
       "message": "The refresh token was rejected. Readings stopped Tue 12:00. Sign in again in the web dashboard.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -627,7 +628,8 @@
       "message": "Weekly has 9% left. Resets Tue 09:00.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -652,7 +654,8 @@
       "message": "Weekly runs out Fri 11:40 if the pace holds, 3 days 21 h before its reset.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -677,7 +680,8 @@
       "message": "Session had 20% left. It ran out at 14:20 and is back 18:38.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -702,7 +706,8 @@
       "message": "Codex Work has 2 full resets. The first expires Sat 07:00.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -727,7 +732,8 @@
       "message": "12.40 of 50.00 USD this cycle.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -752,7 +758,8 @@
       "message": "8.20 USD of 20.00 USD this month.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -777,7 +784,8 @@
       "message": "Showing the reading from 12 min before. Headroom keeps trying.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -802,7 +810,8 @@
       "message": "18.42 USD left of 50.00 USD.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -827,7 +836,8 @@
       "message": "Session went back to 100% left before its reset time.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -852,7 +862,8 @@
       "message": "Claude Personal now has 1 reset grant.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -877,7 +888,8 @@
       "message": "Balance went up by 20.00 USD.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -902,7 +914,8 @@
       "message": "5.00 USD of credits expire Mon 2 Nov.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -927,7 +940,8 @@
       "message": "12.40 of your 15.00 USD budget this cycle.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -952,7 +966,8 @@
       "message": "8.20 USD spent; your budget is 8.00 USD this month.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -977,7 +992,8 @@
       "message": "50 of 50 credits last week.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -1002,7 +1018,8 @@
       "message": "Codex Work went back to 100% left. The server rule ran it.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     }
   ]
 }

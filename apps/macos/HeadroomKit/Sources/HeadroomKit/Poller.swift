@@ -54,6 +54,8 @@ public actor Poller {
   private var loop: Task<Void, Never>?
   private var refreshTask: Task<Void, Never>?
   private var popoverOpen = false
+  /// A read mark arrived while a refresh was already reading, so one more refresh follows.
+  private var refreshAgain = false
   private var running = false
   private var scheduleRevision: UInt64 = 0
   private var observers: [UUID: AsyncStream<[SourceSnapshot]>.Continuation] = [:]
@@ -168,32 +170,59 @@ public actor Poller {
     await task.value
   }
 
+  /// Sends read marks made on this Mac. A refresh already reading may have missed them, so
+  /// it runs once more.
+  public func syncReads() async {
+    if refreshTask != nil { refreshAgain = true }
+    await refresh()
+  }
+
   private func performRefresh() async {
     defer { refreshTask = nil }
+    repeat {
+      refreshAgain = false
+      await refreshOnce()
+    } while refreshAgain
+  }
+
+  private func refreshOnce() async {
     let inputs = values
     let client = client
     let vault = vault
-    let results = await withTaskGroup(of: (UUID, FeedRead).self) { group in
+    let notices = notices
+    let results = await withTaskGroup(of: Polled.self) { group in
       for value in inputs {
         group.addTask {
           do {
             guard let token = try await vault.token(for: value.id) else {
-              return (value.id, .failed(.signedOut))
+              return Polled(id: value.id, read: .failed(.signedOut))
             }
-            return (
-              value.id,
-              await client.read(source: value.source, token: token, etag: value.cached?.etag)
-            )
-          } catch { return (value.id, .failed(.offline)) }
+            let read = await client.read(
+              source: value.source, token: token, etag: value.cached?.etag)
+            if case .failed = read { return Polled(id: value.id, read: read) }
+            // Marks go only to a server that just answered, after its feed was read. They
+            // are confirmed after that feed is saved, so the older flags never show.
+            let pending = await notices.pendingReads(sourceID: value.id)
+            var sent: [String: Bool] = [:]
+            for flag in [true, false] {
+              let ids = pending.filter { $0.value == flag }.map(\.key).sorted()
+              guard !ids.isEmpty,
+                await client.markRead(source: value.source, token: token, ids: ids, read: flag)
+              else { continue }
+              for id in ids { sent[id] = flag }
+            }
+            return Polled(id: value.id, read: read, sent: sent)
+          } catch { return Polled(id: value.id, read: .failed(.offline)) }
         }
       }
-      var results: [(UUID, FeedRead)] = []
+      var results: [Polled] = []
       for await result in group { results.append(result) }
       return results
     }
     let now = await clock.now()
     storageFailed = false
-    for (id, result) in results {
+    for polled in results {
+      let (id, result) = (polled.id, polled.read)
       guard let index = values.firstIndex(where: { $0.id == id }) else { continue }
       switch result {
       case .updated(let feed, let etag):
@@ -215,8 +244,20 @@ public actor Poller {
           try await notices.ingest(sourceID: id, notices: saved.feed.notices, now: now)
         } catch { storageFailed = true }
       }
+      if !polled.sent.isEmpty {
+        do { try await notices.confirmReads(polled.sent, sourceID: id) } catch {
+          storageFailed = true
+        }
+      }
     }
     do { try widgetWriter.write(sources: values, now: now) } catch { storageFailed = true }
     for observer in observers.values { observer.yield(values) }
   }
+}
+
+/// One source's poll: what the feed read returned and the read marks the server saved.
+private struct Polled: Sendable {
+  let id: UUID
+  let read: FeedRead
+  var sent: [String: Bool] = [:]
 }

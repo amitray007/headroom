@@ -407,6 +407,7 @@ final class AppModel {
       try await noticeStore?.setRead(true, id: item.notice.id, sourceID: item.source.id)
       if let index = notices.firstIndex(where: { $0.id == id }) { notices[index].read = true }
       bannerNoticeID = id
+      syncReads()
     } catch { self.error = "Could not save notification read state." }
   }
 
@@ -418,6 +419,7 @@ final class AppModel {
     do {
       try await noticeStore?.setRead(value, id: item.notice.id, sourceID: item.source.id)
       await loadNotices()
+      syncReads()
     } catch { self.error = "Could not save notification read state." }
   }
   func markAllRead() async {
@@ -428,7 +430,14 @@ final class AppModel {
     do {
       try await noticeStore?.markAllRead()
       await loadNotices()
+      syncReads()
     } catch { self.error = "Could not mark notifications as read." }
+  }
+  /// Sends the read marks to their servers now; a source that cannot be reached gets them
+  /// after its next successful poll.
+  private func syncReads() {
+    guard let poller else { return }
+    Task { await poller.syncReads() }
   }
   func setKind(_ kind: NoticeKind, enabled: Bool) async {
     do {

@@ -28,15 +28,14 @@ struct MenuItemLabel: View {
     case .liveLogo where !readings.isEmpty:
       withDot {
         HStack(spacing: 4) {
-          LiveGlyph(readings: readings, color: color).frame(width: 16, height: 16)
+          LiveGlyph(readings: readings).frame(width: 16, height: 16)
           if let room = status.liveRoom {
             Text(room.text).font(.system(size: 13, weight: .medium)).monospacedDigit()
-              .foregroundStyle(color(room.tone))
           }
         }
       }
     case .dots where !readings.isEmpty:
-      withDot { DotGrid(readings: readings, color: color).frame(width: 16, height: 16) }
+      withDot { DotGrid(readings: readings).frame(width: 16, height: 16) }
     case .accounts where !readings.isEmpty:
       withDot {
         HStack(spacing: 6) {
@@ -55,7 +54,6 @@ struct MenuItemLabel: View {
         glyph
         if status.style == .logoAndRoom, let text = status.text {
           Text(text).font(.system(size: 13, weight: .medium)).monospacedDigit()
-            .foregroundStyle(color(status.textTone))
         }
       }
     }
@@ -65,11 +63,10 @@ struct MenuItemLabel: View {
     switch reading.look {
     case .percent:
       Text(reading.text).font(.system(size: 13, weight: .medium)).monospacedDigit()
-        .foregroundStyle(color(reading.tone))
     case .ring:
-      MenuRing(left: reading.fill, tone: reading.tone, color: color).frame(width: 14, height: 14)
+      MenuRing(left: reading.fill, tone: reading.tone).frame(width: 14, height: 14)
     case .bars:
-      MenuBars(bars: reading.bars, color: color).frame(width: 18, height: 10)
+      MenuBars(bars: reading.bars).frame(width: 18, height: 10)
     }
   }
 
@@ -77,9 +74,7 @@ struct MenuItemLabel: View {
   private var glyph: some View {
     HeadroomGlyph().frame(width: 23, height: 23)
       .overlay(alignment: .bottomTrailing) {
-        if let dot = status.dot {
-          Circle().fill(color(dot)).frame(width: 5, height: 5).offset(x: -2, y: -2)
-        }
+        if let dot = status.dot { MenuDot(tone: dot, colors: status.colors).offset(x: -2, y: -2) }
       }
       // The glyph's 64 pt grid leaves 12 pt of air left of the bars; the dot ends 2 pt from the
       // right edge. Trim both so the item is as wide as what it draws.
@@ -90,50 +85,64 @@ struct MenuItemLabel: View {
   private func withDot<Meters: View>(@ViewBuilder _ content: () -> Meters) -> some View {
     HStack(spacing: 3) {
       content()
-      if let dot = status.dot { Circle().fill(color(dot)).frame(width: 5, height: 5) }
+      if let dot = status.dot { MenuDot(tone: dot, colors: status.colors) }
     }
   }
 
-  private func color(_ tone: MenuTone) -> Color {
-    guard status.colors else { return .primary }
-    return switch tone {
-    case .plain: .primary
-    case .low: MenuColor.low
-    case .out: HR.danger
+}
+
+/// The one place the menu bar label uses color. The wallpaper shows through the menu bar, so a
+/// colored meter or figure vanishes on some wallpapers; the dot carries the tone instead, with
+/// a ring in the menu bar's ink so its edge always shows (MenuPalette).
+struct MenuDot: View {
+  let tone: MenuTone
+  let colors: Bool
+  var body: some View {
+    if colors, let fill = MenuColor.fill(tone) {
+      Circle().fill(fill).frame(width: 5, height: 5)
+        .overlay { Circle().stroke(.primary, lineWidth: 1).frame(width: 6, height: 6) }
+    } else {
+      Circle().fill(.primary).frame(width: 5, height: 5)
     }
   }
 }
 
 enum MenuColor {
-  /// Yellow, darkened on a light menu bar to stay readable.
-  static let low = HR.color(light: 0x9A7400, dark: 0xFFD60A)
+  static let low = HR.color(light: MenuPalette.low.light, dark: MenuPalette.low.dark)
+  static let out = HR.color(light: MenuPalette.out.light, dark: MenuPalette.out.dark)
+  /// The dot's fill; plain has none and draws in ink.
+  static func fill(_ tone: MenuTone) -> Color? {
+    switch tone {
+    case .plain: nil
+    case .low: low
+    case .out: out
+    }
+  }
 }
 
 /// The glyph's three bars as live meters, one per slot, top to bottom.
 private struct LiveGlyph: View {
   let readings: [MenuReading]
-  let color: (MenuTone) -> Color
   var body: some View {
     VStack(spacing: 2.5) {
       ForEach(Array(readings.enumerated()), id: \.offset) { _, reading in
-        MenuMeter(fill: reading.fill, tone: reading.tone, color: color).frame(height: 3)
+        MenuMeter(fill: reading.fill, tone: reading.tone).frame(height: 3)
       }
     }.padding(.horizontal, 0.5)
   }
 }
 
-/// One row of three dots per slot; lit dots are thirds of the shown figure (room left or used). An out row lights in
-/// red; a row with no figure stays dim.
+/// One row of three dots per slot; lit dots are thirds of the shown figure (room left or used).
+/// An out row lights fully; a row with no figure stays dim.
 private struct DotGrid: View {
   let readings: [MenuReading]
-  let color: (MenuTone) -> Color
   var body: some View {
     VStack(spacing: 1.6) {
       ForEach(Array(readings.enumerated()), id: \.offset) { _, reading in
         let lit = Self.lit(reading)
         HStack(spacing: 1.6) {
           ForEach(0..<3, id: \.self) { index in
-            Circle().fill(color(reading.tone)).frame(width: 3.4, height: 3.4)
+            Circle().fill(.primary).frame(width: 3.4, height: 3.4)
               .opacity(index < lit ? 1 : 0.3)
           }
         }
@@ -147,21 +156,20 @@ private struct DotGrid: View {
   }
 }
 
-/// A capsule meter. Out draws a dashed outline in red; no figure draws a dashed outline.
+/// A capsule meter in the menu bar's ink. Out draws a dashed outline; no figure draws a dim one.
 private struct MenuMeter: View {
   let fill: Double?
   let tone: MenuTone
-  let color: (MenuTone) -> Color
   var body: some View {
     GeometryReader { geometry in
       if tone == .out || fill == nil {
         Capsule().strokeBorder(
-          color(tone).opacity(tone == .out ? 1 : 0.55),
+          Color.primary.opacity(tone == .out ? 1 : 0.55),
           style: StrokeStyle(lineWidth: 0.7, dash: [1, 1]))
       } else {
         ZStack(alignment: .leading) {
-          Capsule().fill(color(tone).opacity(0.28))
-          Capsule().fill(color(tone))
+          Capsule().fill(.primary.opacity(0.28))
+          Capsule().fill(.primary)
             .frame(width: max(geometry.size.height, geometry.size.width * (fill ?? 0) / 100))
         }
       }
@@ -171,14 +179,13 @@ private struct MenuMeter: View {
 
 private struct MenuBars: View {
   let bars: [MenuReading.Bar]
-  let color: (MenuTone) -> Color
   var body: some View {
     VStack(spacing: 2) {
       if bars.isEmpty {
-        MenuMeter(fill: nil, tone: .plain, color: color).frame(height: 3)
+        MenuMeter(fill: nil, tone: .plain).frame(height: 3)
       }
       ForEach(Array(bars.enumerated()), id: \.offset) { _, bar in
-        MenuMeter(fill: bar.fill, tone: bar.tone, color: color).frame(height: 3)
+        MenuMeter(fill: bar.fill, tone: bar.tone).frame(height: 3)
       }
     }
   }
@@ -187,48 +194,45 @@ private struct MenuBars: View {
 private struct MenuRing: View {
   let left: Double?
   let tone: MenuTone
-  let color: (MenuTone) -> Color
   var body: some View {
     ZStack {
       if tone == .out || left == nil {
         Circle().inset(by: 1.5).stroke(
-          color(tone).opacity(tone == .out ? 1 : 0.55),
+          Color.primary.opacity(tone == .out ? 1 : 0.55),
           style: StrokeStyle(lineWidth: 1.4, dash: [1.6, 1.6]))
       } else {
-        Circle().inset(by: 1.75).stroke(color(tone).opacity(0.28), lineWidth: 2)
+        Circle().inset(by: 1.75).stroke(.primary.opacity(0.28), lineWidth: 2)
         Circle().inset(by: 1.75).trim(from: 0, to: (left ?? 0) / 100)
-          .stroke(color(tone), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+          .stroke(.primary, style: StrokeStyle(lineWidth: 2, lineCap: .round))
           .rotationEffect(.degrees(-90))
       }
     }
   }
 }
 
-/// The colors themselves, in place of a sentence about them: a low ring in yellow and an out
-/// ring in red, or both in the plain color when coloring is off.
+/// The colors themselves, in place of a sentence about them: the low and out dots in yellow
+/// and red, or both in the plain color when coloring is off.
 struct MenuToneLegend: View {
   let colors: Bool
   var body: some View {
     HStack(spacing: 14) {
-      sample(left: 14, tone: .low, label: "Low")
-      sample(left: 0, tone: .out, label: "Out")
+      sample(tone: .low, label: "Low")
+      sample(tone: .out, label: "Out")
     }
     .font(HR.popoverFont(12, .medium))
+    .foregroundStyle(HR.secondary)
     .animation(.easeOut(duration: 0.16), value: colors)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(
-      colors ? "Low shows in yellow, out shows in red" : "Low and out keep the menu bar color")
+      colors ? "A yellow dot marks low, a red dot marks out" : "Low and out show no colored dot")
   }
 
-  private func sample(left: Double, tone: MenuTone, label: String) -> some View {
-    HStack(spacing: 5) {
-      MenuRing(left: left, tone: tone, color: color).frame(width: 14, height: 14)
-      Text(label).foregroundStyle(color(tone))
+  private func sample(tone: MenuTone, label: String) -> some View {
+    HStack(spacing: 6) {
+      // With color off, low and out raise no dot, so the sample fades.
+      MenuDot(tone: tone, colors: colors).scaleEffect(1.6).frame(width: 10, height: 10)
+        .opacity(colors ? 1 : 0.35)
+      Text(label)
     }
-  }
-
-  private func color(_ tone: MenuTone) -> Color {
-    guard colors else { return HR.secondary }
-    return tone == .low ? MenuColor.low : HR.danger
   }
 }

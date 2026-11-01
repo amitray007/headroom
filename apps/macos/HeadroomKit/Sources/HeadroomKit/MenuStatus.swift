@@ -1,7 +1,44 @@
 import Foundation
 
 /// How much attention one figure in the menu bar needs.
-public enum MenuTone: Equatable, Sendable { case plain, low, out }
+public enum MenuTone: Equatable, Sendable {
+  case plain, low, out
+  /// Out outranks low, and low outranks plain.
+  var rank: Int {
+    switch self {
+    case .plain: 0
+    case .low: 1
+    case .out: 2
+    }
+  }
+}
+
+/// The colors of the menu bar's low and out dot, as sRGB hex for a light and a dark menu bar.
+/// The menu bar shows the wallpaper through it, so any middle color vanishes on some wallpaper.
+/// Everything else in the label draws in the menu bar's ink, and the dot has a ring of that
+/// ink, so its edge always shows. The fill only has to stand apart from its own ring.
+public enum MenuPalette {
+  public struct Pair: Sendable {
+    public let light: UInt32
+    public let dark: UInt32
+  }
+  public static let low = Pair(light: 0xFFD60A, dark: 0xA87B00)
+  public static let out = Pair(light: 0xFF3B30, dark: 0xE0201B)
+  /// What macOS draws menu bar text in: black on a light menu bar, white on a dark one.
+  public static let ink = Pair(light: 0x000000, dark: 0xFFFFFF)
+
+  /// The WCAG contrast ratio of two sRGB colors, 1...21.
+  public static func contrast(_ a: UInt32, _ b: UInt32) -> Double {
+    func luminance(_ color: UInt32) -> Double {
+      let channels = [16, 8, 0].map { Double((color >> UInt32($0)) & 255) / 255 }.map {
+        $0 <= 0.04045 ? $0 / 12.92 : pow(($0 + 0.055) / 1.055, 2.4)
+      }
+      return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+    }
+    let (x, y) = (luminance(a), luminance(b))
+    return (max(x, y) + 0.05) / (min(x, y) + 0.05)
+  }
+}
 
 /// One slot as the menu bar draws it, apart from the account it came from, so Settings can show
 /// samples before any account exists.
@@ -98,7 +135,8 @@ public struct MenuStatus: Equatable, Sendable {
   /// Logo and room: the followed account's room, or what stops it showing.
   public let text: String?
   public let textTone: MenuTone
-  /// Unread notifications (plain) or an account out or signed out outside the slots (out).
+  /// Out when an account outside the slots is out or signed out; with color on, the most
+  /// urgent tone the label shows; otherwise plain for unread notifications.
   public let dot: MenuTone?
   public let logos: Bool
   public let colors: Bool
@@ -163,7 +201,8 @@ public struct MenuStatus: Equatable, Sendable {
         && ($0.binding?.percentLeft == 0 || $0.snapshot.state == .signedOut
           || $0.account.state == .reconnect_required)
     }
-    dot = problem ? .out : unread > 0 ? .plain : nil
+    let unreadDot: MenuTone? = unread > 0 ? .plain : nil
+    let problemDot: MenuTone? = problem ? .out : unreadDot
 
     var text: String?
     var textTone = MenuTone.plain
@@ -195,6 +234,12 @@ public struct MenuStatus: Equatable, Sendable {
     liveRoom =
       style == .liveLogo && preferences.liveRoom
       ? readings.min { Self.urgency($0) > Self.urgency($1) } : nil
+    // The meters and figures draw in the menu bar's ink, so color reaches only the dot.
+    var tones: [MenuTone] = [textTone, liveRoom?.tone ?? .plain]
+    for reading in readings { tones += [reading.tone] + reading.bars.map(\.tone) }
+    let loudest = tones.max { $0.rank < $1.rank } ?? .plain
+    dot =
+      if colors && loudest.rank > (problemDot ?? .plain).rank { loudest } else { problemDot }
 
     let lines: [String]
     if style == .logoAndRoom {
@@ -249,15 +294,12 @@ public struct MenuStatus: Equatable, Sendable {
     return best?.column ?? out
   }
 
-  /// True when the label draws in color: a low or out tone, or a provider mark in its own color.
+  /// True when the label draws in color: a low or out dot, or a provider mark in its own color.
   /// A one-color label is a template image the menu bar tints like any icon.
   public var colored: Bool {
-    let tones =
-      [textTone, dot ?? .plain, liveRoom?.tone ?? .plain]
-      + readings.flatMap { [$0.tone] + $0.bars.map(\.tone) }
     let marks =
       style == .accounts && logos
       && readings.contains { Presentation.coloredMarks.contains($0.provider) }
-    return (colors && tones.contains { $0 != .plain }) || marks
+    return (colors && (dot ?? .plain) != .plain) || marks
   }
 }

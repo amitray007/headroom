@@ -287,3 +287,55 @@ private actor HeldReader: FeedReading {
   #expect(await clock.nextSleep() == .seconds(30))
   await poller.stop()
 }
+
+private actor MarkingReader: FeedReading {
+  var feed: AppFeed
+  var accept: Bool
+  var marks: [([String], Bool)] = []
+  init(feed: AppFeed, accept: Bool) {
+    self.feed = feed
+    self.accept = accept
+  }
+  func read(source: Source, token: String, etag: String?) -> FeedRead {
+    .updated(feed, etag: nil)
+  }
+  func markRead(source: Source, token: String, ids: [String], read: Bool) -> Bool {
+    marks.append((ids, read))
+    if accept {
+      for index in feed.notices.indices where ids.contains(feed.notices[index].id) {
+        feed.notices[index].read = read
+      }
+    }
+    return accept
+  }
+  func setAccept(_ value: Bool) { accept = value }
+}
+
+@Test func readMarksReachTheServerAfterAReadAndStayQueuedOnFailure() async throws {
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let source = try source()
+  let feed = try fixture()
+  let notice = try #require(feed.notices.first)
+  let reader = MarkingReader(feed: feed, accept: false)
+  let poller = try await makePoller(directory: directory, sources: [source], reader: reader)
+  await poller.refresh()
+  #expect(await reader.marks.isEmpty)
+  let notices = try NoticeStore(directory: directory)
+  try await notices.setRead(true, id: notice.id, sourceID: source.id)
+  // The poller keeps its own store; a fresh poller reads the saved queue.
+  let next = try await makePoller(directory: directory, sources: [source], reader: reader)
+  await next.syncReads()
+  #expect(await reader.marks.map(\.0) == [[notice.id]])
+  let kept = try NoticeStore(directory: directory)
+  #expect(await kept.pendingReads(sourceID: source.id) == [notice.id: true])
+  #expect(await kept.records(sourceID: source.id)[notice.id]?.read == true)
+  await reader.setAccept(true)
+  await next.syncReads()
+  let saved = try NoticeStore(directory: directory)
+  #expect(await saved.pendingReads(sourceID: source.id).isEmpty)
+  #expect(await saved.records(sourceID: source.id)[notice.id]?.read == true)
+  // The next feed carries the server's flag, so the mark holds without the queue.
+  await next.refresh()
+  #expect(await saved.records(sourceID: source.id)[notice.id]?.read == true)
+}
