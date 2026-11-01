@@ -133,13 +133,14 @@ struct HeadroomWidgetView: View {
             ? rows.first.map { "\(Presentation.providerName($0.provider)) \($0.name)" } : nil)
           ?? kind.title
       )
-      .font(WidgetStyle.font(12, .semibold)).lineLimit(1).layoutPriority(1)
+      // A long account name shrinks a little, then truncates; the age always shows whole.
+      .font(WidgetStyle.font(12, .semibold)).lineLimit(1).minimumScaleFactor(0.85)
       if kind == .detail {
         Spacer(minLength: 4)
         Text(countText).font(WidgetStyle.font(11)).foregroundStyle(secondary).lineLimit(1)
       }
       Spacer(minLength: 0)
-      Text(age).font(WidgetStyle.font(11)).foregroundStyle(muted).lineLimit(1)
+      Text(age).font(WidgetStyle.font(11)).foregroundStyle(muted).lineLimit(1).fixedSize()
     }.frame(height: 12)
   }
   private func empty(art: String, title: String, message: String) -> some View {
