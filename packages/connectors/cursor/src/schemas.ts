@@ -14,6 +14,9 @@ export const jwtClaimsSchema = z
   .object({ sub: z.string().optional(), exp: z.number().optional(), email: z.string().optional() })
   .loose();
 
+/** `AuthService/GetEmail`. Only `email` is read; it labels the connection and never keys it. */
+export const getEmailSchema = z.object({ email: z.string().optional() }).loose();
+
 const planUsageSchema = z
   .object({
     limit: z.number().nullable().optional(),

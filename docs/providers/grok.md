@@ -36,6 +36,8 @@ API billing is a separate connection with the next step `api_key`, not part of t
 | SuperGrok collector with `GetRemainingResets` parsing | source-inspected | ai-usagebar [S2]; secondary reference, private contract |
 | `GET https://management-api.x.ai/v1/billing/teams/{team}/prepaid/balance` returns the prepaid balance with a management API key | unvalidated | Official management API, documented by reference. Less needed now: the CLI billing body itself carries `prepaidBalance.val` (validated 2026-10-01) |
 | Headless `grok login --device-auth` on Linux writes `auth.json` without a keyring | unvalidated | Needs the Linux proof in the checklist |
+| The CLI access token has no `email` claim (claims: `aud`, `client_id`, `exp`, `grant_time`, `iat`, `iss`, `jti`, `principal_id`, `principal_type`, `scope`, `sub`, `team_id`, `tier`), although its scope names `email`. The CLI auth file carried no `id_token`. Whether a refresh returns one is unobserved | prior observation | One SuperGrok Heavy connection on 2026-10-31; only claim names were recorded |
+| `GET https://auth.x.ai/oauth2/userinfo` with `Authorization: Bearer <access token>` returns `sub`, `name`, `given_name`, `family_name`, `picture`, `email` and `email_verified`; `/v1/settings` has no email | documented, validated | The OIDC discovery document `https://auth.x.ai/.well-known/openid-configuration` lists it as `userinfo_endpoint` with `email` in `claims_supported`. Read on 2026-10-31 for one SuperGrok Heavy connection; only key names and types were recorded |
 | Billing routes work for every Grok plan | validated for one plan | `GET /v1/billing?format=credits` answered 200 on 2026-10-01 for the maintainer's individual plan with `config.currentPeriod` (weekly), `creditUsagePercent`, `onDemandCap.val`, `onDemandUsed.val`, `prepaidBalance.val`, `productUsage[].{product, usagePercent}` and `isUnifiedBillingUser`; `/v1/settings` returned `subscription_tier_display`. Team logins (412) remain unobserved |
 
 Earlier research reviewed community collectors and a prior account observation. That is not a fresh account check. No quota percentage, plan name, account id or credential is present here.
@@ -55,7 +57,7 @@ Earlier research reviewed community collectors and a prior account observation. 
 | Banked reset count | `unknown` until validated | `GetRemainingResets` path in the ai-usagebar collector [S2] | `private`. Secondary reference only. |
 | Reset redemption | `unsupported` | Read support does not imply action support | No reset action in v1. |
 | Usage history | Yes after collection | Headroom snapshots | Only validated metrics. |
-| Account identity | Candidate | Token claims or identity read after login | Verify with a non-sensitive read. |
+| Account identity | `available` | Token subject for the key; email from OIDC `userinfo` for the label | `official`. The CLI token has no `email` claim, so the connector reads `userinfo` when the claims lack one. A failed read keeps the label "Grok". |
 
 ## Connect workflow
 
@@ -64,7 +66,7 @@ Earlier research reviewed community collectors and a prior account observation. 
 3. Parse only the verification URL, code and expiry. Return the next step `device_code`. The user approves on xAI in any browser.
 4. Wait for the CLI to exit. Stop on success, denial, timeout or expiry (`expired`). Support cancel (`cancelled`), which kills the process. Never call `grok logout` at the end of a connect [S1].
 5. On success, read `auth.json` once, encrypt it and move to `validating`. Delete the attempt directory in every terminal state.
-6. Read the plan tier from `v1/settings` and run one read-only `v1/billing?format=credits`. Do not make a model request.
+6. Read the plan tier from `v1/settings` and run one read-only `v1/billing?format=credits`. Do not make a model request. The token subject is the account key. When the token claims carry no email, read the email for the label from OIDC `userinfo` in parallel with `v1/settings`; a failed read keeps the label "Grok".
 7. Mark the attempt `succeeded`. Mark the connection `ready`, or `partial` when login works but billing returns no personal data (HTTP 412 or no weekly pool). State the capability reason.
 8. Refresh before collection when the token nears expiry, or after a 401, at the xAI token endpoint. Persist a rotated refresh token first. A definitive failure sets `reconnect_required`.
 
@@ -89,6 +91,7 @@ Offer a separate connection with the next step `api_key`. The user pastes a mana
 | Token refresh | `POST https://auth.x.ai/oauth2/token` with `grant_type=refresh_token` and the client id from the auth file | `private` | Refresh in the connector. |
 | Weekly pool and cap | `GET https://cli-chat-proxy.grok.com/v1/billing?format=credits` | `private` | Weekly pool percent, reset, pay-as-you-go cap. |
 | Plan tier | `GET https://cli-chat-proxy.grok.com/v1/settings` | `private` | Plan label. |
+| Account email | `GET https://auth.x.ai/oauth2/userinfo` with `Authorization: Bearer <access token>` | `official` | Connection label only, at connect and Reconnect. Standard OIDC, listed in the discovery document. Never the account key. |
 | API prepaid balance | `GET https://management-api.x.ai/v1/billing/teams/{team}/prepaid/balance` with a management API key | `official` | Separate `api_key` connection. Unvalidated. |
 | Fallback device flow | xAI device authorization and token endpoints, per CLIProxyAPI `internal/auth/xai` | `private` | Direct client fallback. Exact URLs pinned during validation. |
 
