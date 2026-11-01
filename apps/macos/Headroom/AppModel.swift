@@ -195,6 +195,7 @@ final class AppModel {
       sources: values, vault: vault, cache: feedCache, notices: noticeStore,
       widgetSettings: preferences.widgets, client: client)
     self.poller = poller
+    if preferences.demo { await poller.setWidgetSources(demoSources) }
     // Publish the cached feed before starting any network request.
     apply(await poller.snapshots())
     await loadNotices()
@@ -339,6 +340,8 @@ final class AppModel {
     } else {
       demoSources = []
     }
+    // Widgets follow Demo Mode, so the desktop shows no real account during a screen share.
+    await poller?.setWidgetSources(preferences.demo ? demoSources : nil)
     await loadNotices()
   }
   private static let demoSourceID = UUID(uuidString: "00000000-0000-4000-8000-00000000DE70")!

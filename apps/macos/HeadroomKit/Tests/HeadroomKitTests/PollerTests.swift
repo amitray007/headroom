@@ -353,3 +353,22 @@ private actor MarkingReader: FeedReading {
   #expect(try cache.read()?.settings == settings)
   #expect(await reader.validators.isEmpty)
 }
+
+@Test func demoSourcesReplaceTheWidgetReadingsUntilCleared() async throws {
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let poller = try await makePoller(
+    directory: directory, sources: [try source()], reader: QueuedReader([]))
+  let cache = WidgetCacheReader(
+    location: WidgetCacheLocation(url: directory.appending(path: "widget-cache.json")))
+  let feed = try fixture()
+  let demo = try Source(
+    id: UUID(), name: "Demo", baseURL: URL(string: "https://demo.example.invalid")!)
+  let snapshot = SourceSnapshot(
+    source: demo, state: .connected, cached: CachedFeed(feed: feed, etag: nil, readAt: Date()))
+  await poller.setWidgetSources([snapshot])
+  #expect(try cache.read()?.sources.map(\.name) == ["Demo"])
+  #expect(try cache.read()?.rows.count == feed.accounts.count)
+  await poller.setWidgetSources(nil)
+  #expect(try cache.read()?.sources.map(\.name) != ["Demo"])
+}

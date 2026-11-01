@@ -51,6 +51,7 @@ public actor Poller {
   private let notices: NoticeStore
   private let widgetWriter: WidgetCacheWriter
   private var widgetSettings: WidgetPreferences
+  private var widgetSources: [SourceSnapshot]?
   private let clock: any PollClock
   private var loop: Task<Void, Never>?
   private var refreshTask: Task<Void, Never>?
@@ -167,9 +168,17 @@ public actor Poller {
     writeWidgets(now: await clock.now(), kinds: WidgetCacheWriter.settingsKinds)
   }
 
+  /// Demo Mode: widgets show these made-up sources instead of the readings, so a screen share
+  /// shows no real account. Real sources keep polling; nil puts the readings back at once.
+  public func setWidgetSources(_ sources: [SourceSnapshot]?) async {
+    widgetSources = sources
+    writeWidgets(now: await clock.now())
+  }
+
   private func writeWidgets(now: Date, kinds: [String]? = nil) {
     do {
-      try widgetWriter.write(sources: values, settings: widgetSettings, now: now, kinds: kinds)
+      try widgetWriter.write(
+        sources: widgetSources ?? values, settings: widgetSettings, now: now, kinds: kinds)
     } catch {
       storageFailed = true
     }
