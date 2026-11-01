@@ -54,11 +54,12 @@ enum BannerSample: String, CaseIterable, Identifiable {
   }
 }
 
-/// The Notifications pane's first section: a banner preview and a button that sends it.
+/// The Notifications pane's first section: a banner preview, what macOS allows, and a button
+/// that sends the preview as a real banner.
 struct NotificationTestSection: View {
   @Bindable var model: AppModel
   @State private var sample = BannerSample.almostOut
-  @State private var status: UNAuthorizationStatus?
+  @State private var permission: NotificationBanners.Permission?
   @State private var result: NotificationBanners.TestResult?
   @State private var sending = false
 
@@ -68,7 +69,7 @@ struct NotificationTestSection: View {
     SettingsSection("Preview") {
       BannerPreview(
         title: sample.title(source: source), subtitle: sample.subtitle(source: source),
-        timeSensitive: sample.tone == .bad
+        timeSensitive: sample.tone == .bad && permission?.timeSensitive == true
       ).padding(.vertical, 10)
       SettingsRow(title: "Sample", note: sample.behavior) {
         WebSelect(value: sample.label) {
@@ -80,37 +81,60 @@ struct NotificationTestSection: View {
           }
         }
       }
-      SettingsRow(title: "Send a test banner", note: note) {
-        HStack(spacing: 8) {
-          if status == .denied {
-            Button("Open System Settings", action: openSystemSettings)
-              .buttonStyle(WebButtonStyle(small: true))
-          }
-          Button(sending ? "Sending" : "Send test", action: send)
-            .buttonStyle(WebButtonStyle(small: true)).disabled(sending)
+      SettingsRow(title: "Permission", note: permissionNote) {
+        if needsSystemSettings {
+          Button("Open System Settings", action: openSystemSettings)
+            .buttonStyle(WebButtonStyle(small: true))
         }
       }
+      SettingsRow(title: "Send a test banner", note: sendNote) {
+        Button(sending ? "Sending" : "Send test", action: send)
+          .buttonStyle(WebButtonStyle(small: true)).disabled(sending)
+      }
     }
-    .task { status = await model.banners.authorization() }
+    .task { await refresh() }
     // Permission can change in System Settings while this pane is open.
     .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) {
-      _ in Task { status = await model.banners.authorization() }
+      _ in Task { await refresh() }
     }
   }
 
-  private var note: String {
-    switch result {
-    case .sent: return "Sent. It ignores the switches below and opens nothing when clicked."
-    case .failed: return "macOS did not accept the test. Try again."
-    case .denied, nil: break
-    }
-    switch status {
+  private var needsSystemSettings: Bool {
+    guard let permission else { return false }
+    return permission.status == .denied || permission.status == .provisional
+      || (permission.status == .authorized && permission.style == .none)
+  }
+
+  private var permissionNote: String {
+    guard let permission else { return "Checking." }
+    switch permission.status {
+    case .notDetermined:
+      return "Not asked yet. Send test asks first."
     case .denied:
-      return "Banners are off for Headroom. Turn on Allow notifications in System Settings, Notifications, Headroom."
-    case .notDetermined: return "macOS asks for permission the first time."
-    default: return "Shows the sample as a real banner, with its tone. Switches below do not apply."
+      return "Off. Turn on Allow notifications for Headroom in System Settings, Notifications."
+    case .provisional:
+      return "Quiet: notices go to Notification Center without a banner until you allow banners."
+    default:
+      if permission.style == .none {
+        return "Allowed, but the banner style is None, so notices go to Notification Center only. Choose Temporary or Persistent in System Settings."
+      }
+      return permission.timeSensitive
+        ? "Allowed as banners. Time Sensitive is on."
+        : "Allowed as banners. Time Sensitive is off, so urgent notices are normal banners."
     }
   }
+
+  private var sendNote: String {
+    switch result {
+    case .sent:
+      "Sent. No banner? A Focus such as Do Not Disturb holds it back; look in Notification Center."
+    case .failed: "macOS did not accept the test. Try again."
+    case .denied: "Notifications are off for Headroom, so nothing was sent."
+    case nil: "Sends the sample as a real banner. The switches below do not apply to it."
+    }
+  }
+
+  private func refresh() async { permission = await model.banners.permission() }
 
   private func send() {
     sending = true
@@ -118,7 +142,7 @@ struct NotificationTestSection: View {
       result = await model.banners.sendTest(
         title: sample.title(source: source), subtitle: sample.subtitle(source: source),
         tone: sample.tone)
-      status = await model.banners.authorization()
+      await refresh()
       sending = false
     }
   }

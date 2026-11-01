@@ -1,5 +1,6 @@
 import Foundation
 import HeadroomKit
+import OSLog
 import UserNotifications
 
 @MainActor
@@ -80,9 +81,19 @@ final class NotificationBanners: NSObject, UNUserNotificationCenterDelegate {
     }
   }
 
-  /// What macOS currently allows Headroom to show.
-  func authorization() async -> UNAuthorizationStatus {
-    await center.notificationSettings().authorizationStatus
+  private let log = Logger(subsystem: "club.theblank.headroom.mac", category: "banners")
+
+  /// What macOS currently allows Headroom to show, in the parts Settings explains.
+  struct Permission: Equatable {
+    var status: UNAuthorizationStatus
+    var style: UNAlertStyle
+    var timeSensitive: Bool
+  }
+  func permission() async -> Permission {
+    let settings = await center.notificationSettings()
+    return Permission(
+      status: settings.authorizationStatus, style: settings.alertStyle,
+      timeSensitive: settings.timeSensitiveSetting == .enabled)
   }
 
   enum TestResult: Equatable { case sent, denied, failed }
@@ -92,10 +103,19 @@ final class NotificationBanners: NSObject, UNUserNotificationCenterDelegate {
   func sendTest(title: String, subtitle: String, tone: NoticeTone) async -> TestResult {
     var settings = await center.notificationSettings()
     if settings.authorizationStatus == .notDetermined {
-      guard (try? await center.requestAuthorization(options: [.alert, .badge, .sound])) == true
-      else { return .denied }
+      do {
+        guard try await center.requestAuthorization(options: [.alert, .badge, .sound]) else {
+          return .denied
+        }
+      } catch {
+        log.error("permission request failed: \(error.localizedDescription, privacy: .public)")
+        return .failed
+      }
       settings = await center.notificationSettings()
     }
+    log.info(
+      "test banner: status \(settings.authorizationStatus.rawValue, privacy: .public), style \(settings.alertStyle.rawValue, privacy: .public)"
+    )
     guard
       settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
     else { return .denied }
@@ -108,7 +128,10 @@ final class NotificationBanners: NSObject, UNUserNotificationCenterDelegate {
       try await center.add(
         UNNotificationRequest(identifier: "test-\(UUID())", content: content, trigger: nil))
       return .sent
-    } catch { return .failed }
+    } catch {
+      log.error("test banner rejected: \(error.localizedDescription, privacy: .public)")
+      return .failed
+    }
   }
 
   nonisolated func userNotificationCenter(
