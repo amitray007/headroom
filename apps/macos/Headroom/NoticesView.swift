@@ -239,8 +239,11 @@ private struct NoticeRow: View, Equatable {
       HStack(alignment: .top, spacing: 12) {
         tile
         VStack(alignment: .leading, spacing: 3) {
+          // The weight changes at once. An animated weight change redraws the text on the CPU
+          // on every frame, about 150 ms per click.
           Text(notice.title).font(HR.popoverFont(13, unread ? .medium : .regular))
             .foregroundStyle(unread ? HR.ink : HR.secondary).lineLimit(1)
+            .animation(nil, value: unread)
           Text(notice.message).font(HR.popoverFont(12)).foregroundStyle(HR.secondary)
             .lineSpacing(3).fixedSize(horizontal: false, vertical: true)
           HStack(spacing: 6) {

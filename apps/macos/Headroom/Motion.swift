@@ -19,12 +19,17 @@ enum Motion {
     pressed ? .easeOut(duration: 0.08) : .easeOut(duration: 0.14)
   }
 
-  /// A page switch: a short slide from the side it lives on, crossfaded. Never a full-width
-  /// move, which repaints the whole popover on every frame.
-  static func page(_ edge: Edge, _ reduce: Bool) -> AnyTransition {
-    reduce ? .opacity : .opacity.combined(with: .offset(x: edge == .trailing ? 10 : -10))
-  }
   static func reveal(_ reduce: Bool) -> AnyTransition {
     reduce ? .opacity : .opacity.combined(with: .offset(y: -3))
+  }
+}
+
+/// Fades a newly shown part in without moving anything around it. Only opacity animates, so
+/// nothing is laid out again during the fade.
+struct FadeIn: ViewModifier {
+  @State private var shown = false
+  func body(content: Content) -> some View {
+    content.opacity(shown ? 1 : 0)
+      .onAppear { withAnimation(Motion.hover) { shown = true } }
   }
 }

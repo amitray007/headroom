@@ -18,7 +18,9 @@ struct SettingsView: View {
       VStack(spacing: 2) {
         ForEach(SettingsPane.allCases) { pane in
           SidebarItem(title: pane.rawValue, selected: model.selectedPane == pane) {
-            withAnimation(.easeOut(duration: 0.14)) { model.selectedPane = pane }
+            // Panes switch at once, as in System Settings. A crossfade laid out the old and the
+            // new pane together on every frame.
+            model.selectedPane = pane
           }
         }
         Spacer()
@@ -45,7 +47,6 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 7).padding(.bottom, 24)
       }
       .scrollIndicators(.never).hidingTopScrollEdge().id(model.selectedPane)
-      .transition(Motion.reveal(reduceMotion))
       .background(HR.raisedSurface)
     }
     .font(HR.popoverFont(14)).foregroundStyle(HR.ink).tint(HR.ink)
@@ -1200,34 +1201,31 @@ private struct WidgetPreview: View {
   let cache: WidgetCache
   let kind: WidgetKind
   let date: Date
-  @State private var room: CGFloat = 0
 
   var body: some View {
     let size = kind.size
-    let scale = room > 0 ? min(1, room / size.width) : 1
     let selection = WidgetSelection(kind: kind, cache: cache, date: date)
-    // The widget draws over a space sized by the pane, never the other way round: at full
-    // size the Extra large preview (744 pt) pushed the whole pane wider than the window.
+    // The space takes the widget's shape at up to its real width, so one layout pass sizes it.
+    // Measuring the pane and then sizing the preview from that took a second pass. The widget
+    // draws over the space, never the other way round: at full size the Extra large preview
+    // (744 pt) pushed the whole pane wider than the window.
     Color.clear
-      .frame(maxWidth: .infinity)
-      .frame(height: size.height * scale)
-      .onGeometryChange(for: CGFloat.self) {
-        $0.size.width
-      } action: {
-        room = $0
-      }
+      .aspectRatio(size.width / size.height, contentMode: .fit)
+      .frame(maxWidth: size.width)
       .overlay {
-        HeadroomWidgetView(
-          cache: cache, date: date, kind: kind, accountIDs: selection.accountIDs,
-          limitKey: selection.limitKey, used: selection.used
-        )
-        .frame(width: size.width, height: size.height)
-        .scaleEffect(scale)
-        .opacity(room > 0 ? 1 : 0)
+        GeometryReader { proxy in
+          HeadroomWidgetView(
+            cache: cache, date: date, kind: kind, accountIDs: selection.accountIDs,
+            limitKey: selection.limitKey, used: selection.used
+          )
+          .frame(width: size.width, height: size.height)
+          .scaleEffect(proxy.size.width / size.width, anchor: .topLeading)
+        }
       }
-    .padding(14).background(HR.muted, in: RoundedRectangle(cornerRadius: 12))
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel("Preview of the \(kind.title) widget")
+      .frame(maxWidth: .infinity)
+      .padding(14).background(HR.muted, in: RoundedRectangle(cornerRadius: 12))
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel("Preview of the \(kind.title) widget")
   }
 }
 

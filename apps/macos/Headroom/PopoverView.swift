@@ -2,86 +2,52 @@ import AppKit
 import HeadroomKit
 import SwiftUI
 
-/// The popover root. It holds only which page is shown and the page height; each part below
-/// is its own view and reads only the model values it shows, so a change to one (the refresh
-/// flag, a row opening, the unread count) redraws that part and not every account row.
+/// Popover state that only the header, the footer and the menu layer read. It lives outside
+/// the root's body, so opening a menu redraws those three parts and not every account row.
+@MainActor @Observable final class PopoverUI {
+  /// The open menu, drawn in the popover itself: More in the header, or a footer menu.
+  var openMenu: PopoverMenu?
+  /// What the More menu's update row says for a moment after a check that found nothing.
+  var updateNote: String?
+
+  func show(_ menu: PopoverMenu?, reduceMotion: Bool) {
+    withAnimation(Motion.expand(reduceMotion)) { openMenu = menu }
+  }
+  func toggle(_ menu: PopoverMenu, reduceMotion: Bool) {
+    show(openMenu == menu ? nil : menu, reduceMotion: reduceMotion)
+  }
+}
+
+/// The popover root. Its body reads no state that changes while the popover is in use: each
+/// part below is its own view and reads only the values it shows, so a change to one (a menu,
+/// the page, a row opening, the unread count) redraws that part and not every account row.
 struct PopoverView: View {
   let model: AppModel
-  @State private var showingNotices = false
-  /// The open menu, drawn in the popover itself: More in the header, or a footer menu.
-  @State private var openMenu: PopoverMenu?
-  /// What the More menu's update row says for a moment after a check that found nothing.
-  @State private var updateNote: String?
-  @Environment(\.openSettings) private var openSettings
-  /// The account page's height. Notices take the same height so switching pages never
-  /// resizes the popover.
-  @State private var pageHeight: CGFloat = 0
+  private let notices: Bool
+  @State private var ui = PopoverUI()
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   init(model: AppModel, notices: Bool = false) {
     self.model = model
-    _showingNotices = State(initialValue: notices)
+    self.notices = notices
   }
 
   var body: some View {
     VStack(spacing: 0) {
-      // Both pages share one layer during the switch; a VStack would stack them and grow the
-      // popover to their sum for the length of the animation.
-      ZStack(alignment: .top) {
-        if showingNotices {
-          NoticesView(model: model, fill: pageHeight > 0) { showNotices(false) }
-            .transition(Motion.page(.trailing, reduceMotion))
-        } else {
-          VStack(spacing: 0) {
-            PopoverHeader(model: model, openMenu: $openMenu) { showNotices(true) }
-            AccountsPage(model: model)
-          }
-          .onGeometryChange(for: CGFloat.self) {
-            $0.size.height
-          } action: {
-            pageHeight = $0
-          }
-          .transition(Motion.page(.leading, reduceMotion))
-        }
-      }.frame(
-        height: pageHeight > 0 ? max(pageHeight, showingNotices ? 400 : 0) : nil, alignment: .top)
-      PopoverFooter(model: model, openMenu: $openMenu)
+      PopoverPages(model: model, ui: ui, notices: notices)
+      PopoverFooter(model: model, ui: ui)
     }
     .font(HR.popoverFont()).monospacedDigit().foregroundStyle(HR.ink).background(HR.surface)
     .frame(width: 600)
-    // Each menu opens from the button that anchors it: down from the header, up from the
-    // footer, with its trailing edge on the button's.
     .overlayPreferenceValue(PopoverMenuAnchors.self) { anchors in
-      GeometryReader { proxy in
-        if let menu = openMenu, let anchor = anchors[menu] {
-          let button = proxy[anchor]
-          let up = !menu.opensDown
-          ZStack(alignment: up ? .bottomTrailing : .topTrailing) {
-            // A click anywhere else closes the menu, as a menu does.
-            Color.clear.contentShape(Rectangle()).onTapGesture { closeMenu() }
-              .accessibilityHidden(true)
-            PopoverMenuCard(label: menu.label) { items(menu) }
-              .padding(.trailing, proxy.size.width - button.maxX)
-              .padding(
-                up ? .bottom : .top, up ? proxy.size.height - button.minY + 4 : button.maxY + 4)
-          }
-          .frame(width: proxy.size.width, height: proxy.size.height)
-          .transition(
-            .opacity.combined(
-              with: .scale(scale: 0.96, anchor: up ? .bottomTrailing : .topTrailing)))
-        }
-      }
+      PopoverMenuLayer(model: model, ui: ui, anchors: anchors)
     }
     .onKeyPress(.escape) {
-      guard openMenu != nil else { return .ignored }
-      closeMenu()
+      guard ui.openMenu != nil else { return .ignored }
+      ui.show(nil, reduceMotion: reduceMotion)
       return .handled
     }
     .clipped()
-    .task { if model.bannerNoticeID != nil { showingNotices = true } }
-    .onChange(of: model.bannerNoticeID) { _, id in
-      if id != nil { showNotices(true) }
-    }
     .alert(
       "Headroom",
       isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })
@@ -91,20 +57,105 @@ struct PopoverView: View {
       Text(model.error ?? "")
     }
   }
+}
 
-  private func closeMenu() {
-    withAnimation(Motion.expand(reduceMotion)) { openMenu = nil }
+/// The account page and Notifications. Both stay built: the account page sets the height and
+/// Notifications lies over it. Building the account rows again on Back stalled the popover for
+/// up to 108 ms, and measuring one page to size the other fed each animation frame back into
+/// the popover's size.
+private struct PopoverPages: View {
+  let model: AppModel
+  let ui: PopoverUI
+  @State private var showingNotices: Bool
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  init(model: AppModel, ui: PopoverUI, notices: Bool) {
+    self.model = model
+    self.ui = ui
+    _showingNotices = State(initialValue: notices)
   }
+
+  var body: some View {
+    VStack(spacing: 0) {
+      PopoverHeader(model: model, ui: ui) { showingNotices = true }
+      AccountsPage(model: model)
+    }
+    .modifier(PageVisibility(shown: !showingNotices, edge: .leading, reduceMotion: reduceMotion))
+    // Notifications needs room for a few rows when the account page is short. The height
+    // changes once, never animated, so the popover resizes once.
+    .frame(minHeight: showingNotices ? 400 : nil, alignment: .top)
+    .overlay(alignment: .top) {
+      NoticesView(model: model, fill: true) { showingNotices = false }
+        .modifier(
+          PageVisibility(shown: showingNotices, edge: .trailing, reduceMotion: reduceMotion))
+    }
+    .task { if model.bannerNoticeID != nil { showingNotices = true } }
+    .onChange(of: model.bannerNoticeID) { _, id in
+      if id != nil { showingNotices = true }
+    }
+  }
+}
+
+/// A page switch: a short slide from the side the page lives on, crossfaded. Only opacity and
+/// offset animate, so no frame changes size during the switch. The hidden page takes no
+/// clicks, no keyboard focus and no VoiceOver.
+private struct PageVisibility: ViewModifier {
+  let shown: Bool
+  let edge: Edge
+  let reduceMotion: Bool
+  func body(content: Content) -> some View {
+    content
+      .opacity(shown ? 1 : 0)
+      .offset(x: shown || reduceMotion ? 0 : edge == .trailing ? 10 : -10)
+      .animation(Motion.view(reduceMotion), value: shown)
+      .allowsHitTesting(shown).disabled(!shown).accessibilityHidden(!shown)
+  }
+}
+
+/// The open menu, from the button that anchors it: down from the header, up from the footer,
+/// with its trailing edge on the button's.
+private struct PopoverMenuLayer: View {
+  let model: AppModel
+  let ui: PopoverUI
+  let anchors: [PopoverMenu: Anchor<CGRect>]
+  @Environment(\.openSettings) private var openSettings
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  var body: some View {
+    // Read here, not inside the reader, so this view alone follows the open menu.
+    let open = ui.openMenu
+    GeometryReader { proxy in
+      if let menu = open, let anchor = anchors[menu] {
+        let button = proxy[anchor]
+        let up = !menu.opensDown
+        // A click anywhere else closes the menu, as a menu does.
+        Color.clear.contentShape(Rectangle()).onTapGesture { close() }
+          .accessibilityHidden(true)
+        PopoverMenuCard(label: menu.label) { items(menu) }
+          .padding(.trailing, proxy.size.width - button.maxX)
+          .padding(up ? .bottom : .top, up ? proxy.size.height - button.minY + 4 : button.maxY + 4)
+          .frame(
+            width: proxy.size.width, height: proxy.size.height,
+            alignment: up ? .bottomTrailing : .topTrailing
+          )
+          .transition(
+            .opacity.combined(
+              with: .scale(scale: 0.96, anchor: up ? .bottomTrailing : .topTrailing)))
+      }
+    }
+  }
+
+  private func close() { ui.show(nil, reduceMotion: reduceMotion) }
 
   @ViewBuilder private func items(_ menu: PopoverMenu) -> some View {
     switch menu {
     case .more:
       PopoverMenuItem(
-        title: model.updates.checking ? "Checking…" : updateNote ?? "Check for Updates…",
+        title: model.updates.checking ? "Checking…" : ui.updateNote ?? "Check for Updates…",
         symbol: "arrow.triangle.2.circlepath"
       ) { checkForUpdates() }
       PopoverMenuItem(title: "Settings…", symbol: "gearshape", shortcut: "⌘,") {
-        closeMenu()
+        close()
         model.openSettingsWindow(openSettings)
       }
       PopoverMenuDivider()
@@ -116,7 +167,7 @@ struct PopoverView: View {
     case .dashboard:
       ForEach(model.popoverSources) { snapshot in
         PopoverMenuItem(title: snapshot.source.name, symbol: "arrow.up.right.square") {
-          closeMenu()
+          close()
           model.openDashboard(snapshot.source)
         }
       }
@@ -137,7 +188,7 @@ struct PopoverView: View {
     guard !model.updates.checking else { return }
     Task {
       switch await model.updates.check() {
-      case .available: withAnimation(Motion.expand(reduceMotion)) { openMenu = .update }
+      case .available: ui.show(.update, reduceMotion: reduceMotion)
       case .upToDate: await flash("Headroom is up to date")
       case .failed: await flash("Could not check")
       }
@@ -145,20 +196,16 @@ struct PopoverView: View {
   }
 
   private func flash(_ text: String) async {
-    updateNote = text
+    ui.updateNote = text
     try? await Task.sleep(for: .seconds(2.5))
-    updateNote = nil
+    ui.updateNote = nil
   }
 
+  /// The list changes at once. An animated change would resize the popover on every frame.
   private func showSource(_ id: UUID?) {
-    closeMenu()
-    withAnimation(Motion.view(reduceMotion)) { model.preferences.sourceFilter = id }
+    close()
+    model.preferences.sourceFilter = id
     model.saveDisplay()
-  }
-
-  private func showNotices(_ value: Bool) {
-    guard showingNotices != value else { return }
-    withAnimation(Motion.view(reduceMotion)) { showingNotices = value }
   }
 }
 
@@ -185,7 +232,7 @@ extension AppModel {
 /// The title and the refresh, notices and settings buttons.
 private struct PopoverHeader: View {
   let model: AppModel
-  @Binding var openMenu: PopoverMenu?
+  let ui: PopoverUI
   let openNotices: () -> Void
   @Environment(\.openSettings) private var openSettings
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -199,10 +246,8 @@ private struct PopoverHeader: View {
       HeadroomGlyph().frame(width: 23, height: 23)
       Text("Headroom").font(HR.popoverFont(16, .medium)).accessibilityAddTraits(.isHeader)
       Spacer()
-      UpdateCapsule(updater: model.updates, on: openMenu == .update) {
-        withAnimation(Motion.expand(reduceMotion)) {
-          openMenu = openMenu == .update ? nil : .update
-        }
+      UpdateCapsule(updater: model.updates, on: ui.openMenu == .update) {
+        ui.toggle(.update, reduceMotion: reduceMotion)
       }
       // The tool buttons carry their own 8 pt hover inset, so they sit 2 pt apart: about
       // 18 pt between glyphs.
@@ -234,12 +279,12 @@ private struct PopoverHeader: View {
         }
         // Settings and Quit in one menu, so quitting is not hidden behind a right-click.
         Button {
-          withAnimation(Motion.expand(reduceMotion)) { openMenu = openMenu == .more ? nil : .more }
+          ui.toggle(.more, reduceMotion: reduceMotion)
         } label: {
           Image(systemName: "ellipsis").font(.system(size: 16)).frame(width: 18, height: 18)
         }
-        .buttonStyle(PopoverToolStyle(on: openMenu == .more)).help("More")
-        .accessibilityLabel("More").accessibilityValue(openMenu == .more ? "Open" : "Closed")
+        .buttonStyle(PopoverToolStyle(on: ui.openMenu == .more)).help("More")
+        .accessibilityLabel("More").accessibilityValue(ui.openMenu == .more ? "Open" : "Closed")
         .popoverMenuAnchor(.more)
       }
     }.padding(.leading, 16).padding(.trailing, 8).frame(height: 52)
@@ -492,6 +537,8 @@ private struct AccountList: View {
   let withSource: Set<String>
   let model: AppModel
   @State private var listHeight: CGFloat = 0
+  /// One focus for the whole list. A focus state in each row redrew every row on each click.
+  @FocusState private var focus: String?
 
   var body: some View {
     // Measured once per draw: it reads the screen and walks every row.
@@ -500,7 +547,7 @@ private struct AccountList: View {
       ScrollView {
         VStack(spacing: 0) {
           ForEach(groups, id: \.provider) { group in
-            LedgerGroup(rows: group.rows, withSource: withSource, model: model)
+            LedgerGroup(rows: group.rows, withSource: withSource, focus: $focus, model: model)
               .id(group.provider)
             if group.provider != groups.last?.provider { Divider().overlay(HR.border) }
           }
@@ -557,7 +604,7 @@ private struct AccountList: View {
 /// Last read, Open dashboard and the source selector.
 private struct PopoverFooter: View {
   let model: AppModel
-  @Binding var openMenu: PopoverMenu?
+  let ui: PopoverUI
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
@@ -568,9 +615,10 @@ private struct PopoverFooter: View {
         Text("Room and reset times appear after the first reading.")
       } else {
         // When this Mac last checked the servers, counted live: only this text ticks each
-        // second, not the account rows. The tooltip says when the servers last refreshed.
+        // second, not the account rows, and only while the popover shows. The tooltip says
+        // when the servers last refreshed.
         let checked = model.popoverSources.compactMap(model.readAt).max()
-        TimelineView(.periodic(from: .now, by: 1)) { context in
+        TimelineView(.periodic(from: .now, by: model.popoverVisible ? 1 : 3600)) { context in
           Text("Updated \(Formatting.checked(checked, now: context.date))")
         }
         .help(
@@ -610,13 +658,13 @@ private struct PopoverFooter: View {
         toggle(.dashboard)
       } label: {
         label
-      }.buttonStyle(PopoverFooterStyle(on: openMenu == .dashboard)).fixedSize()
+      }.buttonStyle(PopoverFooterStyle(on: ui.openMenu == .dashboard)).fixedSize()
         .help("Choose a dashboard to open").popoverMenuAnchor(.dashboard)
     }
   }
 
   private func toggle(_ menu: PopoverMenu) {
-    withAnimation(Motion.expand(reduceMotion)) { openMenu = openMenu == menu ? nil : menu }
+    ui.toggle(menu, reduceMotion: reduceMotion)
   }
 
   private var shareButton: some View {
@@ -643,7 +691,7 @@ private struct PopoverFooter: View {
         Text(selected ? model.popoverSources[0].source.name : "All sources")
         Image(systemName: "chevron.up.chevron.down").font(.system(size: 8, weight: .semibold))
       }.foregroundStyle(HR.ink)
-    }.buttonStyle(PopoverFooterStyle(on: openMenu == .sources)).fixedSize()
+    }.buttonStyle(PopoverFooterStyle(on: ui.openMenu == .sources)).fixedSize()
       .help("Choose which sources to show").accessibilityLabel("Sources shown")
       .accessibilityValue(selected ? model.popoverSources[0].source.name : "All sources")
       .popoverMenuAnchor(.sources)

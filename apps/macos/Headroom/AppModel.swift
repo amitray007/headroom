@@ -77,7 +77,8 @@ final class AppModel {
   var bannerNoticeID: String?
   private var pendingBannerNoticeID: String?
   private var pendingBannerContent: NativeNotice?
-  private var popoverVisible = false
+  /// Whether the popover shows. The footer clock ticks only while it does.
+  private(set) var popoverVisible = false
   let banners = NotificationBanners()
   let updates = AppUpdater()
   private var poller: Poller?

@@ -21,6 +21,7 @@ struct LedgerGroup: View {
   let rows: [LedgerRow]
   /// Rows whose subtitle names their source, worked out once for the whole list.
   let withSource: Set<String>
+  let focus: FocusState<String?>.Binding
   let model: AppModel
   var body: some View {
     VStack(spacing: 0) {
@@ -29,7 +30,7 @@ struct LedgerGroup: View {
       ForEach(rows) { row in
         LedgerRowView(
           row: row, showsSource: withSource.contains(row.id), privacy: privacy,
-          siblings: rows.map(\.id), model: model
+          siblings: rows.map(\.id), focus: focus, model: model
         )
         .equatable()
       }
@@ -54,19 +55,20 @@ struct LedgerRowView: View, Equatable {
   let privacy: Bool
   /// The keys of the provider's accounts in the list, for "Share All".
   let siblings: [String]
+  let focus: FocusState<String?>.Binding
   let model: AppModel
   @State private var expanded = false
   @State private var hovered = false
-  @FocusState private var summaryFocused: Bool
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   private var item: AccountItem { row.item }
   private var account: FeedAccount { item.account }
   private var quiet: Bool { item.snapshot.state != .connected }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
+      // The row opens at once and its detail fades in. Animating the height moved every row
+      // below on each frame, and each frame laid out and hit-tested the whole list again.
       Button {
-        withAnimation(Motion.expand(reduceMotion)) { expanded.toggle() }
+        expanded.toggle()
       } label: {
         HStack(spacing: 14) {
           who.frame(width: 164, alignment: .leading)
@@ -88,13 +90,12 @@ struct LedgerRowView: View, Equatable {
         }.frame(height: 44).padding(.horizontal, 16).contentShape(Rectangle())
           .background(expanded ? HR.muted : hovered ? HR.muted.opacity(0.55) : .clear)
           .animation(Motion.hover, value: hovered)
-      }.buttonStyle(.plain).focused($summaryFocused).onHover { hovered = $0 }
+      }.buttonStyle(.plain).focused(focus, equals: row.id).onHover { hovered = $0 }
         .accessibilityLabel(row.column.text(now: row.now))
         .accessibilityValue(expanded ? "Expanded" : "Collapsed")
         .accessibilityHint("Show other limits and account details")
       if expanded {
-        AccountDetail(row: row, model: model).background(HR.muted)
-          .transition(Motion.reveal(reduceMotion))
+        AccountDetail(row: row, model: model).background(HR.muted).modifier(FadeIn())
       }
     }
     .foregroundStyle(quiet ? HR.secondary : HR.ink)
@@ -111,8 +112,8 @@ struct LedgerRowView: View, Equatable {
     }
     .onKeyPress(.escape) {
       guard expanded else { return .ignored }
-      withAnimation(Motion.expand(reduceMotion)) { expanded = false }
-      summaryFocused = true
+      expanded = false
+      focus.wrappedValue = row.id
       return .handled
     }
   }
