@@ -1,6 +1,8 @@
 import Foundation
 
 public enum WidgetTimeline {
+  static let maxEvents = 6
+
   /// Event entries keep reset and forecast labels current without a running app.
   /// The last reading stays a reading: a passed reset never invents a full allowance.
   public static func dates(cache: WidgetCache?, now: Date) -> [Date] {
@@ -9,7 +11,9 @@ public enum WidgetTimeline {
       row.limits.flatMap { [$0.resetsAt, $0.runsOutAt].compactMap { $0 } }
         + [row.staleAt].compactMap { $0 }
     }
-    return [now] + Set(events.filter { $0 > now }).sorted()
+    // WidgetKit asks again within minutes, and draws every entry it is given up front; the
+    // next few events keep wording right without making each reload slow.
+    return [now] + Set(events.filter { $0 > now }).sorted().prefix(maxEvents)
   }
 
   public static func percent(_ limit: WidgetLimitRow, at date: Date) -> Double? {

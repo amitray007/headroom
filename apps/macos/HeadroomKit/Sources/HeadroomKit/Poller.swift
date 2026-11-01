@@ -164,11 +164,13 @@ public actor Poller {
   public func setWidgetSettings(_ settings: WidgetPreferences) async {
     guard settings != widgetSettings else { return }
     widgetSettings = settings
-    writeWidgets(now: await clock.now())
+    writeWidgets(now: await clock.now(), kinds: WidgetCacheWriter.settingsKinds)
   }
 
-  private func writeWidgets(now: Date) {
-    do { try widgetWriter.write(sources: values, settings: widgetSettings, now: now) } catch {
+  private func writeWidgets(now: Date, kinds: [String]? = nil) {
+    do {
+      try widgetWriter.write(sources: values, settings: widgetSettings, now: now, kinds: kinds)
+    } catch {
       storageFailed = true
     }
   }

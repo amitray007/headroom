@@ -88,15 +88,46 @@ public struct WidgetCacheWriter: Sendable {
   public let location: WidgetCacheLocation
   public init(location: WidgetCacheLocation = WidgetCacheLocation()) { self.location = location }
 
+  /// The widget kinds that read the Widgets settings; a settings change reloads only these.
+  public static let settingsKinds = ["Headroom", "HeadroomAccounts"]
+
+  /// Writes the cache and reloads widget timelines, unless nothing a widget draws changed.
+  /// WidgetKit reloads one timeline at a time, so a reload with nothing new delays the next
+  /// one that matters, such as a settings change.
+  /// - Parameter kinds: reload only these widget kinds; nil reloads every kind.
+  /// - Returns: whether the cache changed.
+  @discardableResult
   public func write(
     sources: [SourceSnapshot], settings: WidgetPreferences = WidgetPreferences(),
-    now: Date = Date(), timeZone: TimeZone = .current
-  ) throws {
-    try HeadroomStorage.write(
-      Self.cache(sources: sources, settings: settings, now: now, timeZone: timeZone),
-      to: location.url)
+    now: Date = Date(), timeZone: TimeZone = .current, kinds: [String]? = nil
+  ) throws -> Bool {
+    let cache = Self.cache(sources: sources, settings: settings, now: now, timeZone: timeZone)
+    if let previous = try? read(), Self.sameReadings(previous, cache) { return false }
+    try HeadroomStorage.write(cache, to: location.url)
     // Reload only after the atomic write succeeds, including source removal and empty feeds.
-    WidgetCenter.shared.reloadAllTimelines()
+    if let kinds {
+      kinds.forEach { WidgetCenter.shared.reloadTimelines(ofKind: $0) }
+    } else {
+      WidgetCenter.shared.reloadAllTimelines()
+    }
+    return true
+  }
+
+  /// Equal apart from the write time and the age and status texts, which widgets work out
+  /// again at each timeline date.
+  static func sameReadings(_ a: WidgetCache, _ b: WidgetCache) -> Bool {
+    func key(_ cache: WidgetCache) -> Data? {
+      guard let data = try? JSONEncoder().encode(cache),
+        var object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+      else { return nil }
+      object["writtenAt"] = nil
+      object["rows"] = (object["rows"] as? [[String: Any]])?.map { row in
+        row.filter { $0.key != "age" && $0.key != "status" }
+      }
+      return try? JSONSerialization.data(withJSONObject: object, options: .sortedKeys)
+    }
+    guard let left = key(a), let right = key(b) else { return false }
+    return left == right
   }
 
   /// The cache as written, also for the Widgets settings preview.
