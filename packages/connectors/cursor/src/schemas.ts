@@ -26,13 +26,23 @@ const planUsageSchema = z
   })
   .loose();
 
+/** Connect JSON encodes a protobuf int64 as a decimal string: a Business seat sends `pooledLimit` as one (observed 2026-10-31). */
+const int64Cents = z.union([
+  z.number(),
+  z
+    .string()
+    .regex(/^-?\d+$/)
+    .transform(Number),
+]);
+
 const spendLimitSchema = z
   .object({
     limitType: z.string().optional(),
     individualLimit: z.number().nullable().optional(),
     individualUsed: z.number().nullable().optional(),
-    pooledLimit: z.number().nullable().optional(),
+    pooledLimit: int64Cents.nullable().optional(),
     pooledUsed: z.number().nullable().optional(),
+    pooledRemaining: int64Cents.nullable().optional(),
     totalSpend: z.number().nullable().optional(),
   })
   .loose();
