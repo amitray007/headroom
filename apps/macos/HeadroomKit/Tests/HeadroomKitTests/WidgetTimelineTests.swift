@@ -44,37 +44,3 @@ private func limit(reset: Date?, runOut: Date?, left: Double? = 12) -> WidgetLim
   #expect(
     WidgetTimeline.next(limit(reset: reset, runOut: nil, left: 0), at: now).hasPrefix("Back "))
 }
-
-@Test func cacheChoicesKeepSourceIdentitySelectionOrderAndAccountScopedLimits() throws {
-  let directory = try temporaryDirectory()
-  defer { try? FileManager.default.removeItem(at: directory) }
-  let location = WidgetCacheLocation(url: directory.appending(path: "widget-cache.json"))
-  #expect(WidgetChoices.accounts(in: try WidgetCacheReader(location: location).read()).isEmpty)
-  let feed = try fixture()
-  let a = try source()
-  let b = try source()
-  let now = try #require(Formatting.date(milliseconds: feed.generatedAt))
-  try WidgetCacheWriter(location: location).write(
-    sources: [a, b].map {
-      SourceSnapshot(
-        source: $0, state: .connected, cached: CachedFeed(feed: feed, etag: nil, readAt: now))
-    }, now: now)
-  let cache = try WidgetCacheReader(location: location).read()
-  let accounts = WidgetChoices.accounts(in: cache)
-  #expect(accounts.count == feed.accounts.count * 2)
-  #expect(Set(accounts.map(\.id)).count == accounts.count)
-  #expect(accounts.allSatisfy { $0.title.contains(" · Synthetic source") })
-  let picked = try #require(accounts.first)
-  let last = try #require(accounts.last)
-  #expect(
-    WidgetChoices.pick([last.id, "removed", picked.id], from: accounts).map(\.id) == [
-      last.id, picked.id,
-    ])
-  let limits = WidgetChoices.limits(in: cache, accountID: picked.id)
-  #expect(limits.count == feed.accounts.first?.limits.count)
-  #expect(limits.allSatisfy { $0.accountID == picked.id && !$0.title.contains(" · ") })
-  let every = WidgetChoices.limits(in: cache)
-  #expect(Set(every.map(\.id)).count == feed.accounts.flatMap(\.limits).count * 2)
-  let firstLimit = try #require(limits.first)
-  #expect(WidgetChoices.pick(["removed", firstLimit.id], from: every).map(\.id) == [firstLimit.id])
-}

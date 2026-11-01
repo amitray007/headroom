@@ -86,6 +86,8 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
   public var sourceFilter: UUID?
   /// The Share window's last look: style, size, theme, backdrop and what it hides.
   public var share = ShareOptions()
+  /// What the widgets show; the app writes it into the widget cache.
+  public var widgets = WidgetPreferences()
   public init() {}
 
   private enum Saved: String, CodingKey { case followedAccount }
@@ -125,6 +127,8 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
       try values.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? defaults.checkForUpdates
     sourceFilter = try values.decodeIfPresent(UUID.self, forKey: .sourceFilter)
     share = (try? values.decodeIfPresent(ShareOptions.self, forKey: .share)) ?? defaults.share
+    widgets =
+      (try? values.decodeIfPresent(WidgetPreferences.self, forKey: .widgets)) ?? defaults.widgets
   }
 }
 
@@ -147,6 +151,11 @@ public struct AccountItem: Identifiable, Sendable {
   public var id: String { Self.key(sourceID: snapshot.id, accountID: account.id) }
   public static func key(sourceID: UUID, accountID: String) -> String {
     "\(sourceID.uuidString)/\(accountID)"
+  }
+  /// The account's ID in the widget cache.
+  public var widgetID: String { Self.widgetID(sourceID: snapshot.id, accountID: account.id) }
+  public static func widgetID(sourceID: UUID, accountID: String) -> String {
+    "\(sourceID.uuidString):\(accountID)"
   }
   public init(snapshot: SourceSnapshot, account: FeedAccount) {
     self.snapshot = snapshot

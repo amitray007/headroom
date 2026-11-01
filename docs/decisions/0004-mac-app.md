@@ -22,11 +22,11 @@ Today every API route needs a Better Auth session cookie ([API](../architecture/
 | Language | Swift 6, strict concurrency | WidgetKit has no other first-class language. Tauri and Electron cannot ship a widget extension |
 | Menu bar and popover | `NSStatusItem` and `NSPopover` with SwiftUI content | Layer 5 found that `MenuBarExtra` has no public API to present its popover after a banner click, so it uses the fallback allowed by the original decision |
 | Settings | SwiftUI `Settings` scene | The standard Settings window and shortcut |
-| Widgets | WidgetKit extension with App Intent configuration | Accounts and limits are picked per widget, as in the design |
+| Widgets | WidgetKit extension with static configurations; the app's Settings choose accounts and limits | Changed on 2026-11-02. App Intent configuration needs a team ID: with the ad-hoc signature every saved choice resolved to nothing |
 | Notifications | `UserNotifications` | Banners and Notification Center |
 | Secrets | Keychain, one item that holds the tokens of every source | The owner's choice. Without a Developer ID, macOS asks for the login password once per item after each update (see [Build and release](#build-and-release)); one item keeps that to one prompt |
 | Tests | Swift Testing in a local Swift package | Logic runs under `swift test` without the app host |
-| Minimum macOS | 15 Sequoia | `MenuBarExtra`, `@Observable` and App Intent widgets all exist there; one release back from macOS 26 keeps most Macs in |
+| Minimum macOS | 15 Sequoia | `MenuBarExtra`, `@Observable` and WidgetKit widgets all exist there; one release back from macOS 26 keeps most Macs in |
 | Font | Geist, bundled (SIL Open Font License) | Headroom content uses Geist; system chrome uses the system font |
 
 No third-party Swift dependency ships in the app apart from the OpenAPI runtime that the type generator needs (below).

@@ -339,3 +339,17 @@ private actor MarkingReader: FeedReading {
   await next.refresh()
   #expect(await saved.records(sourceID: source.id)[notice.id]?.read == true)
 }
+
+@Test func newWidgetSettingsRewriteTheCacheWithoutAPoll() async throws {
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let reader = QueuedReader([])
+  let poller = try await makePoller(directory: directory, sources: [try source()], reader: reader)
+  let cache = WidgetCacheReader(
+    location: WidgetCacheLocation(url: directory.appending(path: "widget-cache.json")))
+  #expect(try cache.read() == nil)
+  let settings = WidgetPreferences(used: true, accountIDs: ["synthetic"])
+  await poller.setWidgetSettings(settings)
+  #expect(try cache.read()?.settings == settings)
+  #expect(await reader.validators.isEmpty)
+}

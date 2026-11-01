@@ -22,6 +22,27 @@ enum WidgetKind: String, CaseIterable {
   }
 }
 
+/// The app's widget settings applied to one widget at a timeline date, for the extension and
+/// the Widgets settings preview alike.
+struct WidgetSelection {
+  var accountIDs: [String] = []
+  var limitKey: String?
+  var used = false
+
+  init(kind: WidgetKind, cache: WidgetCache?, date: Date) {
+    let settings = cache?.widgetSettings ?? WidgetPreferences()
+    switch kind {
+    case .account:
+      accountIDs = settings.accountID.map { [$0] } ?? []
+      limitKey = settings.limitKey
+      used = settings.used
+    case .accounts:
+      accountIDs = settings.accounts(in: cache?.rows ?? [], at: date)
+    case .overall, .allAccounts, .detail: break
+    }
+  }
+}
+
 /// Shared with the app's ImageRenderer captures. No network or credential access.
 struct HeadroomWidgetView: View {
   let cache: WidgetCache?
@@ -136,15 +157,90 @@ struct HeadroomWidgetView: View {
   /// The size's ledger with every reading blank: name bars and empty cells. WidgetKit draws
   /// still frames, so the skeleton stands in for a spinner.
   private func skeleton(caption: String?) -> some View {
+    Group {
+      switch kind {
+      case .account: smallAccountSkeleton(caption: caption)
+      case .overall: smallOverallSkeleton(caption: caption)
+      default: ledgerSkeleton(caption: caption)
+      }
+    }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(caption ?? "Reading accounts")
+  }
+
+  /// Small Account's layout with blank readings: who, the large figure, a second meter and
+  /// the footer, spaced as `smallAccount`.
+  private func smallAccountSkeleton(caption: String?) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+      HStack(spacing: 8) {
+        Circle().fill(HR.track).frame(width: 16, height: 16)
+        VStack(alignment: .leading, spacing: 1) {
+          bar(width: 84, height: 8).frame(height: 15)
+          bar(width: 40, height: 6).frame(height: 13)
+        }
+      }
+      Spacer(minLength: 6)
+      VStack(alignment: .leading, spacing: 5) {
+        HStack(alignment: .center, spacing: 8) {
+          RoundedRectangle(cornerRadius: 5).fill(HR.track).frame(width: 56, height: 22)
+          bar(width: 44, height: 7)
+        }.frame(height: 32)
+        Cells(fill: 0, tone: .room)
+      }
+      VStack(spacing: 4) {
+        HStack(spacing: 5) {
+          bar(width: 28, height: 8)
+          Spacer(minLength: 6)
+          bar(width: 44, height: 7)
+        }.frame(height: 16)
+        Cells(fill: 0, tone: .room)
+      }.padding(.top, 8)
+      Spacer(minLength: 6)
+      skeletonFooter(width: 52, caption: caption)
+    }
+  }
+
+  /// Small Overall's layout with blank readings: the count line over three accounts, spaced as
+  /// `smallOverall`.
+  private func smallOverallSkeleton(caption: String?) -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+      bar(width: 110, height: 8).frame(height: 14)
+      VStack(alignment: .leading, spacing: 7) {
+        ForEach(0..<3, id: \.self) { _ in
+          VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+              Circle().fill(HR.track).frame(width: 14, height: 14)
+              bar(width: 28, height: 8)
+              Spacer(minLength: 4)
+              bar(width: 44, height: 7)
+            }.frame(height: 16)
+            Cells(fill: 0, tone: .room)
+          }
+        }
+      }.frame(maxHeight: .infinity, alignment: .top)
+      skeletonFooter(width: 70, caption: caption)
+    }
+  }
+
+  /// The footer's bar, or the caption in its place when there is no cache.
+  @ViewBuilder private func skeletonFooter(width: CGFloat, caption: String?) -> some View {
+    if let caption {
+      Text(caption).font(WidgetStyle.font(11)).foregroundStyle(muted).lineLimit(1)
+        .minimumScaleFactor(0.8)
+    } else {
+      bar(width: width, height: 7).frame(height: 14)
+    }
+  }
+
+  private func ledgerSkeleton(caption: String?) -> some View {
     let count: Int =
       switch kind {
-      case .account: 1
-      case .overall, .accounts: 3
       case .allAccounts: Self.largeRows
       case .detail: 5
+      default: 3
       }
     return VStack(alignment: .leading, spacing: 0) {
-      if kind == .allAccounts || kind == .detail || kind == .overall {
+      if kind == .allAccounts || kind == .detail {
         bar(width: 120, height: 8).padding(.bottom, 12)
       }
       HStack(alignment: .top, spacing: 20) {
@@ -161,24 +257,19 @@ struct HeadroomWidgetView: View {
           .padding(.top, 6)
       }
     }
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel(caption ?? "Reading accounts")
   }
 
   private func skeletonRow(index: Int) -> some View {
     // Varied name lengths read as accounts, not a pattern.
     let names: [CGFloat] = [84, 66, 92, 72, 60, 88, 70, 78]
-    let small = kind == .account || kind == .overall
     return HStack(spacing: 10) {
       HStack(spacing: 8) {
         Circle().fill(HR.track).frame(width: 16, height: 16)
-        if !small || kind == .account {
-          VStack(alignment: .leading, spacing: 5) {
-            bar(width: names[index % names.count], height: 8)
-            bar(width: 40, height: 6)
-          }
+        VStack(alignment: .leading, spacing: 5) {
+          bar(width: names[index % names.count], height: 8)
+          bar(width: 40, height: 6)
         }
-      }.frame(width: small ? nil : 128, alignment: .leading)
+      }.frame(width: 128, alignment: .leading)
       VStack(alignment: .leading, spacing: 6) {
         bar(width: 28, height: 8)
         Cells(fill: 0, tone: .room)

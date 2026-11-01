@@ -50,6 +50,7 @@ public actor Poller {
   private let cache: FeedCache
   private let notices: NoticeStore
   private let widgetWriter: WidgetCacheWriter
+  private var widgetSettings: WidgetPreferences
   private let clock: any PollClock
   private var loop: Task<Void, Never>?
   private var refreshTask: Task<Void, Never>?
@@ -64,12 +65,14 @@ public actor Poller {
   public init(
     sources: [Source], vault: any TokenVault, cache: FeedCache = FeedCache(),
     notices: NoticeStore, widgetWriter: WidgetCacheWriter = WidgetCacheWriter(),
+    widgetSettings: WidgetPreferences = WidgetPreferences(),
     client: any FeedReading = FeedClient(), clock: any PollClock = SystemPollClock()
   ) async throws {
     self.vault = vault
     self.cache = cache
     self.notices = notices
     self.widgetWriter = widgetWriter
+    self.widgetSettings = widgetSettings
     self.client = client
     self.clock = clock
     var loaded: [SourceSnapshot] = []
@@ -155,6 +158,19 @@ public actor Poller {
     }
     guard running, revision == scheduleRevision else { return }
     loop = Task { [weak self] in await self?.runLoop() }
+  }
+
+  /// New widget settings rewrite the cache from the current readings at once.
+  public func setWidgetSettings(_ settings: WidgetPreferences) async {
+    guard settings != widgetSettings else { return }
+    widgetSettings = settings
+    writeWidgets(now: await clock.now())
+  }
+
+  private func writeWidgets(now: Date) {
+    do { try widgetWriter.write(sources: values, settings: widgetSettings, now: now) } catch {
+      storageFailed = true
+    }
   }
 
   public func didWake() async { await refresh() }
@@ -250,7 +266,7 @@ public actor Poller {
         }
       }
     }
-    do { try widgetWriter.write(sources: values, now: now) } catch { storageFailed = true }
+    writeWidgets(now: now)
     for observer in observers.values { observer.yield(values) }
   }
 }

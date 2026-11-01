@@ -29,6 +29,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
   case general = "General"
   case sources = "Sources"
   case menuBar = "Menu Bar"
+  case widgets = "Widgets"
   case accounts = "Accounts"
   case notifications = "Notifications"
   case about = "About"
@@ -47,6 +48,10 @@ final class AppModel {
       if preferences.checkSeconds != oldValue.checkSeconds {
         let seconds = preferences.checkSeconds
         Task { await self.poller?.setBackgroundInterval(seconds: seconds) }
+      }
+      if preferences.widgets != oldValue.widgets {
+        let widgets = preferences.widgets
+        Task { await self.poller?.setWidgetSettings(widgets) }
       }
       if preferences.checkForUpdates != oldValue.checkForUpdates, ready, !synthetic {
         updates.schedule(enabled: preferences.checkForUpdates)
@@ -187,7 +192,8 @@ final class AppModel {
       let client: any FeedReading = FeedClient()
     #endif
     let poller = try await Poller(
-      sources: values, vault: vault, cache: feedCache, notices: noticeStore, client: client)
+      sources: values, vault: vault, cache: feedCache, notices: noticeStore,
+      widgetSettings: preferences.widgets, client: client)
     self.poller = poller
     // Publish the cached feed before starting any network request.
     apply(await poller.snapshots())

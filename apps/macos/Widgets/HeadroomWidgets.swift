@@ -1,159 +1,37 @@
-import AppIntents
 import HeadroomKit
 import SwiftUI
 import WidgetKit
 
-enum SmallWidgetContent: String, AppEnum {
-  case account, overall
-  static let typeDisplayRepresentation: TypeDisplayRepresentation = "Content"
-  static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
-    .account: "Account", .overall: "Overall",
-  ]
-}
-
-enum WidgetMeasure: String, AppEnum {
-  case left, used
-  static let typeDisplayRepresentation: TypeDisplayRepresentation = "Percentage"
-  static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
-    .left: "Left", .used: "Used",
-  ]
-}
-
-struct AccountConfiguration: WidgetConfigurationIntent {
-  static let title: LocalizedStringResource = "Account or Overall"
-  static let description = IntentDescription(
-    "Choose one account and a limit, or show overall counts.")
-  @Parameter(title: "Kind", default: .account) var content: SmallWidgetContent
-  @Parameter(title: "Account") var account: WidgetAccountEntity?
-  @Parameter(title: "Limit", description: "Leave empty for all limits.", query: AccountLimitQuery())
-  var limit: WidgetLimitEntity?
-  @Parameter(title: "Show percentage", default: .left) var measure: WidgetMeasure
-  static var parameterSummary: some ParameterSummary {
-    When(\.$content, .equalTo, SmallWidgetContent.account) {
-      Summary {
-        \.$content
-        \.$account
-        \.$limit
-        \.$measure
-      }
-    } otherwise: {
-      Summary { \.$content }
-    }
-  }
-}
-
-struct AccountLimitQuery: EntityQuery {
-  @IntentParameterDependency<AccountConfiguration>(\.$account) var configuration
-  func entities(for identifiers: [String]) async throws -> [WidgetLimitEntity] {
-    try await WidgetLimitQuery().entities(for: identifiers)
-  }
-  func suggestedEntities() async throws -> [WidgetLimitEntity] {
-    guard let account = configuration?.account else { return [] }
-    return WidgetChoices.limits(in: try WidgetCacheReader().read(), accountID: account.id)
-      .map(WidgetLimitEntity.init)
-  }
-}
-
-struct AccountsConfiguration: WidgetConfigurationIntent {
-  static let title: LocalizedStringResource = "Accounts"
-  static let description = IntentDescription(
-    "Choose up to three accounts in display order. Remove one to choose another.")
-  // WidgetKit owns the selection and ordering controls. Its size boundary prevents a fourth choice.
-  @Parameter(title: "Accounts · maximum 3", size: IntentCollectionSize(min: 1, max: 3))
-  var accounts: [WidgetAccountEntity]?
-  static var parameterSummary: some ParameterSummary { Summary { \.$accounts } }
-}
-
-struct AllAccountsConfiguration: WidgetConfigurationIntent {
-  static let title: LocalizedStringResource = "All accounts"
-  static let description = IntentDescription(
-    "All accounts from your Headroom sources, in source order.")
-}
+// Static configurations: the app's Widgets settings choose what each widget shows and write
+// it into the widget cache. An ad-hoc signed extension has no team ID, so App Intents
+// parameters never resolved and every widget editor choice was lost.
 
 struct CacheEntry: TimelineEntry {
   let date: Date
   let cache: WidgetCache?
   let kind: WidgetKind
-  var accountIDs: [String] = []
-  var limitKey: String?
-  var used = false
   var loading = false
 }
 
-struct AccountProvider: AppIntentTimelineProvider {
-  func placeholder(in context: Context) -> CacheEntry {
-    CacheEntry(date: Date(), cache: nil, kind: .account, loading: true)
-  }
-  func snapshot(for configuration: AccountConfiguration, in context: Context) async -> CacheEntry {
-    entry(configuration, cache: try? WidgetCacheReader().read(), date: Date())
-  }
-  func timeline(for configuration: AccountConfiguration, in context: Context) async -> Timeline<
-    CacheEntry
-  > {
-    let cache = try? WidgetCacheReader().read()
-    let now = Date()
-    return Timeline(
-      entries: WidgetTimeline.dates(cache: cache, now: now).map {
-        entry(configuration, cache: cache, date: $0)
-      }, policy: .after(now.addingTimeInterval(120)))
-  }
-  private func entry(_ configuration: AccountConfiguration, cache: WidgetCache?, date: Date)
-    -> CacheEntry
-  {
-    CacheEntry(
-      date: date, cache: cache, kind: configuration.content == .overall ? .overall : .account,
-      accountIDs: configuration.account.map { [$0.id] } ?? [],
-      limitKey: configuration.limit?.accountID == configuration.account?.id
-        ? configuration.limit?.key : nil,
-      used: configuration.measure == .used)
-  }
-}
+struct CacheProvider: TimelineProvider {
+  /// The kind for each family; All accounts draws Extra large as the detail ledger.
+  let kind: @Sendable (WidgetFamily) -> WidgetKind
 
-struct AccountsProvider: AppIntentTimelineProvider {
   func placeholder(in context: Context) -> CacheEntry {
-    CacheEntry(date: Date(), cache: nil, kind: .accounts, loading: true)
+    CacheEntry(date: Date(), cache: nil, kind: kind(context.family), loading: true)
   }
-  func snapshot(for configuration: AccountsConfiguration, in context: Context) async -> CacheEntry {
-    CacheEntry(
-      date: Date(), cache: try? WidgetCacheReader().read(), kind: .accounts,
-      accountIDs: (configuration.accounts ?? []).prefix(3).map(\.id))
+  func getSnapshot(in context: Context, completion: @escaping (CacheEntry) -> Void) {
+    completion(
+      CacheEntry(date: Date(), cache: try? WidgetCacheReader().read(), kind: kind(context.family)))
   }
-  func timeline(for configuration: AccountsConfiguration, in context: Context) async -> Timeline<
-    CacheEntry
-  > {
+  func getTimeline(in context: Context, completion: @escaping (Timeline<CacheEntry>) -> Void) {
     let cache = try? WidgetCacheReader().read()
     let now = Date()
-    return Timeline(
-      entries: WidgetTimeline.dates(cache: cache, now: now).map {
-        CacheEntry(
-          date: $0, cache: cache, kind: .accounts,
-          accountIDs: (configuration.accounts ?? []).prefix(3).map(\.id))
-      }, policy: .after(now.addingTimeInterval(120)))
-  }
-}
-
-struct AllAccountsProvider: AppIntentTimelineProvider {
-  func placeholder(in context: Context) -> CacheEntry {
-    CacheEntry(date: Date(), cache: nil, kind: .allAccounts, loading: true)
-  }
-  func snapshot(for configuration: AllAccountsConfiguration, in context: Context) async
-    -> CacheEntry
-  {
-    CacheEntry(
-      date: Date(), cache: try? WidgetCacheReader().read(),
-      kind: context.family == .systemExtraLarge ? .detail : .allAccounts)
-  }
-  func timeline(for configuration: AllAccountsConfiguration, in context: Context) async -> Timeline<
-    CacheEntry
-  > {
-    let cache = try? WidgetCacheReader().read()
-    let now = Date()
-    return Timeline(
-      entries: WidgetTimeline.dates(cache: cache, now: now).map {
-        CacheEntry(
-          date: $0, cache: cache, kind: context.family == .systemExtraLarge ? .detail : .allAccounts
-        )
-      }, policy: .after(now.addingTimeInterval(120)))
+    completion(
+      Timeline(
+        entries: WidgetTimeline.dates(cache: cache, now: now).map {
+          CacheEntry(date: $0, cache: cache, kind: kind(context.family))
+        }, policy: .after(now.addingTimeInterval(120))))
   }
 }
 
@@ -164,46 +42,62 @@ struct CacheView: View {
     self.entry = entry
   }
   var body: some View {
+    let selection = WidgetSelection(kind: entry.kind, cache: entry.cache, date: entry.date)
     HeadroomWidgetPresentation(
       cache: entry.cache, date: entry.date, kind: entry.kind,
-      accountIDs: entry.accountIDs, limitKey: entry.limitKey, used: entry.used,
+      accountIDs: selection.accountIDs, limitKey: selection.limitKey, used: selection.used,
       loading: entry.loading
     )
     .containerBackground(HR.surface, for: .widget)
-
   }
+}
+
+@MainActor private func ledgerWidget(
+  kind: String, name: String, description: String, families: [WidgetFamily],
+  widgetKind: @escaping @Sendable (WidgetFamily) -> WidgetKind
+) -> some WidgetConfiguration {
+  StaticConfiguration(kind: kind, provider: CacheProvider(kind: widgetKind)) {
+    CacheView(entry: $0)
+  }
+  .configurationDisplayName(name).description(description)
+  .supportedFamilies(families).contentMarginsDisabled()
 }
 
 struct AccountWidget: Widget {
   var body: some WidgetConfiguration {
-    AppIntentConfiguration(
-      kind: "Headroom", intent: AccountConfiguration.self, provider: AccountProvider()
-    ) { CacheView(entry: $0) }
-    .configurationDisplayName("Account or Overall").description(
-      "One account's limits or overall counts."
-    )
-    .supportedFamilies([.systemSmall]).contentMarginsDisabled()
+    // The original kind, so widgets placed before static configurations stay in place.
+    ledgerWidget(
+      kind: "Headroom", name: "Account",
+      description: "One account's limits. Choose the account in Headroom's Widgets settings.",
+      families: [.systemSmall]
+    ) { _ in .account }
+  }
+}
+struct OverallWidget: Widget {
+  var body: some WidgetConfiguration {
+    ledgerWidget(
+      kind: "HeadroomOverall", name: "Overall",
+      description: "Out and run-out counts over the accounts that need attention first.",
+      families: [.systemSmall]
+    ) { _ in .overall }
   }
 }
 struct AccountsWidget: Widget {
   var body: some WidgetConfiguration {
-    AppIntentConfiguration(
-      kind: "HeadroomAccounts", intent: AccountsConfiguration.self, provider: AccountsProvider()
-    ) { CacheView(entry: $0) }
-    .configurationDisplayName("Accounts").description("Up to three accounts, in your chosen order.")
-    .supportedFamilies([.systemMedium]).contentMarginsDisabled()
+    ledgerWidget(
+      kind: "HeadroomAccounts", name: "Accounts",
+      description: "Three accounts. Choose them in Headroom's Widgets settings.",
+      families: [.systemMedium]
+    ) { _ in .accounts }
   }
 }
 struct AllAccountsWidget: Widget {
   var body: some WidgetConfiguration {
-    AppIntentConfiguration(
-      kind: "HeadroomAllAccounts", intent: AllAccountsConfiguration.self,
-      provider: AllAccountsProvider()
-    ) { CacheView(entry: $0) }
-    .configurationDisplayName("All accounts").description(
-      "All accounts. Extra large includes secondary limits."
-    )
-    .supportedFamilies([.systemLarge, .systemExtraLarge]).contentMarginsDisabled()
+    ledgerWidget(
+      kind: "HeadroomAllAccounts", name: "All accounts",
+      description: "The accounts that need attention first. Extra large shows every limit.",
+      families: [.systemLarge, .systemExtraLarge]
+    ) { $0 == .systemExtraLarge ? .detail : .allAccounts }
   }
 }
 
@@ -211,6 +105,7 @@ struct AllAccountsWidget: Widget {
 struct HeadroomWidgets: WidgetBundle {
   var body: some Widget {
     AccountWidget()
+    OverallWidget()
     AccountsWidget()
     AllAccountsWidget()
   }

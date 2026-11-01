@@ -33,6 +33,7 @@ struct SettingsView: View {
             .frame(height: 34).padding(.horizontal, 24).accessibilityAddTraits(.isHeader)
           switch model.selectedPane {
           case .menuBar: menuBar
+          case .widgets: widgetPane
           case .accounts: accountList
           case .notifications: notifications
           case .sources: sources
@@ -287,6 +288,122 @@ struct SettingsView: View {
     withAnimation(Motion.expand(reduceMotion)) {
       model.preferences.slots.append(.init(account: account, look: slots.last?.look ?? .percent))
     }
+  }
+
+  // MARK: Widgets
+
+  /// What each widget shows. The widgets read these choices from the widget cache, because an
+  /// ad-hoc signed extension cannot keep choices made in the system widget editor.
+  private var widgetPane: some View {
+    let settings = model.preferences.widgets
+    // Built as the writer builds it, so the previews match the placed widgets.
+    let cache = WidgetCacheWriter.cache(
+      sources: model.displaySources, settings: settings, now: model.now)
+    let accounts = model.allAccounts
+    let row = cache.rows.first { $0.id == (settings.accountID ?? cache.rows.first?.id) }
+    let limits = row.map(WidgetLedger.everyLimit) ?? []
+    let chosen = settings.accountID.flatMap { id in accounts.first { $0.widgetID == id } }
+    return SettingsSections {
+      SettingsSection("Account widget") {
+        WidgetPreview(cache: cache, kind: .account, date: model.now).padding(.vertical, 8)
+        SettingsRow(title: "Account") {
+          WebSelect(
+            value: settings.accountID == nil
+              ? "First account" : chosen.map { accountName($0, among: accounts) }
+                ?? "Account no longer linked",
+            mark: chosen?.account.provider.rawValue, symbol: "gauge.medium"
+          ) {
+            Button("First account") { chooseWidgetAccount(nil) }
+            if !accounts.isEmpty { Divider() }
+            ForEach(accounts) { item in
+              Button(accountName(item, among: accounts)) { chooseWidgetAccount(item.widgetID) }
+            }
+          }
+        }
+        SettingsRow(title: "Limit") {
+          WebSelect(
+            value: settings.limitKey.flatMap { key in limits.first { $0.key == key }?.label }
+              ?? "Automatic"
+          ) {
+            Button("Automatic") { model.preferences.widgets.limitKey = nil }
+            if !limits.isEmpty { Divider() }
+            ForEach(limits) { limit in
+              Button(limit.label) { model.preferences.widgets.limitKey = limit.key }
+            }
+          }
+        }
+        SettingsRow(title: "Show") {
+          WebSegmented(
+            selection: $model.preferences.widgets.used, options: [(false, "Left"), (true, "Used")])
+        }
+      }
+      SettingsSection("Accounts widget") {
+        WidgetPreview(cache: cache, kind: .accounts, date: model.now).padding(.vertical, 8)
+        ForEach(0..<WidgetPreferences.maxAccounts, id: \.self) { index in
+          accountsSlot(index, accounts: accounts)
+        }
+        Text("Automatic shows the accounts that need attention first.")
+          .font(HR.popoverFont(12)).foregroundStyle(HR.textMuted).padding(.vertical, 10)
+      }
+      SettingsSection("All accounts") {
+        Text(
+          "Large shows the eight accounts that need attention first; Extra large shows every limit."
+        )
+        .font(HR.popoverFont(13)).foregroundStyle(HR.secondary)
+        .fixedSize(horizontal: false, vertical: true).padding(.vertical, 10)
+      }
+    }
+  }
+
+  private func accountName(_ item: AccountItem, among accounts: [AccountItem]) -> String {
+    Presentation.needsSource(item, among: accounts)
+      ? "\(item.name) · \(item.snapshot.source.name)" : item.name
+  }
+
+  /// A new account resets the limit, since limit keys belong to one account.
+  private func chooseWidgetAccount(_ id: String?) {
+    var widgets = model.preferences.widgets
+    guard widgets.accountID != id else { return }
+    widgets.accountID = id
+    widgets.limitKey = nil
+    model.preferences.widgets = widgets
+  }
+
+  /// One Accounts widget row. Chosen accounts come first, so a slot opens once the one above it
+  /// holds an account; Automatic in a chosen slot removes it.
+  private func accountsSlot(_ index: Int, accounts: [AccountItem]) -> some View {
+    let ids = model.preferences.widgets.accountIDs
+    let id = ids.indices.contains(index) ? ids[index] : nil
+    let chosen = id.flatMap { id in accounts.first { $0.widgetID == id } }
+    let others = Set(ids.enumerated().filter { $0.offset != index }.map(\.element))
+    let open = index <= ids.count
+    return HStack(spacing: 10) {
+      Text("\(index + 1)").font(HR.popoverFont(13, .medium)).foregroundStyle(HR.textMuted)
+        .frame(width: 16).accessibilityHidden(true)
+      WebSelect(
+        value: id == nil ? "Automatic" : chosen.map { accountName($0, among: accounts) }
+          ?? "Account no longer linked",
+        mark: chosen?.account.provider.rawValue, symbol: "gauge.medium", fill: true
+      ) {
+        Button("Automatic") {
+          if id != nil { model.preferences.widgets.accountIDs.remove(at: index) }
+        }
+        let choices = accounts.filter { !others.contains($0.widgetID) }
+        if !choices.isEmpty { Divider() }
+        ForEach(choices) { item in
+          Button(accountName(item, among: accounts)) {
+            if id == nil {
+              model.preferences.widgets.accountIDs.append(item.widgetID)
+            } else {
+              model.preferences.widgets.accountIDs[index] = item.widgetID
+            }
+          }
+        }
+      }
+      .disabled(!open).opacity(open ? 1 : 0.45)
+      .accessibilityLabel("Accounts widget row \(index + 1)")
+    }
+    .padding(.vertical, 8)
   }
 
   // MARK: List
@@ -1073,6 +1190,37 @@ private struct MarkStylePreview: View {
           .scaleEffect(min(1, geometry.size.width / max(1, width)))
       }
     }.frame(height: 24)
+  }
+}
+
+/// A widget at its real size, drawn from the same cache and settings as the placed widget, and
+/// scaled down when the pane is narrower.
+private struct WidgetPreview: View {
+  let cache: WidgetCache
+  let kind: WidgetKind
+  let date: Date
+  @State private var room: CGFloat = 0
+
+  var body: some View {
+    let size = kind.size
+    let scale = room > 0 ? min(1, room / size.width) : 1
+    let selection = WidgetSelection(kind: kind, cache: cache, date: date)
+    HeadroomWidgetView(
+      cache: cache, date: date, kind: kind, accountIDs: selection.accountIDs,
+      limitKey: selection.limitKey, used: selection.used
+    )
+    .frame(width: size.width, height: size.height)
+    .scaleEffect(scale)
+    .frame(width: size.width * scale, height: size.height * scale)
+    .frame(maxWidth: .infinity)
+    .onGeometryChange(for: CGFloat.self) {
+      $0.size.width
+    } action: {
+      room = $0
+    }
+    .padding(14).background(HR.muted, in: RoundedRectangle(cornerRadius: 12))
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("Preview of the \(kind.title) widget")
   }
 }
 

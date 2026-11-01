@@ -69,27 +69,49 @@ public struct WidgetCache: Codable, Sendable {
   public let writtenAt: Date
   public let rows: [WidgetAccountRow]
   public let sources: [WidgetSourceRow]
-  public init(writtenAt: Date, rows: [WidgetAccountRow], sources: [WidgetSourceRow]) {
+  /// The app's widget settings. Optional so a cache written before them still reads.
+  public var settings: WidgetPreferences?
+  public init(
+    writtenAt: Date, rows: [WidgetAccountRow], sources: [WidgetSourceRow],
+    settings: WidgetPreferences? = nil
+  ) {
     self.writtenAt = writtenAt
     self.rows = rows
     self.sources = sources
+    self.settings = settings
   }
+  /// The widget settings, with defaults when the cache has none.
+  public var widgetSettings: WidgetPreferences { settings ?? WidgetPreferences() }
 }
 
 public struct WidgetCacheWriter: Sendable {
   public let location: WidgetCacheLocation
   public init(location: WidgetCacheLocation = WidgetCacheLocation()) { self.location = location }
 
-  public func write(sources: [SourceSnapshot], now: Date = Date(), timeZone: TimeZone = .current)
-    throws
-  {
+  public func write(
+    sources: [SourceSnapshot], settings: WidgetPreferences = WidgetPreferences(),
+    now: Date = Date(), timeZone: TimeZone = .current
+  ) throws {
+    try HeadroomStorage.write(
+      Self.cache(sources: sources, settings: settings, now: now, timeZone: timeZone),
+      to: location.url)
+    // Reload only after the atomic write succeeds, including source removal and empty feeds.
+    WidgetCenter.shared.reloadAllTimelines()
+  }
+
+  /// The cache as written, also for the Widgets settings preview.
+  public static func cache(
+    sources: [SourceSnapshot], settings: WidgetPreferences = WidgetPreferences(),
+    now: Date = Date(), timeZone: TimeZone = .current
+  ) -> WidgetCache {
     let rows = sources.flatMap { source -> [WidgetAccountRow] in
       guard let feed = source.cached?.feed else { return [] }
       return feed.accounts.map { account in
         let balance = account.charges.first { $0.kind == .balance }
         let success = Formatting.date(milliseconds: account.lastSuccessAt)
         return WidgetAccountRow(
-          id: "\(source.id.uuidString):\(account.id)", sourceName: source.source.name,
+          id: AccountItem.widgetID(sourceID: source.id, accountID: account.id),
+          sourceName: source.source.name,
           name: account.name, provider: account.provider.rawValue, state: source.state,
           status: Formatting.status(
             account, staleAfterMs: feed.staleAfterMs, now: now, timeZone: timeZone),
@@ -134,13 +156,10 @@ public struct WidgetCacheWriter: Sendable {
         )
       }
     }
-    try HeadroomStorage.write(
-      WidgetCache(
-        writtenAt: now, rows: rows,
-        sources: sources.map { WidgetSourceRow(name: $0.source.name, state: $0.state) }),
-      to: location.url)
-    // Reload only after the atomic write succeeds, including source removal and empty feeds.
-    WidgetCenter.shared.reloadAllTimelines()
+    return WidgetCache(
+      writtenAt: now, rows: rows,
+      sources: sources.map { WidgetSourceRow(name: $0.source.name, state: $0.state) },
+      settings: settings)
   }
 
   public func read() throws -> WidgetCache? {
