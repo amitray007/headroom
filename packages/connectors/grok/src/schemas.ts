@@ -33,6 +33,9 @@ export const jwtClaimsSchema = z
   })
   .loose();
 
+/** OIDC `userinfo`. Only `email` is read; it labels the connection and never keys it. */
+export const userinfoSchema = z.object({ email: z.string().optional() }).loose();
+
 export const refreshResponseSchema = z.object({
   access_token: z.string().min(1),
   refresh_token: z.string().min(1).optional(),

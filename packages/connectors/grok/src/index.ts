@@ -34,6 +34,7 @@ import {
   defaultClientId,
   settingsUrl,
   tokenUrl,
+  userinfoUrl,
 } from "./endpoints.ts";
 import {
   authFileSchema,
@@ -42,10 +43,11 @@ import {
   jwtClaimsSchema,
   refreshResponseSchema,
   settingsResponseSchema,
+  userinfoSchema,
   type GrokCredential,
 } from "./schemas.ts";
 
-export const grokConnectorVersion = "0.1.0";
+export const grokConnectorVersion = "0.1.1";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -181,14 +183,20 @@ export function createGrokConnector(options: GrokConnectorOptions): Connector {
       if (parsed.success) await runner.cleanup(parsed.data.attemptId);
     },
 
-    /** Identity is the token subject; the settings route supplies the plan for the label. */
+    /**
+     * Identity is the token subject; the settings route supplies the plan for the label. The CLI token carries no
+     * email claim, so OIDC userinfo supplies the email when the claims lack one.
+     */
     async identity(credential: StoredCredential): Promise<Identity> {
       const secret = grokCredentialSchema.parse(credential.secret);
       const claims = jwtClaimsSchema.safeParse(decodeJwt(secret.idToken ?? secret.accessToken));
       const subject = claims.success ? (claims.data.sub ?? null) : null;
       if (!subject) throw new ConnectorError("invalid_response", "the token carries no subject");
-      const plan = await planName(http, secret.accessToken);
-      const email = claims.success ? claims.data.email : undefined;
+      const claimEmail = claims.success ? claims.data.email : undefined;
+      const [plan, email] = await Promise.all([
+        planName(http, secret.accessToken),
+        claimEmail ? Promise.resolve(claimEmail) : userinfoEmail(http, secret.accessToken),
+      ]);
       return {
         providerAccountId: subject,
         workspaceId: null,
@@ -377,6 +385,25 @@ async function planName(http: FetchLike, accessToken: string): Promise<string | 
     return plan ? plan : null;
   } catch {
     return null;
+  }
+}
+
+/** The account email from OIDC userinfo. It is only a label, so any failure returns undefined. */
+async function userinfoEmail(http: FetchLike, accessToken: string): Promise<string | undefined> {
+  try {
+    const response = await http(userinfoUrl, {
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        accept: "application/json",
+        "user-agent": "Headroom",
+      },
+    });
+    if (!response.ok) return undefined;
+    const parsed = userinfoSchema.safeParse(await response.json().catch(() => null));
+    const email = parsed.success ? parsed.data.email?.trim() : undefined;
+    return email ? email : undefined;
+  } catch {
+    return undefined;
   }
 }
 

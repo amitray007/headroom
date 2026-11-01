@@ -7,6 +7,8 @@
 export const loginUrl = "https://cursor.com/loginDeepControl";
 export const pollUrl = "https://api2.cursor.sh/auth/poll";
 export const refreshUrl = "https://api2.cursor.sh/auth/exchange_user_api_key";
+/** The account email for the connection label. Route from public Cursor tools; validated 2026-10-31 on a personal and a Business seat. */
+export const getEmailUrl = "https://api2.cursor.sh/aiserver.v1.AuthService/GetEmail";
 export const usageUrl = "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage";
 /** Grok Bot ("Sand" inside Cursor): its own weekly allowance on the same account. Route from OpenUsage (source-inspected). */
 export const grokBotUsageUrl =
