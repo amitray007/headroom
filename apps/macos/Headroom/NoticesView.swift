@@ -67,6 +67,9 @@ struct NoticesView: View {
         }
       }
     }
+    .onAppear { selectBanner() }
+    .onChange(of: model.bannerNoticeID) { _, _ in selectBanner() }
+    .onChange(of: model.notices.count) { _, _ in selectBanner() }
     .onExitCommand(perform: back)
     .sheet(item: $selected) { item in
       NoticeDetail(model: model, item: item) {
@@ -77,9 +80,18 @@ struct NoticesView: View {
     }
   }
 
+  private func selectBanner() {
+    guard let id = model.bannerNoticeID, let item = model.notices.first(where: { $0.id == id })
+    else { return }
+    unreadOnly = false
+    selected = item
+    focused = id
+    model.bannerNoticeID = nil
+  }
+
   private var items: [NoticeItem] { model.notices.filter { !unreadOnly || !$0.read } }
   private func isToday(_ item: NoticeItem) -> Bool {
-    guard let date = Formatting.date(milliseconds: item.notice.occurredAt) else { return false }
+    let date = item.notice.occurredAt
     return Calendar.current.isDate(date, inSameDayAs: model.now)
   }
   private func noticeRow(_ item: NoticeItem) -> some View {
@@ -97,7 +109,7 @@ struct NoticesView: View {
         Text(item.notice.title).font(HR.font(13, item.read ? .medium : .semibold))
           .fixedSize(horizontal: false, vertical: true)
         Text(
-          "\(Presentation.providerName(item.notice.provider.rawValue)) \(item.notice.connection.name) · \(item.source.source.name) · \(Formatting.age(Formatting.date(milliseconds: item.notice.occurredAt), now: model.now))"
+          "\(item.notice.accountLabel) · \(item.source.source.name) · \(Formatting.age(item.notice.occurredAt, now: model.now))"
         )
         .font(HR.font(11)).foregroundStyle(HR.secondary).fixedSize(
           horizontal: false, vertical: true)
@@ -141,18 +153,18 @@ struct NoticeDetail: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
       Text(
-        "\(Formatting.age(Formatting.date(milliseconds: item.notice.occurredAt), now: model.now)) · Read"
+        "\(Formatting.age(item.notice.occurredAt, now: model.now)) · Read"
       )
       .font(HR.font(12)).foregroundStyle(HR.secondary)
       Text(item.notice.title).font(HR.font(18, .semibold)).accessibilityAddTraits(.isHeader)
       Text(item.notice.message).font(HR.font(15)).fixedSize(horizontal: false, vertical: true)
       Text(
-        "\(Presentation.providerName(item.notice.provider.rawValue)) \(item.notice.connection.name) · \(item.source.source.name)"
+        "\(item.notice.accountLabel) · \(item.source.source.name)"
       )
       .font(HR.font(12)).foregroundStyle(HR.secondary)
       HStack(spacing: 8) {
         Button("Open in web dashboard") {
-          model.openDashboard(item.source.source, accountID: item.notice.connection.id)
+          model.openDashboard(item.source.source, accountID: item.notice.accountID)
         }
         .keyboardShortcut(.defaultAction)
         Button("Mark as unread") {

@@ -3,11 +3,10 @@ import HeadroomKit
 import Network
 import Observation
 import SwiftUI
-import WidgetKit
 
 struct NoticeItem: Identifiable {
   let source: SourceSnapshot
-  let notice: FeedNotice
+  let notice: NativeNotice
   var read: Bool
   var id: String { "\(source.id)/\(notice.id)" }
 }
@@ -35,6 +34,12 @@ final class AppModel {
   var now = Date()
   var synthetic = false
   var captureState: String?
+  var popoverPresented = false
+  var bannerNoticeID: String?
+  private var pendingBannerNoticeID: String?
+  private var pendingBannerContent: NativeNotice?
+  private var popoverVisible = false
+  let banners = NotificationBanners()
   private var poller: Poller?
   private var observer: Task<Void, Never>?
   private var clockTask: Task<Void, Never>?
@@ -70,6 +75,11 @@ final class AppModel {
       }
     #endif
     do {
+      banners.onOpen = { [weak self] sourceID, noticeID, content in
+        guard let self else { return }
+        self.requestBannerNotice(sourceID: sourceID, noticeID: noticeID, content: content)
+      }
+      banners.install()
       noticeStore = try NoticeStore()
       preferences = try await displayStore.load()
       enabledKinds = await noticeStore?.enabledKinds() ?? [:]
@@ -123,7 +133,9 @@ final class AppModel {
         guard !Task.isCancelled, let self, self.generation == current else { return }
         self.sources = snapshots
         await self.loadNotices()
-        WidgetCenter.shared.reloadAllTimelines()
+        if let noticeStore = self.noticeStore, !self.synthetic {
+          await self.banners.deliver(self.notices, store: noticeStore)
+        }
         if await poller.storageFailed {
           self.error = "Could not save the latest readings on this Mac."
         }
@@ -132,19 +144,63 @@ final class AppModel {
     await poller.start()
   }
 
-  func setOpen(_ open: Bool) async { await poller?.setPopoverOpen(open) }
+  func setOpen(_ open: Bool) async {
+    popoverVisible = open
+    if open { await presentBannerNotice() }
+    await poller?.setPopoverOpen(open)
+  }
+  func requestBannerNotice(sourceID: UUID, noticeID: String, content: NativeNotice? = nil) {
+    pendingBannerNoticeID = "\(sourceID)/\(noticeID)"
+    pendingBannerContent = content
+    popoverPresented = true
+    NSApp.activate()
+  }
   func readSources() async { await poller?.refresh() }
 
   func loadNotices() async {
     guard let noticeStore else { return }
     var items: [NoticeItem] = []
     for snapshot in sources {
+      do {
+        try await noticeStore.updateSourceState(
+          sourceID: snapshot.id, signedOut: snapshot.state == .signedOut, now: now)
+      } catch { self.error = "Could not save source sign-in state." }
       let records = await noticeStore.records(sourceID: snapshot.id)
+      if snapshot.state == .signedOut, let record = records[NoticeStore.sourceSignOutID] {
+        items.append(
+          NoticeItem(
+            source: snapshot,
+            notice: NativeNotice(signedOutSource: snapshot.source, firstSeen: record.firstSeen),
+            read: record.read))
+      }
       items += (snapshot.cached?.feed.notices ?? []).map {
-        NoticeItem(source: snapshot, notice: $0, read: records[$0.id]?.read ?? false)
+        NoticeItem(
+          source: snapshot, notice: NativeNotice($0, sourceName: snapshot.source.name),
+          read: records[$0.id]?.read ?? false)
       }
     }
     notices = items.sorted { $0.notice.occurredAt > $1.notice.occurredAt }
+    await presentBannerNotice()
+  }
+
+  func presentBannerNotice() async {
+    guard popoverVisible, let id = pendingBannerNoticeID else { return }
+    var item = notices.first { $0.id == id }
+    if item == nil, let content = pendingBannerContent,
+      let source = sources.first(where: { "\($0.id)/\(content.id)" == id })
+    {
+      let kept = NoticeItem(source: source, notice: content, read: true)
+      notices.insert(kept, at: 0)
+      item = kept
+    }
+    guard let item else { return }
+    pendingBannerNoticeID = nil
+    pendingBannerContent = nil
+    do {
+      try await noticeStore?.setRead(true, id: item.notice.id, sourceID: item.source.id)
+      if let index = notices.firstIndex(where: { $0.id == id }) { notices[index].read = true }
+      bannerNoticeID = id
+    } catch { self.error = "Could not save notice read state." }
   }
 
   func setRead(_ value: Bool, item: NoticeItem) async {

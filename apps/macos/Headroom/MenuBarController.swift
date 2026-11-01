@@ -1,0 +1,68 @@
+import AppKit
+import Observation
+import SwiftUI
+
+/// MenuBarExtra has no public presentation binding. Banner navigation needs to open the
+/// popover, so ADR 0004's NSStatusItem fallback owns presentation; the content stays SwiftUI.
+@MainActor
+final class MenuBarController: NSObject, NSPopoverDelegate {
+  private let model: AppModel
+  private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+  private let popover = NSPopover()
+  private var label: MenuLabelHost?
+
+  init(model: AppModel) {
+    self.model = model
+    super.init()
+    popover.behavior = .transient
+    popover.delegate = self
+    popover.contentViewController = NSHostingController(rootView: PopoverView(model: model))
+    if let button = item.button {
+      button.target = self
+      button.action = #selector(toggle)
+      let label = MenuLabelHost(
+        rootView: MenuItemLabel(model: model, style: model.preferences.itemStyle))
+      button.addSubview(label)
+      self.label = label
+    }
+    observe()
+  }
+
+  func popoverDidShow(_ notification: Notification) { Task { await model.setOpen(true) } }
+  func popoverDidClose(_ notification: Notification) { Task { await model.setOpen(false) } }
+
+  @objc private func toggle() {
+    if popover.isShown { popover.performClose(nil) } else { show() }
+  }
+  private func show() {
+    guard let button = item.button else { return }
+    popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+    popover.contentViewController?.view.window?.makeKey()
+  }
+  private func observe() {
+    withObservationTracking {
+      _ = model.sources
+      _ = model.preferences
+      _ = model.notices
+      _ = model.now
+      _ = model.ready
+      _ = model.popoverPresented
+      label?.rootView = MenuItemLabel(model: model, style: model.preferences.itemStyle)
+      let size = label?.fittingSize ?? NSSize(width: 24, height: 24)
+      item.length = size.width + 12
+      label?.frame = NSRect(x: 6, y: 0, width: size.width, height: 24)
+      item.button?.setAccessibilityLabel("Headroom, \(model.unread) unread notices")
+      if model.popoverPresented {
+        if popover.isShown { Task { await model.presentBannerNotice() } } else { show() }
+        // The flag is an open request. Closing the popover does not change the unread dot.
+        Task { self.model.popoverPresented = false }
+      }
+    } onChange: { [weak self] in
+      Task { @MainActor in self?.observe() }
+    }
+  }
+}
+
+private final class MenuLabelHost: NSHostingView<MenuItemLabel> {
+  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}

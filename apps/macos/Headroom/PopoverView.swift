@@ -27,8 +27,10 @@ struct PopoverView: View {
     .font(HR.font()).foregroundStyle(HR.ink).background(HR.surface)
     .frame(width: 420)
     .preferredColorScheme(model.colorScheme)
-    .task { await model.setOpen(true) }
-    .onDisappear { Task { await model.setOpen(false) } }
+    .task {
+      if model.bannerNoticeID != nil { showingNotices = true }
+    }
+    .onChange(of: model.bannerNoticeID) { _, id in if id != nil { showingNotices = true } }
     .alert(
       "Headroom",
       isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })

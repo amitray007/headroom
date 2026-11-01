@@ -29,8 +29,13 @@ enum HR {
     .custom("Geist-Regular", size: max(11, size)).weight(weight)
   }
   static func registerFonts() {
-    guard let url = Bundle.main.url(forResource: "Geist", withExtension: "ttf") else { return }
-    CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+    for name in [
+      "Geist", "HeadroomGeist-Regular", "HeadroomGeist-Medium", "HeadroomGeist-Semibold",
+    ] {
+      if let url = Bundle.main.url(forResource: name, withExtension: "ttf") {
+        CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+      }
+    }
   }
 }
 
@@ -98,6 +103,7 @@ struct RoomBar: View {
   var unlimited = false
   var quiet = false
   var projected = false
+  var height: CGFloat = 5
   var body: some View {
     GeometryReader { geometry in
       if left == nil && !unlimited {
@@ -123,7 +129,7 @@ struct RoomBar: View {
         .frame(width: geometry.size.width * CGFloat(min(100, max(0, left ?? 100))) / 100)
       }
     }
-    .frame(height: 5).clipShape(Capsule()).accessibilityHidden(true)
+    .frame(height: height).clipShape(Capsule()).accessibilityHidden(true)
   }
 }
 
