@@ -64,8 +64,14 @@ public actor FeedCache {
 
   public init(directory: URL = HeadroomStorage.directory) { self.directory = directory }
 
+  /// A cache written by an older build, in a shape this one cannot read, is dropped: the next
+  /// poll writes it again. A file that is not JSON at all is still reported.
   public func load(sourceID: UUID) throws -> CachedFeed? {
-    try HeadroomStorage.read(CachedFeed.self, at: file(sourceID))
+    do {
+      return try HeadroomStorage.read(CachedFeed.self, at: file(sourceID))
+    } catch  where FeedClient.wrongShape(error) {
+      return nil
+    }
   }
 
   public func save(_ entry: CachedFeed, sourceID: UUID) throws {
