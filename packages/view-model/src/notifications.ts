@@ -18,8 +18,9 @@ import { almostOutBelow, toneOf } from "./tone.ts";
 
 /**
  * Notifications are derived from the latest overview and the owner's settings. Nothing is stored
- * on the server. Only which ones the owner has read is kept, in this browser. Each one is a
- * `NotificationEvent`, the same shape the server will later deliver (docs/architecture/notifications.md).
+ * for them. Only which ones the owner has read is kept, on the server, so every browser and the Mac
+ * app agree. Each one is a `NotificationEvent`, the same shape the server delivers
+ * (docs/architecture/notifications.md).
  */
 
 export type AppNotification = NotificationEvent;
@@ -988,6 +989,7 @@ export function currentIds(
 
 // ---------- read state ----------
 
+/** Where this browser kept its read ids before the server did. Read once to move them, then cleared. */
 export const readKey = "headroom.notifications.read";
 
 export function loadRead(storage: { getItem(key: string): string | null }): Set<string> {
@@ -999,11 +1001,8 @@ export function loadRead(storage: { getItem(key: string): string | null }): Set<
   }
 }
 
-export function saveRead(
-  storage: { setItem(key: string, value: string): void },
-  read: ReadonlySet<string>,
-): void {
-  storage.setItem(readKey, JSON.stringify([...read].toSorted()));
+export function clearRead(storage: { removeItem(key: string): void }): void {
+  storage.removeItem(readKey);
 }
 
 export function markRead(read: ReadonlySet<string>, id: string): Set<string> {

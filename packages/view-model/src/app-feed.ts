@@ -78,6 +78,18 @@ export const appRefreshSchema = z.strictObject({
   refreshIntervalMinutes: refreshIntervalMinutesSchema,
 });
 
+/** Most ids one read call may carry. The dashboard never holds more notices than this. */
+export const noticeReadLimit = 500;
+
+/** The body of `PUT /api/app/v1/notices/read` and of the dashboard's `PUT /api/notices/read`. */
+export const noticeReadBodySchema = z.strictObject({
+  ids: z.array(z.string().min(1).max(300)).max(noticeReadLimit),
+  read: z.boolean(),
+});
+
+/** Every notice id marked read, as `GET /api/notices/read` and the dashboard's `PUT` answer. */
+export const noticeReadSetSchema = z.strictObject({ ids: z.array(z.string()) });
+
 /** The only account projection exposed to native clients. Add fields here explicitly. */
 export const appFeedSchema = z.strictObject({
   apiVersion: z.literal(1),
@@ -111,7 +123,7 @@ export const appFeedSchema = z.strictObject({
       .strictObject({ accountId: z.string(), metricKey: z.string(), at: instant })
       .nullable(),
   }),
-  notices: z.array(notificationEventSchema),
+  notices: z.array(notificationEventSchema.extend({ read: z.boolean() })),
 });
 
 type Feed = z.infer<typeof appFeedSchema>;
@@ -129,6 +141,8 @@ interface FeedInput {
   readonly wallet: WalletBook;
   readonly rates: Rates | null;
   readonly tzOffsetMinutes: number;
+  /** Ids of the notices the owner has read. */
+  readonly read: ReadonlySet<string>;
 }
 
 const chargeKinds: ReadonlySet<MetricKind> = new Set([
@@ -293,6 +307,7 @@ export function buildAppFeed(input: FeedInput): Feed {
     expiringTopUps(input.wallet.topUps),
   ).map((event) =>
     Object.assign({}, event, {
+      read: input.read.has(event.id),
       links: input.dashboardUrl === null ? {} : { dashboard: input.dashboardUrl },
     }),
   );

@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 import { Hono } from "hono";
 
-import { appRefreshSchema, appWhoamiSchema, buildAppFeed } from "@headroom/view-model/app-feed";
+import {
+  appRefreshSchema,
+  appWhoamiSchema,
+  buildAppFeed,
+  noticeReadBodySchema,
+} from "@headroom/view-model/app-feed";
 
 import type { AppContext } from "../bootstrap.ts";
 import type { Env } from "../middleware/session.ts";
@@ -38,6 +43,14 @@ export function appRoutes(ctx: AppContext): Hono<Env> {
     });
     return c.json(appRefreshSchema.parse({ refreshIntervalMinutes: saved.refreshIntervalMinutes }));
   });
+  // requireApiToken admits this PUT for any valid token, read-only ones too. It changes only
+  // Headroom's own read marks, never a provider account (ADR 0005).
+  app.put("/notices/read", async (c) => {
+    const body = noticeReadBodySchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "invalid_body" }, 400);
+    ctx.noticeReads.mark(body.data.ids, body.data.read);
+    return c.json(noticeReadBodySchema.parse(body.data));
+  });
   app.get("/feed", (c) => {
     const tz = parseTz(c.req.query("tz"));
     if (tz === null) return c.json({ error: "invalid_tz" }, 400);
@@ -55,6 +68,7 @@ export function appRoutes(ctx: AppContext): Hono<Env> {
       wallet: { ...ctx.wallet.book(), displayCurrency: settings.walletCurrency },
       rates: ctx.exchangeRates.view().perUsd,
       tzOffsetMinutes: tz,
+      read: new Set(ctx.noticeReads.list()),
     });
     const content = JSON.stringify({ ...feed, generatedAt: 0 });
     let representation = cache.get(tz);

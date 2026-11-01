@@ -25,6 +25,7 @@ import { orderRoutes } from "./routes/order.ts";
 import { historyRoutes } from "./routes/history.ts";
 import { overviewRoutes } from "./routes/overview.ts";
 import { providerRoutes } from "./routes/providers.ts";
+import { noticeRoutes } from "./routes/notices.ts";
 import { settingsRoutes } from "./routes/settings.ts";
 import { walletRoutes } from "./routes/wallet.ts";
 import {
@@ -124,6 +125,7 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/history", historyRoutes(ctx));
   api.route("/order", orderRoutes(ctx));
   api.route("/settings", settingsRoutes(ctx));
+  api.route("/notices", noticeRoutes(ctx));
   api.route("/delivery", deliveryRoutes(ctx));
   api.route("/exchange-rates", exchangeRateRoutes(ctx));
   api.route("/wallet", walletRoutes(ctx));
