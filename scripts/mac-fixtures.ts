@@ -43,6 +43,7 @@ export function macFixture() {
     wallet: demoWallet(42, connections, now),
     rates: null,
     tzOffsetMinutes: 0,
+    read: new Set(),
     settings: {
       limitsView: "left",
       lowThresholdPercent: 20,
