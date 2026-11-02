@@ -82,7 +82,7 @@ export const appPairStartBodySchema = z.strictObject({ name: z.string().trim().m
 
 /**
  * The answer to `POST /api/app/v1/pair` (D48). The app shows `code` and opens
- * `<server>/connect?code=<code>`; it keeps `deviceCode` secret and polls with it every `interval`
+ * `<server>/#/pair/<code>`; it keeps `deviceCode` secret and polls with it every `interval`
  * seconds until `expiresIn` seconds pass.
  */
 export const appPairStartSchema = z.strictObject({
