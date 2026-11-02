@@ -169,14 +169,14 @@ private struct PopoverMenuLayer: View {
   @ViewBuilder private func items(_ menu: PopoverMenu) -> some View {
     switch menu {
     case .more:
-      PopoverMenuItem(
-        title: model.updates.checking ? "Checking…" : ui.updateNote ?? "Check for Updates…",
-        symbol: "arrow.triangle.2.circlepath"
-      ) { ui.checkForUpdates(model.updates, reduceMotion: reduceMotion) }
       PopoverMenuItem(title: "Settings…", symbol: "gearshape", shortcut: "⌘,") {
         close()
         model.openSettingsWindow(openSettings)
       }
+      PopoverMenuItem(
+        title: model.updates.checking ? "Checking…" : ui.updateNote ?? "Check for Updates",
+        symbol: "arrow.triangle.2.circlepath"
+      ) { ui.checkForUpdates(model.updates, reduceMotion: reduceMotion) }
       PopoverMenuDivider()
       PopoverMenuItem(title: "Quit Headroom", symbol: "power", shortcut: "⌘Q") {
         NSApp.terminate(nil)
