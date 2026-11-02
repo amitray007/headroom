@@ -39,6 +39,7 @@ function build(
     wallet: emptyBook,
     rates: null,
     tzOffsetMinutes: 0,
+    read: new Set<string>(),
     ...overrides,
   });
 }
@@ -370,12 +371,22 @@ describe("app feed", () => {
     );
     expect(feed.notices).toEqual(
       shared.map((event) =>
-        Object.assign({}, event, { links: { dashboard: "https://headroom.example" } }),
+        Object.assign({}, event, { read: false, links: { dashboard: "https://headroom.example" } }),
       ),
     );
     expect(feed.notices.find((notice) => notice.kind === "almost_out")?.message).toContain(
       "at 22:30",
     );
     expect(feed.notices.some((notice) => notice.kind === "credits_expiring")).toBe(true);
+  });
+
+  test("a notice carries read when its id is in the read set, whatever the offset", () => {
+    const account = connection("claude", { metrics: [percent("seven_day", 95)] });
+    const [first] = build([account]).notices;
+    expect(first?.read).toBe(false);
+    for (const tzOffsetMinutes of [0, 330, -720]) {
+      const feed = build([account], { tzOffsetMinutes, read: new Set([first!.id]) });
+      expect(feed.notices.map((notice) => [notice.id, notice.read])).toEqual([[first!.id, true]]);
+    }
   });
 });

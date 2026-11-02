@@ -11,7 +11,7 @@ describe("Mac OpenAPI contract", () => {
     expect(await syncAppContract(true)).toBe(true);
     const text = await appContract();
     expect(text).toContain('"openapi": "3.1.0"');
-    for (const path of ["/api/app/v1/feed", "/api/app/v1/whoami"])
+    for (const path of ["/api/app/v1/feed", "/api/app/v1/whoami", "/api/app/v1/notices/read"])
       expect(text).toContain(`"${path}"`);
     for (const status of ["304", "400", "401", "405", "429"]) expect(text).toContain(`"${status}"`);
     expect(text).toContain('"scheme": "bearer"');
