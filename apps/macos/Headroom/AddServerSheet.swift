@@ -1,4 +1,3 @@
-import AppKit
 import HeadroomKit
 import SwiftUI
 
@@ -92,7 +91,7 @@ struct AddServerSheet: View {
   }
 
   private func begin() {
-    guard let url = normalized, !address.isEmpty else { return }
+    guard let url = normalized else { return }
     session.begin(baseURL: url) { token in
       let source = try Source(name: url.host() ?? "Server", baseURL: url)
       try await model.saveSource(

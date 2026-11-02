@@ -126,16 +126,6 @@ public struct ManagedServer: Sendable, Equatable {
     }
   }
 
-  /// Starts a stopped server again with the launch agent already on disk.
-  public func start(
-    runner: some CommandRunning, answers: @Sendable () async -> Bool,
-    attempts: Int = 30, interval: Duration = .seconds(1)
-  ) async throws {
-    try await LocalServer(install: .launchAgent(label: Self.label, plist: plist)).start(
-      runner: runner, uid: uid, shell: shell, answers: answers, attempts: attempts,
-      interval: interval)
-  }
-
   /// Removes the launch agent, and the server's data only when the owner chose to.
   public func remove(
     runner: some CommandRunning, deleteData: Bool, removeItem: @Sendable (URL) throws -> Void

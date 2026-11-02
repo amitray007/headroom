@@ -1,6 +1,5 @@
 import AppKit
 import HeadroomKit
-import Observation
 import SwiftUI
 
 /// Headroom on this Mac: the server the app carries, and the existing installs it connects to.

@@ -25,7 +25,9 @@ extension SettingsView {
       }
     case .homebrew, .other:
       if let index = model.sources.firstIndex(where: isThisMac) {
-        existingRow(model.sources[index], index: index)
+        sourceRow(
+          model.sources[index], index: index,
+          note: model.localOwner == .homebrew ? "Installed with Homebrew" : "Installed on this Mac")
       } else {
         thisMacRow
       }
@@ -35,13 +37,6 @@ extension SettingsView {
           .buttonStyle(WebButtonStyle(small: true)).disabled(model.busy)
       }
     }
-  }
-
-  /// An install made by Homebrew or the install script: its source row, with where it came from.
-  private func existingRow(_ snapshot: SourceSnapshot, index: Int) -> some View {
-    sourceRow(
-      snapshot, index: index,
-      note: model.localOwner == .homebrew ? "Installed with Homebrew" : "Installed on this Mac")
   }
 
   private var thisMacRow: some View {
@@ -102,30 +97,28 @@ extension SettingsView {
   }
 
   @ViewBuilder var thisMacMenuItems: some View {
-    PopoverMenuItem(title: "Restart Headroom", symbol: "arrow.clockwise") {
-      closeSourceMenu()
-      Task { await model.restartLocal() }
-    }
-    PopoverMenuItem(
-      title: model.localAvailable ? "Stop Headroom" : "Start Headroom",
-      symbol: model.localAvailable ? "stop.circle" : "play.circle"
+    menuItem("Restart Headroom", "arrow.clockwise") { Task { await model.restartLocal() } }
+    menuItem(
+      model.localAvailable ? "Stop Headroom" : "Start Headroom",
+      model.localAvailable ? "stop.circle" : "play.circle"
     ) {
-      closeSourceMenu()
       Task { await model.localAvailable ? model.stopLocal() : model.startLocal() }
     }
-    PopoverMenuItem(title: "Show in Finder", symbol: "folder") {
-      closeSourceMenu()
-      model.revealLocalData()
-    }
+    menuItem("Show in Finder", "folder") { model.revealLocalData() }
     PopoverMenuDivider()
-    PopoverMenuItem(title: "Copy details for support", symbol: "doc.on.doc") {
-      closeSourceMenu()
+    menuItem("Copy details for support", "doc.on.doc") {
       Task { await model.copySupportDetails() }
     }
     PopoverMenuDivider()
-    PopoverMenuItem(title: "Remove from this Mac…", symbol: "trash") {
+    menuItem("Remove from this Mac…", "trash") { confirmRemoveThisMac() }
+  }
+
+  private func menuItem(_ title: String, _ symbol: String, action: @escaping () -> Void)
+    -> some View
+  {
+    PopoverMenuItem(title: title, symbol: symbol) {
       closeSourceMenu()
-      confirmRemoveThisMac()
+      action()
     }
   }
 

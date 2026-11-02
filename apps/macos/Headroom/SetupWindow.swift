@@ -183,7 +183,6 @@ struct SetupView: View {
   }
 }
 
-/// Install, Create account, Connect accounts.
 private struct SetupTrack: View {
   let stage: Int
   private let names = ["Install", "Create account", "Connect accounts"]
