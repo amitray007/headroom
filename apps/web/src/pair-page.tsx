@@ -13,7 +13,9 @@ export function PairPage(props: { readonly code: string }) {
   const pairing = useLoad(() => api.pairing(props.code), `pairing:${props.code}`);
   const [busy, setBusy] = useState<"approve" | "deny" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const pending = pairing.data?.status === "pending";
+  // A lookup that once succeeded keeps its data when a later one fails, so 404 is checked first.
+  const gone = pairing.status === 404;
+  const pending = !gone && pairing.data?.status === "pending";
   const { reload } = pairing;
   // The account setup approves in the background, and another tab may answer first.
   useEffect(() => {
@@ -37,9 +39,9 @@ export function PairPage(props: { readonly code: string }) {
     }
   }
 
+  if (gone) return <AuthFrame title="Code Expired" note={expired} />;
   if (pairing.data === null) {
     if (pairing.error === null) return <AuthSkeleton />;
-    if (pairing.status === 404) return <AuthFrame title="Code Expired" note={expired} />;
     return (
       <Unreachable
         task="load this request"

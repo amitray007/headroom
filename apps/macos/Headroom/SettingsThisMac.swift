@@ -90,7 +90,7 @@ extension SettingsView {
     if !model.localAvailable {
       Button("Start it") { Task { await model.startLocal() } }
         .buttonStyle(WebButtonStyle(small: true)).disabled(model.localStarting || model.localBusy)
-    } else if model.thisMacSource != nil {
+    } else if let source = model.thisMacSource, source.state != .signedOut {
       Button {
         model.openConnectPage(LocalServer.url)
       } label: {

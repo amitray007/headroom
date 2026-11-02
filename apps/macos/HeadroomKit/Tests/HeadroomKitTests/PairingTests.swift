@@ -104,6 +104,15 @@ private func run(_ transport: ScriptedTransport, shown: Log<PairingCode> = Log()
       == "https://headroom.example.invalid/#/pair/K7P-4QX")
 }
 
+@Test func browserPagesForThisMacOpenOnLocalhost() {
+  let local = URL(string: "http://127.0.0.1:8080")!
+  #expect(
+    Pairing.approvalPage(baseURL: local, code: "K7P-4QX")?.absoluteString
+      == "http://localhost:8080/#/pair/K7P-4QX")
+  #expect(Pairing.connectPage(baseURL: local)?.absoluteString == "http://localhost:8080/#/connect")
+  #expect(Pairing.browserBase(server) == server)
+}
+
 // MARK: The HTTP mapping, against a stub session
 
 private final class PairStub: URLProtocol, @unchecked Sendable {
@@ -146,6 +155,15 @@ private let startBody =
 
 @Test func startOnAServerWithoutPairingIsNil() async throws {
   let url = PairStub.register(["/api/app/v1/pair": .init(status: 404, body: "{}")])
+  let client = FeedClient(protocolClasses: [PairStub.self])
+  #expect(try await client.start(baseURL: url, name: "Synthetic") == nil)
+}
+
+/// A server from before pairing rejects the POST in its token check, which allowed only GET.
+@Test func startOnAServerWhoseTokenCheckRejectsPostIsNil() async throws {
+  let url = PairStub.register([
+    "/api/app/v1/pair": .init(status: 405, body: #"{"error":"method_not_allowed"}"#)
+  ])
   let client = FeedClient(protocolClasses: [PairStub.self])
   #expect(try await client.start(baseURL: url, name: "Synthetic") == nil)
 }

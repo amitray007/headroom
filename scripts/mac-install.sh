@@ -35,6 +35,7 @@ xcodebuild -project "$root/apps/macos/Headroom.xcodeproj" -scheme Headroom -conf
 # The app carries the server. Build it only when a source file is newer than the last build.
 server="$root/dist/headroom"
 if [ ! -f "$server" ] || [ -n "$(find "$root/apps/server" "$root/apps/web" "$root/packages" \
+  "$root/bun.lock" "$root/package.json" "$root/scripts/build-server.ts" \
   \( -name node_modules -o -name dist \) -prune -o -type f -newer "$server" -print -quit)" ]; then
   (cd "$root" && mise exec -- bun run build)
 fi

@@ -244,5 +244,5 @@ public enum Presentation {
 
   /// Dashboard navigation always stays on the configured source. Feed URLs cannot redirect a
   /// token recovery to another host. Opening a browser never carries the API token.
-  public static func dashboard(_ source: Source) -> URL { source.baseURL }
+  public static func dashboard(_ source: Source) -> URL { Pairing.browserBase(source.baseURL) }
 }

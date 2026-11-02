@@ -53,13 +53,27 @@ public enum Pairing {
 
   /// The page the owner approves on.
   public static func approvalPage(baseURL: URL, code: String) -> URL? {
-    URL(string: baseURL.absoluteString + "/#/pair/" + code)
+    URL(string: browserBase(baseURL).absoluteString + "/#/pair/" + code)
   }
 
   /// The dashboard page that connects AI accounts.
   public static func connectPage(baseURL: URL) -> URL? {
-    URL(string: baseURL.absoluteString + "/#/connect")
+    URL(string: browserBase(baseURL).absoluteString + "/#/connect")
   }
+
+  /// The address a browser opens a server at. A server without a public URL signs in on
+  /// `localhost`, and its passkeys belong to that name, so `127.0.0.1` would fail there.
+  public static func browserBase(_ baseURL: URL) -> URL {
+    guard var parts = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
+      parts.host == "127.0.0.1"
+    else { return baseURL }
+    parts.host = "localhost"
+    return parts.url ?? baseURL
+  }
+
+  /// A server from before pairing answers 404, or 405 from its token check, which allowed only
+  /// GET and HEAD under /api/app/v1.
+  static func predatesPairing(_ status: Int) -> Bool { status == 404 || status == 405 }
 
   /// Polls failing this many times in a row end the wait.
   static let patience = 5
@@ -111,11 +125,13 @@ extension FeedClient: PairingTransport {
           code: body.code, deviceCode: body.deviceCode, expiresIn: body.expiresIn,
           interval: body.interval)
       case .notFound: return nil
+      case .undocumented(let status, _) where Pairing.predatesPairing(status): return nil
       default: throw PairingError.unavailable
       }
     } catch let error as PairingError {
       throw error
-    } catch let error as ClientError where error.response?.status.code == 404 {
+    } catch let error as ClientError
+    where error.response.map({ Pairing.predatesPairing($0.status.code) }) == true {
       // An older server answers 404 in its own shape, which the generated client cannot decode.
       return nil
     } catch {
