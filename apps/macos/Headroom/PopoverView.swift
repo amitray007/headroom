@@ -406,20 +406,12 @@ private struct AccountsPage: View {
       if model.popoverLoading {
         loadingContent
       } else if model.displaySources.isEmpty {
-        PopoverState(
-          art: "no-sources", title: "No sources yet",
-          message: "Add a Headroom server to see its accounts here."
-        ) {
-          Button("Add a source") {
-            model.selectedPane = .sources
-            model.openSettingsWindow(openSettings)
-          }.buttonStyle(PopoverActionStyle())
-        }
+        NoSourcesState(model: model)
       } else if rows.isEmpty {
         emptyAccounts
       } else {
         summaryLine(rows)
-        ForEach(model.popoverSources.filter { $0.state != .connected }) { snapshot in
+        ForEach(model.popoverSources.filter { $0.state != .connected || isStopped($0) }) { snapshot in
           HStack(spacing: 10) {
             Text(sourceNote(snapshot)).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
               .foregroundStyle(snapshot.updateNote == nil ? HR.secondary : HR.popoverWarning)
@@ -517,8 +509,14 @@ private struct AccountsPage: View {
     case .appOutdated:
       Button("Check for Updates") { checkForAppUpdate() }.buttonStyle(.plain)
         .font(HR.popoverFont(11, .medium)).foregroundStyle(HR.ink).fixedSize()
-    default: EmptyView()
+    default:
+      if isStopped(snapshot) { StartItButton(model: model) }
     }
+  }
+
+  /// This Mac's own server has stopped, so its source cannot answer.
+  private func isStopped(_ snapshot: SourceSnapshot) -> Bool {
+    model.localStopped && snapshot.source.baseURL == LocalServer.url
   }
 
   /// The More menu shows the check, then the update card when one is found.
@@ -560,21 +558,19 @@ private struct AccountsPage: View {
         art: snapshot.state == .signedOut ? "signed-out" : "source-offline",
         title: sourceNote(snapshot), message: "Readings appear when this source is available."
       ) {
-        Button("Open dashboard") { model.openDashboard(snapshot.source) }.buttonStyle(.plain)
-      }
-    } else {
-      PopoverState(
-        art: "no-accounts", title: "No accounts yet",
-        message: "Link accounts in your web dashboard."
-      ) {
-        if let source = model.popoverSources.first?.source {
-          Button("Open dashboard") { model.openDashboard(source) }.buttonStyle(.plain)
+        if isStopped(snapshot) {
+          Button("Start it") { Task { await model.startLocal() } }.buttonStyle(PopoverActionStyle())
+        } else {
+          Button("Open dashboard") { model.openDashboard(snapshot.source) }.buttonStyle(.plain)
         }
       }
+    } else {
+      NoAccountsState(model: model)
     }
   }
 
   private func sourceNote(_ snapshot: SourceSnapshot) -> String {
+    if isStopped(snapshot) { return "Headroom on this Mac stopped." }
     if snapshot.state == .offline {
       return
         "\(snapshot.source.name) is offline. Kept readings from \(Formatting.age(model.readAt(snapshot), now: model.now))."

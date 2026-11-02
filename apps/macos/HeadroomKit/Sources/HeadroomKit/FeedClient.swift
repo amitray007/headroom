@@ -92,16 +92,22 @@ public struct FeedClient: FeedReading, Sendable {
   /// The version on the server's public health check. Asked only when its Mac API cannot be
   /// used, so a message can name the version. Nil when the server does not say.
   func reportedVersion(_ source: Source) async -> String? {
-    var request = URLRequest(url: source.baseURL.appending(path: "healthz"))
-    request.timeoutInterval = 5
-    guard let (data, response) = try? await session.data(for: request),
-      (response as? HTTPURLResponse)?.statusCode == 200,
-      let health = try? JSONDecoder().decode(Health.self, from: data)
-    else { return nil }
-    return health.version
+    await health(source.baseURL, timeout: 5)?.version
   }
 
-  private struct Health: Decodable { let version: String? }
+  /// What `/healthz` answers, nil when the server does not answer with 200.
+  public struct Health: Decodable, Sendable, Equatable {
+    public let version: String?
+  }
+
+  public func health(_ baseURL: URL, timeout: TimeInterval = 2) async -> Health? {
+    var request = URLRequest(url: baseURL.appending(path: "healthz"))
+    request.timeoutInterval = timeout
+    guard let (data, response) = try? await session.data(for: request),
+      (response as? HTTPURLResponse)?.statusCode == 200
+    else { return nil }
+    return (try? JSONDecoder().decode(Health.self, from: data)) ?? Health(version: nil)
+  }
 
   /// A missing or mistyped field, or a value this build does not know, such as a new provider.
   /// A body that is not JSON at all fails at the root and is a network fault instead.

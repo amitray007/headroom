@@ -32,6 +32,14 @@ xcodebuild -project "$root/apps/macos/Headroom.xcodeproj" -scheme Headroom -conf
   -onlyUsePackageVersionsFromResolvedFile MARKETING_VERSION="$version" CURRENT_PROJECT_VERSION="$build" \
   ONLY_ACTIVE_ARCH=YES build -quiet
 
+# The app carries the server. Build it only when a source file is newer than the last build.
+server="$root/dist/headroom"
+if [ ! -f "$server" ] || [ -n "$(find "$root/apps/server" "$root/apps/web" "$root/packages" \
+  \( -name node_modules -o -name dist \) -prune -o -type f -newer "$server" -print -quit)" ]; then
+  (cd "$root" && mise exec -- bun run build)
+fi
+install -m 0755 "$server" "$built/Contents/Resources/headroom"
+
 pkill -x Headroom || true
 # Unregister every other copy: earlier installs, Debug builds and other worktrees.
 "$lsregister" -dump | sed -n 's/^path: *\(.*Headroom\.app\) (0x[0-9a-f]*)$/\1/p' | sort -u |
@@ -47,6 +55,7 @@ ditto "$built" "$target"
 # The build output is a second copy of the same bundle. Remove it so it never registers again.
 rm -rf "$built"
 codesign --force --deep -s - --preserve-metadata=entitlements,identifier "$target"
+"$target/Contents/Resources/headroom" --version >/dev/null
 xattr -cr "$target"
 "$lsregister" -f "$target"
 pluginkit -a "$target/Contents/PlugIns/HeadroomWidgets.appex"

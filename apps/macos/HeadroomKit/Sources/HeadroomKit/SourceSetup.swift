@@ -72,13 +72,7 @@ extension FeedClient: SourceVerifying {
   }
 
   public func thisMacAvailable() async -> Bool {
-    guard let url = URL(string: "http://127.0.0.1:8080/healthz") else { return false }
-    var request = URLRequest(url: url)
-    request.timeoutInterval = 2
-    do {
-      let (_, response) = try await session.data(for: request)
-      return (response as? HTTPURLResponse)?.statusCode == 200
-    } catch { return false }
+    await health(LocalServer.url) != nil
   }
 }
 

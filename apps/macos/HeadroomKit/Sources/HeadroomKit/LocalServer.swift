@@ -49,9 +49,9 @@ public struct LocalServer: Sendable, Equatable {
         Step(arguments: ["/bin/launchctl", "kickstart", "gui/\(uid)/\(label)"], mayFail: false),
       ]
     case .homebrew(let brew):
-      [Step(arguments: [shell, "-l", "-c", "\(quoted(brew.path)) services start headroom"], mayFail: false)]
+      [Step(arguments: [shell, "-l", "-c", "\(Self.quoted(brew.path)) services start headroom"], mayFail: false)]
     case .binary(let binary):
-      [Step(arguments: [shell, "-l", "-c", "\(quoted(binary.path)) service install"], mayFail: false)]
+      [Step(arguments: [shell, "-l", "-c", "\(Self.quoted(binary.path)) service install"], mayFail: false)]
     }
   }
 
@@ -74,8 +74,8 @@ public struct LocalServer: Sendable, Equatable {
     throw LocalServerError.notAnswering
   }
 
-  private func quoted(_ path: String) -> String {
-    "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
+  static func quoted(_ text: String) -> String {
+    "'" + text.replacingOccurrences(of: "'", with: "'\\''") + "'"
   }
 }
 

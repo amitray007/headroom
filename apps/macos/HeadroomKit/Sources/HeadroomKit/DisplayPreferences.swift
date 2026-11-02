@@ -82,6 +82,9 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
   public var demo = false
   /// Look for a new Mac release at launch and every six hours. Updating always needs a press.
   public var checkForUpdates = true
+  /// Headroom on this Mac keeps running when the app quits. Off stops it at quit and starts it
+  /// at launch.
+  public var keepServerRunning = true
   /// The popover shows only this source; nil, or a source that no longer exists, shows all.
   public var sourceFilter: UUID?
   /// The Share window's last look: style, size, theme, backdrop and what it hides.
@@ -125,6 +128,9 @@ public struct DisplayPreferences: Codable, Equatable, Sendable {
     demo = try values.decodeIfPresent(Bool.self, forKey: .demo) ?? defaults.demo
     checkForUpdates =
       try values.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? defaults.checkForUpdates
+    keepServerRunning =
+      try values.decodeIfPresent(Bool.self, forKey: .keepServerRunning)
+      ?? defaults.keepServerRunning
     sourceFilter = try values.decodeIfPresent(UUID.self, forKey: .sourceFilter)
     share = (try? values.decodeIfPresent(ShareOptions.self, forKey: .share)) ?? defaults.share
     widgets =
