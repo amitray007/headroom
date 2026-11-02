@@ -50,5 +50,14 @@ final class HeadroomDelegate: NSObject, NSApplicationDelegate {
     model.popoverPresented = true
     application.activate()
   }
+  /// With Keep running off, Headroom on this Mac stops with the app.
+  func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    guard model.stopsWithApp else { return .terminateNow }
+    Task {
+      await model.stopForQuit()
+      sender.reply(toApplicationShouldTerminate: true)
+    }
+    return .terminateLater
+  }
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }

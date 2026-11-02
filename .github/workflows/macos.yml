@@ -99,11 +99,26 @@ jobs:
             ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO \
             MARKETING_VERSION="$version" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
             CODE_SIGN_IDENTITY=- build
+      - name: Build the server for Apple silicon and Intel
+        run: |
+          mise run install
+          mise exec -- bun run web:build
+          for arch in arm64 x64; do
+            mise exec -- bun scripts/build-server.ts "--target=bun-darwin-$arch"
+            mv dist/headroom "dist/headroom-$arch"
+          done
+          xcrun lipo -create dist/headroom-arm64 dist/headroom-x64 -output dist/headroom
+          # lipo drops the signature, and Apple silicon refuses to run an unsigned binary.
+          codesign --force --sign - dist/headroom
+          codesign --verify --verbose dist/headroom
+          app=apps/macos/.derived-data/Build/Products/Release/Headroom.app
+          install -m 0755 dist/headroom "$app/Contents/Resources/headroom"
       - name: Verify, sign and package
         run: |
           app=apps/macos/.derived-data/Build/Products/Release/Headroom.app
           widget="$app/Contents/PlugIns/HeadroomWidgets.appex"
-          for binary in "$app/Contents/MacOS/Headroom" "$widget/Contents/MacOS/HeadroomWidgets"; do
+          server="$app/Contents/Resources/headroom"
+          for binary in "$app/Contents/MacOS/Headroom" "$widget/Contents/MacOS/HeadroomWidgets" "$server"; do
             for arch in arm64 x86_64; do
               xcrun lipo "$binary" -verify_arch "$arch"
             done
@@ -115,6 +130,8 @@ jobs:
           # Keep the widget's sandbox entitlement when replacing its ad-hoc signature.
           codesign --force --deep -s - --preserve-metadata=entitlements,requirements,flags "$app"
           codesign --verify --deep --strict "$app"
+          # The bundled server runs on this runner after signing, and reports its own version.
+          "$server" --version
           codesign -d --entitlements - --xml "$widget" > "$RUNNER_TEMP/widget-entitlements.plist"
           test "$(/usr/libexec/PlistBuddy -c 'Print com.apple.security.app-sandbox' "$RUNNER_TEMP/widget-entitlements.plist")" = true
           mkdir -p "$RUNNER_TEMP/mac-release"

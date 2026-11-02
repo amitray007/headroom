@@ -23,6 +23,8 @@ struct NoticeItem: Identifiable {
 
 enum NoticePhase { case loading, ready, failed }
 
+enum SourceSheetRequest { case addServer, localToken }
+
 /// Sidebar order: General first, as in macOS Settings, then where readings come from, then
 /// how they show.
 enum SettingsPane: String, CaseIterable, Identifiable {
@@ -67,6 +69,14 @@ final class AppModel {
   /// An installed Headroom server on this Mac that the app can start, when one is not answering.
   var localServer: LocalServer?
   var localStarting = false
+  /// Who set up the server found on this Mac, nil when none is installed.
+  var localOwner: LocalServer.Owner?
+  var localVersion: String?
+  /// A restart, stop or removal of Headroom on this Mac is running.
+  var localBusy = false
+  /// A sheet Settings, Sources opens as soon as it shows: set by the popover and the setup window.
+  var sourceSheetRequest: SourceSheetRequest?
+  let setupWindow = SetupWindowController()
   var now = Date()
   var synthetic = false
   var captureState: String?
@@ -156,6 +166,7 @@ final class AppModel {
       ready = true
       updates.schedule(enabled: preferences.checkForUpdates)
       await checkLocal()
+      await reconcileManagedServer()
       let monitor = NWPathMonitor()
       monitor.pathUpdateHandler = { [weak self] _ in
         Task { @MainActor in await self?.poller?.networkDidChange() }
@@ -300,6 +311,7 @@ final class AppModel {
 
   func setOpen(_ open: Bool) async {
     popoverVisible = open
+    if open && localOwner == .app { Task { await checkLocal() } }
     if open { await presentBannerNotice() }
     await poller?.setPopoverOpen(open)
   }
@@ -541,10 +553,13 @@ final class AppModel {
   }
   func checkLocal() async {
     guard !synthetic else { return }
-    localAvailable = await FeedClient().thisMacAvailable()
+    let health = await FeedClient().health(LocalServer.url)
+    localAvailable = health != nil
+    localVersion = health?.version
     localServer = LocalServer.find(
       home: FileManager.default.homeDirectoryForCurrentUser,
       exists: { FileManager.default.fileExists(atPath: $0) })
+    localOwner = localServer?.owner(readPlist: { try? Data(contentsOf: $0) })
   }
 
   func startLocal() async {
@@ -560,6 +575,7 @@ final class AppModel {
     } catch {
       self.error = error.localizedDescription
     }
+    await checkLocal()
   }
 
   func openDashboard(_ source: Source) {
@@ -642,6 +658,8 @@ final class AppModel {
       }
       await loadNotices()
       localAvailable = true
+      localOwner = .app
+      localVersion = "0.1.16"
     }
   }
 

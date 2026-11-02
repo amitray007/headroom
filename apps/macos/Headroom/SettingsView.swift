@@ -5,11 +5,11 @@ import SwiftUI
 
 struct SettingsView: View {
   @Bindable var model: AppModel
-  @State private var editing: SourceDraft?
+  @State var editing: SourceDraft?
   @State private var remove: SourceSnapshot?
   /// The source whose More menu is open.
-  @State private var sourceMenu: UUID?
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State var sourceMenu: UUID?
+  @Environment(\.accessibilityReduceMotion) var reduceMotion
 
   var body: some View {
     HStack(spacing: 0) {
@@ -65,7 +65,18 @@ struct SettingsView: View {
     .toolbar(removing: .title)
     .background(SettingsWindowChrome())
     .onChange(of: model.preferences) { _, _ in model.saveDisplay() }
-    .sheet(item: $editing) { draft in SourceEditor(model: model, draft: draft) { editing = nil } }
+    .sheet(item: $editing) { draft in
+      if draft.pairing {
+        AddServerSheet(model: model) { editing = nil }
+      } else {
+        SourceEditor(model: model, draft: draft) { editing = nil }
+      }
+    }
+    .onChange(of: model.sourceSheetRequest, initial: true) { _, request in
+      guard let request else { return }
+      model.sourceSheetRequest = nil
+      editing = request == .localToken ? SourceDraft(local: true) : SourceDraft(pairing: true)
+    }
     .confirmationDialog(
       "Remove \(remove?.source.name ?? "source") from this Mac?",
       isPresented: Binding(get: { remove != nil }, set: { if !$0 { remove = nil } })
@@ -92,38 +103,26 @@ struct SettingsView: View {
 
   private func addSource() {
     model.selectedPane = .sources
-    editing = SourceDraft()
+    editing = SourceDraft(pairing: true)
   }
 
   // MARK: Sources
 
   @ViewBuilder private var sources: some View {
-    let hasThisMac = model.sources.contains { $0.source.baseURL == LocalServer.url }
-    Group {
-      if model.sources.isEmpty {
-        SettingsEmpty(
-          symbol: "server.rack", title: "No sources yet",
-          message:
-            "Add a Headroom server with a read-only token from its dashboard, Settings, Devices."
-        ) {
-          Button("Add a source", action: addSource).buttonStyle(WebButtonStyle(kind: .primary))
-            .disabled(model.busy)
+    SettingsSections {
+      SettingsSection("Headroom on this Mac") { thisMac }
+      SettingsSection("Other servers") {
+        ForEach(Array(model.sources.enumerated()), id: \.element.id) { index, snapshot in
+          if !isThisMac(snapshot) { sourceRow(snapshot, index: index) }
         }
-        if !hasThisMac { SettingsSections { thisMac } }
-      } else {
-        SettingsSections {
-          SettingsSection("Sources") {
-            Button("Add a source", action: addSource)
-              .buttonStyle(WebButtonStyle(small: true)).disabled(model.busy)
-          } content: {
-            ForEach(Array(model.sources.enumerated()), id: \.element.id) { index, snapshot in
-              sourceRow(snapshot, index: index)
-            }
-          }
-          refreshing
-          if !hasThisMac { thisMac }
-        }
+        HStack(spacing: 40) {
+          Text("Read a Headroom running on another computer.").font(HR.popoverFont(12))
+            .foregroundStyle(HR.textMuted).frame(maxWidth: .infinity, alignment: .leading)
+          Button("Add a server", action: addSource)
+            .buttonStyle(WebButtonStyle(small: true)).disabled(model.busy)
+        }.padding(.vertical, 10)
       }
+      if !model.sources.isEmpty { refreshing }
     }
     .task {
       await model.checkLocal()
@@ -159,7 +158,7 @@ struct SettingsView: View {
 
   /// The name with its state, then one line of address, version and last read. The address
   /// gives way first, in the middle, so the state and age always show.
-  private func sourceRow(_ snapshot: SourceSnapshot, index: Int) -> some View {
+  func sourceRow(_ snapshot: SourceSnapshot, index: Int, note: String? = nil) -> some View {
     HStack(spacing: 40) {
       VStack(alignment: .leading, spacing: 3) {
         HStack(spacing: 8) {
@@ -170,7 +169,7 @@ struct SettingsView: View {
           }.font(HR.popoverFont(12)).foregroundStyle(HR.secondary)
         }
         HStack(spacing: 0) {
-          Text(address(snapshot.source)).truncationMode(.middle).layoutPriority(-1)
+          Text(note ?? address(snapshot.source)).truncationMode(.middle).layoutPriority(-1)
           Text(sourceDetail(snapshot)).fixedSize()
         }.font(HR.popoverFont(12)).foregroundStyle(HR.textMuted).lineLimit(1)
       }
@@ -262,36 +261,42 @@ struct SettingsView: View {
         Button("Open") { model.openDashboard(snapshot.source) }
           .buttonStyle(WebButtonStyle(small: true))
       }
-      Button {
-        withAnimation(Motion.expand(reduceMotion)) {
-          sourceMenu = sourceMenu == snapshot.id ? nil : snapshot.id
-        }
-      } label: {
-        Image(systemName: "ellipsis").font(.system(size: 13, weight: .medium))
-          .foregroundStyle(HR.secondary).frame(width: 30, height: 30).contentShape(Circle())
-      }
-      .buttonStyle(.plain).fixedSize()
-      .anchorPreference(key: SourceMenuAnchors.self, value: .bounds) { [snapshot.id: $0] }
-      .disabled(model.busy).accessibilityLabel("More for \(snapshot.source.name)")
+      moreButton(id: snapshot.id, label: "More for \(snapshot.source.name)")
     }
+  }
+
+  /// The ⋯ button of a source row. Its menu opens under it, in `sourceMenuLayer`.
+  func moreButton(id: UUID, label: String) -> some View {
+    Button {
+      withAnimation(Motion.expand(reduceMotion)) { sourceMenu = sourceMenu == id ? nil : id }
+    } label: {
+      Image(systemName: "ellipsis").font(.system(size: 13, weight: .medium))
+        .foregroundStyle(HR.secondary).frame(width: 30, height: 30).contentShape(Circle())
+    }
+    .buttonStyle(.plain).fixedSize()
+    .anchorPreference(key: SourceMenuAnchors.self, value: .bounds) { [id: $0] }
+    .disabled(model.busy).accessibilityLabel(label)
   }
 
   /// The open source menu, drawn like the popover's menus. It opens under its button, or above
   /// it when the window ends first, with its trailing edge on the button's.
   @ViewBuilder private func sourceMenuLayer(_ anchors: [UUID: Anchor<CGRect>]) -> some View {
     GeometryReader { proxy in
-      if let id = sourceMenu, let anchor = anchors[id],
-        let index = model.sources.firstIndex(where: { $0.id == id })
-      {
-        let snapshot = model.sources[index]
+      if let id = sourceMenu, let anchor = anchors[id] {
         let button = proxy[anchor]
         let up = button.maxY + 190 > proxy.size.height
         ZStack(alignment: up ? .bottomTrailing : .topTrailing) {
           // A click anywhere else closes the menu, as a menu does.
           Color.clear.contentShape(Rectangle()).onTapGesture { closeSourceMenu() }
             .accessibilityHidden(true)
-          PopoverMenuCard(label: "More for \(snapshot.source.name)") {
-            sourceMenuItems(snapshot, index: index)
+          Group {
+            if id == Self.thisMacMenu {
+              PopoverMenuCard(label: "More for Headroom on this Mac") { thisMacMenuItems }
+            } else if let index = model.sources.firstIndex(where: { $0.id == id }) {
+              PopoverMenuCard(label: "More for \(model.sources[index].source.name)") {
+                sourceMenuItems(model.sources[index], index: index)
+              }
+            }
           }
           .padding(.trailing, proxy.size.width - button.maxX)
           .padding(
@@ -334,41 +339,7 @@ struct SettingsView: View {
     }
   }
 
-  private func closeSourceMenu() { withAnimation(Motion.expand(reduceMotion)) { sourceMenu = nil } }
-
-  /// This Mac as a source: add it when it answers, start it when installed, else how to install.
-  private var thisMac: some View {
-    SettingsSection("This Mac") {
-      if model.localAvailable {
-        SettingsRow(
-          title: "Headroom is running",
-          note: "Create a token in its dashboard, Settings, Devices, then add it."
-        ) {
-          Button("Add This Mac") { editing = SourceDraft(local: true) }
-            .buttonStyle(WebButtonStyle(small: true)).disabled(model.busy)
-        }
-      } else if model.localServer != nil || model.localStarting {
-        SettingsRow(
-          title: "Headroom is not running", note: "Starting it also starts it at every login."
-        ) {
-          Button(model.localStarting ? "Starting…" : "Start Headroom") {
-            Task { await model.startLocal() }
-          }
-          .buttonStyle(WebButtonStyle(small: true)).disabled(model.localStarting)
-        }
-      } else {
-        SettingsRow(title: "Headroom is not installed", note: Self.installCommand) {
-          Button("Copy command") {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(Self.installCommand, forType: .string)
-          }.buttonStyle(WebButtonStyle(small: true))
-        }
-      }
-    }
-  }
-
-  private static let installCommand = "brew install amitray007/headroom/headroom"
-
+  func closeSourceMenu() { withAnimation(Motion.expand(reduceMotion)) { sourceMenu = nil } }
 }
 
 // MARK: Menu Bar
@@ -1041,6 +1012,10 @@ struct SourceDraft: Identifiable {
   var sourceID: UUID?
   var name = ""
   var url = ""
+  /// The Add a server sheet, which pairs in the browser first.
+  var pairing = false
+  init(pairing: Bool) { self.pairing = pairing }
+  init(url: String) { self.url = url }
   init(local: Bool = false) {
     if local {
       name = "This Mac"
@@ -1392,7 +1367,7 @@ private struct BarLayout: Layout {
 }
 
 /// Where each source's More button sits, so its menu lines up with it.
-private struct SourceMenuAnchors: PreferenceKey {
+struct SourceMenuAnchors: PreferenceKey {
   static let defaultValue: [UUID: Anchor<CGRect>] = [:]
   static func reduce(
     value: inout [UUID: Anchor<CGRect>], nextValue: () -> [UUID: Anchor<CGRect>]

@@ -80,7 +80,7 @@ Rules carried from the dashboard: unknown is null, never 0; units stay separate;
 
 ### Sources
 
-A source is `{ id, name, baseURL }` in the app's settings, plus its token, kept with the other tokens in one Keychain item keyed by source id. "This Mac" is a source with `http://127.0.0.1:8080`. The app probes `/healthz` there at launch and on the Sources pane, and offers it when a server answers. When no server answers, the app looks for an installed one: a launch agent (`club.theblank.headroom` or `homebrew.mxcl.headroom`), the Homebrew formula, or the install script's binary. Start Headroom then runs `launchctl`, `brew services start headroom` or `headroom service install` in a login shell, so the server also starts at every login. Without an install, the pane shows the Homebrew command to copy.
+A source is `{ id, name, baseURL }` in the app's settings, plus its token, kept with the other tokens in one Keychain item keyed by source id. "This Mac" is a source with `http://127.0.0.1:8080`. The app gets a source's token by pairing ([Pairing](#pairing)); pasting a read-only token from the dashboard stays as a fallback.
 
 | Source state | When | Shown |
 | --- | --- | --- |
@@ -90,6 +90,24 @@ A source is `{ id, name, baseURL }` in the app's settings, plus its token, kept 
 | Server update needed | 404 on `/api/app/v1/feed`, or a feed missing a field this build requires | Kept readings dimmed; the server's version and the minimum, with How to update ([Server compatibility](#server-compatibility)) |
 | App update needed | `apiVersion` above 1, or a value or type this build does not know | Kept readings dimmed; the server's version, with Check for Updates |
 | No data yet | Added, never read | Skeleton rows |
+
+### This Mac
+
+The app carries a Headroom server at `Contents/Resources/headroom` and sets it up for a first-time owner (D48). A Debug build carries none and says so. `ManagedServer` in `HeadroomKit` runs every command through `CommandRunning`, so tests touch no service.
+
+| Part | Behavior |
+| --- | --- |
+| Set up | The Set Up Headroom window runs four checked steps: Put Headroom in place (`headroom --version`), Start Headroom (`headroom service install` in a login shell with `HEADROOM_APP_BUNDLE_ID` set, so Login Items shows the app's name and icon), Start it each time you log in (the launch agent exists), Make sure it answers (`/healthz`, about 20 s). A failure names its step and offers Try again and Copy details for support. Closing the window lets an install finish but opens no browser |
+| Who owns it | A launch agent whose program path is inside an `.app` is the app's own (`LocalServer.Owner.app`). The Homebrew formula, a Homebrew path or the install script's binary is an existing install: the app uses it as it is, connects by pairing, and leaves updates to Homebrew. Settings says "Installed with Homebrew". The app never runs `service install` over an existing install |
+| Controls | Settings, Sources, Headroom on this Mac: status, version and update time, Open dashboard (the dashboard's `#/connect` page), and a ⋯ menu. Restart is `launchctl kickstart -k gui/<uid>/club.theblank.headroom`. Stop is `launchctl bootout`, which leaves the launch agent, so the server starts at the next login. Remove from this Mac runs `headroom service uninstall` and removes the This Mac source; a tick in the confirmation also deletes `Application Support/Headroom`, the server's data |
+| Keep running | A display preference, on by default. Off stops the app's server when the app quits and starts it when the app launches |
+| App updates | At launch, when the running server's `/healthz` version differs from `headroom --version` of the bundled binary, the app restarts the server so the new binary runs |
+| Stopped | The popover keeps the last readings and says "Headroom on this Mac stopped." with Start it |
+| States | No sources and nothing installed: Set up Headroom, with "Set up on this Mac" and "I already have a Headroom server" (Settings, Sources, Add a server). An existing install not yet added: Headroom is on this Mac, with Connect. A source with no accounts: Connect your first AI account, with Open dashboard |
+
+### Pairing
+
+The app connects by approving in the browser, with no token to copy. `POST /api/app/v1/pair` with the device name ("Headroom for Mac · " and the Mac's name, 40 characters at most) returns a short code, a secret device code, `expiresIn` and `interval`. The app opens `<server>/#/pair/<code>`, shows the code, and polls `POST /api/app/v1/pair/token` every `interval` seconds until the owner presses Allow (on a server with no owner yet, creating the account approves too). `approved` carries a read-only token once; the app checks it with `whoami` and keeps it in the Keychain. A 404 from the poll means the pairing is unknown or already claimed, and counts as expired. A 404 from the start means the server predates pairing, and the app offers the token form. Neither call needs a token. Closing the window or sheet cancels the poll.
 
 ### Polling and cache
 
@@ -197,4 +215,4 @@ Each phase is one pull request or a short stack. Phase 1 ships in a server relea
 | 3. Widgets and notices | Widget configuration and banners (the notice store and list already exist) | All 17 kinds bannered once; widgets update at resets |
 | 4. Release | release-please package, `macos.yml`, cask, latest guard, install docs | A test tag installs through the cask on a clean runner |
 
-Out of scope for the first release: installing the local server from the app, a `headroom token create` command for one-step pairing with This Mac, and a Sparkle-style in-app updater. The app checks for a new version and starts a Homebrew update when the owner presses Update; see [Updates](#updates).
+Out of scope for the first release: a Sparkle-style in-app updater. The app checks for a new version and starts a Homebrew update when the owner presses Update; see [Updates](#updates).
