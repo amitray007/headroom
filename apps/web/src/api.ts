@@ -32,6 +32,7 @@ import {
   type OverviewConnection,
 } from "@headroom/view-model/overview";
 import type { Cost, TopUp, WalletBook } from "@headroom/view-model/wallet";
+import { noticeReadSetSchema } from "@headroom/view-model/app-feed";
 import { historyWireSchema, type History } from "@headroom/view-model/history";
 import { z } from "zod";
 
@@ -450,6 +451,9 @@ export const api = {
   settings: () => request("GET", "/api/settings", settingsEnvelopeSchema),
   saveSettings: (settings: Settings) =>
     request("PUT", "/api/settings", settingsEnvelopeSchema, settings),
+  noticeReads: () => request("GET", "/api/notices/read", noticeReadSetSchema),
+  setNoticeRead: (ids: string[], read: boolean) =>
+    request("PUT", "/api/notices/read", noticeReadSetSchema, { ids, read }),
   connection: (id: string) =>
     demoOn() && isDemoId(id)
       ? refuseInDemo<z.infer<typeof connectionDetailSchema>>(demoConnectRefusal)
