@@ -72,6 +72,8 @@ final class AppModel {
   /// Who set up the server found on this Mac, nil when none is installed.
   var localOwner: LocalServer.Owner?
   var localVersion: String?
+  /// Where this Mac's Headroom answers, nil when it does not.
+  var localURL: URL?
   /// A restart, stop or removal of Headroom on this Mac is running.
   var localBusy = false
   /// A sheet Settings, Sources opens as soon as it shows: set by the popover and the setup window.
@@ -504,7 +506,10 @@ final class AppModel {
     preferences.accountOrder = ids + preferences.accountOrder.filter { !shown.contains($0) }
     saveDisplay()
   }
-  func saveSource(id: UUID?, name: String, url: String, token: String) async throws {
+  /// `sameServer` keeps the readings of a source whose address moved but whose server did not.
+  func saveSource(
+    id: UUID?, name: String, url: String, token: String, sameServer: Bool = false
+  ) async throws {
     guard !busy else { throw SourceSetupError.busy }
     busy = true
     defer { busy = false }
@@ -514,7 +519,7 @@ final class AppModel {
     poller = nil
     await previousPoller?.stop()
     // A different URL must not display the previous server's cached accounts.
-    if let id,
+    if let id, !sameServer,
       sources.first(where: { $0.id == id })?.source.baseURL
         != values.first(where: { $0.id == id })?.baseURL
     {
@@ -553,13 +558,29 @@ final class AppModel {
   }
   func checkLocal() async {
     guard !synthetic else { return }
-    let health = await FeedClient().health(LocalServer.url)
-    localAvailable = health != nil
-    localVersion = health?.version
+    // Before the install is known, match by address alone so the current port still wins.
+    let current = sources.first { LocalServer.isThisMac($0.source.baseURL) }?.source.baseURL
+    let found = await FeedClient().discoverThisMac(preferring: current)
+    localAvailable = found != nil
+    localVersion = found?.version
+    localURL = found?.url
     localServer = LocalServer.find(
       home: FileManager.default.homeDirectoryForCurrentUser,
       exists: { FileManager.default.fileExists(atPath: $0) })
     localOwner = localServer?.owner(readPlist: { try? Data(contentsOf: $0) })
+    if let found { await followThisMac(to: found.url) }
+  }
+
+  /// The server picks another port when its old one is taken. Following it keeps the token: this
+  /// is the same Mac, a loopback address and a candidate port, and saving checks the token against
+  /// the new address, so a different Headroom that rejects it changes nothing.
+  private func followThisMac(to url: URL) async {
+    guard let snapshot = thisMacSource, snapshot.source.baseURL != url,
+      let token = try? await vault.token(for: snapshot.id)
+    else { return }
+    try? await saveSource(
+      id: snapshot.id, name: snapshot.source.name, url: url.absoluteString, token: token,
+      sameServer: true)
   }
 
   func startLocal() async {
@@ -612,7 +633,7 @@ final class AppModel {
         let source = try Source(
           name: names[index],
           baseURL: URL(
-            string: index == 2 ? "http://127.0.0.1:8080" : "https://source-\(index).example.invalid"
+            string: index == 2 ? LocalServer.defaultURL.absoluteString : "https://source-\(index).example.invalid"
           )!)
         var part = feed
         part.accounts = feed.accounts.filter { account in
@@ -668,6 +689,7 @@ final class AppModel {
       localAvailable = true
       localOwner = .app
       localVersion = "0.1.16"
+      localURL = LocalServer.defaultURL
     }
   }
 

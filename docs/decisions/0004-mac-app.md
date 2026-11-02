@@ -8,7 +8,7 @@ The owner wants a native Mac app that shows the same accounts as the dashboard w
 
 - A menu bar app with a popover, desktop widgets and notifications. No main window. A Settings window.
 - Read-only. The app never signs in to a provider, reconnects an account or uses a banked reset. Recovery is a link to the dashboard of the account's source.
-- Several sources at once: any number of Headroom servers, plus "This Mac", a native install listening on `http://127.0.0.1:8080`.
+- Several sources at once: any number of Headroom servers, plus "This Mac", a native install listening on `http://127.0.0.1:4323` or the next free port up to 4342, found by its health check.
 - Every notification kind the dashboard has, as macOS banners and in a notices list with read and unread state.
 
 Today every API route needs a Better Auth session cookie ([API](../architecture/api.md)), so the server has nothing a native client can call. Notification read state lived in the browser (now on the server, [ADR 0005](0005-shared-notice-read-state.md)).

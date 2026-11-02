@@ -142,8 +142,14 @@ private let plist = "/Users/synthetic/Library/LaunchAgents/club.theblank.headroo
 @Test func supportDetailsHoldNoSecrets() {
   let text = managed().supportDetails(
     appVersion: "0.4.0", serverVersion: "0.1.16", bundledVersion: "0.1.16", running: true,
-    failure: .init(step: .start, detail: "synthetic failure"))
+    port: 4323, failure: .init(step: .start, detail: "synthetic failure"))
   #expect(text.contains("Failed step: Start Headroom"))
+  #expect(text.contains("Port: 4323"))
+  #expect(
+    managed().supportDetails(
+      appVersion: "0.4.0", serverVersion: nil, bundledVersion: nil, running: false, port: nil,
+      failure: nil
+    ).contains("Port: none"))
   #expect(!text.localizedCaseInsensitiveContains("token"))
 }
 

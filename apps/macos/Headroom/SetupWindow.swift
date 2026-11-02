@@ -145,7 +145,7 @@ struct SetupView: View {
     if flow.finished {
       Button("Done") { NSApp.keyWindow?.close() }.buttonStyle(WebButtonStyle())
       Button("Open dashboard") {
-        model.openConnectPage(LocalServer.url)
+        model.openConnectPage(model.thisMacURL)
       }.buttonStyle(WebButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
     } else if let failure = flow.failure {
       Button("Copy details for support") {
