@@ -161,7 +161,7 @@ public struct AccountItem: Identifiable, Sendable {
     self.snapshot = snapshot
     self.account = account
   }
-  public var providerName: String { Presentation.providerName(account.provider.rawValue) }
+  public var providerName: String { Presentation.providerName(account.provider) }
   public var name: String { "\(providerName) \(account.name)" }
   public var binding: FeedAccount.limitsPayloadPayload? { Presentation.binding(account) }
 }

@@ -23,7 +23,7 @@ public struct NativeNotice: Codable, Sendable {
     switch notice.kind {
     case .disconnected:
       message =
-        "Readings stopped. Open \(sourceName) and sign in to \(Presentation.providerName(notice.provider.rawValue)) again in its web dashboard."
+        "Readings stopped. Open \(sourceName) and sign in to \(Presentation.providerName(notice.provider)) again in its web dashboard."
     case .refresh_failed:
       message = "Last reading kept. Open \(sourceName) to check the connection and refresh status."
     case .auto_reset:
@@ -32,8 +32,8 @@ public struct NativeNotice: Codable, Sendable {
     }
     accountID = notice.connection.id
     accountLabel =
-      "\(Presentation.providerName(notice.provider.rawValue)) \(notice.connection.name)"
-    provider = notice.provider.rawValue
+      "\(Presentation.providerName(notice.provider)) \(notice.connection.name)"
+    provider = notice.provider
   }
   public init(signedOutSource source: Source, firstSeen: Date) {
     id = NoticeStore.sourceSignOutID

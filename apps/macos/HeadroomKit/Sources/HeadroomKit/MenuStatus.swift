@@ -69,7 +69,7 @@ public struct MenuReading: Equatable, Sendable {
     view: DisplayPreferences.LimitsView
   ) {
     name = column.item.name
-    provider = column.item.account.provider.rawValue
+    provider = column.item.account.provider
     left = column.percentLeft
     fill = Formatting.shown(column.percentLeft, view: view)
     tone = Self.tone(column.state)

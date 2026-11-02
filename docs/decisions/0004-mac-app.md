@@ -74,7 +74,7 @@ A source is a Headroom server the app reads. The app authenticates with a read-o
 - The widget extension must run in the App Sandbox or macOS never shows it. Without a Developer ID there is no App Group, so the widget cannot share a container with the app. Spike: the app writes the widget's cache into the widget's own container, or the widget reads the app's cache folder through a read-only sandbox exception. On 2026-10-30 the extension registered and the app wrote both files; the widget's read waits on the owner's manual check. The app uses the widget's own container first and keeps the path behind one type, so the other way is a one-file change.
 - Spike: notification permission and banners for an app without a Developer ID are confirmed on a cask install, not only on a debug build. On 2026-10-30 an ad-hoc build asked for permission; a self-signed build sharing its bundle id was refused (`UNErrorDomain` 1). The owner's manual check is pending.
 - A Mac release must not become the repository's latest release: the installer, `headroom update` and mise read the server from `releases/latest`. The Mac release job marks its release as not latest.
-- The app depends on server routes that ship in a server release first. The feed carries `apiVersion`; an older server answers 404 and the app says the server needs an update.
+- The app depends on server routes that ship in a server release first. The feed carries `apiVersion`; an older server answers 404 and the app says the server needs an update, naming its version. Which side to update and the supported pairings are in D47.
 
 ## Rejected
 

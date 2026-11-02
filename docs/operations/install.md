@@ -141,6 +141,14 @@ Run it from the installed binary, not from `bun`. On a headless Linux server als
 
 A running server keeps the old version until it restarts. Restart a login service with `launchctl kickstart -k gui/$(id -u)/club.theblank.headroom` on macOS or `systemctl --user restart headroom` on Linux.
 
+## Compatibility
+
+Headroom for Mac reads servers from version 0.1.15 on. When a server is older, the app names the server's version and links to [Update](#update). When the server is newer than the app can read, the app asks you to update Headroom for Mac.
+
+| Headroom for Mac | Reads servers |
+| --- | --- |
+| 0.1.1 and later | 0.1.15 and later |
+
 ## Uninstall
 
 1. Run `headroom service uninstall`, or `brew services stop headroom`.

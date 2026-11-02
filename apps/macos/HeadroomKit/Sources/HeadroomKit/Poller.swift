@@ -17,6 +17,10 @@ public struct SourceSnapshot: Identifiable, Sendable {
   public let source: Source
   public var state: SourceState
   public var cached: CachedFeed?
+  /// The version a server reported when this build could not read it. Nil once it reads again.
+  public var incompatibleVersion: String?
+  /// The server's version: the one it reported when it could not be read, else its last feed's.
+  public var serverVersion: String? { incompatibleVersion ?? cached?.feed.serverVersion }
 
   public init(source: Source, state: SourceState = .noData, cached: CachedFeed? = nil) {
     self.source = source
@@ -31,6 +35,7 @@ extension SourceSnapshot {
     a.count == b.count
       && zip(a, b).allSatisfy { old, new in
         old.source == new.source && old.state == new.state
+          && old.incompatibleVersion == new.incompatibleVersion
           && old.cached?.feed.accounts == new.cached?.feed.accounts
           && old.cached?.feed.notices == new.cached?.feed.notices
           && old.cached?.feed.summary == new.cached?.feed.summary
@@ -226,7 +231,10 @@ public actor Poller {
             }
             let read = await client.read(
               source: value.source, token: token, etag: value.cached?.etag)
-            if case .failed = read { return Polled(id: value.id, read: read) }
+            switch read {
+            case .failed, .incompatible: return Polled(id: value.id, read: read)
+            case .updated, .notModified: break
+            }
             // Marks go only to a server that just answered, after its feed was read. They
             // are confirmed after that feed is saved, so the older flags never show.
             let pending = await notices.pendingReads(sourceID: value.id)
@@ -264,7 +272,11 @@ public actor Poller {
           values[index].state = .noData
         }
       case .failed(let state): values[index].state = state
+      case .incompatible(let state, let version):
+        values[index].state = state
+        values[index].incompatibleVersion = version
       }
+      if values[index].state == .connected { values[index].incompatibleVersion = nil }
       if values[index].state == .connected, let saved = values[index].cached {
         do {
           try await cache.save(saved, sourceID: id)

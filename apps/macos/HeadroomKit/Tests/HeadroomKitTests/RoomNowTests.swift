@@ -18,7 +18,7 @@ private func roomItems() throws -> (AppFeed, [AccountItem], Date) {
   let (_, items, now) = try roomItems()
   let room = RoomNow(items: items.reversed(), now: now)
   #expect(
-    room.columns.map(\.item.account.provider.rawValue) == [
+    room.columns.map(\.item.account.provider) == [
       "claude", "claude", "codex", "codex", "cursor", "copilot", "antigravity", "grok",
       "vercel_ai_gateway",
     ])

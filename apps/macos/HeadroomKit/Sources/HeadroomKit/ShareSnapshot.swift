@@ -154,16 +154,16 @@ public struct ShareSnapshot: Equatable, Sendable {
     var counts: [String: Int] = [:]
     var number: [String: Int] = [:]
     for row in rows {
-      let provider = row.item.account.provider.rawValue
+      let provider = row.item.account.provider
       counts[provider, default: 0] += 1
       number[row.id] = counts[provider]
     }
     let pickedPerProvider = Dictionary(
-      grouping: picked, by: { $0.item.account.provider.rawValue }
+      grouping: picked, by: { $0.item.account.provider }
     ).mapValues(\.count)
     entries = picked.map { row in
       let account = row.item.account
-      let provider = account.provider.rawValue
+      let provider = account.provider
       let name = options.hideNames ? "Account \(number[row.id] ?? 1)" : account.name
       let email = options.hideEmails ? nil : account.identity
       let detail = [account.plan, email].compactMap { $0 }.filter { !$0.isEmpty }

@@ -110,6 +110,28 @@ private func makePoller(
   #expect(await poller.storageFailed == false)
 }
 
+@Test func anIncompatibleServerKeepsItsReadingsAndVersionUntilItReadsAgain() async throws {
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let source = try source()
+  let feed = try fixture()
+  let reader = QueuedReader([
+    .updated(feed, etag: "first"), .incompatible(.appOutdated, serverVersion: "0.3.0"),
+    .notModified(etag: "first"),
+  ])
+  let poller = try await makePoller(directory: directory, sources: [source], reader: reader)
+  await poller.refresh()
+  await poller.refresh()
+  var snapshot = try #require(await poller.snapshots().first)
+  #expect(snapshot.state == .appOutdated)
+  #expect(snapshot.serverVersion == "0.3.0")
+  #expect(snapshot.cached?.feed == feed)
+  await poller.refresh()
+  snapshot = try #require(await poller.snapshots().first)
+  #expect(snapshot.state == .connected)
+  #expect(snapshot.incompatibleVersion == nil)
+}
+
 @Test func pollerWritesA200ToDiskAndStartsWithoutData() async throws {
   let directory = try temporaryDirectory()
   defer { try? FileManager.default.removeItem(at: directory) }

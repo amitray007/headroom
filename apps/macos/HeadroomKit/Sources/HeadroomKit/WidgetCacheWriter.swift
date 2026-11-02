@@ -143,7 +143,7 @@ public struct WidgetCacheWriter: Sendable {
         return WidgetAccountRow(
           id: AccountItem.widgetID(sourceID: source.id, accountID: account.id),
           sourceName: source.source.name,
-          name: account.name, provider: account.provider.rawValue, state: source.state,
+          name: account.name, provider: account.provider, state: source.state,
           status: Formatting.status(
             account, staleAfterMs: feed.staleAfterMs, now: now, timeZone: timeZone),
           age: Formatting.age(Formatting.date(milliseconds: account.observedAt), now: now),

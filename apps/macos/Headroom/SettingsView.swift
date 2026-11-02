@@ -221,11 +221,16 @@ struct SettingsView: View {
     return parts.joined(separator: " · ")
   }
 
-  /// " · v0.1.13 · Updated 2 min ago", after the address.
+  /// " · v0.1.13 · Updated 2 min ago", after the address. A source this app cannot read says
+  /// what it needs instead of its age.
   private func sourceDetail(_ snapshot: SourceSnapshot) -> String {
     var parts: [String] = []
-    if let version = snapshot.cached?.feed.serverVersion { parts.append("v\(version)") }
-    parts.append("Updated \(Formatting.age(model.readAt(snapshot), now: model.now))")
+    if let version = snapshot.serverVersion { parts.append("v\(version)") }
+    switch snapshot.state {
+    case .needsUpdate: parts.append("needs \(ServerCompatibility.minimumServer) or later")
+    case .appOutdated: parts.append("needs a newer app")
+    default: parts.append("Updated \(Formatting.age(model.readAt(snapshot), now: model.now))")
+    }
     return parts.map { " · \($0)" }.joined()
   }
 
@@ -233,7 +238,7 @@ struct SettingsView: View {
     switch state {
     case .connected: HR.popoverSuccess
     case .offline, .signedOut: HR.popoverDanger
-    case .needsUpdate, .noData: HR.popoverWarning
+    case .needsUpdate, .appOutdated, .noData: HR.popoverWarning
     }
   }
 
@@ -245,8 +250,18 @@ struct SettingsView: View {
 
   private func sourceActions(_ snapshot: SourceSnapshot, index: Int) -> some View {
     HStack(spacing: 6) {
-      Button("Open") { model.openDashboard(snapshot.source) }
-        .buttonStyle(WebButtonStyle(small: true))
+      switch snapshot.state {
+      case .needsUpdate:
+        Link(destination: ServerCompatibility.updateGuide) {
+          Label("How to update", systemImage: "arrow.up.right").labelStyle(TrailingIcon())
+        }.buttonStyle(WebButtonStyle(small: true))
+      case .appOutdated:
+        Button("Check for Updates") { model.checkForAppUpdate() }
+          .buttonStyle(WebButtonStyle(small: true))
+      default:
+        Button("Open") { model.openDashboard(snapshot.source) }
+          .buttonStyle(WebButtonStyle(small: true))
+      }
       Button {
         withAnimation(Motion.expand(reduceMotion)) {
           sourceMenu = sourceMenu == snapshot.id ? nil : snapshot.id
@@ -480,7 +495,7 @@ private struct MenuBarPane: View {
       }
       WebSelect(
         value: name,
-        mark: chosen?.account.provider.rawValue,
+        mark: chosen?.account.provider,
         symbol: "gauge.medium", fill: true
       ) {
         Button("Tightest account with room") { model.preferences.slots[index].account = nil }
@@ -585,7 +600,7 @@ private struct WidgetsPane: View {
             value: settings.accountID == nil
               ? "First account" : chosen.map { accountName($0, among: accounts) }
                 ?? "Account no longer linked",
-            mark: chosen?.account.provider.rawValue, symbol: "gauge.medium"
+            mark: chosen?.account.provider, symbol: "gauge.medium"
           ) {
             Button("First account") { chooseWidgetAccount(nil) }
             if !accounts.isEmpty { Divider() }
@@ -658,7 +673,7 @@ private struct WidgetsPane: View {
       WebSelect(
         value: id == nil ? "Automatic" : chosen.map { accountName($0, among: accounts) }
           ?? "Account no longer linked",
-        mark: chosen?.account.provider.rawValue, symbol: "gauge.medium", fill: true
+        mark: chosen?.account.provider, symbol: "gauge.medium", fill: true
       ) {
         Button("Automatic") {
           if id != nil { model.preferences.widgets.accountIDs.remove(at: index) }
@@ -998,7 +1013,7 @@ private struct AccountListLabel: View {
     let account = item.account
     let plan = account.plan.map { "\($0) · " } ?? ""
     HStack(spacing: 10) {
-      ProviderMark(provider: account.provider.rawValue).frame(width: 16, height: 16)
+      ProviderMark(provider: account.provider).frame(width: 16, height: 16)
       VStack(alignment: .leading, spacing: 2) {
         (Text(item.providerName + " ").foregroundStyle(HR.secondary)
           + Text(account.name).foregroundStyle(HR.ink))
@@ -1045,6 +1060,8 @@ struct SourceEditor: View {
   var close: () -> Void
   @State private var token = ""
   @State private var error: String?
+  /// Which side to update when the server could not be used, for the action under the error.
+  @State private var update: SourceState?
   @State private var saving = false
   @FocusState private var focused: Field?
   private enum Field { case name, url, token }
@@ -1081,8 +1098,22 @@ struct SourceEditor: View {
         }
       }
       if let error {
-        Text(error).font(HR.popoverFont(13)).foregroundStyle(HR.danger)
-          .fixedSize(horizontal: false, vertical: true).accessibilityLabel("Error: \(error)")
+        VStack(alignment: .leading, spacing: 6) {
+          Text(error).font(HR.popoverFont(13)).foregroundStyle(HR.danger)
+            .fixedSize(horizontal: false, vertical: true).accessibilityLabel("Error: \(error)")
+          if update == .needsUpdate {
+            Link(destination: ServerCompatibility.updateGuide) {
+              Label("How to update a server", systemImage: "arrow.up.right")
+                .labelStyle(TrailingIcon())
+            }.buttonStyle(WebButtonStyle(kind: .quiet, small: true)).padding(.leading, -12)
+          } else if update == .appOutdated {
+            Button("Check for Updates") {
+              token = ""
+              close()
+              model.checkForAppUpdate()
+            }.buttonStyle(WebButtonStyle(kind: .quiet, small: true)).padding(.leading, -12)
+          }
+        }
       }
       HStack(spacing: 12) {
         Spacer()
@@ -1104,6 +1135,7 @@ struct SourceEditor: View {
   private func save() async {
     saving = true
     error = nil
+    update = nil
     defer { saving = false }
     do {
       try await model.saveSource(id: draft.sourceID, name: draft.name, url: draft.url, token: token)
@@ -1111,6 +1143,11 @@ struct SourceEditor: View {
       close()
     } catch let setup as SourceSetupError {
       error = setup.localizedDescription
+      switch setup {
+      case .needsUpdate: update = .needsUpdate
+      case .appOutdated: update = .appOutdated
+      default: update = nil
+      }
       focused =
         setup == .nameRequired
         ? .name : setup == .tokenRequired || setup == .rejectedToken ? .token : .url

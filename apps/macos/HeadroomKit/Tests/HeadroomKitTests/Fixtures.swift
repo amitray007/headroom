@@ -17,3 +17,14 @@ func temporaryDirectory() throws -> URL {
 func source(_ host: String = "https://headroom.example.invalid") throws -> Source {
   try Source(name: "Synthetic source", baseURL: #require(URL(string: host)))
 }
+
+/// Providers are plain strings in the contract (D47); these keep test call sites short.
+extension String {
+  static let claude = "claude"
+  static let codex = "codex"
+  static let grok = "grok"
+  static let cursor = "cursor"
+  static let copilot = "copilot"
+  static let antigravity = "antigravity"
+  static let vercel_ai_gateway = "vercel_ai_gateway"
+}

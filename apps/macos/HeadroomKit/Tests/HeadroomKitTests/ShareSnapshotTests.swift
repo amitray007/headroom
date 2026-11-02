@@ -46,7 +46,7 @@ private func snapshot(
 @Test func shareTitlesFollowTheScope() throws {
   let (rows, now) = try rows()
   if case .all(let providers) = snapshot(rows, Set(rows.map(\.id)), now: now).title {
-    #expect(providers.count == Set(rows.map { $0.item.account.provider.rawValue }).count)
+    #expect(providers.count == Set(rows.map { $0.item.account.provider }).count)
   } else {
     Issue.record("Every account should title the picture All accounts")
   }

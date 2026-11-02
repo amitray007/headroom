@@ -16,6 +16,25 @@ import SwiftUI
   func toggle(_ menu: PopoverMenu, reduceMotion: Bool) {
     show(openMenu == menu ? nil : menu, reduceMotion: reduceMotion)
   }
+
+  /// A check the owner asked for. A found update opens its card; anything else says so in the
+  /// More menu's update row.
+  func checkForUpdates(_ updates: AppUpdater, reduceMotion: Bool) {
+    guard !updates.checking else { return }
+    Task {
+      switch await updates.check() {
+      case .available: show(.update, reduceMotion: reduceMotion)
+      case .upToDate: await flash("Headroom is up to date")
+      case .failed: await flash("Could not check")
+      }
+    }
+  }
+
+  private func flash(_ text: String) async {
+    updateNote = text
+    try? await Task.sleep(for: .seconds(2.5))
+    updateNote = nil
+  }
 }
 
 /// The popover root. Its body reads no state that changes while the popover is in use: each
@@ -78,7 +97,7 @@ private struct PopoverPages: View {
   var body: some View {
     VStack(spacing: 0) {
       PopoverHeader(model: model, ui: ui) { showingNotices = true }
-      AccountsPage(model: model)
+      AccountsPage(model: model, ui: ui)
     }
     .modifier(PageVisibility(shown: !showingNotices, edge: .leading, reduceMotion: reduceMotion))
     // Notifications needs room for a few rows when the account page is short. The height
@@ -153,7 +172,7 @@ private struct PopoverMenuLayer: View {
       PopoverMenuItem(
         title: model.updates.checking ? "Checking…" : ui.updateNote ?? "Check for Updates…",
         symbol: "arrow.triangle.2.circlepath"
-      ) { checkForUpdates() }
+      ) { ui.checkForUpdates(model.updates, reduceMotion: reduceMotion) }
       PopoverMenuItem(title: "Settings…", symbol: "gearshape", shortcut: "⌘,") {
         close()
         model.openSettingsWindow(openSettings)
@@ -181,24 +200,6 @@ private struct PopoverMenuLayer: View {
         }
       }
     }
-  }
-
-  /// A check the owner asked for. A found update opens its card; anything else says so in the row.
-  private func checkForUpdates() {
-    guard !model.updates.checking else { return }
-    Task {
-      switch await model.updates.check() {
-      case .available: ui.show(.update, reduceMotion: reduceMotion)
-      case .upToDate: await flash("Headroom is up to date")
-      case .failed: await flash("Could not check")
-      }
-    }
-  }
-
-  private func flash(_ text: String) async {
-    ui.updateNote = text
-    try? await Task.sleep(for: .seconds(2.5))
-    ui.updateNote = nil
   }
 
   /// The list changes at once. An animated change would resize the popover on every frame.
@@ -392,7 +393,9 @@ private struct PopoverMenuItemStyle: ButtonStyle {
 /// The summary line and the account list, or the loading and empty states.
 private struct AccountsPage: View {
   let model: AppModel
+  let ui: PopoverUI
   @Environment(\.openSettings) private var openSettings
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
     // Build the rows once per render; the summary and every provider group share them.
@@ -417,9 +420,11 @@ private struct AccountsPage: View {
       } else {
         summaryLine(rows)
         ForEach(model.popoverSources.filter { $0.state != .connected }) { snapshot in
-          Text(sourceNote(snapshot)).font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
-            .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 10).padding(.horizontal, 16)
+          HStack(spacing: 10) {
+            Text(sourceNote(snapshot)).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+              .foregroundStyle(snapshot.updateNote == nil ? HR.secondary : HR.popoverWarning)
+            updateLink(snapshot)
+          }.font(HR.popoverFont(11)).padding(.vertical, 10).padding(.horizontal, 16)
           Divider().overlay(HR.border)
         }
         // Worked out once for the whole list, not per row.
@@ -457,7 +462,7 @@ private struct AccountsPage: View {
     var order: [String] = []
     var byProvider: [String: [LedgerRow]] = [:]
     for row in rows {
-      let provider = row.item.account.provider.rawValue
+      let provider = row.item.account.provider
       if byProvider[provider] == nil { order.append(provider) }
       byProvider[provider, default: []].append(row)
     }
@@ -497,8 +502,60 @@ private struct AccountsPage: View {
       .accessibilityLabel("Reading sources. Loading account readings")
   }
 
+  /// What to do about a source this app cannot read: the server's update steps, or a check for
+  /// a newer app.
+  @ViewBuilder private func updateLink(_ snapshot: SourceSnapshot) -> some View {
+    switch snapshot.state {
+    case .needsUpdate:
+      Link(destination: ServerCompatibility.updateGuide) {
+        HStack(spacing: 4) {
+          Text("How to update").foregroundStyle(HR.ink)
+          Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .medium))
+            .foregroundStyle(HR.secondary)
+        }
+      }.font(HR.popoverFont(11, .medium)).fixedSize().help(ServerCompatibility.updateGuide.absoluteString)
+    case .appOutdated:
+      Button("Check for Updates") { checkForAppUpdate() }.buttonStyle(.plain)
+        .font(HR.popoverFont(11, .medium)).foregroundStyle(HR.ink).fixedSize()
+    default: EmptyView()
+    }
+  }
+
+  /// The More menu shows the check, then the update card when one is found.
+  private func checkForAppUpdate() {
+    ui.show(.more, reduceMotion: reduceMotion)
+    ui.checkForUpdates(model.updates, reduceMotion: reduceMotion)
+  }
+
   @ViewBuilder private var emptyAccounts: some View {
-    if let snapshot = model.popoverSources.first(where: { $0.state != .connected }) {
+    if let snapshot = model.popoverSources.first(where: { $0.updateNote != nil }) {
+      let name = snapshot.source.name
+      let minimum = ServerCompatibility.minimumServer
+      if snapshot.state == .appOutdated {
+        PopoverState(
+          art: "source-offline", title: "Update Headroom for Mac",
+          message: snapshot.serverVersion.map {
+            "\(name) runs Headroom \($0), which is newer than this app can read."
+          } ?? "\(name) runs a newer Headroom than this app can read."
+        ) {
+          Button("Check for Updates") { checkForAppUpdate() }.buttonStyle(PopoverActionStyle())
+        }
+      } else {
+        PopoverState(
+          art: "source-offline", title: "Update \(name) to read it",
+          message: snapshot.serverVersion.map {
+            "\(name) runs Headroom \($0). This app needs \(minimum) or later."
+          } ?? "\(name) runs a Headroom version older than \(minimum), which this app needs."
+        ) {
+          HStack(spacing: 14) {
+            Link(destination: ServerCompatibility.updateGuide) {
+              Label("How to update", systemImage: "arrow.up.right").labelStyle(TrailingIcon())
+            }.buttonStyle(PopoverActionStyle())
+            Button("Open dashboard") { model.openDashboard(snapshot.source) }.buttonStyle(.plain)
+          }
+        }
+      }
+    } else if let snapshot = model.popoverSources.first(where: { $0.state != .connected }) {
       PopoverState(
         art: snapshot.state == .signedOut ? "signed-out" : "source-offline",
         title: sourceNote(snapshot), message: "Readings appear when this source is available."
@@ -525,7 +582,7 @@ private struct AccountsPage: View {
     if snapshot.state == .signedOut {
       return "\(snapshot.source.name) is signed out. Open the dashboard to sign in."
     }
-    if snapshot.state == .needsUpdate { return "\(snapshot.source.name) needs an update." }
+    if let note = snapshot.updateNote { return note }
     return "\(snapshot.source.name) is loading."
   }
 }
@@ -772,6 +829,16 @@ private struct HoverSurface<Label: View>: View {
       .animation(Motion.hover, value: hovered)
       .onHover { hovered = $0 }
       .contentShape(Rectangle())
+  }
+}
+
+/// A label with its icon after the title, as a link that leaves the app reads.
+struct TrailingIcon: LabelStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    HStack(spacing: 5) {
+      configuration.title
+      configuration.icon.font(.system(size: 10, weight: .medium))
+    }
   }
 }
 

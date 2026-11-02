@@ -154,7 +154,7 @@ private struct ShareTree: View {
     var order: [String] = []
     var byProvider: [String: [LedgerRow]] = [:]
     for row in rows {
-      let provider = row.item.account.provider.rawValue
+      let provider = row.item.account.provider
       if byProvider[provider] == nil { order.append(provider) }
       byProvider[provider, default: []].append(row)
     }

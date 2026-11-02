@@ -131,7 +131,7 @@ struct LedgerRowView: View, Equatable {
 
   private var who: some View {
     HStack(spacing: 8) {
-      ProviderMark(provider: account.provider.rawValue).frame(width: 16, height: 16)
+      ProviderMark(provider: account.provider).frame(width: 16, height: 16)
       VStack(alignment: .leading, spacing: 1) {
         if nameBelow {
           Text(providerName).font(HR.popoverFont(13, .medium))
@@ -152,7 +152,7 @@ struct LedgerRowView: View, Equatable {
     }
   }
 
-  private var providerName: String { Presentation.providerName(account.provider.rawValue) }
+  private var providerName: String { Presentation.providerName(account.provider) }
   // With no email to tell accounts apart, or a long provider name ("Vercel AI Gateway"), the
   // provider takes the first line and the account name moves to the second.
   private var nameBelow: Bool { account.identity == nil || providerName.count > 12 }
@@ -165,7 +165,12 @@ struct LedgerRowView: View, Equatable {
   private var subtitle: String {
     if row.column.state == .signIn { return "Sign in again in the dashboard" }
     if quiet {
-      return "Kept · \(item.snapshot.source.name) \(item.snapshot.state.label.lowercased())"
+      switch item.snapshot.state {
+      case .needsUpdate: return "Kept · update \(item.snapshot.source.name)"
+      case .appOutdated: return "Kept · update this app"
+      default:
+        return "Kept · \(item.snapshot.source.name) \(item.snapshot.state.label.lowercased())"
+      }
     }
     return [
       nameBelow ? account.name : nil, account.plan,
@@ -226,8 +231,10 @@ struct AccountDetail: View {
       }.font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
       if quiet {
         Text(
-          "\(item.snapshot.source.name) is \(item.snapshot.state.label.lowercased()). These are kept readings."
+          item.snapshot.updateNote.map { "\($0) These are kept readings." }
+            ?? "\(item.snapshot.source.name) is \(item.snapshot.state.label.lowercased()). These are kept readings."
         ).font(HR.popoverFont(11)).foregroundStyle(HR.secondary)
+          .fixedSize(horizontal: false, vertical: true)
       }
       ForEach(account.limits, id: \.key) { limit in
         HStack(spacing: 12) {
@@ -282,8 +289,28 @@ extension SourceState {
     case .connected: "Connected"
     case .offline: "Offline"
     case .signedOut: "Signed out"
-    case .needsUpdate: "Needs update"
+    case .needsUpdate: "Server update needed"
+    case .appOutdated: "App update needed"
     case .noData: "Starting"
+    }
+  }
+}
+
+extension SourceSnapshot {
+  /// Why this source cannot be read and which side to update, or nil when that is not the
+  /// problem. The server's version is named when it said; the app never refuses by version.
+  var updateNote: String? {
+    let name = source.name
+    let minimum = ServerCompatibility.minimumServer
+    switch state {
+    case .needsUpdate:
+      return serverVersion.map { "\(name) runs \($0). Update it to \(minimum) or later to read it again." }
+        ?? "\(name) needs a server update to \(minimum) or later."
+    case .appOutdated:
+      return serverVersion.map {
+        "\(name) runs Headroom \($0), newer than this app reads. Update Headroom for Mac."
+      } ?? "\(name) runs a newer Headroom than this app reads. Update Headroom for Mac."
+    default: return nil
     }
   }
 }

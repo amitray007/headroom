@@ -1,9 +1,14 @@
 import Foundation
 import HeadroomAPI
+import OpenAPIRuntime
 import OpenAPIURLSession
 
 public enum SourceSetupError: Error, Equatable, LocalizedError {
-  case nameRequired, tokenRequired, rejectedToken, needsUpdate, unavailable, busy
+  case nameRequired, tokenRequired, rejectedToken, unavailable, busy
+  /// The server is older than this build reads, with the version it reports when it says.
+  case needsUpdate(version: String?)
+  /// The server is newer than this build reads.
+  case appOutdated(version: String?)
 
   public var errorDescription: String? {
     switch self {
@@ -12,7 +17,14 @@ public enum SourceSetupError: Error, Equatable, LocalizedError {
     case .tokenRequired: "Paste a read-only token from this source's dashboard."
     case .rejectedToken:
       "This token was not accepted. Create a token in the source's Devices settings."
-    case .needsUpdate: "Update this server to use the Mac app."
+    case .needsUpdate(let version?):
+      "This server runs Headroom \(version). Headroom for Mac needs \(ServerCompatibility.minimumServer) or later. Update the server, then verify again."
+    case .needsUpdate(nil):
+      "This server runs a Headroom version older than \(ServerCompatibility.minimumServer), which Headroom for Mac needs. Update the server, then verify again."
+    case .appOutdated(let version?):
+      "This server runs Headroom \(version), newer than this app can read. Update Headroom for Mac, then verify again."
+    case .appOutdated(nil):
+      "This server runs a newer Headroom than this app can read. Update Headroom for Mac, then verify again."
     case .unavailable: "Could not reach this source. Check the URL and try again."
     }
   }
@@ -35,12 +47,26 @@ extension FeedClient: SourceVerifying {
     do {
       switch try await client.getAppWhoami() {
       case .ok(let response):
-        guard try response.body.json.apiVersion == 1 else { throw SourceSetupError.needsUpdate }
+        let whoami = try response.body.json
+        guard whoami.apiVersion == 1 else {
+          throw whoami.apiVersion > 1
+            ? SourceSetupError.appOutdated(version: whoami.serverVersion)
+            : SourceSetupError.needsUpdate(version: whoami.serverVersion)
+        }
       case .unauthorized: throw SourceSetupError.rejectedToken
-      case .undocumented(statusCode: 404, _): throw SourceSetupError.needsUpdate
+      case .undocumented(statusCode: 404, _):
+        throw SourceSetupError.needsUpdate(version: await reportedVersion(source))
       default: throw SourceSetupError.unavailable
       }
-    } catch let error as SourceSetupError { throw error } catch {
+    } catch let error as SourceSetupError { throw error } catch let error as ClientError
+      where Self.wrongShape(error.underlyingError)
+    {
+      let version = await reportedVersion(source)
+      guard let decoding = error.underlyingError as? DecodingError,
+        ServerCompatibility.side(of: decoding) == .appOutdated
+      else { throw SourceSetupError.needsUpdate(version: version) }
+      throw SourceSetupError.appOutdated(version: version)
+    } catch {
       throw SourceSetupError.unavailable
     }
   }

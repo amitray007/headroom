@@ -193,15 +193,6 @@
                   "type": ["string", "null"]
                 },
                 "provider": {
-                  "enum": [
-                    "codex",
-                    "claude",
-                    "grok",
-                    "antigravity",
-                    "copilot",
-                    "cursor",
-                    "vercel_ai_gateway"
-                  ],
                   "type": "string"
                 },
                 "reconnectReason": {
@@ -389,15 +380,6 @@
                   "type": "integer"
                 },
                 "provider": {
-                  "enum": [
-                    "codex",
-                    "claude",
-                    "grok",
-                    "antigravity",
-                    "copilot",
-                    "cursor",
-                    "vercel_ai_gateway"
-                  ],
                   "type": "string"
                 },
                 "read": {
@@ -453,15 +435,6 @@
           },
           "providerOrder": {
             "items": {
-              "enum": [
-                "codex",
-                "claude",
-                "grok",
-                "antigravity",
-                "copilot",
-                "cursor",
-                "vercel_ai_gateway"
-              ],
               "type": "string"
             },
             "type": "array"

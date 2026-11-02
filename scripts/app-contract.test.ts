@@ -29,6 +29,10 @@ describe("Mac OpenAPI contract", () => {
       maximum: 100,
     });
     expect(account.properties.reconnectReason.enum).toContain(null);
+    // A provider added to the server must not fail installed Mac apps (D47).
+    expect(account.properties.provider).toEqual({ type: "string" });
+    expect(feed.properties.providerOrder.items).toEqual({ type: "string" });
+    expect(feed.properties.notices.items.properties.provider.enum).toBeUndefined();
     expect(account.properties.banked.type).toEqual(["object", "null"]);
     expect(text).not.toContain('"anyOf"');
   });

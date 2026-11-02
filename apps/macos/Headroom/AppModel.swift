@@ -304,6 +304,11 @@ final class AppModel {
     await poller?.setPopoverOpen(open)
   }
   func requestShare(_ accounts: Set<String>) { shareRequest = accounts }
+  /// For a server newer than this app: Settings, About shows the check and its result.
+  func checkForAppUpdate() {
+    selectedPane = .about
+    Task { await updates.check() }
+  }
   func requestBannerNotice(sourceID: UUID, noticeID: String, content: NativeNotice? = nil) {
     pendingBannerNoticeID = "\(sourceID)/\(noticeID)"
     pendingBannerContent = content
@@ -593,7 +598,7 @@ final class AppModel {
           return source == index
         }
         part.providerOrder = [
-          .claude, .codex, .cursor, .copilot, .antigravity, .grok, .vercel_ai_gateway,
+          "claude", "codex", "cursor", "copilot", "antigravity", "grok", "vercel_ai_gateway",
         ]
         part.notices = feed.notices.filter { notice in
           part.accounts.contains { $0.id == notice.connection.id }

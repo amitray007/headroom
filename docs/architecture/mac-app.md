@@ -78,7 +78,8 @@ A source is `{ id, name, baseURL }` in the app's settings, plus its token, kept 
 | Connected | Last read succeeded | Accounts; the footer's Updated time counts live from this Mac's last read (just now, seconds, then minutes); its tooltip gives the newest account `observedAt`, when the servers last refreshed |
 | Offline | Network error or timeout | Last feed with its age; a note above the accounts marks the source offline |
 | Signed out | 401 | Last feed dimmed; "Token revoked" with a link to the dashboard's Devices page |
-| Needs update | 404 on `/api/app/v1/feed` | "Update this server to use the Mac app" |
+| Server update needed | 404 on `/api/app/v1/feed`, or a feed missing a field this build requires | Kept readings dimmed; the server's version and the minimum, with How to update ([Server compatibility](#server-compatibility)) |
+| App update needed | `apiVersion` above 1, or a value or type this build does not know | Kept readings dimmed; the server's version, with Check for Updates |
 | No data yet | Added, never read | Skeleton rows |
 
 ### Polling and cache
@@ -94,6 +95,18 @@ A source is `{ id, name, baseURL }` in the app's settings, plus its token, kept 
 - Authorization is requested only for the first eligible banner. Bad notices use time-sensitive interruption only when the system allows it; otherwise they are active. Warnings are active and information is passive. A banner carries the notice title and a subtitle naming the account and source, or the source alone for a source sign-out; the message stays in the Notices list. Banners group by source and account. Each stores its display text so a click can still expand the notice after it leaves the feed. A claim is saved before submission to prevent duplicates after a crash; an OS rejection leaves the notice in the list without retrying its banner.
 - A new id that is unread, of a kind the owner left on, from a source that has been read before, gets one banner. Clicking it opens the popover on that notice; its link opens the account on the source's dashboard.
 - Read state is shared with the web app through the source (ADR 0005, D45). Each feed notice carries the server's `read` flag, and the store takes it. Mark read, mark unread and mark all read change the store at once and queue the mark. The poller sends queued marks with `PUT /api/app/v1/notices/read` right after a successful feed read, and drops each one once the feed is saved and the server has confirmed it. A mark changed again since it was sent stays queued. Until then the queued mark holds against older feeds. A source that cannot be reached gets its marks after its next successful read. On the first launch after the upgrade, notices already read on the Mac are queued once, so they stay read. The source sign-out notice lives only on the Mac. The menu bar icon shows a dot while unread notices exist.
+
+### Server compatibility
+
+A server and the app ship separately. Any supported pairing must work (D47).
+
+| Direction | Rule | Enforced by |
+| --- | --- | --- |
+| New app, old server | The app reads every server from `ServerCompatibility.minimumServer` (0.1.15) on. A feature that needs a newer field or endpoint reads it as optional and stays hidden without it, unless the minimum is raised to the first server release that has it | A frozen feed from the minimum server in `HeadroomKit/Tests/HeadroomKitTests/Fixtures/Servers/` |
+| Old app, new server | `/api/app/v1` changes only by adding. Every supported Mac release keeps its endpoints, its required fields at their types, and its accepted values. A breaking change gets `/api/app/v2` beside v1 | `mise run mac:compat` checks the server's schemas against the contract at every `macos-v*` tag from `oldestSupportedMac` in `apps/macos/Contract/compatibility.json` |
+| Growing values | Providers are plain strings in the Mac contract, so a new provider shows with a plain mark. Other closed values, such as notice kinds, ask older apps to update | `openEnumFields` in `scripts/app-contract.ts` |
+
+The app never refuses a server by its version number, because a server built from `main` reports the last release while it already has newer endpoints. It decides from the answer: a missing endpoint or field means the server is older, and an unknown value or type means it is newer. To name the version in its message, it asks the public `/healthz`. Agents follow [the app API compatibility skill](../../.agents/skills/app-api-compatibility/SKILL.md).
 
 ## Security
 

@@ -37,6 +37,8 @@ jobs:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
       - run: mise run install
+      # The Mac compatibility check reads the contract at each macos-v* release tag.
+      - run: git fetch --no-tags --depth=1 origin '+refs/tags/macos-v*:refs/tags/macos-v*'
       - run: mise run check
       - run: bun run audit:dependencies
       - run: mise run build

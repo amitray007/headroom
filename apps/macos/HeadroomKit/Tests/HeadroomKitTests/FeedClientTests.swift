@@ -9,6 +9,8 @@ private struct Stub: Sendable {
   var headers: [String: String] = ["Content-Type": "application/json", "ETag": "\"synthetic\""]
   var body = Data()
   var error: URLError.Code?
+  /// What `/healthz` answers, when it differs from every other path.
+  var health: Data?
 }
 
 // URLSession calls URLProtocol on its queue; all shared test state is protected by Mutex.
@@ -36,6 +38,14 @@ private final class StubProtocol: URLProtocol, @unchecked Sendable {
     }
     guard let stub else {
       client?.urlProtocol(self, didFailWithError: URLError(.unsupportedURL))
+      return
+    }
+    if url.path == "/healthz", let health = stub.health {
+      guard let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+      else { return }
+      client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+      client?.urlProtocol(self, didLoad: health)
+      client?.urlProtocolDidFinishLoading(self)
       return
     }
     if let error = stub.error {
@@ -79,8 +89,7 @@ private final class StubProtocol: URLProtocol, @unchecked Sendable {
 }
 
 @Test(arguments: [
-  (401, SourceState.signedOut), (404, .needsUpdate), (429, .offline), (500, .offline),
-  (302, .offline),
+  (401, SourceState.signedOut), (429, .offline), (500, .offline), (302, .offline),
 ])
 func feedStatusMapping(_ status: Int, _ expected: SourceState) async throws {
   let source = try StubProtocol.register(
@@ -92,6 +101,31 @@ func feedStatusMapping(_ status: Int, _ expected: SourceState) async throws {
     return
   }
   #expect(state == expected)
+}
+
+@Test func aServerWithoutTheMacAPINeedsAnUpdateAndNamesItsVersion() async throws {
+  let client = FeedClient(protocolClasses: [StubProtocol.self])
+  let old = try StubProtocol.register(
+    Stub(status: 404, body: Data("{\"error\":\"synthetic\"}".utf8),
+      health: Data("{\"status\":\"ok\",\"version\":\"0.1.14\"}".utf8)))
+  guard case .incompatible(.needsUpdate, let version) = await client.read(
+    source: old, token: "synthetic", etag: nil)
+  else {
+    Issue.record("Expected a server update")
+    return
+  }
+  #expect(version == "0.1.14")
+  let silent = try StubProtocol.register(
+    Stub(status: 404, body: Data("{\"error\":\"synthetic\"}".utf8)))
+  guard case .incompatible(.needsUpdate, nil) = await client.read(
+    source: silent, token: "synthetic", etag: nil)
+  else {
+    Issue.record("Expected a server update with no version")
+    return
+  }
+  await #expect(throws: SourceSetupError.needsUpdate(version: "0.1.14")) {
+    try await client.verify(source: old, token: "synthetic")
+  }
 }
 
 @Test func unchangedFeedDoesNotRequireAResponseBody() async throws {
@@ -135,12 +169,15 @@ func networkErrorsAreOffline(_ error: URLError.Code) async throws {
   }
   let old = try StubProtocol.register(
     Stub(body: JSONSerialization.data(withJSONObject: older)))
-  guard case .failed(.needsUpdate) = await client.read(source: old, token: "synthetic", etag: nil)
+  guard
+    case .incompatible(.needsUpdate, _) = await client.read(
+      source: old, token: "synthetic", etag: nil)
   else {
-    Issue.record("Expected an older feed to need an update")
+    Issue.record("Expected an older feed to need a server update")
     return
   }
-  // A newer server: an added field is ignored, a provider this build does not know is not.
+  // A newer server: an added field and a new provider are read; a notice kind this build does
+  // not know needs an app update.
   var newer =
     try JSONSerialization.jsonObject(with: JSONEncoder().encode(fixture()))
     as? [String: Any] ?? [:]
@@ -153,19 +190,36 @@ func networkErrorsAreOffline(_ error: URLError.Code) async throws {
   var accounts = newer["accounts"] as? [[String: Any]] ?? []
   accounts[0]["provider"] = "synthetic_provider"
   newer["accounts"] = accounts
-  let unknown = try StubProtocol.register(
+  let provider = try StubProtocol.register(
     Stub(body: JSONSerialization.data(withJSONObject: newer)))
   guard
-    case .failed(.needsUpdate) = await client.read(source: unknown, token: "synthetic", etag: nil)
+    case .updated(let read, _) = await client.read(
+      source: provider, token: "synthetic", etag: nil)
   else {
-    Issue.record("Expected an unknown provider to need an update")
+    Issue.record("Expected a new provider to be read")
+    return
+  }
+  #expect(read.accounts[0].provider == "synthetic_provider")
+  var notices = newer["notices"] as? [[String: Any]] ?? []
+  notices[0]["kind"] = "synthetic_kind"
+  newer["notices"] = notices
+  let kind = try StubProtocol.register(
+    Stub(body: JSONSerialization.data(withJSONObject: newer),
+      health: Data("{\"status\":\"ok\",\"version\":\"0.3.0\"}".utf8)))
+  guard
+    case .incompatible(.appOutdated, "0.3.0") = await client.read(
+      source: kind, token: "synthetic", etag: nil)
+  else {
+    Issue.record("Expected an unknown notice kind to need an app update")
     return
   }
   var future = try fixture()
   future.apiVersion = 2
+  future.serverVersion = "0.3.0"
   let source = try StubProtocol.register(Stub(body: JSONEncoder().encode(future)))
   guard
-    case .failed(.needsUpdate) = await client.read(source: source, token: "synthetic", etag: nil)
+    case .incompatible(.appOutdated, "0.3.0") = await client.read(
+      source: source, token: "synthetic", etag: nil)
   else {
     Issue.record("Expected API version refusal")
     return
@@ -230,7 +284,7 @@ func networkErrorsAreOffline(_ error: URLError.Code) async throws {
 }
 
 @Test(arguments: [
-  (401, SourceSetupError.rejectedToken), (404, .needsUpdate), (500, .unavailable),
+  (401, SourceSetupError.rejectedToken), (404, .needsUpdate(version: nil)), (500, .unavailable),
   (302, .unavailable),
 ])
 func verificationRejectsFailures(_ status: Int, _ expected: SourceSetupError) async throws {

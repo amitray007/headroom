@@ -14,9 +14,61 @@ import {
 const contractPath = fileURLToPath(new URL("../apps/macos/Contract/openapi.json", import.meta.url));
 const errorSchema = z.strictObject({ error: z.string() });
 
-function json(schema: z.ZodType) {
+function json(schema: z.ZodType, open = true) {
   const { $schema: _dialect, ...body } = z.toJSONSchema(schema, { target: "draft-2020-12" });
-  return openObjects(nullableTypes(body));
+  const converted = openObjects(nullableTypes(body));
+  return open ? openEnums(converted) : converted;
+}
+
+/**
+ * What the server actually sends and accepts, with every enum closed. The compatibility check
+ * compares this, not the opened contract, with each supported Mac release's contract.
+ */
+export function serverSchemas(): Record<string, unknown> {
+  return {
+    AppFeed: json(appFeedSchema, false),
+    AppRefresh: json(appRefreshSchema, false),
+    AppWhoami: json(appWhoamiSchema, false),
+    NoticeRead: json(noticeReadBodySchema, false),
+    Error: json(errorSchema, false),
+  };
+}
+
+/**
+ * Fields whose values grow with the server. As a closed enum, a provider added to the server
+ * would make every installed Mac app fail the whole feed. As a plain string, the app shows the
+ * new provider with a plain mark and keeps reading (D47).
+ */
+const openEnumFields = new Set(["provider", "providerOrder"]);
+
+function withoutEnum(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutEnum);
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== "enum")
+      .map(([key, item]) => [key, withoutEnum(item)]),
+  );
+}
+
+function openEnums(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(openEnums);
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => {
+      if (key !== "properties" || item === null || typeof item !== "object")
+        return [key, openEnums(item)];
+      return [
+        key,
+        Object.fromEntries(
+          Object.entries(item).map(([name, field]) => [
+            name,
+            openEnumFields.has(name) ? withoutEnum(field) : openEnums(field),
+          ]),
+        ),
+      ];
+    }),
+  );
 }
 
 /**

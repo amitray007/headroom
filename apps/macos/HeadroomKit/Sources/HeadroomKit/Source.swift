@@ -74,6 +74,7 @@ public enum SourceError: Error, Equatable {
   case duplicateID
 }
 
+/// `needsUpdate` is a server older than this build reads; `appOutdated` is a server newer than it.
 public enum SourceState: String, Codable, Sendable, CaseIterable {
-  case connected, offline, signedOut, needsUpdate, noData
+  case connected, offline, signedOut, needsUpdate, appOutdated, noData
 }

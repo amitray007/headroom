@@ -77,6 +77,8 @@ The [release action's output contract](https://github.com/googleapis/release-ple
 
 [macos.yml](../../.github/workflows/macos.yml) tests and builds relevant pull requests and pushes on the `macos-26` arm64 runner. It selects Xcode 26.2 (17C52), Swift 6.2.3 with `xcode-select`, rather than the runner's changing default. See the [runner image inventory](https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md) and [Apple's release notes](https://developer.apple.com/documentation/xcode-release-notes/xcode-26_2-release-notes). A missing Xcode pin fails the job.
 
+Ship the server release first when a Mac release needs a newer server; the Mac release notes then say "Needs server X.Y.Z or later". The CI check `mac:compat` keeps every supported Mac release working with each new server ([Server compatibility](../architecture/mac-app.md#server-compatibility)).
+
 After the owner merges a Mac release pull request:
 
 1. Release-please creates a draft release and the `macos-vX.Y.Z` tag (`draft` plus `force-tag-creation`). A draft cannot become `releases/latest`.

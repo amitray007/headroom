@@ -8,6 +8,8 @@ public enum FeedRead: Sendable {
   case updated(AppFeed, etag: String?)
   case notModified(etag: String?)
   case failed(SourceState)
+  /// A server this build cannot read, with the version it reports when it says.
+  case incompatible(SourceState, serverVersion: String?)
 }
 
 public protocol FeedReading: Sendable {
@@ -64,19 +66,42 @@ public struct FeedClient: FeedReading, Sendable {
       switch response {
       case .ok(let result):
         let feed = try result.body.json
-        guard feed.apiVersion == 1 else { return .failed(.needsUpdate) }
+        guard feed.apiVersion == 1 else {
+          return .incompatible(
+            feed.apiVersion > 1 ? .appOutdated : .needsUpdate, serverVersion: feed.serverVersion)
+        }
         return .updated(feed, etag: result.headers.ETag)
       case .notModified(let result): return .notModified(etag: result.headers.ETag)
       case .unauthorized: return .failed(.signedOut)
-      case .undocumented(statusCode: 404, _): return .failed(.needsUpdate)
+      case .undocumented(statusCode: 404, _):
+        return .incompatible(.needsUpdate, serverVersion: await reportedVersion(source))
       default: return .failed(.offline)
       }
     } catch let error as ClientError where Self.wrongShape(error.underlyingError) {
-      // JSON in a shape this build cannot read comes from a server older than the app, such
-      // as one that sends no read flag on its notices.
-      return .failed(.needsUpdate)
+      // JSON in a shape this build cannot read. A missing field comes from an older server, such
+      // as one that sends no read flag on its notices; a value this build does not know, such as
+      // a new notice kind, comes from a newer one.
+      guard let decoding = error.underlyingError as? DecodingError else {
+        return .incompatible(.needsUpdate, serverVersion: nil)
+      }
+      return .incompatible(
+        ServerCompatibility.side(of: decoding), serverVersion: await reportedVersion(source))
     } catch { return .failed(.offline) }
   }
+
+  /// The version on the server's public health check. Asked only when its Mac API cannot be
+  /// used, so a message can name the version. Nil when the server does not say.
+  func reportedVersion(_ source: Source) async -> String? {
+    var request = URLRequest(url: source.baseURL.appending(path: "healthz"))
+    request.timeoutInterval = 5
+    guard let (data, response) = try? await session.data(for: request),
+      (response as? HTTPURLResponse)?.statusCode == 200,
+      let health = try? JSONDecoder().decode(Health.self, from: data)
+    else { return nil }
+    return health.version
+  }
+
+  private struct Health: Decodable { let version: String? }
 
   /// A missing or mistyped field, or a value this build does not know, such as a new provider.
   /// A body that is not JSON at all fails at the root and is a network fault instead.

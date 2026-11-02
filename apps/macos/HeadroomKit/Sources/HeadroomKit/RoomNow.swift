@@ -70,14 +70,14 @@ public struct RoomNow: Sendable {
   public init(items: [AccountItem], now: Date) {
     var providers: [String] = []
     for item in items {
-      for provider in item.snapshot.cached?.feed.providerOrder.map(\.rawValue) ?? []
+      for provider in item.snapshot.cached?.feed.providerOrder ?? []
       where !providers.contains(provider) { providers.append(provider) }
     }
-    for item in items where !providers.contains(item.account.provider.rawValue) {
-      providers.append(item.account.provider.rawValue)
+    for item in items where !providers.contains(item.account.provider) {
+      providers.append(item.account.provider)
     }
     columns = providers.flatMap { provider in
-      items.filter { $0.account.provider.rawValue == provider }.map {
+      items.filter { $0.account.provider == provider }.map {
         RoomColumn(item: $0, now: now)
       }
     }

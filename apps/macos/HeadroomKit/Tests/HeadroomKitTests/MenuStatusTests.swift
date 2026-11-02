@@ -12,7 +12,7 @@ private let nowMs = 1_793_286_000_000
 private typealias Slot = DisplayPreferences.MenuSlot
 
 private func account(
-  _ id: String, _ provider: FeedAccount.providerPayload, left: Double?,
+  _ id: String, _ provider: String, left: Double?,
   session: Double? = nil, runsOutInHours: Double? = nil,
   state: FeedAccount.statePayload = .ready
 ) throws -> FeedAccount {
