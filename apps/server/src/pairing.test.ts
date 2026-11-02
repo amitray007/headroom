@@ -65,7 +65,7 @@ test("a poll sees pending, then the approval once, then nothing", () => {
     userId: "owner-1",
   });
   expect(pairings.poll(started.deviceCode)).toEqual({ status: "unknown" });
-  expect(pairings.find(started.code)).toBeNull();
+  expect(pairings.find(started.code)?.status).toBe("approved");
 });
 
 test("a denial is reported once", () => {

@@ -22,6 +22,8 @@ interface Pairing {
   readonly expiresAt: number;
   status: Exclude<AppPairingStatus, "expired">;
   approvedBy?: string;
+  /** The app already heard the decision. The dashboard still shows it until the pairing expires. */
+  told?: boolean;
 }
 
 interface PairingStart {
@@ -99,7 +101,10 @@ export class PairingService {
     return { ok: true, code: formatCode(code), deviceCode };
   }
 
-  /** The app's poll. A decided or expired pairing is reported once, then forgotten. */
+  /**
+   * The app's poll. A decision is reported once; the next poll finds nothing, so a token is never
+   * sent twice. An expired pairing is reported once, then forgotten.
+   */
   poll(deviceCode: string): PairingPoll {
     const now = this.now().getTime();
     const key = hashOf(deviceCode);
@@ -110,7 +115,8 @@ export class PairingService {
       return { status: "expired" };
     }
     if (pairing.status === "pending") return { status: "pending" };
-    this.forget(key, pairing);
+    if (pairing.told) return { status: "unknown" };
+    pairing.told = true;
     if (pairing.status === "denied" || pairing.approvedBy === undefined)
       return { status: "denied" };
     return { status: "approved", name: pairing.name, userId: pairing.approvedBy };

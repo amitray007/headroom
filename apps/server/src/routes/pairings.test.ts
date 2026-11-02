@@ -88,6 +88,23 @@ describe("device pairing", () => {
     ctx.sqlite.close();
   });
 
+  test("the dashboard still sees the decision after the app has heard it", async () => {
+    const { ctx, app, start, poll } = fixture();
+    const cookie = await signedIn(ctx, app);
+    const started = await start();
+    await app.request(
+      url(ctx, `/api/pairings/${started.code}/approve`),
+      jsonPost(ctx, {}, { cookie }),
+    );
+    expect((await poll(started.deviceCode)).body).toMatchObject({ status: "approved" });
+    const lookup = await app.request(url(ctx, `/api/pairings/${started.code}`), {
+      headers: { cookie },
+    });
+    expect(lookup.status).toBe(200);
+    expect(await lookup.json()).toMatchObject({ status: "approved" });
+    ctx.sqlite.close();
+  });
+
   test("a decided pairing cannot be decided again", async () => {
     const { ctx, app, start } = fixture();
     const cookie = await signedIn(ctx, app);

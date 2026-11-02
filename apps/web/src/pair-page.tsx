@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ApiError, api } from "./api.ts";
 import { AuthFrame, AuthSkeleton, Unreachable } from "./auth-pages.tsx";
@@ -13,6 +13,14 @@ export function PairPage(props: { readonly code: string }) {
   const pairing = useLoad(() => api.pairing(props.code), `pairing:${props.code}`);
   const [busy, setBusy] = useState<"approve" | "deny" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const pending = pairing.data?.status === "pending";
+  const { reload } = pairing;
+  // The account setup approves in the background, and another tab may answer first.
+  useEffect(() => {
+    if (!pending) return;
+    const timer = setInterval(reload, 2000);
+    return () => clearInterval(timer);
+  }, [pending, reload]);
 
   async function decide(decision: "approve" | "deny"): Promise<void> {
     setBusy(decision);
