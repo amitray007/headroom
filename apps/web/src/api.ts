@@ -1,5 +1,6 @@
 import {
   accountActionKindSchema,
+  appPairingStatusSchema,
   accountActionStateSchema,
   attemptStateSchema,
   authMethodSchema,
@@ -101,6 +102,11 @@ const tokenSchema = z.object({
   expiresAt: z.number().nullable(),
   /** `refresh` lets the device change Refresh Every; every token can read. */
   scopes: z.array(z.enum(["read", "refresh"])),
+});
+const pairingSchema = z.object({
+  name: z.string(),
+  status: appPairingStatusSchema,
+  expiresAt: z.number(),
 });
 const tokensSchema = z.object({ tokens: z.array(tokenSchema) });
 
@@ -448,6 +454,14 @@ export const api = {
       z.object({ success: z.literal(true) }),
     ),
   ),
+  pairing: (code: string) =>
+    request("GET", `/api/pairings/${encodeURIComponent(code)}`, pairingSchema),
+  decidePairing: (code: string, decision: "approve" | "deny") =>
+    request(
+      "POST",
+      `/api/pairings/${encodeURIComponent(code)}/${decision}`,
+      z.object({ success: z.literal(true) }),
+    ),
   settings: () => request("GET", "/api/settings", settingsEnvelopeSchema),
   saveSettings: (settings: Settings) =>
     request("PUT", "/api/settings", settingsEnvelopeSchema, settings),

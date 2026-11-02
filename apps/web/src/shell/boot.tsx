@@ -30,6 +30,7 @@ function PageSkeleton(props: { readonly route: Route }) {
     case "wallet":
       return <WalletSkeleton />;
     case "overview":
+    case "pair":
     case "gallery":
       return <DashboardSkeleton />;
   }

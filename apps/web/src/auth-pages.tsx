@@ -14,14 +14,15 @@ import { LoadingNote, Sk } from "./ui/skeleton.tsx";
 
 /** Signing in changes the session; the app then shows the dashboard at the root. */
 function openDashboard(): void {
-  window.location.hash = "#/";
+  // A pairing page stays where it is: it now shows the signed-in step.
+  if (!window.location.hash.startsWith("#/pair/")) window.location.hash = "#/";
 }
 
 /** The centred page: logo, then one card. */
-function AuthFrame(props: {
+export function AuthFrame(props: {
   readonly title: string;
   readonly note?: string;
-  readonly children: ReactNode;
+  readonly children?: ReactNode;
 }) {
   return (
     <main className="auth">
@@ -123,7 +124,12 @@ function ErrorLine(props: { readonly message: string | null }) {
   );
 }
 
-function SetupForm(props: { readonly minPassword: number; readonly minUsername: number }) {
+function SetupForm(props: {
+  readonly minPassword: number;
+  readonly minUsername: number;
+  /** The code of a Mac waiting to connect: the owner can allow it in the same step. */
+  readonly pairing: string | null;
+}) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [password, setPassword] = useState("");
@@ -145,7 +151,13 @@ function SetupForm(props: { readonly minPassword: number; readonly minUsername: 
         password: text("password"),
       });
       if (result.error) setError(authErrorMessage(result.error));
-      else openDashboard();
+      else {
+        // The pairing page shows the outcome, so a failed or late approval needs no message here.
+        if (props.pairing !== null && form.get("pair") === "on") {
+          await api.decidePairing(props.pairing, "approve").catch(() => undefined);
+        }
+        openDashboard();
+      }
     } catch (cause) {
       setError(messageOf(cause));
     } finally {
@@ -174,6 +186,12 @@ function SetupForm(props: { readonly minPassword: number; readonly minUsername: 
           onChange={(event) => setPassword(event.currentTarget.value)}
           required
         />
+        {props.pairing === null ? null : (
+          <label className="pair-check">
+            <input type="checkbox" name="pair" defaultChecked />
+            Connect Headroom for Mac, code {props.pairing}. It can read usage only.
+          </label>
+        )}
         <ErrorLine message={error} />
         <Button type="submit" variant="primary" busy={busy} busyLabel="Creating Account">
           Create Account
@@ -253,7 +271,7 @@ function SignInForm() {
 }
 
 /** Shown when nobody is signed in: owner setup first, sign-in afterwards. */
-export function SignedOutPage() {
+export function SignedOutPage(props: { readonly pairing: string | null }) {
   const setup = useLoad(() => api.setup(), "setup");
   if (setup.data === null) {
     return setup.error === null ? (
@@ -273,6 +291,7 @@ export function SignedOutPage() {
     <SetupForm
       minPassword={setup.data.minimumPasswordLength}
       minUsername={setup.data.minimumUsernameLength}
+      pairing={props.pairing}
     />
   );
 }
