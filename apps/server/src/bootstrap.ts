@@ -28,6 +28,7 @@ import {
   LeaseStore,
   openDatabase,
   OrderStore,
+  NoticeReadStore,
   SettingsStore,
   SnapshotStore,
   upgradeIdentities,
@@ -56,6 +57,8 @@ export interface AppContext {
   readonly connections: ConnectionStore;
   readonly snapshots: SnapshotStore;
   readonly settings: SettingsStore;
+  /** Which notices the owner has read, shared by the dashboard and the apps. */
+  readonly noticeReads: NoticeReadStore;
   readonly order: OrderStore;
   readonly wallet: WalletStore;
   /** Account events the collector noticed, and the owner's automation settings (ADR 0003). */
@@ -145,6 +148,7 @@ export function bootstrap(options: BootstrapOptions): AppContext {
   const order = new OrderStore(db, now);
   const wallet = new WalletStore(db, now);
   const settings = new SettingsStore(db, config.refreshIntervalSeconds, now);
+  const noticeReads = new NoticeReadStore(db, now);
   const runner = new CliLoginRunner({ attemptsDir: join(config.dataDir, "attempts") });
   if (databasePath !== ":memory:") runner.sweep();
   const available =
@@ -206,6 +210,7 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     connections,
     snapshots,
     settings,
+    noticeReads,
     order,
     wallet,
     accountEvents,
