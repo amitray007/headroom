@@ -567,10 +567,18 @@ final class AppModel {
     localStarting = true
     defer { localStarting = false }
     do {
-      try await localServer.start(
-        runner: ProcessRunner(), uid: getuid(),
-        shell: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
-        answers: { await FeedClient().thisMacAvailable() })
+      if localOwner == .app {
+        // Writing the login item again repairs one an earlier build got wrong, and points it at
+        // this copy of the app.
+        try await managedServer.setUp(
+          runner: ProcessRunner(), exists: { FileManager.default.fileExists(atPath: $0) },
+          answers: { await FeedClient().thisMacAvailable() }, progress: { _ in })
+      } else {
+        try await localServer.start(
+          runner: ProcessRunner(), uid: getuid(),
+          shell: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
+          answers: { await FeedClient().thisMacAvailable() })
+      }
       localAvailable = true
     } catch {
       self.error = error.localizedDescription
