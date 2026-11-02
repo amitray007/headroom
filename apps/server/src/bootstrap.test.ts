@@ -77,7 +77,7 @@ describe("bootstrap", () => {
       expect(statSync(join(dir, "data", "headroom.db")).isFile()).toBe(true);
       expect(statSync(join(dir, "auth")).mode & 0o777).toBe(0o600);
       expect(ownerExists(ctx.db)).toBe(false);
-      expect(ctx.trustedOrigins).toEqual(["http://localhost:8080"]);
+      expect(ctx.trustedOrigins).toEqual(["http://localhost:4323"]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

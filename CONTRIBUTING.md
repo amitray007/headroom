@@ -15,7 +15,7 @@ Tool versions are pinned in `mise.toml`. Install [mise](https://mise.jdx.dev), t
 
 ```sh
 mise install && mise run install
-mise run dev                  # API server with reload on :8080
+mise run dev                  # API server with reload on :4323
 mise exec -- bun run web:dev  # web app on :5173, proxying /api
 ```
 

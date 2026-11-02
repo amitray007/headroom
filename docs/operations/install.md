@@ -23,9 +23,11 @@ If `~/.local/bin` is not on your `PATH`, the script prints the line to add for b
 Then run:
 
 ```sh
-headroom --open              # serve on 127.0.0.1:8080 and open the dashboard
+headroom --open              # serve on 127.0.0.1 and open the dashboard
 headroom service install     # start at login
 ```
+
+Headroom listens on port 4323, or on the next free port up to 4342, and prints the address it chose. It keeps that port in the data folder, so the address stays the same. An install that has data from before this rule keeps port 8080 while that port is free. `HEADROOM_PORT` or `--port` fixes the port: Headroom then fails if the port is busy.
 
 ## Homebrew
 

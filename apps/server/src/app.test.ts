@@ -30,7 +30,7 @@ describe("public routes", () => {
     const ctx = testContext({ HEADROOM_TRUSTED_ORIGINS: "https://app.example.com" });
     const response = await createApp(ctx).request(url(ctx, "/healthz"));
     const csp = response.headers.get("content-security-policy") ?? "";
-    expect(csp).toContain("frame-ancestors 'self' http://localhost:8080 https://app.example.com");
+    expect(csp).toContain("frame-ancestors 'self' http://localhost:4323 https://app.example.com");
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("img-src 'self' data: https://api.dicebear.com;");
     expect(csp).toContain("connect-src 'self';");

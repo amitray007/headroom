@@ -9,6 +9,8 @@ lockfile = true
 HEADROOM_DATA_DIR = ".data"
 HEADROOM_MASTER_KEY_FILE = ".state/headroom.key"
 HEADROOM_AUTH_SECRET_FILE = ".state/headroom.auth-secret"
+# Fixed so the Vite proxy in apps/web always finds the dev server.
+HEADROOM_PORT = "4323"
 
 [tasks.install]
 description = "Install workspace dependencies with the locked versions"

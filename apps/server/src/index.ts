@@ -13,6 +13,7 @@ import { baseUrl, loadConfig } from "@headroom/core";
 import { openBrowser, parseArgs, pathsText, usageText } from "./cli.ts";
 import { createApp, version } from "./app.ts";
 import { bootstrap } from "./bootstrap.ts";
+import { bindFirstFree, resolveCandidates, savePort } from "./port.ts";
 import { Scheduler } from "./scheduler.ts";
 import { runService, systemServiceDeps } from "./service.ts";
 import { insideDocker, runUpdate, systemUpdateDeps } from "./update.ts";
@@ -63,11 +64,17 @@ if (command.kind === "update") {
   process.exit(outcome.code);
 }
 
-const config = {
+const explicitPort = command.port ?? loaded.port;
+const hostConfig = {
   ...loaded,
-  ...(command.port !== undefined ? { port: command.port } : {}),
   ...(command.host !== undefined ? { host: command.host } : {}),
 };
+// Bind before bootstrap: the base URL, trusted origins and sign-in origin all carry the port.
+const { server, port: boundPort } = await bindFirstFree(
+  resolveCandidates(hostConfig.dataDir, explicitPort),
+  hostConfig.host,
+);
+const config = { ...hostConfig, port: boundPort };
 const levels = { debug: 10, info: 20, warn: 30, error: 40 } as const;
 const threshold = levels[config.logLevel];
 const ctx = bootstrap({
@@ -118,13 +125,11 @@ scheduler.start();
 // Fetches the Wallet's exchange rates now and every 24 hours.
 ctx.exchangeRates.start();
 
-const server = Bun.serve({
-  port: config.port,
-  hostname: config.host,
-  // Production behaviour everywhere: no Bun error pages with stack traces.
-  development: false,
-  fetch: createApp(ctx).fetch,
-});
+server.reload({ fetch: createApp(ctx).fetch });
+if (explicitPort === undefined) {
+  const failure = savePort(config.dataDir, config.port);
+  if (failure) ctx.log("warn", `could not save the port for the next start: ${failure.message}`);
+}
 
 ctx.log(
   "info",
