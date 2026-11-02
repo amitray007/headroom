@@ -40,7 +40,7 @@ This repository is the tap: the formula is `Formula/headroom.rb`. Homebrew finds
 
 ## Headroom for Mac
 
-The menu bar app needs macOS 15 Sequoia or later. It reads a Headroom server; it does not install or run the server. After the first Mac release is published:
+The menu bar app needs macOS 15 Sequoia or later. It carries a Headroom server and sets it up on this Mac, or it reads a server you already run. After the first Mac release is published:
 
 ```sh
 brew tap amitray007/headroom https://github.com/amitray007/headroom
@@ -50,7 +50,9 @@ open /Applications/Headroom.app
 
 Homebrew 6 and later require explicit trust for non-official taps. Installing the fully qualified cask name above trusts that cask only. If Homebrew asks about trust, check the tap address before accepting. See [Tap Trust](https://docs.brew.sh/Tap-Trust).
 
-In the dashboard, create a read-only token in Settings > Devices. Add the server URL and token in the Mac app's Settings. The app keeps all source tokens in one Keychain item. After each update, macOS asks for your **login password once** to let the changed app read that item.
+On first launch the popover offers **Set up on this Mac**. The app puts its server in place, starts it now and at every login, and opens your browser to create the owner account. The same page connects the app, so there is no token to copy. Then it opens the dashboard where you connect your AI accounts. Login Items lists Headroom under the app's name. Settings > Sources > Headroom on this Mac restarts, stops or removes the server. **Keep running when the menu bar app quits** is on by default. Updating the app updates its server.
+
+With a server you already run (the Homebrew route above, the install script, or another computer), choose **I already have a Headroom server**, or **Connect** when it runs on this Mac. Enter the server address; your browser asks you to press **Allow**. **Use a token instead** keeps the old way: create a read-only token in the dashboard's Settings > Devices and paste it. An existing install keeps its own updates. The app keeps all source tokens in one Keychain item. After each update, macOS asks for your **login password once** to let the changed app read that item.
 
 The app has an ad-hoc signature, with no Apple Developer ID or notarization, as chosen in [ADR 0004](../decisions/0004-mac-app.md#build-and-release). The cask's `postflight` runs `/usr/bin/xattr -dr com.apple.quarantine` on `/Applications/Headroom.app`. This removes the downloaded-file quarantine attribute from the app and its contents so Gatekeeper does not block it. It does not add an Apple signature or notarization. Install only from a source you trust. Homebrew checks the ZIP against the cask's SHA-256 checksum before installation.
 
