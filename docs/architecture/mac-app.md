@@ -47,6 +47,15 @@ Headroom for Mac is a menu bar app with desktop widgets and notifications. It re
 | `POST /api/tokens` | `{ name }`. Returns the token once |
 | `DELETE /api/tokens/:id` | Revoke |
 
+- The app gets its token by device pairing (D48), like a TV sign-in. These two routes need no token; the dashboard routes need a session and the cross-site guard. Pairings live in server memory for ten minutes. At most 10 starts per address per 10 minutes and 100 live pairings answer 429 `rate_limited`.
+
+| Route | Purpose |
+| --- | --- |
+| `POST /api/app/v1/pair` | `{ name }`. Returns `{ code, deviceCode, expiresIn, interval }`. The app shows the code and opens `<server>/#/pair/<code>` |
+| `POST /api/app/v1/pair/token` | `{ deviceCode }`. `pending`, `denied` or `expired`, or `approved` with a `read` token once; an unknown or claimed code is 404 |
+| `GET /api/pairings/:code` | Name, status and expiry for the approval page; 404 when unknown or expired |
+| `POST /api/pairings/:code/approve`, `.../deny` | The owner's decision; 409 unless the pairing is pending |
+
 Tests prove that a token gets 401 on every session route and every mutating route, that a revoked or expired token gets 401, and that failed attempts are rate limited.
 
 ### Feed
