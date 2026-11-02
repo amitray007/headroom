@@ -271,7 +271,7 @@ func networkErrorsAreOffline(_ error: URLError.Code) async throws {
 
 @Test func sourceVerificationUsesOnlyWhoamiGETAndNoCookies() async throws {
   let source = try StubProtocol.register(
-    Stub(body: Data("{\"apiVersion\":1,\"serverVersion\":\"synthetic\",\"tokenName\":null}".utf8)))
+    Stub(body: Data("{\"apiVersion\":1,\"serverVersion\":\"synthetic\",\"tokenName\":null,\"scopes\":[\"read\"]}".utf8)))
   let client = FeedClient(protocolClasses: [StubProtocol.self])
   try await client.verify(source: source, token: "synthetic-read-token")
   let request = try #require(StubProtocol.requests(for: source).first)
