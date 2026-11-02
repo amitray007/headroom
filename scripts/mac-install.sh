@@ -63,7 +63,10 @@ pluginkit -a "$target/Contents/PlugIns/HeadroomWidgets.appex"
 # chronod hosts widgets; launchd restarts it and it reloads the extension list.
 killall chronod 2>/dev/null || true
 
-open "$target"
+# Open it without this repository's mise environment: the app passes its environment on, and
+# HEADROOM_DATA_DIR=.data from mise.toml would point the server it sets up at a relative path.
+/usr/bin/env -i HOME="$HOME" USER="$USER" LOGNAME="${LOGNAME:-$USER}" TMPDIR="${TMPDIR:-/tmp}" \
+  PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/open "$target"
 # The copy above can register the bundle mid-copy through file events, without its icon.
 # Register it once more now that it is complete.
 "$lsregister" -f "$target"

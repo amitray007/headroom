@@ -40,7 +40,8 @@ private let plist = "/Users/synthetic/Library/LaunchAgents/club.theblank.headroo
   #expect(
     calls[1] == [
       "/bin/zsh", "-l", "-c",
-      "HEADROOM_APP_BUNDLE_ID='club.theblank.headroom.mac' '\(bundled.path)' service install",
+      "exec /usr/bin/env -i HOME=\"$HOME\" USER=\"$USER\" PATH=\"$PATH\" "
+        + "HEADROOM_APP_BUNDLE_ID='club.theblank.headroom.mac' '\(bundled.path)' service install",
     ])
   #expect(await seen.value == 2)
   #expect(steps.values == ManagedServer.Step.allCases)

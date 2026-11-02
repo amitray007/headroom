@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 
 import { createAntigravityConnector } from "@headroom/connector-antigravity";
 import { createClaudeConnector } from "@headroom/connector-claude";
@@ -43,7 +43,8 @@ if (command.kind === "service") {
     command.action,
     systemServiceDeps({
       home: Bun.env["HOME"] || homedir(),
-      logDir: dirname(loaded.dataDir),
+      // launchd refuses a job whose log path is relative, and the data dir may be.
+      logDir: resolve(dirname(loaded.dataDir)),
       path: Bun.env["PATH"],
       bundleId: Bun.env["HEADROOM_APP_BUNDLE_ID"],
     }),

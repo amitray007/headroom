@@ -57,11 +57,15 @@ public struct ManagedServer: Sendable, Equatable {
   // MARK: Commands
 
   /// Writes the launch agent, which starts the server now and at each login. The bundle id lets
-  /// Login Items show this app's name and icon. A login shell keeps the owner's PATH.
+  /// Login Items show this app's name and icon. A login shell keeps the owner's PATH; `env -i`
+  /// drops every other inherited setting, so a HEADROOM_DATA_DIR from a developer's shell cannot
+  /// move this server's data or log.
   func installArguments(binary: URL) -> [String] {
     [
       shell, "-l", "-c",
-      "HEADROOM_APP_BUNDLE_ID=\(LocalServer.quoted(bundleID)) \(LocalServer.quoted(binary.path)) service install",
+      "exec /usr/bin/env -i HOME=\"$HOME\" USER=\"$USER\" PATH=\"$PATH\" "
+        + "HEADROOM_APP_BUNDLE_ID=\(LocalServer.quoted(bundleID)) "
+        + "\(LocalServer.quoted(binary.path)) service install",
     ]
   }
 
