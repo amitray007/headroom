@@ -10,7 +10,9 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 target=/Applications/Headroom.app
 # Earlier versions of this script installed here.
 old="$HOME/Applications/Headroom.app"
-derived="$root/apps/macos/.derived-data"
+# Its own build folder. Debug builds share the main one, and each Debug build made the next
+# install rebuild every Swift package.
+derived="$root/apps/macos/.derived-data/install"
 built="$derived/Build/Products/Release/Headroom.app"
 lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 version=$(cat "$root/apps/macos/version.txt")
@@ -22,11 +24,13 @@ if brew list --cask headroom-mac >/dev/null 2>&1; then
   exit 1
 fi
 
+# ONLY_ACTIVE_ARCH: this Mac's architecture only. Release otherwise builds Intel and Apple
+# silicon, which doubled the time.
 xcodebuild -project "$root/apps/macos/Headroom.xcodeproj" -scheme Headroom -configuration Release \
   -destination "platform=macOS,arch=$(uname -m)" \
   -derivedDataPath "$derived" -skipPackagePluginValidation -skipMacroValidation \
   -onlyUsePackageVersionsFromResolvedFile MARKETING_VERSION="$version" CURRENT_PROJECT_VERSION="$build" \
-  build -quiet
+  ONLY_ACTIVE_ARCH=YES build -quiet
 
 pkill -x Headroom || true
 # Unregister every other copy: earlier installs, Debug builds and other worktrees.
