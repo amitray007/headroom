@@ -1,5 +1,6 @@
 import {
   apiTokenScopeSchema,
+  appPairingStatusSchema,
   availabilitySchema,
   connectionStateSchema,
   currencySchema,
@@ -74,6 +75,30 @@ export const appWhoamiSchema = z.strictObject({
    * contract because servers before D44 omit it, and a client must still accept them.
    */
   scopes: z.array(apiTokenScopeSchema).optional(),
+});
+
+/** The body of `POST /api/app/v1/pair`: the name the owner sees on the approval page. */
+export const appPairStartBodySchema = z.strictObject({ name: z.string().trim().min(1).max(40) });
+
+/**
+ * The answer to `POST /api/app/v1/pair` (D48). The app shows `code` and opens
+ * `<server>/connect?code=<code>`; it keeps `deviceCode` secret and polls with it every `interval`
+ * seconds until `expiresIn` seconds pass.
+ */
+export const appPairStartSchema = z.strictObject({
+  code: z.string(),
+  deviceCode: z.string(),
+  expiresIn: z.number().int().positive(),
+  interval: z.number().int().positive(),
+});
+
+/** The body of `POST /api/app/v1/pair/token`. */
+export const appPairTokenBodySchema = z.strictObject({ deviceCode: z.string().min(1).max(200) });
+
+/** The answer to `POST /api/app/v1/pair/token`. `token` comes once, with `approved`. */
+export const appPairTokenSchema = z.strictObject({
+  status: appPairingStatusSchema,
+  token: z.string().optional(),
 });
 
 /** The body and the response of `PUT /api/app/v1/settings/refresh`. */

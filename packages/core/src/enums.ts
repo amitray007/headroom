@@ -318,3 +318,12 @@ export type DisconnectResult = z.infer<typeof disconnectResultSchema>;
 export const apiTokenScopes = ["read", "refresh"] as const;
 export const apiTokenScopeSchema = z.enum(apiTokenScopes);
 export type ApiTokenScope = z.infer<typeof apiTokenScopeSchema>;
+
+/**
+ * Where a device pairing stands (D48). The app polls with its device code: `pending` until the
+ * owner answers, `approved` once with the new token, `denied` or `expired` when it ends without one.
+ * Pairings live in server memory for ten minutes and are never stored.
+ */
+export const appPairingStatuses = ["pending", "approved", "denied", "expired"] as const;
+export const appPairingStatusSchema = z.enum(appPairingStatuses);
+export type AppPairingStatus = z.infer<typeof appPairingStatusSchema>;

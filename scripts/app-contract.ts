@@ -6,6 +6,10 @@ import { z } from "zod";
 
 import {
   appFeedSchema,
+  appPairStartBodySchema,
+  appPairStartSchema,
+  appPairTokenBodySchema,
+  appPairTokenSchema,
   appRefreshSchema,
   appWhoamiSchema,
   noticeReadBodySchema,
@@ -27,6 +31,10 @@ function json(schema: z.ZodType, open = true) {
 export function serverSchemas(): Record<string, unknown> {
   return {
     AppFeed: json(appFeedSchema, false),
+    AppPairStart: json(appPairStartSchema, false),
+    AppPairStartBody: json(appPairStartBodySchema, false),
+    AppPairToken: json(appPairTokenSchema, false),
+    AppPairTokenBody: json(appPairTokenBodySchema, false),
     AppRefresh: json(appRefreshSchema, false),
     AppWhoami: json(appWhoamiSchema, false),
     NoticeRead: json(noticeReadBodySchema, false),
@@ -220,6 +228,30 @@ const putNoticesRead = {
   },
 };
 
+/** Pairing needs no token: it is how the app gets one (D48). Unknown or claimed codes answer 404. */
+function pairOperation(operationId: string, body: string, response: string, ok: string) {
+  return {
+    operationId,
+    security: [],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: { $ref: `#/components/schemas/${body}` } } },
+    },
+    responses: {
+      "200": {
+        description: ok,
+        content: { "application/json": { schema: { $ref: `#/components/schemas/${response}` } } },
+      },
+      "400": error("The body does not match: invalid_body."),
+      "404": error("No pairing has this device code, or its token was already sent: not_found."),
+      "429": {
+        ...error("Too many pairing requests from this address: rate_limited."),
+        headers: { "Retry-After": { schema: { type: "string" } } },
+      },
+    },
+  };
+}
+
 export async function appContract(): Promise<string> {
   const document = {
     openapi: "3.1.0",
@@ -240,6 +272,22 @@ export async function appContract(): Promise<string> {
           ],
         },
       },
+      "/api/app/v1/pair": {
+        post: pairOperation(
+          "postAppPair",
+          "AppPairStartBody",
+          "AppPairStart",
+          "A new pairing. Show the code; poll /pair/token with the device code.",
+        ),
+      },
+      "/api/app/v1/pair/token": {
+        post: pairOperation(
+          "postAppPairToken",
+          "AppPairTokenBody",
+          "AppPairToken",
+          "Where the pairing stands; the token, once, when approved.",
+        ),
+      },
       "/api/app/v1/whoami": { get: operation("getAppWhoami", "AppWhoami") },
       "/api/app/v1/notices/read": { put: putNoticesRead },
       "/api/app/v1/settings/refresh": { put: putRefresh },
@@ -250,6 +298,10 @@ export async function appContract(): Promise<string> {
       },
       schemas: {
         AppFeed: json(appFeedSchema),
+        AppPairStart: json(appPairStartSchema),
+        AppPairStartBody: json(appPairStartBodySchema),
+        AppPairToken: json(appPairTokenSchema),
+        AppPairTokenBody: json(appPairTokenBodySchema),
         AppRefresh: json(appRefreshSchema),
         AppWhoami: json(appWhoamiSchema),
         NoticeRead: json(noticeReadBodySchema),

@@ -520,6 +520,63 @@
         ],
         "type": "object"
       },
+      "AppPairStart": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "deviceCode": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "interval": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": ["code", "deviceCode", "expiresIn", "interval"],
+        "type": "object"
+      },
+      "AppPairStartBody": {
+        "properties": {
+          "name": {
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": ["name"],
+        "type": "object"
+      },
+      "AppPairToken": {
+        "properties": {
+          "status": {
+            "enum": ["pending", "approved", "denied", "expired"],
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": ["status"],
+        "type": "object"
+      },
+      "AppPairTokenBody": {
+        "properties": {
+          "deviceCode": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": ["deviceCode"],
+        "type": "object"
+      },
       "AppRefresh": {
         "properties": {
           "refreshIntervalMinutes": {
@@ -797,6 +854,136 @@
             "appToken": []
           }
         ]
+      }
+    },
+    "/api/app/v1/pair": {
+      "post": {
+        "operationId": "postAppPair",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppPairStartBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppPairStart"
+                }
+              }
+            },
+            "description": "A new pairing. Show the code; poll /pair/token with the device code."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The body does not match: invalid_body."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "No pairing has this device code, or its token was already sent: not_found."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many pairing requests from this address: rate_limited.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/app/v1/pair/token": {
+      "post": {
+        "operationId": "postAppPairToken",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppPairTokenBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppPairToken"
+                }
+              }
+            },
+            "description": "Where the pairing stands; the token, once, when approved."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The body does not match: invalid_body."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "No pairing has this device code, or its token was already sent: not_found."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many pairing requests from this address: rate_limited.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": []
       }
     },
     "/api/app/v1/settings/refresh": {
