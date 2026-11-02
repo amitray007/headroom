@@ -30,9 +30,11 @@ jobs:
     env:
       VERSION: ${{ inputs.version }}
     steps:
+      # The release bot deploy key may push to main past the ruleset; GITHUB_TOKEN may not.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.9.11
@@ -50,7 +52,7 @@ jobs:
           mkdir -p Formula
           mise exec -- bun scripts/render-formula.ts "$version" "$RUNNER_TEMP/release/SHA256SUMS" > Formula/headroom.rb
           cat Formula/headroom.rb
-      # The commit is made with GITHUB_TOKEN, so it starts no other workflow. A chore commit adds nothing to the changelog.
+      # [skip ci] keeps the push from starting other workflows. A chore commit adds nothing to the changelog.
       - name: Commit and push
         run: |
           version="${VERSION#v}"
@@ -61,7 +63,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Formula/headroom.rb
-          git commit -m "chore(brew): headroom ${version}"
+          git commit -m "chore(brew): headroom ${version} [skip ci]"
           # main may have moved while the formula rendered.
           for attempt in 1 2 3; do
             git pull --rebase origin main && git push origin HEAD:main && exit 0

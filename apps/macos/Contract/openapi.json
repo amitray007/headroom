@@ -412,6 +412,9 @@
                   ],
                   "type": "string"
                 },
+                "read": {
+                  "type": "boolean"
+                },
                 "schemaVersion": {
                   "const": 1,
                   "type": "number"
@@ -454,7 +457,8 @@
                 "figures",
                 "title",
                 "message",
-                "links"
+                "links",
+                "read"
               ],
               "type": "object"
             },
@@ -604,6 +608,25 @@
         },
         "required": ["error"],
         "type": "object"
+      },
+      "NoticeRead": {
+        "additionalProperties": false,
+        "properties": {
+          "ids": {
+            "items": {
+              "maxLength": 300,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 500,
+            "type": "array"
+          },
+          "read": {
+            "type": "boolean"
+          }
+        },
+        "required": ["ids", "read"],
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -707,6 +730,93 @@
               "Allow": {
                 "schema": {
                   "const": "GET, HEAD",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many authentication attempts: rate_limited.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "appToken": []
+          }
+        ]
+      }
+    },
+    "/api/app/v1/notices/read": {
+      "put": {
+        "operationId": "putAppNoticesRead",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoticeRead"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeRead"
+                }
+              }
+            },
+            "description": "The ids and state now saved. A notice in the feed carries its own `read` flag."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The body is not { ids, read } with at most 500 ids: invalid_body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing, expired, revoked or invalid token: invalid_token."
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Only PUT is allowed: method_not_allowed.",
+            "headers": {
+              "Allow": {
+                "schema": {
+                  "const": "PUT",
                   "type": "string"
                 }
               }

@@ -84,7 +84,7 @@ After the owner merges a Mac release pull request:
 3. It signs ad hoc with `codesign --force --deep -s -`, preserving the widget's sandbox entitlement, then verifies with `codesign --verify --deep --strict`. `ditto -c -k --keepParent` produces `Headroom-<version>.zip`; `shasum -a 256` writes and checks `SHA256SUMS`.
 4. The publishing job requires a published stable `v*` server release. It uploads both assets to the draft, downloads them again, verifies the checksum and compares the bytes. Only then does it publish with `--draft=false --latest=false`. A build or upload failure publishes no partial assets; a partial upload remains in the draft.
 5. The latest guard marks the Mac release `--latest=false` and the newest published stable `vX.Y.Z` server release `--latest`, before and after publication. It searches all release pages and sorts by publication time. The installer, `headroom update` and mise depend on `releases/latest` staying on the server.
-6. `scripts/render-cask.ts <version> <SHA256SUMS>` renders `Casks/headroom-mac.rb`. The runner installs that cask, checks that quarantine is gone and the signature passes, starts Headroom, checks its process and quits. Only after the smoke test does it commit the cask to `main` as `chore(brew): headroom-mac <version>`, with the same bot-token and rebase pattern as the formula. The bot commit starts no workflow.
+6. `scripts/render-cask.ts <version> <SHA256SUMS>` renders `Casks/headroom-mac.rb`. The runner installs that cask, checks that quarantine is gone and the signature passes, starts Headroom, checks its process and quits. Only after the smoke test does it commit the cask to `main` as `chore(brew): headroom-mac <version>`, with the release deploy key and the same rebase pattern as the formula (see [Pushes to main](#pushes-to-main)).
 
 Before the first owner release, the checked-in cask is disabled. It has no published checksum. The release job replaces it with the enabled, checksum-pinned cask; the renderer never accepts a missing checksum.
 
@@ -97,6 +97,12 @@ The clean-runner cask install proves the installed app starts. Widget availabili
 ### Mac rollback
 
 Quit Headroom and revert the cask bot commit on `main` to the last known good version. Run `brew update`, then `brew reinstall --cask amitray007/headroom/headroom-mac`. The previous release assets must remain available. Keep the Mac release marked not latest and the newest stable server release marked latest. Leave version tags and published assets unchanged; ship the fix as a new `fix:` release. If a release failed while still a draft, keep it private and retry the same version after fixing the failure.
+
+## Pushes to main
+
+The `Protect main` ruleset requires a pull request with passing checks for every change to `main`. Three workflows still commit to `main` directly: Homebrew (`Formula/headroom.rb`), the Mac release (`Casks/headroom-mac.rb`) and Release As. They check out with the `release bot` deploy key, stored as the `RELEASE_DEPLOY_KEY` secret, and the ruleset lets deploy keys bypass it. `GITHUB_TOKEN` cannot bypass a ruleset on a personal repository. Each bot commit carries `[skip ci]`, so it starts no other workflow.
+
+To rotate the key, make a new ed25519 key pair, add the public key under Settings > Deploy keys with write access, save the private key as `RELEASE_DEPLOY_KEY` and delete the old deploy key.
 
 ## The public site
 

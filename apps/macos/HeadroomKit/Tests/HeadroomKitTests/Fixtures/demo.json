@@ -950,7 +950,8 @@
       "message": "0% left. Resets at 19:19.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -975,7 +976,8 @@
       "message": "The sign-in for this account has expired. Reconnect to keep tracking it.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -1006,7 +1008,8 @@
       "message": "100 credits from your Oct 9 top-up expire Nov 7.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -1033,7 +1036,8 @@
       "message": "1 of 2 banked full resets expires Oct 31.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -1063,7 +1067,8 @@
       "message": "$55.86 spent so far.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -1094,7 +1099,8 @@
       "message": "$18.86 spent so far.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -1125,7 +1131,8 @@
       "message": "48 credits used so far.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -1152,7 +1159,8 @@
       "message": "2 banked resets available. The new one expires Nov 11.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -1182,7 +1190,8 @@
       "message": "25 credits added. The balance is now 50.92 credits.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     },
     {
       "schemaVersion": 1,
@@ -1210,7 +1219,8 @@
       "message": "99% left, up from 59%, before its scheduled reset.",
       "links": {
         "dashboard": "https://headroom.example.invalid"
-      }
+      },
+      "read": false
     }
   ]
 }

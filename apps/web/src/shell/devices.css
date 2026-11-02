@@ -49,11 +49,18 @@
   color: var(--foreground);
   user-select: all;
 }
-.device-scope {
+/* The access choice sits quietly at the trailing edge of the Device Name heading. */
+.device-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
+}
+.device-head .seg {
+  flex: none;
+}
+.device-head .seg button {
+  white-space: nowrap;
 }
 .device-row .sbody {
   max-width: none;
@@ -66,18 +73,31 @@
   display: flex;
   gap: 8px;
 }
-.device-form > .sbody,
+.device-head > .sbody,
 .device-key > .sbody {
   display: grid;
   gap: 2px;
 }
-.device-form > .sbody b,
+.device-head > .sbody b,
 .device-key > .sbody b {
   font-weight: 500;
   font-size: var(--text-base);
 }
-.device-form > .sbody .muted,
+.device-head > .sbody .muted,
 .device-key > .sbody .muted {
   font-size: var(--text-xs);
   line-height: 1.35;
+}
+/* Phones: the choice drops under the heading at full width. */
+@media (max-width: 560px) {
+  .device-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .device-head .seg {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
 }

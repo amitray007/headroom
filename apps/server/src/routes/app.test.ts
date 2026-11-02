@@ -107,7 +107,10 @@ describe("token app feed", () => {
       );
       expect(feed.notices).toEqual(
         notices.map((event) =>
-          Object.assign({}, event, { links: { dashboard: "https://headroom.example" } }),
+          Object.assign({}, event, {
+            read: false,
+            links: { dashboard: "https://headroom.example" },
+          }),
         ),
       );
       expect(feed.notices[0]?.message).toContain("at 22:30");
@@ -276,6 +279,111 @@ describe("token app feed", () => {
       const session = await put({ cookie: h.cookie }, { refreshIntervalMinutes: 5 });
       expect(session.status).toBe(401);
       expect(h.ctx.settings.get().refreshIntervalMinutes).toBe(2);
+    } finally {
+      h.ctx.sqlite.close();
+    }
+  });
+});
+
+const put = (
+  h: Awaited<ReturnType<typeof fixture>>,
+  headers: Record<string, string>,
+  body: unknown,
+) =>
+  h.app.request(url(h.ctx, "/api/app/v1/notices/read"), {
+    method: "PUT",
+    headers: { "content-type": "application/json", ...headers },
+    body: JSON.stringify(body),
+  });
+
+describe("notice read state", () => {
+  test("a read-only token marks notices read and unread, and the feed carries the flag", async () => {
+    const h = await fixture();
+    try {
+      const before = h.ctx.settings.get();
+      const feed = appFeedSchema.parse(await (await h.get()).json());
+      const ids = feed.notices.map((notice) => notice.id);
+      expect(ids.length).toBeGreaterThan(0);
+      expect(feed.notices.every((notice) => !notice.read)).toBe(true);
+
+      const marked = await put(h, h.headers, { ids, read: true });
+      expect(marked.status).toBe(200);
+      expect(await marked.json()).toEqual({ ids, read: true });
+      expect(h.ctx.noticeReads.list()).toEqual(ids.toSorted());
+      const after = appFeedSchema.parse(await (await h.get()).json());
+      expect(after.notices.every((notice) => notice.read)).toBe(true);
+      expect(h.ctx.settings.get()).toEqual(before);
+
+      const unread = await put(h, h.headers, { ids: [ids[0]], read: false });
+      expect(unread.status).toBe(200);
+      const last = appFeedSchema.parse(await (await h.get()).json());
+      expect(last.notices.find((notice) => notice.id === ids[0])?.read).toBe(false);
+    } finally {
+      h.ctx.sqlite.close();
+    }
+  });
+
+  test("the feed changes its validator when a notice is read", async () => {
+    const h = await fixture();
+    try {
+      const first = await h.get();
+      const etag = first.headers.get("etag")!;
+      const id = appFeedSchema.parse(await first.json()).notices[0]!.id;
+      await put(h, h.headers, { ids: [id], read: true });
+      const changed = await h.get("", { "if-none-match": etag });
+      expect(changed.status).toBe(200);
+    } finally {
+      h.ctx.sqlite.close();
+    }
+  });
+
+  test("feed notice ids equal the dashboard's for any time zone", async () => {
+    const h = await fixture();
+    try {
+      const web = deriveNotifications(
+        overviewConnections(h.ctx, initialTime),
+        h.ctx.settings.get(),
+        initialTime,
+      ).map((event) => event.id);
+      for (const tz of ["0", "330", "-720", "840"]) {
+        // eslint-disable-next-line no-await-in-loop -- each zone is its own cache entry
+        const feed = appFeedSchema.parse(await (await h.get(`?tz=${tz}`)).json());
+        expect(feed.notices.map((notice) => notice.id)).toEqual(web);
+      }
+    } finally {
+      h.ctx.sqlite.close();
+    }
+  });
+
+  test("rejects a bad body, a session cookie, no token and other methods", async () => {
+    const h = await fixture();
+    try {
+      const bad = await Promise.all(
+        [
+          null,
+          {},
+          { ids: ["a"] },
+          { ids: "a", read: true },
+          { ids: [""], read: true },
+          { ids: ["a"], read: "yes" },
+          { ids: ["a"], read: true, extra: 1 },
+          { ids: Array.from({ length: 501 }, (_, i) => `id-${i}`), read: true },
+        ].map(async (body) => {
+          const response = await put(h, h.headers, body);
+          return [response.status, await response.json()];
+        }),
+      );
+      for (const result of bad) expect(result).toEqual([400, { error: "invalid_body" }]);
+      expect(h.ctx.noticeReads.list()).toEqual([]);
+      expect((await put(h, {}, { ids: ["a"], read: true })).status).toBe(401);
+      expect((await put(h, { cookie: h.cookie }, { ids: ["a"], read: true })).status).toBe(401);
+      const get = await h.app.request(url(h.ctx, "/api/app/v1/notices/read"), {
+        headers: h.headers,
+      });
+      expect(get.status).toBe(405);
+      expect(get.headers.get("allow")).toBe("PUT");
+      const empty = await put(h, h.headers, { ids: [], read: true });
+      expect(empty.status).toBe(200);
     } finally {
       h.ctx.sqlite.close();
     }

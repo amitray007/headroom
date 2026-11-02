@@ -32,6 +32,11 @@ function Bell(props: { readonly connections: typeof claude | null; readonly fail
   return <p>{`${view.status}|${view.unread}|${view.items.map((item) => item.title).join(",")}`}</p>;
 }
 
+function DemoBell() {
+  const view = useNotifications(claude, false, 3);
+  return <p>{`${view.status}|${view.unread}|${view.items.map((item) => item.title).join(",")}`}</p>;
+}
+
 function Ids(props: { readonly demoSeed: number | null }) {
   const view = useNotifications(claude, false, props.demoSeed);
   return <p>{`${view.unread}|${view.items.map((item) => item.id).join(",")}`}</p>;
@@ -85,20 +90,32 @@ describe("hooks without a browser store", () => {
     expect(html(null, true)).toBe("<p>loading|0|</p>");
     expect(html(claude, false)).toBe("<p>loading|0|</p>");
     expect(html(null, true, true)).toBe("<p>unavailable|0|</p>");
-    expect(html(claude, true)).toBe("<p>ready|1|Claude Is Almost Out of Its Weekly Limit</p>");
+    // The read marks come from the server, so a first render with no effects still waits for them.
+    expect(html(claude, true)).toBe("<p>loading|0|</p>");
   });
-  test("Demo Mode keeps its own read state and ignores the saved one", () => {
-    const id = renderIds(null)
+  test("Demo Mode lists what is derived without waiting for the server", () => {
+    expect(
+      renderToString(
+        <WithSettings loaded>
+          <DemoBell />
+        </WithSettings>,
+      ),
+    ).toBe("<p>ready|1|Claude Is Almost Out of Its Weekly Limit</p>");
+  });
+  test("real notifications wait for the server's read marks; Demo Mode does not", () => {
+    // The shared store has not loaded in a render without effects, so the real list is still loading.
+    expect(renderIds(null)).toBe("<p>0|</p>");
+    expect(renderIds(7)).toMatch(/^<p>1\|.+<\/p>$/);
+  });
+  test("Demo Mode ignores the ids this browser saved before the server kept them", () => {
+    const id = renderIds(7)
       .replace(/^<p>\d+\|/, "")
       .replace(/<\/p>$/, "");
-    expect(id).not.toBe("");
-    const saved = JSON.stringify([id]);
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
-      value: { getItem: (key: string) => (key === readKey ? saved : null), setItem: () => {} },
+      value: { getItem: (key: string) => (key === readKey ? JSON.stringify([id]) : null) },
     });
     try {
-      expect(renderIds(null)).toBe(`<p>0|${id}</p>`);
       expect(renderIds(7)).toBe(`<p>1|${id}</p>`);
     } finally {
       Reflect.deleteProperty(globalThis, "localStorage");
