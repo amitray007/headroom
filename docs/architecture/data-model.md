@@ -68,6 +68,8 @@ This is the logical schema behind the SQLite database. Migrations live in `packa
 
 `apiTokenScopes` in `packages/core/src/enums.ts` contains `read` and `refresh`, stored by Better Auth in `apikey.permissions` as `{ "app": ["read"] }` or, when the owner opts in, `{ "app": ["read", "refresh"] }`. `read` allows GET and HEAD under `/api/app/v1/`. `refresh` adds one write, `PUT /api/app/v1/settings/refresh`, which changes only Refresh Every (D44). An unreadable value counts as `read` only. API key sessions are disabled, so no scope grants dashboard or account mutations.
 
+`appPairingStatuses` in `packages/core/src/enums.ts` contains `pending`, `approved`, `denied` and `expired`: where a Mac app's device pairing stands (D48). Pairings live in server memory only and are never stored; a restart ends them.
+
 The plugin owns token generation, hashing, prefix and expiry. Its per-key rate limit is off. `apikey.key` stores the hash; `start` stores the first 11 characters, including `hr_`, for display. `reference_id` is the owner's user id. `last_request` is the last successful verification time. Expiry is nullable; new tokens have no expiry. Revocation deletes the row, and the next verification fails. Management responses select only display fields, never the hash or the key. The plaintext key is returned only when created.
 
 ## Identity

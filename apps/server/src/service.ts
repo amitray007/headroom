@@ -20,6 +20,8 @@ export interface ServiceDeps {
   readonly path: string | undefined;
   /** Parent of the data directory; the macOS log lives there. */
   readonly logDir: string;
+  /** HEADROOM_APP_BUNDLE_ID: the Mac app that bundles this binary, so Login Items shows the agent under its name. */
+  readonly bundleId?: string | undefined;
   run(command: readonly string[]): CommandResult;
   writeFile(path: string, content: string): void;
   removeFile(path: string): void;
@@ -42,7 +44,26 @@ export function unitPath(home: string): string {
   return `${home}/.config/systemd/user/headroom.service`;
 }
 
-export function launchdPlist(execPath: string, logPath: string, path: string | undefined): string {
+const bundleIdPattern = /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
+
+/** A reverse-DNS id such as `club.theblank.headroom.mac`. */
+function isBundleId(value: string | undefined): value is string {
+  return value !== undefined && value.length <= 155 && bundleIdPattern.test(value);
+}
+
+export function launchdPlist(
+  execPath: string,
+  logPath: string,
+  path: string | undefined,
+  bundleId?: string,
+): string {
+  const associated = isBundleId(bundleId)
+    ? `  <key>AssociatedBundleIdentifiers</key>
+  <array>
+    <string>${xmlEscape(bundleId)}</string>
+  </array>
+`
+    : "";
   const env = path
     ? `  <key>EnvironmentVariables</key>
   <dict>
@@ -62,7 +83,7 @@ export function launchdPlist(execPath: string, logPath: string, path: string | u
     <string>${xmlEscape(execPath)}</string>
     <string>start</string>
   </array>
-${env}  <key>RunAtLoad</key>
+${env}${associated}  <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
   <true/>
@@ -124,7 +145,10 @@ function macService(action: ServiceAction, deps: ServiceDeps): ServiceOutcome {
     if (deps.exists(plist)) deps.removeFile(plist);
     return { code: 0, lines: ["Headroom no longer starts at login."] };
   }
-  deps.writeFile(plist, launchdPlist(deps.execPath, `${deps.logDir}/headroom.log`, deps.path));
+  deps.writeFile(
+    plist,
+    launchdPlist(deps.execPath, `${deps.logDir}/headroom.log`, deps.path, deps.bundleId),
+  );
   deps.run(["launchctl", "bootout", target]); // Reinstall: drop a loaded copy, ignore "not loaded".
   const result = deps.run(["launchctl", "bootstrap", domain, plist]);
   if (result.code !== 0) {
@@ -168,7 +192,7 @@ function linuxService(action: ServiceAction, deps: ServiceDeps): ServiceOutcome 
 
 /** Real dependencies for the running machine. */
 export function systemServiceDeps(
-  base: Pick<ServiceDeps, "home" | "logDir" | "path">,
+  base: Pick<ServiceDeps, "home" | "logDir" | "path" | "bundleId">,
 ): ServiceDeps {
   return {
     ...base,

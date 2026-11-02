@@ -16,6 +16,8 @@ import { version } from "./version.ts";
 import { type Env, rejectCrossSite, requireSession } from "./middleware/session.ts";
 import { requireApiToken } from "./middleware/api-token.ts";
 import { appRoutes } from "./routes/app.ts";
+import { appPairRoutes } from "./routes/app-pair.ts";
+import { pairingRoutes } from "./routes/pairings.ts";
 import { tokenRoutes } from "./routes/tokens.ts";
 import { attemptRoutes } from "./routes/attempts.ts";
 import { connectionRoutes } from "./routes/connections.ts";
@@ -79,6 +81,8 @@ export function createApp(ctx: AppContext): Hono {
   const api = new Hono<Env>();
   const addressOf = (c: Context<Env>): string =>
     clientAddress(c.req.raw, ctx.config.trustProxy, () => socketAddress(c));
+  // Registered first: the app has no token until a pairing is approved (D48).
+  api.route("/app/v1/pair", appPairRoutes(ctx, addressOf));
   api.use("/app/v1/*", requireApiToken(ctx, addressOf));
   api.route("/app/v1", appRoutes(ctx));
 
@@ -118,6 +122,7 @@ export function createApp(ctx: AppContext): Hono {
   });
 
   api.route("/tokens", tokenRoutes(ctx));
+  api.route("/pairings", pairingRoutes(ctx));
   api.route("/providers", providerRoutes(ctx));
   api.route("/connections", connectionRoutes(ctx));
   api.route("/attempts", attemptRoutes(ctx));

@@ -45,6 +45,7 @@ if (command.kind === "service") {
       home: Bun.env["HOME"] || homedir(),
       logDir: dirname(loaded.dataDir),
       path: Bun.env["PATH"],
+      bundleId: Bun.env["HEADROOM_APP_BUNDLE_ID"],
     }),
   );
   for (const line of outcome.lines) process.stdout.write(`${line}\n`);
