@@ -13,7 +13,18 @@ extension AppModel {
       shell: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh")
   }
 
-  var thisMacSource: SourceSnapshot? { sources.first { $0.source.baseURL == LocalServer.url } }
+  /// A source is This Mac while a server is installed here and it points at a candidate port.
+  /// Without an install, a source at 127.0.0.1 is a tunnel to another computer.
+  func isThisMac(_ source: Source) -> Bool {
+    localOwner != nil && LocalServer.isThisMac(source.baseURL)
+  }
+
+  var thisMacSource: SourceSnapshot? { sources.first { isThisMac($0.source) } }
+
+  /// Where this Mac's Headroom answers now, else where its source points, else the first candidate.
+  var thisMacURL: URL {
+    localURL ?? thisMacSource?.source.baseURL ?? LocalServer.defaultURL
+  }
 
   /// The app's own server was added and has stopped.
   var localStopped: Bool {
@@ -69,14 +80,14 @@ extension AppModel {
 
   /// Takes the app's server off this Mac. Its data stays unless the owner chose to delete it.
   func removeLocal(deleteData: Bool) async {
+    // Removing the install clears `localOwner`, which the match depends on.
+    let mine = sources.filter { isThisMac($0.source) }
     await control(expectRunning: false) {
       try await $0.remove(
         runner: ProcessRunner(), deleteData: deleteData,
         removeItem: { try FileManager.default.removeItem(at: $0) })
     }
-    for snapshot in sources where snapshot.source.baseURL == LocalServer.url {
-      await removeSource(snapshot)
-    }
+    for snapshot in mine { await removeSource(snapshot) }
   }
 
   func revealLocalData() {
@@ -94,7 +105,7 @@ extension AppModel {
         as? String ?? "unknown",
       serverVersion: localVersion,
       bundledVersion: await server.bundledVersion(runner: ProcessRunner()),
-      running: localAvailable, failure: failure)
+      running: localAvailable, port: localURL.flatMap(LocalServer.port(of:)), failure: failure)
     NSPasteboard.general.clearContents()
     NSPasteboard.general.setString(text, forType: .string)
   }
@@ -188,6 +199,11 @@ final class PairingSession {
     state = .idle
   }
 
+  func fail(_ message: String) {
+    cancel()
+    state = .failed(message)
+  }
+
   func openPage() {
     if let page { NSWorkspace.shared.open(page) }
   }
@@ -230,7 +246,7 @@ final class SetupFlow {
 
   func run(model: AppModel) async {
     if !installed { await install(model) }
-    if installed && !closed { pair(model) }
+    if installed && !closed { await pair(model) }
   }
 
   /// Try again after a failed step, or Start over after a denied or expired pairing.
@@ -264,11 +280,14 @@ final class SetupFlow {
     }
   }
 
-  private func pair(_ model: AppModel) {
-    pairing.begin(baseURL: LocalServer.url) { [self] token in
+  private func pair(_ model: AppModel) async {
+    guard let url = await FeedClient().discoverThisMac(preferring: model.thisMacURL)?.url else {
+      pairing.fail("Headroom does not answer on this Mac. Start it, then try again.")
+      return
+    }
+    pairing.begin(baseURL: url) { [self] token in
       try await model.saveSource(
-        id: model.thisMacSource?.id, name: "This Mac", url: LocalServer.url.absoluteString,
-        token: token)
+        id: model.thisMacSource?.id, name: "This Mac", url: url.absoluteString, token: token)
       await model.checkLocal()
       finished = true
     }

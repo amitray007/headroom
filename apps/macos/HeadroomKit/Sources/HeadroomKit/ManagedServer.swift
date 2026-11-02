@@ -110,7 +110,7 @@ public struct ManagedServer: Sendable, Equatable {
       if await answers() { return }
       if attempt < attempts - 1 { try await Task.sleep(for: interval) }
     }
-    throw Failure(step: .answer, detail: "It does not answer on port 8080.")
+    throw Failure(step: .answer, detail: "Headroom started but does not answer on this Mac.")
   }
 
   // MARK: Control
@@ -187,13 +187,14 @@ public struct ManagedServer: Sendable, Equatable {
   /// The text "Copy details for support" puts on the pasteboard: no tokens, no account data.
   public func supportDetails(
     appVersion: String, serverVersion: String?, bundledVersion: String?, running: Bool,
-    failure: Failure?
+    port: Int?, failure: Failure?
   ) -> String {
     var lines = [
       "Headroom for Mac \(appVersion)",
       "Server: \(serverVersion ?? "not answering")",
       "Bundled server: \(bundledVersion ?? (binary == nil ? "none in this build" : "unknown"))",
       "Running: \(running ? "yes" : "no")",
+      "Port: \(port.map(String.init) ?? "none")",
       "Launch agent: \(plist.path)",
     ]
     if let failure {

@@ -80,7 +80,7 @@ Rules carried from the dashboard: unknown is null, never 0; units stay separate;
 
 ### Sources
 
-A source is `{ id, name, baseURL }` in the app's settings, plus its token, kept with the other tokens in one Keychain item keyed by source id. "This Mac" is a source with `http://127.0.0.1:8080`. The app gets a source's token by pairing ([Pairing](#pairing)); pasting a read-only token from the dashboard stays as a fallback.
+A source is `{ id, name, baseURL }` in the app's settings, plus its token, kept with the other tokens in one Keychain item keyed by source id. "This Mac" is a source with `http://127.0.0.1:<port>`: the server listens on 4323 or the next free port up to 4342 (8080 for installs from before that), and the app finds it by asking each of those ports for `/healthz`, which answers 200 with `"status":"ok"` and needs no token. The source is This Mac when a server is installed here and its address is loopback on one of those ports. When it stops answering and another candidate port answers, the app moves the source to that port and keeps its token, after the new address accepts the token. The app gets a source's token by pairing ([Pairing](#pairing)); pasting a read-only token from the dashboard stays as a fallback.
 
 | Source state | When | Shown |
 | --- | --- | --- |
@@ -97,7 +97,7 @@ The app carries a Headroom server at `Contents/Resources/headroom` and sets it u
 
 | Part | Behavior |
 | --- | --- |
-| Set up | The Set Up Headroom window runs four checked steps: Put Headroom in place (`headroom --version`), Start Headroom (`headroom service install` in a login shell with `HEADROOM_APP_BUNDLE_ID` set, so Login Items shows the app's name and icon), Start it each time you log in (the launch agent exists), Make sure it answers (`/healthz`, about 20 s). A failure names its step and offers Try again and Copy details for support. Closing the window lets an install finish but opens no browser |
+| Set up | The Set Up Headroom window runs four checked steps: Put Headroom in place (`headroom --version`), Start Headroom (`headroom service install` in a login shell with `HEADROOM_APP_BUNDLE_ID` set, so Login Items shows the app's name and icon), Start it each time you log in (the launch agent exists), Make sure it answers (`/healthz` on the candidate ports, about 20 s). A failure names its step and offers Try again and Copy details for support. Closing the window lets an install finish but opens no browser |
 | Who owns it | A launch agent whose program path is inside an `.app` is the app's own (`LocalServer.Owner.app`). The Homebrew formula, a Homebrew path or the install script's binary is an existing install: the app uses it as it is, connects by pairing, and leaves updates to Homebrew. Settings says "Installed with Homebrew". The app never runs `service install` over an existing install |
 | Controls | Settings, Sources, Headroom on this Mac: status, version and update time, Open dashboard (the dashboard's `#/connect` page), and a ⋯ menu. Restart is `launchctl kickstart -k gui/<uid>/club.theblank.headroom`. Stop is `launchctl bootout`, which leaves the launch agent, so the server starts at the next login. Remove from this Mac runs `headroom service uninstall` and removes the This Mac source; a tick in the confirmation also deletes `Application Support/Headroom`, the server's data |
 | Keep running | A display preference, on by default. Off stops the app's server when the app quits and starts it when the app launches |

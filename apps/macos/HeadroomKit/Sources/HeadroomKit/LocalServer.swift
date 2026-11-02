@@ -18,8 +18,6 @@ public struct LocalServer: Sendable, Equatable {
     public let mayFail: Bool
   }
 
-  public static let url = URL(string: "http://127.0.0.1:8080")!
-
   public let install: Install
 
   public static func find(home: URL, exists: (String) -> Bool) -> LocalServer? {
@@ -55,7 +53,7 @@ public struct LocalServer: Sendable, Equatable {
     }
   }
 
-  /// Runs the steps, then waits for the server to answer on its port.
+  /// Runs the steps, then waits for the server to answer.
   public func start(
     runner: some CommandRunning, uid: UInt32, shell: String,
     answers: @Sendable () async -> Bool, attempts: Int = 30, interval: Duration = .seconds(1)
@@ -88,7 +86,7 @@ public enum LocalServerError: Error, Equatable, LocalizedError {
       detail.isEmpty
         ? "Headroom could not start on this Mac." : "Headroom could not start on this Mac: \(detail)"
     case .notAnswering:
-      "Headroom started but does not answer on port 8080. Check its log, then try again."
+      "Headroom started but does not answer on this Mac. Check its log, then try again."
     }
   }
 }

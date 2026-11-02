@@ -8,10 +8,8 @@ extension SettingsView {
   static let thisMacMenu = UUID(uuidString: "00000000-0000-4000-8000-00000000AAC0")!
 
   /// The This Mac source belongs to this group only while a server is installed here. Without
-  /// one, a source at 127.0.0.1:8080 is a tunnel and stays in Other servers.
-  func isThisMac(_ snapshot: SourceSnapshot) -> Bool {
-    model.localOwner != nil && snapshot.source.baseURL == LocalServer.url
-  }
+  /// one, a source at 127.0.0.1 is a tunnel and stays in Other servers.
+  func isThisMac(_ snapshot: SourceSnapshot) -> Bool { model.isThisMac(snapshot.source) }
 
   @ViewBuilder var thisMac: some View {
     switch model.localOwner {
@@ -87,7 +85,7 @@ extension SettingsView {
         .buttonStyle(WebButtonStyle(small: true)).disabled(model.localStarting || model.localBusy)
     } else if let source = model.thisMacSource, source.state != .signedOut {
       Button {
-        model.openConnectPage(LocalServer.url)
+        model.openConnectPage(model.thisMacURL)
       } label: {
         Label("Open dashboard", systemImage: "arrow.up.right").labelStyle(TrailingIcon())
       }.buttonStyle(WebButtonStyle(small: true))

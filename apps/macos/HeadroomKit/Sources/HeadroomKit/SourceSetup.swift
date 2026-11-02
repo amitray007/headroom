@@ -72,7 +72,7 @@ extension FeedClient: SourceVerifying {
   }
 
   public func thisMacAvailable() async -> Bool {
-    await health(LocalServer.url) != nil
+    await discoverThisMac() != nil
   }
 }
 

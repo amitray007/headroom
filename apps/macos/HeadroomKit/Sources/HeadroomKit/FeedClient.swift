@@ -97,6 +97,7 @@ public struct FeedClient: FeedReading, Sendable {
 
   /// What `/healthz` answers, nil when the server does not answer with 200.
   public struct Health: Decodable, Sendable, Equatable {
+    public let status: String?
     public let version: String?
   }
 
@@ -106,7 +107,7 @@ public struct FeedClient: FeedReading, Sendable {
     guard let (data, response) = try? await session.data(for: request),
       (response as? HTTPURLResponse)?.statusCode == 200
     else { return nil }
-    return (try? JSONDecoder().decode(Health.self, from: data)) ?? Health(version: nil)
+    return (try? JSONDecoder().decode(Health.self, from: data)) ?? Health(status: nil, version: nil)
   }
 
   /// A missing or mistyped field, or a value this build does not know, such as a new provider.

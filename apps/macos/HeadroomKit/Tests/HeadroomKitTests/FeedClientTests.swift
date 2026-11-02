@@ -25,16 +25,21 @@ private final class StubProtocol: URLProtocol, @unchecked Sendable {
     state.withLock { $0.stubs[host] = stub }
     return try source("https://\(host)")
   }
+  /// A host, with the port when the URL has one: loopback tests tell servers apart by port.
+  static func key(_ url: URL) -> String {
+    (url.host ?? "") + (url.port.map { ":\($0)" } ?? "")
+  }
   static func requests(for source: Source) -> [URLRequest] {
-    state.withLock { $0.requests[source.baseURL.host ?? ""] ?? [] }
+    state.withLock { $0.requests[key(source.baseURL)] ?? [] }
   }
   override class func canInit(with request: URLRequest) -> Bool { true }
   override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
   override func startLoading() {
-    guard let url = request.url, let host = url.host else { return }
+    guard let url = request.url, url.host != nil else { return }
+    let key = Self.key(url)
     let stub = Self.state.withLock { state in
-      state.requests[host, default: []].append(request)
-      return state.stubs[host]
+      state.requests[key, default: []].append(request)
+      return state.stubs[key]
     }
     guard let stub else {
       client?.urlProtocol(self, didFailWithError: URLError(.unsupportedURL))
@@ -294,24 +299,98 @@ func verificationRejectsFailures(_ status: Int, _ expected: SourceSetupError) as
   await #expect(throws: expected) { try await client.verify(source: source, token: "synthetic") }
 }
 
-@Test func localSourceOfferNeedsAnUnauthenticatedSuccessfulHealthCheck() async throws {
-  let local = try source("http://127.0.0.1:8080")
-  StubProtocol.state.withLock { $0.stubs["127.0.0.1"] = Stub(body: Data("ok".utf8)) }
-  defer {
-    StubProtocol.state.withLock {
-      $0.stubs["127.0.0.1"] = nil
-      $0.requests["127.0.0.1"] = nil
+/// Makes these loopback ports answer `/healthz`; every other port refuses.
+private func serveLoopback(_ ports: [Int: Data]) -> @Sendable () -> Void {
+  let keys = ports.keys.map { "127.0.0.1:\($0)" }
+  StubProtocol.state.withLock { state in
+    for (port, health) in ports { state.stubs["127.0.0.1:\(port)"] = Stub(health: health) }
+  }
+  return {
+    StubProtocol.state.withLock { state in
+      for key in keys {
+        state.stubs[key] = nil
+        state.requests[key] = nil
+      }
     }
   }
-  let client = FeedClient(protocolClasses: [StubProtocol.self])
-  #expect(await client.thisMacAvailable())
-  let request = try #require(StubProtocol.requests(for: local).first)
-  #expect(request.httpMethod == "GET")
-  #expect(request.url?.absoluteString == "http://127.0.0.1:8080/healthz")
-  #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
-  #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
-  StubProtocol.state.withLock { $0.stubs["127.0.0.1"] = Stub(status: 404) }
-  #expect(await client.thisMacAvailable() == false)
+}
+
+private let healthy = Data(#"{"status":"ok","version":"0.1.16"}"#.utf8)
+
+// Every discovery test shares the loopback stubs, so they run one at a time.
+@Suite(.serialized) struct LoopbackDiscoveryTests {
+  @Test func discoveryAsksEveryCandidateForAnUnauthenticatedHealthCheck() async throws {
+    let cleanup = serveLoopback([4325: healthy])
+    defer { cleanup() }
+    let client = FeedClient(protocolClasses: [StubProtocol.self])
+    let found = try #require(await client.discoverThisMac())
+    #expect(found == LocalServer.Found(url: LocalServer.url(port: 4325), version: "0.1.16"))
+    #expect(await client.thisMacAvailable())
+    let request = try #require(StubProtocol.requests(for: try source("http://127.0.0.1:4342")).first)
+    #expect(request.httpMethod == "GET")
+    #expect(request.url?.path == "/healthz")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+    #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+    #expect(StubProtocol.requests(for: try source("http://127.0.0.1:8080")).count >= 1)
+  }
+
+  @Test func discoveryPrefersTheCurrentPortThenCandidateOrder() async {
+    let cleanup = serveLoopback([4324: healthy, 4330: healthy, 8080: healthy])
+    defer { cleanup() }
+    let client = FeedClient(protocolClasses: [StubProtocol.self])
+    #expect(await client.discoverThisMac()?.url == LocalServer.url(port: 4324))
+    #expect(
+      await client.discoverThisMac(preferring: LocalServer.url(port: 4330))?.url
+        == LocalServer.url(port: 4330))
+    #expect(
+      await client.discoverThisMac(preferring: LocalServer.url(port: 4335))?.url
+        == LocalServer.url(port: 4324))
+    #expect(
+      await client.discoverThisMac(preferring: URL(string: "https://example.invalid:4330"))?.url
+        == LocalServer.url(port: 4324))
+  }
+
+  @Test func discoveryAcceptsOnlyAnOkHealthAnswer() async {
+    let cleanup = serveLoopback([
+      4323: Data("ok".utf8), 4324: Data(#"{"status":"starting"}"#.utf8), 4325: Data("{}".utf8),
+      4326: Data(#"{"version":"0.1.16"}"#.utf8),
+    ])
+    defer { cleanup() }
+    let client = FeedClient(protocolClasses: [StubProtocol.self])
+    #expect(await client.discoverThisMac() == nil)
+    #expect(await client.thisMacAvailable() == false)
+  }
+
+  @Test func discoveryRefusesANon200Answer() async {
+    StubProtocol.state.withLock { $0.stubs["127.0.0.1:4323"] = Stub(status: 503, body: Data(#"{"status":"ok"}"#.utf8)) }
+    defer { StubProtocol.state.withLock { $0.stubs["127.0.0.1:4323"] = nil } }
+    #expect(await FeedClient(protocolClasses: [StubProtocol.self]).discoverThisMac() == nil)
+  }
+}
+
+@Test func thisMacIsALoopbackSourceOnACandidatePort() throws {
+  for port in [4323, 4330, 4342, 8080] {
+    #expect(LocalServer.isThisMac(LocalServer.url(port: port)))
+  }
+  #expect(LocalServer.isThisMac(try source("http://127.0.0.1:4323/").baseURL))
+  for other in [
+    "http://127.0.0.1:4322", "http://127.0.0.1:4343", "http://127.0.0.1", "http://localhost:4323",
+    "https://127.0.0.1:4323", "http://192.168.1.20:4323", "http://127.0.0.1:4323/headroom",
+    "https://headroom.example.invalid",
+  ] {
+    #expect(LocalServer.isThisMac(URL(string: other)!) == false, "\(other)")
+  }
+}
+
+@Test func chosenPortIsThePreferredAnswerThenCandidateOrder() {
+  #expect(LocalServer.candidatePorts == Array(4323...4342) + [8080])
+  #expect(LocalServer.choose(answering: [], preferred: 4330) == nil)
+  #expect(LocalServer.choose(answering: [4330, 4325], preferred: nil) == 4325)
+  #expect(LocalServer.choose(answering: [4330, 4325], preferred: 4330) == 4330)
+  #expect(LocalServer.choose(answering: [4325, 8080], preferred: 4330) == 4325)
+  #expect(LocalServer.choose(answering: [8080], preferred: nil) == 8080)
+  #expect(LocalServer.choose(answering: [4325, 8080], preferred: 8080) == 8080)
+  #expect(LocalServer.choose(answering: [4325], preferred: 9999) == 4325)
 }
 
 @Test func refreshAccessFollowsTheTokenScopes() async throws {

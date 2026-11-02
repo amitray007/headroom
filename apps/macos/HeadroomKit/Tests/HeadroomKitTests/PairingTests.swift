@@ -105,11 +105,11 @@ private func run(_ transport: ScriptedTransport, shown: Log<PairingCode> = Log()
 }
 
 @Test func browserPagesForThisMacOpenOnLocalhost() {
-  let local = URL(string: "http://127.0.0.1:8080")!
+  let local = LocalServer.url(port: 4323)
   #expect(
     Pairing.approvalPage(baseURL: local, code: "K7P-4QX")?.absoluteString
-      == "http://localhost:8080/#/pair/K7P-4QX")
-  #expect(Pairing.connectPage(baseURL: local)?.absoluteString == "http://localhost:8080/#/connect")
+      == "http://localhost:4323/#/pair/K7P-4QX")
+  #expect(Pairing.connectPage(baseURL: local)?.absoluteString == "http://localhost:4323/#/connect")
   #expect(Pairing.browserBase(server) == server)
 }
 

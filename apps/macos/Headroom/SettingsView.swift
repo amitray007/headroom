@@ -75,7 +75,7 @@ struct SettingsView: View {
     .onChange(of: model.sourceSheetRequest, initial: true) { _, request in
       guard let request else { return }
       model.sourceSheetRequest = nil
-      editing = request == .localToken ? SourceDraft(local: true) : SourceDraft(pairing: true)
+      editing = request == .localToken ? SourceDraft(local: model.thisMacURL) : SourceDraft(pairing: true)
     }
     .confirmationDialog(
       "Remove \(remove?.source.name ?? "source") from this Mac?",
@@ -1016,11 +1016,9 @@ struct SourceDraft: Identifiable {
   var pairing = false
   init(pairing: Bool) { self.pairing = pairing }
   init(url: String) { self.url = url }
-  init(local: Bool = false) {
-    if local {
-      name = "This Mac"
-      url = "http://127.0.0.1:8080"
-    }
+  init(local: URL) {
+    name = "This Mac"
+    url = local.absoluteString
   }
   init(_ source: Source) {
     sourceID = source.id

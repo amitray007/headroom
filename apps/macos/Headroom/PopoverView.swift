@@ -516,7 +516,7 @@ private struct AccountsPage: View {
 
   /// This Mac's own server has stopped, so its source cannot answer.
   private func isStopped(_ snapshot: SourceSnapshot) -> Bool {
-    model.localStopped && snapshot.source.baseURL == LocalServer.url
+    model.localStopped && model.isThisMac(snapshot.source)
   }
 
   /// The More menu shows the check, then the update card when one is found.
