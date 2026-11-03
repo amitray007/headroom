@@ -11,8 +11,8 @@ Evidence uses synthetic data only: Demo Mode, the static demo build, test fixtur
 
 ## Visual change: before and after
 
-1. Build the static demo twice, from `origin/main` in a temporary worktree (before) and from the branch (after): `mise run demo:build` writes `apps/web/dist-demo`, which needs no server.
-2. Capture the same view in both builds with the `browser` skill (agent-browser): desktop width 1280 and phone width 390, in the theme the change touches. Name the files `<branch-slug>-<view>-before.png` and `-after.png`.
+1. Build and serve the static demo twice, from `origin/main` in a temporary worktree (before) and from the branch (after), as the [verify web skill](../verify-web/SKILL.md) describes.
+2. Capture the same view in both builds: desktop width 1280 and phone width 390, in the theme the change touches. Name the files `<branch-slug>-<view>-before.png` and `-after.png`.
 3. For a change in motion or a flow across views, record a short video of the after build instead of the screenshots.
 4. Upload to the `pr-media` prerelease, which holds description media only:
 

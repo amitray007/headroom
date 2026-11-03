@@ -19,4 +19,7 @@ This repository contains the working application and its specification and resea
 - Start every commit subject with a Conventional Commit type (`feat:`, `fix:`, `docs:` and so on). Release-please sets the version from it; see [Releases](docs/operations/releases.md).
 - Pin every dependency to an exact version. Fix a lint or type error at its cause; do not add a disable directive without a one-line reason.
 - Before opening or updating a pull request that changes web or Mac views or server, connector, package or HeadroomKit behaviour, follow [the PR showcase skill](.agents/skills/pr-showcase/SKILL.md). The Showcase check needs before and after evidence in the description.
+- Before changing, adding or reviewing a provider connector, follow [the provider connector skill](.agents/skills/provider-connector/SKILL.md).
+- After changing `apps/web/src`, see the change on screen with [the verify web skill](.agents/skills/verify-web/SKILL.md).
+- Before calling a pull request green or ready, or when its CI fails, stalls or falls behind main, follow [the PR CI skill](.agents/skills/pr-ci/SKILL.md).
 - Do not add copied global skills or speculative infrastructure. Record material implementation choices in `docs/decisions/`.
