@@ -23,8 +23,8 @@ CodeQL alone is not CI. When a required check is missing on the head commit, clo
 CI tests a pull request merged into its base, and the base keeps moving. When main changes a shared builder or the app feed, also rebuild the generated Mac files:
 
 1. Merge `origin/main` into the branch. A shared or stacked branch is updated by merges only, never rebased.
-2. Run `mise run mac:fixtures` and `mise run mac:contract` when `packages/view-model`, `apps/server/src/routes/app.ts` or `scripts/app-contract.ts` changed on either side. Commit what they change.
-3. Run `mise run check && git commit && git push`, chained so a failure stops the push.
+2. Run `mise run mac:fixtures` and `mise run mac:contract` when `packages/view-model`, `apps/server/src/routes/app.ts` or `scripts/app-contract.ts` changed on either side.
+3. Push only after the check passes. When step 2 changed files: `mise run check && git commit -am "fix: regenerate the Mac fixtures and contract" && git push`. Otherwise: `mise run check && git push`.
 
 ## Stacked pull requests
 

@@ -11,8 +11,8 @@ Evidence uses synthetic data only: Demo Mode, the static demo build, test fixtur
 
 ## Visual change: before and after
 
-1. Build and serve the static demo twice, from `origin/main` in a temporary worktree (before) and from the branch (after), as the [verify web skill](../verify-web/SKILL.md) describes.
-2. Capture the same view in both builds: desktop width 1280 and phone width 390, in the theme the change touches. Name the files `<branch-slug>-<view>-before.png` and `-after.png`.
+1. Build and serve the static demo twice, from the pull request's base in a temporary worktree (before: `git merge-base HEAD origin/<base branch>`, so a stacked pull request shows only its own layer) and from the branch (after), as the [verify web skill](../verify-web/SKILL.md) describes.
+2. Capture the same view in both builds: desktop width 1280 and phone width 390, in the theme the change touches. Name each file `<branch-slug>-<view>-<width>-<theme>-before.png` or `-after.png`, so no capture overwrites another.
 3. For a change in motion or a flow across views, record a short video of the after build instead of the screenshots.
 4. Upload to the `pr-media` prerelease, which holds description media only:
 

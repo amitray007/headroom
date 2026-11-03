@@ -24,7 +24,7 @@ Tests prove the logic; this proves what the owner will see. Use the static demo 
 6. Look at every screenshot yourself. A saved file is not a check.
 7. Close the session and stop the server; confirm the port is free.
 
-For before and after captures, run steps 1 to 6 once in a temporary worktree at `origin/main` and once on the branch, at the same widths, themes and route, then follow the [PR showcase skill](../pr-showcase/SKILL.md).
+For before and after captures, run steps 1 to 6 once in a temporary worktree at the pull request's base (`git merge-base HEAD origin/<base branch>`) and once on the branch, at the same widths, themes and route, then follow the [PR showcase skill](../pr-showcase/SKILL.md).
 
 ## Done when
 
