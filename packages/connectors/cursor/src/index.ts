@@ -550,13 +550,24 @@ function metricsFrom(usage: PeriodUsage, personalPlan = true, weekly = false): M
     });
   }
   const spend = usage.spendLimitUsage;
+  const individualLimit = spend?.individualLimit;
+  const limit = individualLimit ?? spend?.pooledLimit;
+  // Used comes from the same scope as the limit: a Business seat's cap is the team pool, so only the pool's spend counts.
+  const pooled =
+    (individualLimit === null || individualLimit === undefined) &&
+    limit !== null &&
+    limit !== undefined;
   // The first positive figure wins: a seat can report 0 used beside real spend (OpenUsage fixture). Otherwise the first
-  // reported zero.
-  const candidates = [spend?.individualUsed, spend?.pooledUsed, spend?.totalSpend];
+  // reported zero. An individual cap never takes the team pool's spend; with no cap at all, an enterprise seat reports
+  // only pooledUsed.
+  const candidates = pooled
+    ? [spend?.pooledUsed]
+    : individualLimit !== null && individualLimit !== undefined
+      ? [spend?.individualUsed, spend?.totalSpend]
+      : [spend?.individualUsed, spend?.pooledUsed, spend?.totalSpend];
   const used =
     candidates.find((value) => typeof value === "number" && value > 0) ??
     candidates.find((value) => typeof value === "number");
-  const limit = spend?.individualLimit ?? spend?.pooledLimit;
   metrics.push({
     providerMetricKey: "on_demand.used",
     kind: "spend",
