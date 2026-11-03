@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   type BeginConnectOptions,
   type Capability,
+  type ClassifiedError,
   type CollectResult,
   type ConnectProgress,
   type Connector,
@@ -32,6 +33,7 @@ import {
   loadCodeAssistBody,
   loadCodeAssistPath,
   quotaSummaryPath,
+  fetchAvailableModelsPath,
   redirectUri,
   scopes,
   tokenUrl,
@@ -39,14 +41,16 @@ import {
 } from "./endpoints.ts";
 import {
   antigravityCredentialSchema,
+  fetchAvailableModelsSchema,
   loadCodeAssistSchema,
   quotaSummarySchema,
   tokenResponseSchema,
   userInfoSchema,
   type AntigravityCredential,
+  type AvailableModels,
 } from "./schemas.ts";
 
-export const antigravityConnectorVersion = "0.1.0";
+export const antigravityConnectorVersion = "0.1.1";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -293,30 +297,37 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
         ("groups" in summary.data && summary.data.groups) || summary.data.response?.groups || [];
       const observedAt = now();
       const metrics: MetricObservation[] = [];
+      const failures: ClassifiedError[] = [];
       const seen = new Set<string>();
       for (const group of groups) {
         for (const bucket of group.buckets ?? []) {
           const id = bucket.bucketId;
           if (!id || seen.has(id)) continue;
           seen.add(id);
-          const known = knownBuckets[id];
-          const remaining = bucket.remainingFraction;
-          metrics.push({
-            providerMetricKey: `quota.${id}`,
-            kind: "quota_percentage",
-            scope: known?.scope ?? "window",
-            // Provider reports remaining fraction; Headroom stores used percent like every other connector.
-            valueText: remaining === undefined ? null : ((1 - remaining) * 100).toFixed(2),
-            unit: "percent",
-            resetsAt: parseDate(bucket.resetTime),
-            availability: remaining === undefined ? "unknown" : "available",
-            interface: "private",
-          });
+          metrics.push(quotaMetric(id, bucket.remainingFraction, bucket.resetTime));
+        }
+      }
+      // A Google AI Pro summary of 2026-11-01 reported 3p-5h but no Gemini buckets; fetchAvailableModels has them.
+      const summaryGemini = metrics.find((m) => m.providerMetricKey === "quota.gemini-5h");
+      if (seen.has("3p-5h") && summaryGemini?.availability !== "available") {
+        try {
+          const models = fetchAvailableModelsSchema.safeParse(
+            await cloudCode(fetchAvailableModelsPath, secret.accessToken, { project }),
+          );
+          if (!models.success)
+            throw new ConnectorError("invalid_response", "fetchAvailableModels shape changed");
+          const gemini = worstGeminiWindow(models.data.models ?? {});
+          if (gemini) {
+            if (summaryGemini) metrics.splice(metrics.indexOf(summaryGemini), 1);
+            metrics.push(gemini);
+          }
+        } catch (error) {
+          failures.push(classifyUnknown(error));
         }
       }
       // Buckets the tier does not report are not missing data: the free tier of 2026-10-01 carried
       // only the weekly buckets. Known ids only supply scope and label.
-      return { observedAt, metrics, failures: [] };
+      return { observedAt, metrics, failures };
     },
 
     async refresh(credential: StoredCredential): Promise<RefreshResult> {
@@ -399,4 +410,43 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
 
     classify: classifyUnknown,
   };
+}
+
+/** The provider reports a remaining fraction; Headroom stores used percent. A fraction outside 0..1 is not a reading. */
+function quotaMetric(
+  id: string,
+  remaining: number | undefined,
+  resetTime: string | null | undefined,
+): MetricObservation {
+  const valid = remaining !== undefined && remaining >= 0 && remaining <= 1;
+  return {
+    providerMetricKey: `quota.${id}`,
+    kind: "quota_percentage",
+    scope: knownBuckets[id]?.scope ?? "window",
+    valueText: valid ? ((1 - remaining) * 100).toFixed(2) : null,
+    unit: "percent",
+    resetsAt: parseDate(resetTime),
+    availability: valid ? "available" : "unknown",
+    interface: "private",
+  };
+}
+
+/** The Gemini five-hour window from `fetchAvailableModels`: the model with the least quota left, ties by model id. */
+function worstGeminiWindow(models: AvailableModels): MetricObservation | null {
+  const gemini = Object.entries(models).flatMap(([id, model]) => {
+    const remaining = model.quotaInfo?.remainingFraction;
+    return id.startsWith("gemini-") && remaining !== undefined
+      ? [{ id, remaining, resetTime: model.quotaInfo?.resetTime }]
+      : [];
+  });
+  if (gemini.some(({ remaining }) => remaining < 0 || remaining > 1))
+    throw new ConnectorError("invalid_response", "fetchAvailableModels fraction out of range");
+  const worst = gemini.reduce<(typeof gemini)[number] | null>(
+    (a, b) =>
+      a === null || b.remaining < a.remaining || (b.remaining === a.remaining && b.id < a.id)
+        ? b
+        : a,
+    null,
+  );
+  return worst && quotaMetric("gemini-5h", worst.remaining, worst.resetTime);
 }

@@ -4,12 +4,14 @@ import { z } from "zod";
 
 import {
   cloudCodeHosts,
+  fetchAvailableModelsPath,
   loadCodeAssistBody,
   loadCodeAssistPath,
   quotaSummaryPath,
   tokenUrl,
   userInfoUrl,
 } from "./endpoints.ts";
+import modelsFixture from "./fixtures/fetch-available-models.json";
 import quotaFixture from "./fixtures/quota-summary.json";
 import { buildAuthorizationUrl, codeFromInput, createAntigravityConnector } from "./index.ts";
 
@@ -156,6 +158,261 @@ describe("Antigravity connector", () => {
     expect(http.calls[0]?.init?.body).toBe(JSON.stringify(loadCodeAssistBody));
     expect(http.calls[1]?.url).toBe(`${daily}${quotaSummaryPath}`);
     expect(http.calls[1]?.init?.body).toBe(JSON.stringify({ project: "proj" }));
+  });
+
+  test("collect falls back to fetchAvailableModels when gemini-5h is missing from quotaSummary (picks worst model)", async () => {
+    const http = fakeFetch({
+      [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+      [`${daily}${quotaSummaryPath}`]: () =>
+        json({
+          groups: [
+            {
+              displayName: "Claude and GPT models",
+              buckets: [
+                {
+                  bucketId: "3p-weekly",
+                  remainingFraction: 1,
+                  resetTime: "2026-11-08T10:00:00Z",
+                },
+                {
+                  bucketId: "3p-5h",
+                  remainingFraction: 0.95,
+                  resetTime: "2026-11-01T15:00:00Z",
+                },
+              ],
+            },
+          ],
+        }),
+      [`${daily}${fetchAvailableModelsPath}`]: () => json(modelsFixture),
+    });
+    const connector = createAntigravityConnector({
+      fetch: http.fetch,
+      now: () => 1_700_000_000_000,
+    });
+    const result = await connector.collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    // Pro (0.15 remaining) is chosen over Flash (0.85 remaining) as the worst fraction
+    expect(byKey["quota.gemini-5h"]).toMatchObject({
+      valueText: "85.00",
+      scope: "window:18000s",
+      resetsAt: Date.parse("2026-11-01T17:00:00Z"),
+    });
+    expect(byKey["quota.3p-5h"]).toMatchObject({ valueText: "5.00" });
+    expect(byKey["quota.3p-weekly"]).toMatchObject({ valueText: "0.00" });
+    expect(result.failures).toEqual([]);
+    expect(http.calls[2]?.url).toBe(`${daily}${fetchAvailableModelsPath}`);
+    expect(http.calls[2]?.init?.body).toBe(JSON.stringify({ project: "proj" }));
+  });
+
+  test("collect picks worst Gemini model regardless of order and breaks ties by model name", async () => {
+    // Reverse order: lower remaining fraction listed first
+    const reverseHttp = fakeFetch({
+      [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+      [`${daily}${quotaSummaryPath}`]: () =>
+        json({ groups: [{ buckets: [{ bucketId: "3p-5h", remainingFraction: 1 }] }] }),
+      [`${daily}${fetchAvailableModelsPath}`]: () =>
+        json({
+          models: {
+            "gemini-a-worst": {
+              quotaInfo: { remainingFraction: 0.1, resetTime: "2026-11-01T12:00:00Z" },
+            },
+            "gemini-b-better": {
+              quotaInfo: { remainingFraction: 0.9, resetTime: "2026-11-01T13:00:00Z" },
+            },
+          },
+        }),
+    });
+    const connector1 = createAntigravityConnector({ fetch: reverseHttp.fetch });
+    const res1 = await connector1.collect(credential, identity);
+    const metric1 = res1.metrics.find((m) => m.providerMetricKey === "quota.gemini-5h");
+    expect(metric1).toMatchObject({
+      valueText: "90.00",
+      resetsAt: Date.parse("2026-11-01T12:00:00Z"),
+    });
+
+    // Tie: identical remainingFraction; breaks tie by alphabetic model key
+    const tieHttp = fakeFetch({
+      [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+      [`${daily}${quotaSummaryPath}`]: () =>
+        json({ groups: [{ buckets: [{ bucketId: "3p-5h", remainingFraction: 1 }] }] }),
+      [`${daily}${fetchAvailableModelsPath}`]: () =>
+        json({
+          models: {
+            "gemini-z": {
+              quotaInfo: { remainingFraction: 0.5, resetTime: "2026-11-01T20:00:00Z" },
+            },
+            "gemini-a": {
+              quotaInfo: { remainingFraction: 0.5, resetTime: "2026-11-01T10:00:00Z" },
+            },
+          },
+        }),
+    });
+    const connector2 = createAntigravityConnector({ fetch: tieHttp.fetch });
+    const res2 = await connector2.collect(credential, identity);
+    const metric2 = res2.metrics.find((m) => m.providerMetricKey === "quota.gemini-5h");
+    expect(metric2).toMatchObject({
+      valueText: "50.00",
+      resetsAt: Date.parse("2026-11-01T10:00:00Z"),
+    });
+  });
+
+  test("fetchAvailableModels failure paths report into failures and preserve summary metrics", async () => {
+    const baseSummary = {
+      groups: [{ buckets: [{ bucketId: "3p-5h", remainingFraction: 0.9 }] }],
+    };
+
+    // 401: authentication_required
+    const authFail = createAntigravityConnector({
+      fetch: fakeFetch({
+        [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+        [`${daily}${quotaSummaryPath}`]: () => json(baseSummary),
+        [`${daily}${fetchAvailableModelsPath}`]: () => json({}, 401),
+      }).fetch,
+    });
+    const resAuth = await authFail.collect(credential, identity);
+    expect(resAuth.metrics.some((m) => m.providerMetricKey === "quota.3p-5h")).toBe(true);
+    expect(resAuth.failures).toHaveLength(1);
+    expect(resAuth.failures[0]?.category).toBe("authentication_required");
+
+    // 429: rate_limited with Retry-After
+    const rateFail = createAntigravityConnector({
+      fetch: fakeFetch({
+        [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+        [`${daily}${quotaSummaryPath}`]: () => json(baseSummary),
+        [`${daily}${fetchAvailableModelsPath}`]: limited,
+      }).fetch,
+    });
+    const resRate = await rateFail.collect(credential, identity);
+    expect(resRate.failures).toHaveLength(1);
+    expect(resRate.failures[0]?.category).toBe("rate_limited");
+    expect(resRate.failures[0]?.retryAfterMs).toBe(900_000);
+
+    // 500 on all hosts: provider_unavailable
+    const serverFail = createAntigravityConnector({
+      fetch: fakeFetch({
+        [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+        [`${daily}${quotaSummaryPath}`]: () => json(baseSummary),
+        [`${daily}${fetchAvailableModelsPath}`]: () => json({}, 500),
+        [`${cloudCodeHosts[1]}${fetchAvailableModelsPath}`]: () => json({}, 500),
+      }).fetch,
+    });
+    const resServer = await serverFail.collect(credential, identity);
+    expect(resServer.failures).toHaveLength(1);
+    expect(resServer.failures[0]?.category).toBe("provider_unavailable");
+
+    // Malformed JSON / invalid shape: invalid_response
+    const malformedFail = createAntigravityConnector({
+      fetch: fakeFetch({
+        [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+        [`${daily}${quotaSummaryPath}`]: () => json(baseSummary),
+        [`${daily}${fetchAvailableModelsPath}`]: () => json({ models: "not-an-object-of-models" }),
+      }).fetch,
+    });
+    const resMalformed = await malformedFail.collect(credential, identity);
+    expect(resMalformed.failures).toHaveLength(1);
+    expect(resMalformed.failures[0]?.category).toBe("invalid_response");
+
+    // Out-of-range remainingFraction (> 1 or < 0): invalid_response
+    const outOfRangeFail = createAntigravityConnector({
+      fetch: fakeFetch({
+        [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+        [`${daily}${quotaSummaryPath}`]: () => json(baseSummary),
+        [`${daily}${fetchAvailableModelsPath}`]: () =>
+          json({ models: { "gemini-pro": { quotaInfo: { remainingFraction: 1.5 } } } }),
+      }).fetch,
+    });
+    const resOutOfRange = await outOfRangeFail.collect(credential, identity);
+    expect(resOutOfRange.failures).toHaveLength(1);
+    expect(resOutOfRange.failures[0]?.category).toBe("invalid_response");
+  });
+
+  test("free-tier summary with only weekly buckets does not call fetchAvailableModels", async () => {
+    const http = fakeFetch({
+      [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+      [`${daily}${quotaSummaryPath}`]: () =>
+        json({
+          groups: [
+            {
+              buckets: [
+                { bucketId: "gemini-weekly", remainingFraction: 0.8 },
+                { bucketId: "3p-weekly", remainingFraction: 0.9 },
+              ],
+            },
+          ],
+        }),
+    });
+    const connector = createAntigravityConnector({ fetch: http.fetch });
+    const result = await connector.collect(credential, identity);
+    expect(result.failures).toEqual([]);
+    expect(http.calls.map((c) => c.url)).toEqual([
+      `${daily}${loadCodeAssistPath}`,
+      `${daily}${quotaSummaryPath}`,
+    ]);
+  });
+
+  test("an out-of-range summary bucket is unknown and the other buckets stay", async () => {
+    const result = await createAntigravityConnector({
+      fetch: fakeFetch({
+        [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+        [`${daily}${quotaSummaryPath}`]: () =>
+          json({
+            groups: [
+              {
+                buckets: [
+                  { bucketId: "3p-5h", remainingFraction: 0.9 },
+                  { bucketId: "3p-weekly", remainingFraction: 1.2 },
+                  { bucketId: "imagen-5h", remainingFraction: -0.1 },
+                ],
+              },
+            ],
+          }),
+        [`${daily}${fetchAvailableModelsPath}`]: () => json(modelsFixture),
+      }).fetch,
+    }).collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["quota.3p-5h"]).toMatchObject({ valueText: "10.00", availability: "available" });
+    expect(byKey["quota.3p-weekly"]).toMatchObject({ valueText: null, availability: "unknown" });
+    expect(byKey["quota.imagen-5h"]).toMatchObject({ valueText: null, availability: "unknown" });
+    expect(byKey["quota.gemini-5h"]).toMatchObject({ valueText: "85.00" });
+  });
+
+  test("a summary gemini-5h bucket without a fraction is replaced by the fallback reading", async () => {
+    const result = await createAntigravityConnector({
+      fetch: fakeFetch({
+        [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+        [`${daily}${quotaSummaryPath}`]: () =>
+          json({
+            groups: [
+              { buckets: [{ bucketId: "3p-5h", remainingFraction: 1 }, { bucketId: "gemini-5h" }] },
+            ],
+          }),
+        [`${daily}${fetchAvailableModelsPath}`]: () => json(modelsFixture),
+      }).fetch,
+    }).collect(credential, identity);
+    const gemini = result.metrics.filter((m) => m.providerMetricKey === "quota.gemini-5h");
+    expect(gemini).toHaveLength(1);
+    expect(gemini[0]).toMatchObject({ valueText: "85.00", availability: "available" });
+  });
+
+  test("an out-of-range fraction on a non-Gemini model does not block the Gemini window", async () => {
+    const result = await createAntigravityConnector({
+      fetch: fakeFetch({
+        [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+        [`${daily}${quotaSummaryPath}`]: () =>
+          json({ groups: [{ buckets: [{ bucketId: "3p-5h", remainingFraction: 1 }] }] }),
+        [`${daily}${fetchAvailableModelsPath}`]: () =>
+          json({
+            models: {
+              "claude-model": { quotaInfo: { remainingFraction: 1.5 } },
+              "gemini-model": { quotaInfo: { remainingFraction: 0.4 } },
+            },
+          }),
+      }).fetch,
+    }).collect(credential, identity);
+    expect(result.failures).toEqual([]);
+    expect(result.metrics.find((m) => m.providerMetricKey === "quota.gemini-5h")).toMatchObject({
+      valueText: "60.00",
+    });
   });
 
   test("a quota summary 403 is permission_denied, as is an account without a project", async () => {

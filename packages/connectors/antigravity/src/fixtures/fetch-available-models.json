@@ -1,0 +1,19 @@
+{
+  "models": {
+    "gemini-3.8-flash-tiered": {
+      "quotaInfo": {
+        "remainingFraction": 0.85,
+        "resetTime": "2026-11-01T16:00:00Z"
+      }
+    },
+    "gemini-3.8-pro-tiered": {
+      "quotaInfo": {
+        "remainingFraction": 0.15,
+        "resetTime": "2026-11-01T17:00:00Z"
+      }
+    },
+    "other-model": {
+      "quotaInfo": null
+    }
+  }
+}
