@@ -122,6 +122,16 @@ private func row(_ rows: [LedgerRow], _ id: String) throws -> LedgerRow {
   #expect(demo.notices.first?.occurredAt == original.notices.first.map { $0.occurredAt + shift })
 }
 
+// The app bundles these files and decodes them at run time, where a stale copy fails silently.
+@Test(arguments: ["demo", "popover"])
+func appBundledFeedsDecode(_ name: String) throws {
+  let url = URL(filePath: #filePath)
+    .deletingLastPathComponent().appending(path: "../../../Headroom/Resources/Fixtures/\(name).json")
+  let data = try Data(contentsOf: url)
+  _ = try JSONDecoder().decode(AppFeed.self, from: data)
+  if name == "demo" { _ = try DemoFeed.current(data, now: Date()) }
+}
+
 @Test func displayPreferencesLoadFilesSavedBeforeNewFields() throws {
   let old = Data(#"{"itemStyle":"percentage","hiddenAccounts":[],"accountOrder":[]}"#.utf8)
   let value = try JSONDecoder().decode(DisplayPreferences.self, from: old)

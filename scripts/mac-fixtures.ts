@@ -59,17 +59,23 @@ export function macFixture() {
   });
 }
 
+/** Where each generated file goes. The app bundles its own copy of the demo feed for Demo Mode. */
+export const fixtureDirectories = {
+  tests: "../apps/macos/HeadroomKit/Tests/HeadroomKitTests/Fixtures/",
+  app: "../apps/macos/Headroom/Resources/Fixtures/",
+} as const;
+
 if (import.meta.main) {
-  const directory = fileURLToPath(
-    new URL("../apps/macos/HeadroomKit/Tests/HeadroomKitTests/Fixtures/", import.meta.url),
-  );
-  await mkdir(directory, { recursive: true });
   const feed = macFixture();
-  for (const [name, value] of Object.entries({
-    demo: feed,
-    empty: { ...feed, accounts: [], notices: [] },
-  })) {
+  const files: [keyof typeof fixtureDirectories, string, unknown][] = [
+    ["tests", "demo", feed],
+    ["tests", "empty", { ...feed, accounts: [], notices: [] }],
+    ["app", "demo", feed],
+  ];
+  for (const [place, name, value] of files) {
     appFeedSchema.parse(value);
+    const directory = fileURLToPath(new URL(fixtureDirectories[place], import.meta.url));
+    await mkdir(directory, { recursive: true });
     const text = (
       await format(`${name}.json`, `${JSON.stringify(value, null, 2)}\n`, { printWidth: 100 })
     ).code;
