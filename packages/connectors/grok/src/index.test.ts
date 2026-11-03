@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { CliLoginStatus, LoginRunner } from "@headroom/core";
 
-import { billingUrl, settingsUrl, tokenUrl } from "./endpoints.ts";
+import { billingUrl, settingsUrl, tokenUrl, userinfoUrl } from "./endpoints.ts";
 import billingZero from "./fixtures/billing-zero.json";
 import billingLiveShape from "./fixtures/billing-live-shape.json";
 import billingFixture from "./fixtures/billing.json";
@@ -14,7 +14,8 @@ function b64(value: unknown): string {
 function jwt(payload: Record<string, unknown>): string {
   return `${b64({ alg: "none" })}.${b64(payload)}.sig`;
 }
-const token = jwt({ sub: "user_synthetic", email: "owner@example.com", exp: 1_700_003_600 });
+// The live CLI token carries no email claim, and its auth file has no id_token (prior observation, 2026-10-31).
+const token = jwt({ sub: "user_synthetic", exp: 1_700_003_600 });
 const authFile = JSON.stringify({
   "grok-session": {
     key: token,
@@ -57,9 +58,9 @@ class FakeRunner implements LoginRunner {
 }
 
 function fakeFetch(routes: Record<string, () => Response>) {
-  const calls: string[] = [];
-  const impl = (url: string) => {
-    calls.push(url);
+  const calls: { url: string; init?: RequestInit }[] = [];
+  const impl = (url: string, init?: RequestInit) => {
+    calls.push(init ? { url, init } : { url });
     const match = Object.keys(routes).find((prefix) => url.startsWith(prefix));
     return Promise.resolve(match ? routes[match]!() : new Response("nf", { status: 404 }));
   };
@@ -150,17 +151,64 @@ describe("Grok connector", () => {
     expect(runner.cleaned).toEqual(["g1"]);
   });
 
-  test("identity uses the token subject and the plan from settings", async () => {
+  test("identity uses the token subject, the userinfo email and the plan from settings", async () => {
     const http = fakeFetch({
       [settingsUrl]: () => json({ subscription_tier_display: "SuperGrok" }),
+      [userinfoUrl]: () =>
+        json({ sub: "user_synthetic", email: "owner@example.com", email_verified: true }),
     });
     const connector = createGrokConnector({ runner: new FakeRunner(), fetch: http.fetch });
-    expect(await connector.identity(credentialFromAuthFile(authFile))).toEqual({
+    const credential = credentialFromAuthFile(authFile);
+    expect(credential.secret).toMatchObject({ idToken: null });
+    expect(await connector.identity(credential)).toEqual({
       providerAccountId: "user_synthetic",
       workspaceId: null,
       label: "owner@example.com (SuperGrok)",
       assurance: "strong",
     });
+    const userinfo = http.calls.find((call) => call.url === userinfoUrl);
+    expect(userinfo?.init?.method ?? "GET").toBe("GET");
+    expect(userinfo?.init?.headers).toMatchObject({ authorization: `Bearer ${token}` });
+  });
+
+  test("identity keeps the Grok label and does not fail when userinfo fails", async () => {
+    const failures: (() => Response)[] = [
+      () => json({ error: "unauthorized" }, 401),
+      () => json({ error: "boom" }, 500),
+      () => json({ sub: "user_synthetic" }),
+      () => {
+        throw new Error("network down");
+      },
+    ];
+    await Promise.all(
+      failures.map(async (failure) => {
+        const http = fakeFetch({
+          [settingsUrl]: () => json({ subscription_tier_display: "SuperGrok" }),
+          [userinfoUrl]: failure,
+        });
+        const connector = createGrokConnector({ runner: new FakeRunner(), fetch: http.fetch });
+        expect(await connector.identity(credentialFromAuthFile(authFile))).toMatchObject({
+          providerAccountId: "user_synthetic",
+          label: "Grok (SuperGrok)",
+        });
+      }),
+    );
+  });
+
+  test("identity uses an email claim and skips userinfo", async () => {
+    const withEmail = jwt({ sub: "user_synthetic", email: "claim@example.com" });
+    const http = fakeFetch({
+      [settingsUrl]: () => json({ subscription_tier_display: "SuperGrok" }),
+      [userinfoUrl]: () => json({ email: "other@example.com" }),
+    });
+    const connector = createGrokConnector({ runner: new FakeRunner(), fetch: http.fetch });
+    expect(
+      await connector.identity({
+        secret: { accessToken: withEmail, refreshToken: null, idToken: null, clientId: "c" },
+        expiresAt: null,
+      }),
+    ).toMatchObject({ label: "claim@example.com (SuperGrok)" });
+    expect(http.calls.map((call) => call.url)).not.toContain(userinfoUrl);
   });
 
   test("the live billing shape of 2026-10-01 adds on-demand spend, prepaid balance and per-product percentages", async () => {

@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 
 import {
+  getEmailUrl,
   grokBotUsageUrl,
   planInfoUrl,
   pollUrl,
@@ -110,6 +111,64 @@ describe("Cursor connector", () => {
     expect(http.calls[0]?.url).toBe(`${pollUrl}?uuid=uuid-1&verifier=ver`);
   });
 
+  test("identity labels the connection with the GetEmail address and keeps the token subject", async () => {
+    const http = fakeFetch({
+      [getEmailUrl]: () =>
+        json({ email: "owner@example.com", signUpType: "x", isRecentlyCreatedUser: false }),
+    });
+    expect(await createCursorConnector({ fetch: http.fetch }).identity(credential)).toEqual({
+      providerAccountId: "user_01HSYNTHETIC",
+      workspaceId: null,
+      label: "owner@example.com",
+      assurance: "strong",
+    });
+    expect(http.calls).toHaveLength(1);
+    const call = http.calls[0];
+    expect(call?.url).toBe(getEmailUrl);
+    expect(call?.init?.method).toBe("POST");
+    expect(call?.init?.body).toBe("{}");
+    const headers = z.record(z.string(), z.string()).parse(call?.init?.headers);
+    expect(headers["authorization"]).toBe(`Bearer ${access}`);
+    expect(headers["connect-protocol-version"]).toBe("1");
+  });
+
+  test("identity keeps the Cursor label and does not fail when GetEmail fails", async () => {
+    const failures: (() => Response)[] = [
+      () => json({ error: "unauthorized" }, 401),
+      () => json({ error: "boom" }, 500),
+      () => json({}),
+      () => new Response("not json", { status: 200 }),
+      () => {
+        throw new Error("network down");
+      },
+    ];
+    await Promise.all(
+      failures.map(async (failure) => {
+        const http = fakeFetch({ [getEmailUrl]: failure });
+        expect(
+          await createCursorConnector({ fetch: http.fetch }).identity(credential),
+        ).toMatchObject({
+          providerAccountId: "user_01HSYNTHETIC",
+          label: "Cursor",
+        });
+      }),
+    );
+  });
+
+  test("identity falls back to an email claim when GetEmail has none", async () => {
+    const withEmail = {
+      secret: {
+        accessToken: jwt({ sub: "user_01HSYNTHETIC", email: "claim@example.com" }),
+        refreshToken: null,
+      },
+      expiresAt: null,
+    };
+    const http = fakeFetch({ [getEmailUrl]: () => json({}) });
+    expect(await createCursorConnector({ fetch: http.fetch }).identity(withEmail)).toMatchObject({
+      label: "claim@example.com",
+    });
+  });
+
   test("identity is the token subject; usage uses the Connect RPC with a Bearer token", async () => {
     const http = fakeFetch({ [usageUrl]: () => json(periodUsage) });
     const connector = createCursorConnector({ fetch: http.fetch, now: () => 1_700_000_000_000 });
@@ -117,7 +176,8 @@ describe("Cursor connector", () => {
       providerAccountId: "user_01HSYNTHETIC",
     });
     const result = await connector.collect(credential, identity);
-    const headers = z.record(z.string(), z.string()).parse(http.calls[0]?.init?.headers);
+    const usageCall = http.calls.find((call) => call.url === usageUrl);
+    const headers = z.record(z.string(), z.string()).parse(usageCall?.init?.headers);
     expect(headers["connect-protocol-version"]).toBe("1");
     expect(headers["authorization"]).toBe(`Bearer ${access}`);
     const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));

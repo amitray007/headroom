@@ -26,6 +26,7 @@ import {
 } from "@headroom/core";
 
 import {
+  getEmailUrl,
   grokBotUsageUrl,
   loginUrl,
   planInfoUrl,
@@ -38,6 +39,7 @@ import {
 } from "./endpoints.ts";
 import {
   cursorCredentialSchema,
+  getEmailSchema,
   grokBotUsageSchema,
   jwtClaimsSchema,
   periodUsageSchema,
@@ -51,7 +53,7 @@ import {
   type UsageSummary,
 } from "./schemas.ts";
 
-export const cursorConnectorVersion = "0.1.0";
+export const cursorConnectorVersion = "0.1.1";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -152,21 +154,22 @@ export function createCursorConnector(options: CursorConnectorOptions = {}): Con
       return Promise.resolve();
     },
 
-    identity(credential: StoredCredential): Promise<Identity> {
+    /** Identity is the token subject; the token has no email claim, so `GetEmail` supplies the label. */
+    async identity(credential: StoredCredential): Promise<Identity> {
       const secret = cursorCredentialSchema.parse(credential.secret);
       const claims = jwtClaimsSchema.safeParse(decodeJwt(secret.accessToken));
       const subject = claims.success ? claims.data.sub : undefined;
       if (!subject)
-        return Promise.reject(
-          new ConnectorError("invalid_response", "the access token carries no subject"),
-        );
-      const email = claims.success ? claims.data.email : undefined;
-      return Promise.resolve({
+        throw new ConnectorError("invalid_response", "the access token carries no subject");
+      const email =
+        (await accountEmail(http, secret.accessToken)) ??
+        (claims.success ? claims.data.email : undefined);
+      return {
         providerAccountId: subject,
         workspaceId: null,
         label: email ?? "Cursor",
         assurance: "strong",
-      });
+      };
     },
 
     capabilities(): Promise<readonly Capability[]> {
@@ -611,4 +614,21 @@ export function grokBotMetric(usage: GrokBotUsage): MetricObservation | null {
 
 function cents(value: number): string {
   return (value / 100).toFixed(2);
+}
+
+/** The account email from `AuthService/GetEmail`. It is only a label, so any failure returns undefined. */
+async function accountEmail(http: FetchLike, accessToken: string): Promise<string | undefined> {
+  try {
+    const response = await http(getEmailUrl, {
+      method: "POST",
+      headers: rpcHeaders(accessToken),
+      body: "{}",
+    });
+    if (!response.ok) return undefined;
+    const parsed = getEmailSchema.safeParse(await response.json().catch(() => null));
+    const email = parsed.success ? parsed.data.email?.trim() : undefined;
+    return email ? email : undefined;
+  } catch {
+    return undefined;
+  }
 }
