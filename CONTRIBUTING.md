@@ -27,7 +27,7 @@ Demo Mode (account menu) fills every view with synthetic data, so most UI work n
 2. Keep the change focused. Match the surrounding code: naming, comment density and idioms.
 3. Add or update tests next to the code you change (`*.test.ts`, run by `bun test`). Fixtures are synthetic.
 4. Run `mise run check`. It covers docs, format, type-aware lint, typecheck, Knip and tests, and CI runs the same gate.
-5. Open a pull request that says what changed, why, and how you verified it.
+5. Open a pull request that says what changed, why, and how you verified it, and shows the change ([Showcase your change](#showcase-your-change)).
 
 Rules the check cannot catch:
 
@@ -35,6 +35,18 @@ Rules the check cannot catch:
 - **Enumerations live in [`packages/core/src/enums.ts`](packages/core/src/enums.ts)** and in [the data model](docs/architecture/data-model.md), always together.
 - **Pin dependencies** to an exact version. Fix lint and type errors at their cause. A disable directive needs a one-line reason.
 - **Record material choices** in [the decision register](docs/decisions/README.md).
+
+## Showcase your change
+
+A reviewer should see a change before reading its code. Fill the **Showcase** section of the pull request template with the evidence below.
+
+| The pull request changes | Show under Showcase |
+| --- | --- |
+| The interface: `apps/web/src` views and styles, `apps/macos` app and widget views | A screen recording, or a before and an after screenshot. Drag the files into the description |
+| Behaviour: `apps/server`, `packages/*/src`, HeadroomKit | What was wrong and what happens now: a Mermaid diagram of the old and new flow, a table of before and after values, or a request and response or test output in a code block |
+| Only docs, tests or CI | Nothing |
+
+Capture with Demo Mode or synthetic data, never a real account. Prefer a diagram over a paragraph: GitHub renders a fenced `mermaid` code block in the description.
 
 ## Connectors
 
