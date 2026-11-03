@@ -106,7 +106,9 @@ function main(filesPath: string): void {
   });
   const summary =
     result.problems.length === 0
-      ? `Showcase: ${result.kind === "none" ? "not needed" : "found"} (${result.kind} change).`
+      ? result.kind === "none"
+        ? "Showcase: not needed (no interface or behaviour change)."
+        : `Showcase: found (${result.kind} change).`
       : `Showcase missing (${result.kind} change):\n\n${result.problems.map((p) => `- ${p}`).join("\n")}\n\nSee CONTRIBUTING.md#showcase-your-change. Editing the description re-runs this check.`;
   if (process.env.GITHUB_STEP_SUMMARY)
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
