@@ -62,6 +62,7 @@ The official `agent login` CLI is the fallback for members.
 | Reset redemption | Not documented | Not available | Unavailable for v1. |
 | Usage history | Admin API available; member history depends on endpoint | `POST /teams/daily-usage-data`, `POST /teams/filtered-usage-events` | `official` for admin. Admin scope is required for team-wide reporting. |
 | Admin versus non-admin | Materially different | Roles and admin API | Members see personal usage; admins see team data. Scopes are `member` and `team_admin`. |
+| Account identity | Validated | Token subject for the key; email from `AuthService/GetEmail` for the label | `private`. The member token has no `email` claim, so the connector reads `GetEmail`. A failed read keeps the label "Cursor". |
 
 ## Connect workflow
 
