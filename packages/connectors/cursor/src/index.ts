@@ -549,7 +549,7 @@ function metricsFrom(usage: PeriodUsage, personalPlan = true, weekly = false): M
   const spend = usage.spendLimitUsage;
   const individualLimit = spend?.individualLimit;
   const limit = individualLimit ?? spend?.pooledLimit;
-  // Used comes from the same scope as the limit: a Business seat's cap is the team pool, so its pool spend leads.
+  // Used comes from the same scope as the limit: a Business seat's cap is the team pool, so only the pool's spend counts.
   const pooled =
     (individualLimit === null || individualLimit === undefined) &&
     limit !== null &&
@@ -557,7 +557,7 @@ function metricsFrom(usage: PeriodUsage, personalPlan = true, weekly = false): M
   // The first positive figure wins: a seat can report 0 used beside real spend (OpenUsage fixture). Otherwise the first
   // reported zero.
   const candidates = pooled
-    ? [spend?.pooledUsed, spend?.individualUsed, spend?.totalSpend]
+    ? [spend?.pooledUsed]
     : [spend?.individualUsed, spend?.pooledUsed, spend?.totalSpend];
   const used =
     candidates.find((value) => typeof value === "number" && value > 0) ??

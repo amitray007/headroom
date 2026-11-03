@@ -97,6 +97,27 @@ describe("Cursor connector", () => {
     expect(byKey["on_demand.limit"]).toMatchObject({ valueText: "100.00" });
   });
 
+  test("a pool limit never pairs with the member's own spend, even when the pool reports 0", async () => {
+    const zero = await collectWithSpend({
+      limitType: "team",
+      pooledLimit: "41234",
+      pooledUsed: 0,
+      individualUsed: 500,
+      totalSpend: 500,
+    });
+    expect(zero.metrics.find((m) => m.providerMetricKey === "on_demand.used")).toMatchObject({
+      valueText: "0.00",
+    });
+    const missing = await collectWithSpend({
+      limitType: "team",
+      pooledLimit: "41234",
+      individualUsed: 500,
+    });
+    expect(missing.metrics.find((m) => m.providerMetricKey === "on_demand.used")).toMatchObject({
+      availability: "unknown",
+    });
+  });
+
   test("a non-numeric pool limit is still shape drift", async () => {
     const error = await rejection(collectWithSpend({ pooledLimit: "12.5", limitType: "team" }));
     expect(error).toMatchObject({ category: "invalid_response" });
