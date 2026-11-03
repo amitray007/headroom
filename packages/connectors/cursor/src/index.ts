@@ -555,10 +555,13 @@ function metricsFrom(usage: PeriodUsage, personalPlan = true, weekly = false): M
     limit !== null &&
     limit !== undefined;
   // The first positive figure wins: a seat can report 0 used beside real spend (OpenUsage fixture). Otherwise the first
-  // reported zero.
+  // reported zero. An individual cap never takes the team pool's spend; with no cap at all, an enterprise seat reports
+  // only pooledUsed.
   const candidates = pooled
     ? [spend?.pooledUsed]
-    : [spend?.individualUsed, spend?.pooledUsed, spend?.totalSpend];
+    : individualLimit !== null && individualLimit !== undefined
+      ? [spend?.individualUsed, spend?.totalSpend]
+      : [spend?.individualUsed, spend?.pooledUsed, spend?.totalSpend];
   const used =
     candidates.find((value) => typeof value === "number" && value > 0) ??
     candidates.find((value) => typeof value === "number");

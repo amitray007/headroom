@@ -97,6 +97,27 @@ describe("Cursor connector", () => {
     expect(byKey["on_demand.limit"]).toMatchObject({ valueText: "100.00" });
   });
 
+  test.each([
+    ["0", { individualUsed: 0 }, { valueText: "0.00" }],
+    ["null", { individualUsed: null }, { availability: "unknown" }],
+    ["missing", {}, { availability: "unknown" }],
+    ["0 beside totalSpend", { individualUsed: 0, totalSpend: 700 }, { valueText: "7.00" }],
+  ])(
+    "an individual limit with individual spend %s never takes the team pool's spend",
+    async (_case, individual, expected) => {
+      const result = await collectWithSpend({
+        limitType: "user",
+        individualLimit: 10000,
+        pooledLimit: "41234",
+        pooledUsed: 30000,
+        ...individual,
+      });
+      expect(result.metrics.find((m) => m.providerMetricKey === "on_demand.used")).toMatchObject(
+        expected,
+      );
+    },
+  );
+
   test("a pool limit never pairs with the member's own spend, even when the pool reports 0", async () => {
     const zero = await collectWithSpend({
       limitType: "team",
