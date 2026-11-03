@@ -350,6 +350,71 @@ describe("Antigravity connector", () => {
     ]);
   });
 
+  test("an out-of-range summary bucket is unknown and the other buckets stay", async () => {
+    const result = await createAntigravityConnector({
+      fetch: fakeFetch({
+        [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+        [`${daily}${quotaSummaryPath}`]: () =>
+          json({
+            groups: [
+              {
+                buckets: [
+                  { bucketId: "3p-5h", remainingFraction: 0.9 },
+                  { bucketId: "3p-weekly", remainingFraction: 1.2 },
+                  { bucketId: "imagen-5h", remainingFraction: -0.1 },
+                ],
+              },
+            ],
+          }),
+        [`${daily}${fetchAvailableModelsPath}`]: () => json(modelsFixture),
+      }).fetch,
+    }).collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["quota.3p-5h"]).toMatchObject({ valueText: "10.00", availability: "available" });
+    expect(byKey["quota.3p-weekly"]).toMatchObject({ valueText: null, availability: "unknown" });
+    expect(byKey["quota.imagen-5h"]).toMatchObject({ valueText: null, availability: "unknown" });
+    expect(byKey["quota.gemini-5h"]).toMatchObject({ valueText: "85.00" });
+  });
+
+  test("a summary gemini-5h bucket without a fraction is replaced by the fallback reading", async () => {
+    const result = await createAntigravityConnector({
+      fetch: fakeFetch({
+        [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+        [`${daily}${quotaSummaryPath}`]: () =>
+          json({
+            groups: [
+              { buckets: [{ bucketId: "3p-5h", remainingFraction: 1 }, { bucketId: "gemini-5h" }] },
+            ],
+          }),
+        [`${daily}${fetchAvailableModelsPath}`]: () => json(modelsFixture),
+      }).fetch,
+    }).collect(credential, identity);
+    const gemini = result.metrics.filter((m) => m.providerMetricKey === "quota.gemini-5h");
+    expect(gemini).toHaveLength(1);
+    expect(gemini[0]).toMatchObject({ valueText: "85.00", availability: "available" });
+  });
+
+  test("an out-of-range fraction on a non-Gemini model does not block the Gemini window", async () => {
+    const result = await createAntigravityConnector({
+      fetch: fakeFetch({
+        [`${daily}${loadCodeAssistPath}`]: () => json({ cloudaicompanionProject: "proj" }),
+        [`${daily}${quotaSummaryPath}`]: () =>
+          json({ groups: [{ buckets: [{ bucketId: "3p-5h", remainingFraction: 1 }] }] }),
+        [`${daily}${fetchAvailableModelsPath}`]: () =>
+          json({
+            models: {
+              "claude-model": { quotaInfo: { remainingFraction: 1.5 } },
+              "gemini-model": { quotaInfo: { remainingFraction: 0.4 } },
+            },
+          }),
+      }).fetch,
+    }).collect(credential, identity);
+    expect(result.failures).toEqual([]);
+    expect(result.metrics.find((m) => m.providerMetricKey === "quota.gemini-5h")).toMatchObject({
+      valueText: "60.00",
+    });
+  });
+
   test("a quota summary 403 is permission_denied, as is an account without a project", async () => {
     const forbidden = createAntigravityConnector({
       fetch: fakeFetch({
