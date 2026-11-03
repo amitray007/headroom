@@ -51,7 +51,7 @@ import {
   type UsageSummary,
 } from "./schemas.ts";
 
-export const cursorConnectorVersion = "0.1.0";
+export const cursorConnectorVersion = "0.1.1";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -547,13 +547,21 @@ function metricsFrom(usage: PeriodUsage, personalPlan = true, weekly = false): M
     });
   }
   const spend = usage.spendLimitUsage;
+  const individualLimit = spend?.individualLimit;
+  const limit = individualLimit ?? spend?.pooledLimit;
+  // Used comes from the same scope as the limit: a Business seat's cap is the team pool, so its pool spend leads.
+  const pooled =
+    (individualLimit === null || individualLimit === undefined) &&
+    limit !== null &&
+    limit !== undefined;
   // The first positive figure wins: a seat can report 0 used beside real spend (OpenUsage fixture). Otherwise the first
   // reported zero.
-  const candidates = [spend?.individualUsed, spend?.pooledUsed, spend?.totalSpend];
+  const candidates = pooled
+    ? [spend?.pooledUsed, spend?.individualUsed, spend?.totalSpend]
+    : [spend?.individualUsed, spend?.pooledUsed, spend?.totalSpend];
   const used =
     candidates.find((value) => typeof value === "number" && value > 0) ??
     candidates.find((value) => typeof value === "number");
-  const limit = spend?.individualLimit ?? spend?.pooledLimit;
   metrics.push({
     providerMetricKey: "on_demand.used",
     kind: "spend",

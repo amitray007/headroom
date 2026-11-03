@@ -26,13 +26,17 @@ const planUsageSchema = z
   })
   .loose();
 
-/** Connect JSON encodes a protobuf int64 as a decimal string: a Business seat sends `pooledLimit` as one (observed 2026-10-31). */
+/**
+ * Connect JSON encodes a protobuf int64 as a decimal string: a Business seat sends `pooledLimit` as one (observed
+ * 2026-10-31). A value past the safe integer range would lose precision or become Infinity, so it is shape drift.
+ */
 const int64Cents = z.union([
   z.number(),
   z
     .string()
     .regex(/^-?\d+$/)
-    .transform(Number),
+    .transform(Number)
+    .pipe(z.number().int()),
 ]);
 
 const spendLimitSchema = z

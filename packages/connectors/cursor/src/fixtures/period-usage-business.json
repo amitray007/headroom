@@ -13,11 +13,11 @@
     "totalPercentUsed": 45
   },
   "spendLimitUsage": {
-    "individualUsed": 1200,
+    "individualUsed": 500,
     "pooledLimit": "41234",
-    "pooledUsed": 1200,
-    "pooledRemaining": "40034",
-    "totalSpend": 1200,
+    "pooledUsed": 30000,
+    "pooledRemaining": "11234",
+    "totalSpend": 30000,
     "limitType": "team"
   },
   "displayThreshold": 200,

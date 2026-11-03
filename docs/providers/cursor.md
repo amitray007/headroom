@@ -54,7 +54,7 @@ The official `agent login` CLI is the fallback for members.
 | Billing renewal | Validated | `billing.renews_at`, kind `reset_timestamp`, from `GetPlanInfo` `planInfo.billingCycleEnd` | `private`. A date, not a count. The card shows it only where it differs from the usage cycle end, as on a weekly plan that still bills monthly. |
 | Weekly included usage | Validated; The X Subscription plans | The included, Auto and API percentages with scope `window:<seconds>s` from the cycle bounds | `private`. Detected from `GetPlanInfo`, or from a cycle about 7 days long when plan info is unavailable. |
 | Monthly included usage | `unknown` until validated | Member endpoints above; resets with billing cycle | `private`. Unused usage does not roll over. |
-| On-demand usage and limit | `unknown` until validated | `usage-summary` on-demand spend and limit [S7] | `private`. Separate from included usage. |
+| On-demand usage and limit | Validated on a Business seat (2026-10-31) | `GetCurrentPeriodUsage` `spendLimitUsage`: used from `individualUsed`, `pooledUsed` or `totalSpend`, limit from `individualLimit` or the team `pooledLimit`; `usage-summary` on-demand spend and limit [S7] | `private`. Separate from included usage. Used and limit come from the same scope: a team `pooledLimit` pairs with `pooledUsed`. |
 | Team spend | Available to admins | `POST /teams/spend` | `official`. Separate from member usage. |
 | Credits | Partial | Provider-returned spending/included values | Preserve units and currency; do not convert a cap into credits. |
 | Reset countdown | `unknown` until validated | Billing-cycle reset date in the member response | `private`. Attach to its bucket. |

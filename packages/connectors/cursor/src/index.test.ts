@@ -76,17 +76,52 @@ describe("Cursor connector", () => {
       valueText: "45",
       scope: "billing_cycle",
     });
-    expect(byKey["on_demand.used"]).toMatchObject({ valueText: "12.00", scope: "on_demand:team" });
+    // The cap is the team pool, so used is the pool's spend, not the member's own share of it.
+    expect(byKey["on_demand.used"]).toMatchObject({ valueText: "300.00", scope: "on_demand:team" });
     expect(byKey["on_demand.limit"]).toMatchObject({
       valueText: "412.34",
       scope: "on_demand:team",
     });
   });
 
+  test("an individual on-demand limit keeps the member's own spend", async () => {
+    const result = await collectWithSpend({
+      limitType: "user",
+      individualLimit: 10000,
+      individualUsed: 500,
+      pooledLimit: "41234",
+      pooledUsed: 30000,
+    });
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["on_demand.used"]).toMatchObject({ valueText: "5.00" });
+    expect(byKey["on_demand.limit"]).toMatchObject({ valueText: "100.00" });
+  });
+
   test("a non-numeric pool limit is still shape drift", async () => {
     const error = await rejection(collectWithSpend({ pooledLimit: "12.5", limitType: "team" }));
     expect(error).toMatchObject({ category: "invalid_response" });
   });
+
+  test.each([["9007199254740993"], ["9".repeat(400)]])(
+    "a pool limit past the safe integer range (%s) is shape drift, not a rounded or infinite cap",
+    async (pooledLimit) => {
+      const error = await rejection(collectWithSpend({ pooledLimit, limitType: "team" }));
+      expect(error).toMatchObject({ category: "invalid_response" });
+    },
+  );
+
+  test.each([
+    ["9007199254740991", "90071992547409.91"],
+    ["-5", "-0.05"],
+  ])(
+    "a pool limit of %s at the safe integer edge or below zero still parses",
+    async (pooledLimit, valueText) => {
+      const result = await collectWithSpend({ pooledLimit, limitType: "team" });
+      expect(result.metrics.find((m) => m.providerMetricKey === "on_demand.limit")).toMatchObject({
+        valueText,
+      });
+    },
+  );
 
   test("login URL carries the S256 challenge, uuid and cli redirect target", () => {
     const url = new URL(buildLoginUrl(pkce("verifier"), "uuid-1"));
