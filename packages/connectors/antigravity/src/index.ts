@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   type BeginConnectOptions,
   type Capability,
+  type ClassifiedError,
   type CollectResult,
   type ConnectProgress,
   type Connector,
@@ -48,7 +49,7 @@ import {
   type AntigravityCredential,
 } from "./schemas.ts";
 
-export const antigravityConnectorVersion = "0.1.0";
+export const antigravityConnectorVersion = "0.1.1";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -295,6 +296,7 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
         ("groups" in summary.data && summary.data.groups) || summary.data.response?.groups || [];
       const observedAt = now();
       const metrics: MetricObservation[] = [];
+      const failures: ClassifiedError[] = [];
       const seen = new Set<string>();
       for (const group of groups) {
         for (const bucket of group.buckets ?? []) {
@@ -316,39 +318,53 @@ export function createAntigravityConnector(options: AntigravityConnectorOptions 
           });
         }
       }
-      if (!seen.has("gemini-5h")) {
+      // On accounts with a 5-hour quota tier (e.g. Google AI Pro reporting 3p-5h), retrieveUserQuotaSummary
+      // may omit the Gemini pool. Fall back to fetchAvailableModels to recover the 5-hour Gemini window.
+      if (seen.has("3p-5h") && !seen.has("gemini-5h")) {
         try {
           const modelsRaw = await cloudCode(fetchAvailableModelsPath, secret.accessToken, {
             project,
           });
           const modelsRes = fetchAvailableModelsSchema.safeParse(modelsRaw);
-          if (modelsRes.success && modelsRes.data.models) {
-            const geminiEntries = Object.entries(modelsRes.data.models).filter(
-              ([k, v]) => k.startsWith("gemini-") && v.quotaInfo?.remainingFraction !== undefined,
+          if (!modelsRes.success) {
+            throw new ConnectorError("invalid_response", "fetchAvailableModels shape changed");
+          }
+          if (modelsRes.data.models) {
+            const geminiEntries = Object.entries(modelsRes.data.models).flatMap(([key, val]) =>
+              key.startsWith("gemini-") && val.quotaInfo?.remainingFraction !== undefined
+                ? [
+                    {
+                      key,
+                      remaining: val.quotaInfo.remainingFraction,
+                      resetTime: val.quotaInfo.resetTime,
+                    },
+                  ]
+                : [],
             );
             if (geminiEntries.length > 0) {
-              const quotaInfo = geminiEntries[0]![1].quotaInfo!;
-              const remaining = quotaInfo.remainingFraction;
+              const worst = geminiEntries.reduce((a, b) =>
+                b.remaining < a.remaining || (b.remaining === a.remaining && b.key < a.key) ? b : a,
+              );
               seen.add("gemini-5h");
               metrics.push({
                 providerMetricKey: "quota.gemini-5h",
                 kind: "quota_percentage",
                 scope: knownBuckets["gemini-5h"]?.scope ?? "window:18000s",
-                valueText: remaining === undefined ? null : ((1 - remaining) * 100).toFixed(2),
+                valueText: ((1 - worst.remaining) * 100).toFixed(2),
                 unit: "percent",
-                resetsAt: parseDate(quotaInfo.resetTime),
-                availability: remaining === undefined ? "unknown" : "available",
+                resetsAt: parseDate(worst.resetTime),
+                availability: "available",
                 interface: "private",
               });
             }
           }
-        } catch {
-          // Gracefully omit if fetchAvailableModels fails
+        } catch (error) {
+          failures.push(classifyUnknown(error));
         }
       }
       // Buckets the tier does not report are not missing data: the free tier of 2026-10-01 carried
       // only the weekly buckets. Known ids only supply scope and label.
-      return { observedAt, metrics, failures: [] };
+      return { observedAt, metrics, failures };
     },
 
     async refresh(credential: StoredCredential): Promise<RefreshResult> {

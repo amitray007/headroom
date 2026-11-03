@@ -21,10 +21,12 @@ export const userInfoSchema = z
   .object({ id: z.string().min(1), email: z.string().optional() })
   .loose();
 
+const fractionSchema = z.number().min(0).max(1);
+
 const bucketSchema = z
   .object({
     bucketId: z.string().optional(),
-    remainingFraction: z.number().optional(),
+    remainingFraction: fractionSchema.optional(),
     resetTime: z.string().nullable().optional(),
   })
   .loose();
@@ -42,7 +44,7 @@ export const quotaSummarySchema = z.union([
 
 const quotaInfoSchema = z
   .object({
-    remainingFraction: z.number().optional(),
+    remainingFraction: fractionSchema.optional(),
     resetTime: z.string().nullable().optional(),
   })
   .loose();
@@ -54,7 +56,7 @@ export const fetchAvailableModelsSchema = z
         z.string(),
         z
           .object({
-            quotaInfo: quotaInfoSchema.optional(),
+            quotaInfo: quotaInfoSchema.nullable().optional(),
           })
           .loose(),
       )

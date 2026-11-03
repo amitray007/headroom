@@ -28,6 +28,7 @@ The credits balance stays `unknown`. The quota read was validated on 2026-10-01 
 | Identity email comes from user info; a project id lookup is required for quota calls | source-inspected | CLIProxyAPI [S4] |
 | `v1internal:retrieveUserQuotaSummary` is the only endpoint reporting the merged Gemini and Claude/GPT pools with both five-hour and weekly windows | source-inspected | OpenUsage Antigravity provider doc [S6]; ai-usagebar [S5] |
 | Legacy fallbacks `fetchAvailableModels` and `retrieveUserQuota` know only five-hour windows per model; OpenUsage merges them by worst remaining fraction | source-inspected | OpenUsage [S6] |
+| On a Google AI Pro account, `retrieveUserQuotaSummary` returned only the `Claude and GPT models` group (`3p-weekly`, `3p-5h`) and omitted Gemini buckets; `POST …/v1internal:fetchAvailableModels` with `{ project }` returned `models` keyed by model id carrying `quotaInfo: { remainingFraction, resetTime }`, which the connector merges across `gemini-*` entries by worst remaining fraction into `quota.gemini-5h` | validated | Observed on a Google AI Pro account on 2026-11-01; public clients send `{}`, while `{ project }` succeeded on the live account |
 | Plan name comes from `userTier` | source-inspected | OpenUsage [S6] |
 | The quota summary works for Headroom's token and account | validated | 2026-10-01, see above; a free-tier account with the Starter Quota |
 | Remote CLI prints a secure authorization URL and the browser shows a code to paste | documented | Remote SSH flow [S1] |
