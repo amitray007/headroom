@@ -9,7 +9,7 @@ description: Keep Headroom pull requests mergeable and their CI results true. Us
 
 ## Check that CI ran
 
-The main ruleset requires `commits`, `check`, `binary-macos`, `site` and `image`. `showcase` runs on every pull request and must pass as well. A pull request that touches `apps/macos` also runs `macOS / ci`; it is not required, because its path filter would block other pull requests, but it must pass too.
+The main ruleset requires `commits`, `check`, `binary-macos`, `site` and `image`. A pull request that touches `apps/macos` also runs `macOS / ci`; it is not required, because its path filter would block other pull requests, but it must pass too.
 
 ```sh
 sha=$(gh pr view <number> --json headRefOid -q .headRefOid)

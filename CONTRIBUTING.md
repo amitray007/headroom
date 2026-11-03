@@ -38,7 +38,7 @@ Rules the check cannot catch:
 
 ## Showcase your change
 
-A reviewer should see a change before reading its code. The pull request template has a **Showcase** section, and the Showcase check fails until it holds the evidence below. Editing the description re-runs the check.
+A reviewer should see a change before reading its code. Fill the **Showcase** section of the pull request template with the evidence below.
 
 | The pull request changes | Show under Showcase |
 | --- | --- |
@@ -46,7 +46,7 @@ A reviewer should see a change before reading its code. The pull request templat
 | Behaviour: `apps/server`, `packages/*/src`, HeadroomKit | What was wrong and what happens now: a Mermaid diagram of the old and new flow, a table of before and after values, or a request and response or test output in a code block |
 | Only docs, tests or CI | Nothing |
 
-Capture with Demo Mode or synthetic data, never a real account. Prefer a diagram over a paragraph: GitHub renders a fenced `mermaid` code block in the description. The owner can waive the check on a pull request with the `no-showcase` label.
+Capture with Demo Mode or synthetic data, never a real account. Prefer a diagram over a paragraph: GitHub renders a fenced `mermaid` code block in the description.
 
 ## Connectors
 

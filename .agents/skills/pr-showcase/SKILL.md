@@ -1,11 +1,11 @@
 ---
 name: pr-showcase
-description: Fill the Showcase section of a Headroom pull request so a reviewer sees the change before reading code. Use when opening or updating a pull request that changes web or Mac views, server, connector, package or HeadroomKit behaviour, or when the Showcase check fails.
+description: Fill the Showcase section of a Headroom pull request so a reviewer sees the change before reading code. Use when opening or updating a pull request that changes web or Mac views, server, connector, package or HeadroomKit behaviour.
 ---
 
 # PR showcase
 
-Every pull request that changes the interface or behaviour carries **evidence** under `## Showcase` in its description. `scripts/pr-showcase.ts` decides which kind a pull request needs from its changed files, and the Showcase check runs it on every edit. The rule and its reason are D50; the contributor version is [CONTRIBUTING.md](../../../CONTRIBUTING.md#showcase-your-change).
+Every pull request that changes the interface or behaviour carries **evidence** under `## Showcase` in its description. The rule and its reason are D50; the contributor version is [CONTRIBUTING.md](../../../CONTRIBUTING.md#showcase-your-change).
 
 Evidence uses synthetic data only: Demo Mode, the static demo build, test fixtures. A capture with a real account, token, email address or provider response never leaves the machine.
 
@@ -32,7 +32,7 @@ Evidence uses synthetic data only: Demo Mode, the static demo build, test fixtur
    | <img alt="Before: card" src="…/pr-media/x-card-before.png"> | <img alt="After: card" src="…/pr-media/x-card-after.png"> |
    ```
 
-A Mac view change (`apps/macos/Headroom`, `Widgets`, `Shared`) is captured by the owner, who tests the Mac app. Write `Recording: owner to attach` under Showcase and say so in the hand-off; the check stays red until the owner adds it.
+A Mac view change (`apps/macos/Headroom`, `Widgets`, `Shared`) is captured by the owner, who tests the Mac app. Write `Recording: owner to attach` under Showcase and say so in the hand-off.
 
 ## Behaviour change: what was wrong, what happens now
 
@@ -49,6 +49,6 @@ GitHub renders a fenced `mermaid` block in the description; keep a diagram under
 
 ## Done when
 
-- The Showcase check passes on the pull request. Editing the description re-runs it.
+- Showcase holds the evidence the table in CONTRIBUTING asks for: a recording or a before and an after image for a view change; a diagram, table or code block for a behaviour change.
 - Every image or video opens from the description, and its `alt` text names the view and whether it is before or after.
 - Nothing in the evidence comes from a real account.

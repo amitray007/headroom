@@ -5,7 +5,7 @@
 ## Showcase
 
 <!--
-Show the change; the Showcase check fails without it. Drag files into this box to upload them.
+Show the change so a reviewer sees it before reading code. Drag files into this box to upload them.
 
 Interface change (web or Mac): a screen recording, or a before and an after screenshot.
 Use Demo Mode or synthetic data. Example:
