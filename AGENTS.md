@@ -18,4 +18,5 @@ This repository contains the working application and its specification and resea
 - Before changing the Mac app API (`packages/view-model/src/app-feed.ts`, `apps/server/src/routes/app.ts`, `scripts/app-contract.ts`), Mac code that reads a server, or a supported version, follow [the app API compatibility skill](.agents/skills/app-api-compatibility/SKILL.md).
 - Start every commit subject with a Conventional Commit type (`feat:`, `fix:`, `docs:` and so on). Release-please sets the version from it; see [Releases](docs/operations/releases.md).
 - Pin every dependency to an exact version. Fix a lint or type error at its cause; do not add a disable directive without a one-line reason.
+- Before opening or updating a pull request that changes web or Mac views or server, connector, package or HeadroomKit behaviour, follow [the PR showcase skill](.agents/skills/pr-showcase/SKILL.md). The Showcase check needs before and after evidence in the description.
 - Do not add copied global skills or speculative infrastructure. Record material implementation choices in `docs/decisions/`.
