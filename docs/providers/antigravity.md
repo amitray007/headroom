@@ -84,7 +84,7 @@ The fallback is the official `agy` remote URL and code flow: an isolated `agy` l
 | User info | `GET https://www.googleapis.com/oauth2/v2/userinfo` | `private` | Email for identity. |
 | Project lookup | Antigravity project id lookup per CLIProxyAPI `FetchAntigravityProjectID` | `private` | Required for quota calls. Endpoint pinned during validation. |
 | Quota summary | `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary` with `{ project }` | `private` | Merged pools with five-hour and weekly windows. Validated for Headroom on 2026-10-01; 403 without the project. |
-| Legacy quota | `fetchAvailableModels` and `retrieveUserQuota` on the same hosts | `private` | Five-hour windows per model only. Fallback. |
+| Legacy quota | `POST …/v1internal:fetchAvailableModels` with `{ project }` on the same hosts | `private` | Five-hour windows per model only. Fallback for a missing Gemini five-hour bucket. `retrieveUserQuota` is not read. |
 | Status line JSON | `agy` runtime data: `quota` with `remaining_fraction`, `reset_time`, `reset_in_seconds` | `official` | Fallback and shape reference. |
 | `/usage` (alias `/quota`) and `/credits` | CLI commands [S2] | `official` | Fallback only. Command existence does not establish credit access. |
 
