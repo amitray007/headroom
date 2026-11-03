@@ -1,8 +1,8 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-// The dev server proxies /api to the Headroom server, or to HEADROOM_API_ORIGIN when set. The default is the local instance on :18600.
-const apiOrigin = process.env["HEADROOM_API_ORIGIN"] ?? "http://localhost:18600";
+// The dev server proxies /api to the Headroom server, or to HEADROOM_API_ORIGIN when set. The default is `mise run dev` on :4323.
+const apiOrigin = process.env["HEADROOM_API_ORIGIN"] ?? "http://localhost:4323";
 
 // `--mode demo` builds the static demo site: relative URLs so it can sit under a sub-path, and no server behind it.
 export default defineConfig(({ mode }) => ({

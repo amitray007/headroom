@@ -95,7 +95,7 @@ Commands:
   update                 Install the newest release (--check only reports)
 
 Flags:
-  --port <n>             Listen port (overrides HEADROOM_PORT)
+  --port <n>             Listen on exactly this port (overrides HEADROOM_PORT)
   --host <h>             Listen address (overrides HEADROOM_HOST)
   --open                 Open the dashboard in the default browser once listening
   --version              Print the version

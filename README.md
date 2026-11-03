@@ -116,7 +116,7 @@ Every way to install, update and remove Headroom is in [Install](docs/operations
 
 ```sh
 curl -fsSL https://headroom.theblank.club/install | sh
-headroom --open              # serve on 127.0.0.1:8080 and open the dashboard
+headroom --open              # serve on 127.0.0.1 and open the dashboard
 headroom service install     # start at login
 ```
 
@@ -164,17 +164,17 @@ Requires [mise](https://mise.jdx.dev), which installs the pinned Bun.
 
 ```sh
 mise install && mise run install
-mise run start         # builds the web app and the binary, then serves on :8080
+mise run start         # builds the web app and the binary, then serves on :4323
 ```
 
-Open <http://localhost:8080>. In the checkout, `mise` sets data to `.data/` and the two secret files to `.state/`. Back up `.state/headroom.key` with `.data/headroom.db`: without the key every account must be reconnected.
+Open <http://localhost:4323>. In the checkout, `mise` sets data to `.data/` and the two secret files to `.state/`. Back up `.state/headroom.key` with `.data/headroom.db`: without the key every account must be reconnected.
 
 ### The binary
 
 The binary keeps per-user state: on macOS under `~/Library/Application Support/Headroom/`, on Linux data in `${XDG_DATA_HOME:-~/.local/share}/headroom/` and the key and secret in `${XDG_CONFIG_HOME:-~/.config}/headroom/`. Codex, Claude and Grok sign in through their official CLI: install it on the same machine, or use Import. See [Install](docs/operations/install.md).
 
 ```sh
-headroom --open          # serve on 127.0.0.1:8080 and open the dashboard
+headroom --open          # serve on 127.0.0.1 (port 4323 or the next free one) and open the dashboard
 headroom --help          # commands, flags and the resolved file locations
 headroom paths           # print the data, key and secret locations
 headroom update          # install the newest release (--check only reports)
@@ -192,7 +192,7 @@ headroom service uninstall
 | `HEADROOM_PUBLIC_URL` | none | The address you open Headroom at. Required behind a proxy; passkeys and cookies use it |
 | `HEADROOM_ENABLED_PROVIDERS` | all seven | Comma list: `codex`, `claude`, `grok`, `antigravity`, `copilot`, `cursor`, `vercel_ai_gateway` |
 | `HEADROOM_HOST` | `127.0.0.1` | Listen address. The container image sets `0.0.0.0` |
-| `HEADROOM_PORT` | `8080` | HTTP port (`--port` overrides) |
+| `HEADROOM_PORT` | `4323`, or the next free port up to `4342` | HTTP port. Set, it is exact and Headroom fails if the port is busy (`--port` overrides). Unset, the binary keeps the port it used last; an install that already has data keeps `8080`. The container image sets `8080` |
 | `HEADROOM_DATA_DIR` | macOS `~/Library/Application Support/Headroom/data`, Linux `~/.local/share/headroom/data` | Where the database lives |
 | `HEADROOM_MASTER_KEY_FILE` | next to the data on macOS, `~/.config/headroom/headroom.key` on Linux | The key that seals credentials. Keep it out of the data folder |
 | `HEADROOM_AUTH_SECRET_FILE` | same folder as the key, `headroom.auth-secret` | Session signing secret |
@@ -213,8 +213,8 @@ Report a vulnerability privately as described in [SECURITY.md](SECURITY.md).
 ## Development
 
 ```sh
-mise run dev                  # API server with reload on :8080
-mise exec -- bun run web:dev   # Vite on :5173, proxying /api to :8080
+mise run dev                  # API server with reload on :4323
+mise exec -- bun run web:dev   # Vite on :5173, proxying /api to :4323
 mise run check                # docs, format, lint, typecheck, knip and tests
 ```
 

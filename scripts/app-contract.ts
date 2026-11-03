@@ -6,6 +6,10 @@ import { z } from "zod";
 
 import {
   appFeedSchema,
+  appPairStartBodySchema,
+  appPairStartSchema,
+  appPairTokenBodySchema,
+  appPairTokenSchema,
   appRefreshSchema,
   appWhoamiSchema,
   noticeReadBodySchema,
@@ -14,9 +18,104 @@ import {
 const contractPath = fileURLToPath(new URL("../apps/macos/Contract/openapi.json", import.meta.url));
 const errorSchema = z.strictObject({ error: z.string() });
 
-function json(schema: z.ZodType) {
+function json(schema: z.ZodType, open = true) {
   const { $schema: _dialect, ...body } = z.toJSONSchema(schema, { target: "draft-2020-12" });
-  return body;
+  const converted = openObjects(nullableTypes(body));
+  return open ? openEnums(converted) : converted;
+}
+
+/**
+ * What the server actually sends and accepts, with every enum closed. The compatibility check
+ * compares this, not the opened contract, with each supported Mac release's contract.
+ */
+export function serverSchemas(): Record<string, unknown> {
+  return {
+    AppFeed: json(appFeedSchema, false),
+    AppPairStart: json(appPairStartSchema, false),
+    AppPairStartBody: json(appPairStartBodySchema, false),
+    AppPairToken: json(appPairTokenSchema, false),
+    AppPairTokenBody: json(appPairTokenBodySchema, false),
+    AppRefresh: json(appRefreshSchema, false),
+    AppWhoami: json(appWhoamiSchema, false),
+    NoticeRead: json(noticeReadBodySchema, false),
+    Error: json(errorSchema, false),
+  };
+}
+
+/**
+ * Fields whose values grow with the server. As a closed enum, a provider added to the server
+ * would make every installed Mac app fail the whole feed. As a plain string, the app shows the
+ * new provider with a plain mark and keeps reading (D47).
+ */
+const openEnumFields = new Set(["provider", "providerOrder"]);
+
+function withoutEnum(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutEnum);
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== "enum")
+      .map(([key, item]) => [key, withoutEnum(item)]),
+  );
+}
+
+function openEnums(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(openEnums);
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => {
+      if (key !== "properties" || item === null || typeof item !== "object")
+        return [key, openEnums(item)];
+      return [
+        key,
+        Object.fromEntries(
+          Object.entries(item).map(([name, field]) => [
+            name,
+            openEnumFields.has(name) ? withoutEnum(field) : openEnums(field),
+          ]),
+        ),
+      ];
+    }),
+  );
+}
+
+/**
+ * The server's Zod objects are strict, but Apple's generator turns `additionalProperties: false`
+ * into a decoder that throws on any unknown key. A field added by a newer server would then fail
+ * every installed Mac app's feed read. Clients accept and ignore unknown fields (D46).
+ */
+function openObjects(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(openObjects);
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key, item]) => !(key === "additionalProperties" && item === false))
+      .map(([key, item]) => [key, openObjects(item)]),
+  );
+}
+
+/** Apple's generator needs type unions rather than anyOf for nullable fields. */
+function nullableTypes(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(nullableTypes);
+  if (value === null || typeof value !== "object") return value;
+  const node = Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, nullableTypes(item)]),
+  );
+  const variants = node["anyOf"];
+  if (Array.isArray(variants) && variants.length === 2) {
+    const nonNull = variants.find((item: Record<string, unknown>) => item["type"] !== "null");
+    const hasNull = variants.some((item: Record<string, unknown>) => item["type"] === "null");
+    if (hasNull && nonNull && typeof nonNull["type"] === "string") {
+      const { anyOf: _variants, ...rest } = node;
+      return {
+        ...rest,
+        ...nonNull,
+        type: [nonNull["type"], "null"],
+        ...(Array.isArray(nonNull["enum"]) ? { enum: [...nonNull["enum"], null] } : {}),
+      };
+    }
+  }
+  return node;
 }
 
 function sorted(value: unknown): unknown {
@@ -129,6 +228,30 @@ const putNoticesRead = {
   },
 };
 
+/** Pairing needs no token: it is how the app gets one (D48). Unknown or claimed codes answer 404. */
+function pairOperation(operationId: string, body: string, response: string, ok: string) {
+  return {
+    operationId,
+    security: [],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: { $ref: `#/components/schemas/${body}` } } },
+    },
+    responses: {
+      "200": {
+        description: ok,
+        content: { "application/json": { schema: { $ref: `#/components/schemas/${response}` } } },
+      },
+      "400": error("The body does not match: invalid_body."),
+      "404": error("No pairing has this device code, or its token was already sent: not_found."),
+      "429": {
+        ...error("Too many pairing requests from this address: rate_limited."),
+        headers: { "Retry-After": { schema: { type: "string" } } },
+      },
+    },
+  };
+}
+
 export async function appContract(): Promise<string> {
   const document = {
     openapi: "3.1.0",
@@ -149,6 +272,22 @@ export async function appContract(): Promise<string> {
           ],
         },
       },
+      "/api/app/v1/pair": {
+        post: pairOperation(
+          "postAppPair",
+          "AppPairStartBody",
+          "AppPairStart",
+          "A new pairing. Show the code; poll /pair/token with the device code.",
+        ),
+      },
+      "/api/app/v1/pair/token": {
+        post: pairOperation(
+          "postAppPairToken",
+          "AppPairTokenBody",
+          "AppPairToken",
+          "Where the pairing stands; the token, once, when approved.",
+        ),
+      },
       "/api/app/v1/whoami": { get: operation("getAppWhoami", "AppWhoami") },
       "/api/app/v1/notices/read": { put: putNoticesRead },
       "/api/app/v1/settings/refresh": { put: putRefresh },
@@ -159,6 +298,10 @@ export async function appContract(): Promise<string> {
       },
       schemas: {
         AppFeed: json(appFeedSchema),
+        AppPairStart: json(appPairStartSchema),
+        AppPairStartBody: json(appPairStartBodySchema),
+        AppPairToken: json(appPairTokenSchema),
+        AppPairTokenBody: json(appPairTokenBodySchema),
         AppRefresh: json(appRefreshSchema),
         AppWhoami: json(appWhoamiSchema),
         NoticeRead: json(noticeReadBodySchema),

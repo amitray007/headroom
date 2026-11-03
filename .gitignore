@@ -25,3 +25,7 @@ coverage/
 # Build and tooling
 *.tsbuildinfo
 .mise.local.toml
+# Native Mac build output and user-specific Xcode state
+apps/macos/**/.build/
+apps/macos/.derived-data/
+apps/macos/**/xcuserdata/

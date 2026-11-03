@@ -23,9 +23,11 @@ If `~/.local/bin` is not on your `PATH`, the script prints the line to add for b
 Then run:
 
 ```sh
-headroom --open              # serve on 127.0.0.1:8080 and open the dashboard
+headroom --open              # serve on 127.0.0.1 and open the dashboard
 headroom service install     # start at login
 ```
+
+Headroom listens on port 4323, or on the next free port up to 4342, and prints the address it chose. It keeps that port in the data folder, so the address stays the same. An install that has data from before this rule keeps port 8080 while that port is free. `HEADROOM_PORT` or `--port` fixes the port: Headroom then fails if the port is busy.
 
 ## Homebrew
 
@@ -37,6 +39,41 @@ brew services start headroom   # start now and at every login
 ```
 
 This repository is the tap: the formula is `Formula/headroom.rb`. Homebrew finds a tap by itself only when its repository is named `homebrew-*`, so the first command gives the address once. Installing by the full name also trusts that one formula, as [Tap Trust](https://docs.brew.sh/Tap-Trust) requires. `brew services` runs `headroom start` and writes its log to `$(brew --prefix)/var/log/headroom.log`. Update with `brew upgrade headroom`.
+
+## Headroom for Mac
+
+The menu bar app needs macOS 15 Sequoia or later. It carries a Headroom server and sets it up on this Mac, or it reads a server you already run. After the first Mac release is published:
+
+```sh
+brew tap amitray007/headroom https://github.com/amitray007/headroom
+brew install --cask amitray007/headroom/headroom-mac
+open /Applications/Headroom.app
+```
+
+Homebrew 6 and later require explicit trust for non-official taps. Installing the fully qualified cask name above trusts that cask only. If Homebrew asks about trust, check the tap address before accepting. See [Tap Trust](https://docs.brew.sh/Tap-Trust).
+
+On first launch the popover offers **Set up on this Mac**. The app puts its server in place, starts it now and at every login, and opens your browser to create the owner account. The same page connects the app, so there is no token to copy. Then it opens the dashboard where you connect your AI accounts. Login Items lists Headroom under the app's name. Settings > Sources > Headroom on this Mac restarts, stops or removes the server. **Keep running when the menu bar app quits** is on by default. Updating the app updates its server.
+
+With a server you already run (the Homebrew route above, the install script, or another computer), choose **I already have a Headroom server**, or **Connect** when it runs on this Mac. Enter the server address; your browser asks you to press **Allow**. **Use a token instead** keeps the old way: create a read-only token in the dashboard's Settings > Devices and paste it. An existing install keeps its own updates. The app keeps all source tokens in one Keychain item. After each update, macOS asks for your **login password once** to let the changed app read that item.
+
+The app has an ad-hoc signature, with no Apple Developer ID or notarization, as chosen in [ADR 0004](../decisions/0004-mac-app.md#build-and-release). The cask's `postflight` runs `/usr/bin/xattr -dr com.apple.quarantine` on `/Applications/Headroom.app`. This removes the downloaded-file quarantine attribute from the app and its contents so Gatekeeper does not block it. It does not add an Apple signature or notarization. Install only from a source you trust. Homebrew checks the ZIP against the cask's SHA-256 checksum before installation.
+
+### Mac updates
+
+Headroom checks GitHub for a newer Mac release 8 seconds after launch and then every 6 hours. It counts only releases tagged `macos-vX.Y.Z`, so a server release never offers a Mac update. In Settings > About, **Check now** runs one check, and turning off **Check automatically** stops the checks.
+
+When a newer version exists, the popover header shows a capsule with its version. Click the capsule to see what's new. **Update now** runs `brew upgrade --cask amitray007/headroom/headroom-mac` and reopens Headroom when it finishes. Nothing installs until you press it. The upgrade runs the cask's `postflight` again, so the new copy has no quarantine attribute either. If the upgrade fails, the card shows the reason, **Try again** and **Copy command**.
+
+To update from Terminal instead:
+
+```sh
+brew upgrade --cask amitray007/headroom/headroom-mac
+open /Applications/Headroom.app
+```
+
+If Headroom cannot find Homebrew, the card offers **Download**. A browser keeps the quarantine attribute on the ZIP, so macOS blocks the first launch. Replace Headroom in Applications with the download and open it once. Then choose **Open Anyway** in System Settings > Privacy & Security. The cask install avoids this step.
+
+To uninstall, quit and run `brew uninstall --cask headroom-mac`. Add `--zap` to remove the client source list, feed caches, notices, display settings, preferences and widget container. The app keeps its files in `~/Library/Application Support/club.theblank.headroom.mac`, apart from the local server's `~/Library/Application Support/Headroom`, so a zap never touches server data or keys. It leaves the Keychain item; remove that item in Keychain Access if you want to erase stored tokens too. Before the first owner release, the bootstrap cask is disabled.
 
 ## Package runners
 
@@ -98,6 +135,7 @@ Run it from the installed binary, not from `bun`. On a headless Linux server als
 | --- | --- |
 | Installer | `headroom update`, or run the installer again |
 | Homebrew | `brew upgrade headroom` |
+| Mac app cask | `brew upgrade --cask amitray007/headroom/headroom-mac` |
 | npm | `npm i -g headroomhq@latest` |
 | uv or pipx | `uv tool upgrade headroomhq` or `pipx upgrade headroomhq` |
 | mise | `mise upgrade github:amitray007/headroom` |
@@ -106,6 +144,14 @@ Run it from the installed binary, not from `bun`. On a headless Linux server als
 `headroom update` finds how the binary was installed. For the installer it reads the latest GitHub release, downloads the archive, checks it against `SHA256SUMS`, and replaces the file in place. `headroom update --check` only reports. For the other ways it prints the command above.
 
 A running server keeps the old version until it restarts. Restart a login service with `launchctl kickstart -k gui/$(id -u)/club.theblank.headroom` on macOS or `systemctl --user restart headroom` on Linux.
+
+## Compatibility
+
+Headroom for Mac reads servers from version 0.1.15 on. When a server is older, the app names the server's version and links to [Update](#update). When the server is newer than the app can read, the app asks you to update Headroom for Mac.
+
+| Headroom for Mac | Reads servers |
+| --- | --- |
+| 0.1.1 and later | 0.1.15 and later |
 
 ## Uninstall
 
@@ -116,3 +162,5 @@ A running server keeps the old version until it restarts. Restart a login servic
 ## Maintainers
 
 `release-please.yml` publishes a release and its archives. [homebrew.yml](../../.github/workflows/homebrew.yml) then renders `Formula/headroom.rb` with `scripts/render-formula.ts <version> <SHA256SUMS>` and commits it to `main` as `chore(brew): headroom <version>`, with the workflow's own token. The installer is `site/install.sh`; the site build publishes it at `/install`.
+
+The Mac package calls [macos.yml](../../.github/workflows/macos.yml) with its own version. It publishes `Headroom-<version>.zip` and `SHA256SUMS` on `macos-v<version>`, keeps server releases latest, renders the cask, smoke-tests its install and commits it to `main`. See [Mac releases and rollback](releases.md#headroom-for-mac).

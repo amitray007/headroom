@@ -8,7 +8,7 @@ The owner wants a native Mac app that shows the same accounts as the dashboard w
 
 - A menu bar app with a popover, desktop widgets and notifications. No main window. A Settings window.
 - Read-only. The app never signs in to a provider, reconnects an account or uses a banked reset. Recovery is a link to the dashboard of the account's source.
-- Several sources at once: any number of Headroom servers, plus "This Mac", a native install listening on `http://127.0.0.1:8080`.
+- Several sources at once: any number of Headroom servers, plus "This Mac", a native install listening on `http://127.0.0.1:4323` or the next free port up to 4342, found by its health check.
 - Every notification kind the dashboard has, as macOS banners and in a notices list with read and unread state.
 
 Today every API route needs a Better Auth session cookie ([API](../architecture/api.md)), so the server has nothing a native client can call. Notification read state lived in the browser (now on the server, [ADR 0005](0005-shared-notice-read-state.md)).
@@ -20,13 +20,13 @@ Today every API route needs a Better Auth session cookie ([API](../architecture/
 | Concern | Choice | Why |
 | --- | --- | --- |
 | Language | Swift 6, strict concurrency | WidgetKit has no other first-class language. Tauri and Electron cannot ship a widget extension |
-| Menu bar and popover | SwiftUI `MenuBarExtra` with the window style | Native popover sizing, focus and dismissal; no `NSStatusItem` code unless a spike shows a gap |
+| Menu bar and popover | `NSStatusItem` and `NSPopover` with SwiftUI content | Layer 5 found that `MenuBarExtra` has no public API to present its popover after a banner click, so it uses the fallback allowed by the original decision |
 | Settings | SwiftUI `Settings` scene | The standard Settings window and shortcut |
-| Widgets | WidgetKit extension with App Intent configuration | Accounts and limits are picked per widget, as in the design |
+| Widgets | WidgetKit extension with static configurations; the app's Settings choose accounts and limits | Changed on 2026-11-02. App Intent configuration needs a team ID: with the ad-hoc signature every saved choice resolved to nothing |
 | Notifications | `UserNotifications` | Banners and Notification Center |
 | Secrets | Keychain, one item that holds the tokens of every source | The owner's choice. Without a Developer ID, macOS asks for the login password once per item after each update (see [Build and release](#build-and-release)); one item keeps that to one prompt |
 | Tests | Swift Testing in a local Swift package | Logic runs under `swift test` without the app host |
-| Minimum macOS | 15 Sequoia | `MenuBarExtra`, `@Observable` and App Intent widgets all exist there; one release back from macOS 26 keeps most Macs in |
+| Minimum macOS | 15 Sequoia | `MenuBarExtra`, `@Observable` and WidgetKit widgets all exist there; one release back from macOS 26 keeps most Macs in |
 | Font | Geist, bundled (SIL Open Font License) | Headroom content uses Geist; system chrome uses the system font |
 
 No third-party Swift dependency ships in the app apart from the OpenAPI runtime that the type generator needs (below).
@@ -65,6 +65,7 @@ A source is a Headroom server the app reads. The app authenticates with a read-o
 - Distribution: a Homebrew cask, `Casks/headroom-mac.rb`, in this repository, which is already its own tap. Its `postflight` runs `xattr -dr com.apple.quarantine` on the app. No Sparkle and no in-app updater: `brew upgrade` updates the app.
 - Versions: release-please gets a second package, `apps/macos`, with the component `macos`, its own changelog and `version.txt`, and tags `macos-vX.Y.Z`. The root package excludes `apps/macos`, so a Mac-only commit never bumps the server, and a web or server commit never bumps the Mac app. Each package gets its own release pull request.
 - CI: a `macOS` workflow builds and tests the app on GitHub's `macos-26` arm64 runner with a pinned Xcode, on pull requests and pushes that touch `apps/macos/` or the contract. A Mac release builds a universal app, zips it, writes `SHA256SUMS`, attaches both to the `macos-v*` release, renders the cask, installs it on the runner and starts the app as a smoke test.
+- Release staging: release-please creates a draft with `force-tag-creation`, so the workflow can check out the tag while assets remain private. The workflow publishes only after both assets download and verify, then commits the cask after its install smoke test. Xcode is pinned to 26.2 (17C52, Swift 6.2.3). Recovery preserves published assets and tags; see [Releases](../operations/releases.md#headroom-for-mac).
 
 ## Consequences
 
@@ -73,7 +74,7 @@ A source is a Headroom server the app reads. The app authenticates with a read-o
 - The widget extension must run in the App Sandbox or macOS never shows it. Without a Developer ID there is no App Group, so the widget cannot share a container with the app. Spike: the app writes the widget's cache into the widget's own container, or the widget reads the app's cache folder through a read-only sandbox exception. On 2026-10-30 the extension registered and the app wrote both files; the widget's read waits on the owner's manual check. The app uses the widget's own container first and keeps the path behind one type, so the other way is a one-file change.
 - Spike: notification permission and banners for an app without a Developer ID are confirmed on a cask install, not only on a debug build. On 2026-10-30 an ad-hoc build asked for permission; a self-signed build sharing its bundle id was refused (`UNErrorDomain` 1). The owner's manual check is pending.
 - A Mac release must not become the repository's latest release: the installer, `headroom update` and mise read the server from `releases/latest`. The Mac release job marks its release as not latest.
-- The app depends on server routes that ship in a server release first. The feed carries `apiVersion`; an older server answers 404 and the app says the server needs an update.
+- The app depends on server routes that ship in a server release first. The feed carries `apiVersion`; an older server answers 404 and the app says the server needs an update, naming its version. Which side to update and the supported pairings are in D47.
 
 ## Rejected
 

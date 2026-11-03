@@ -7,7 +7,7 @@ const releasesApi = "https://api.github.com/repos/amitray007/headroom/releases/l
 const downloadBase = "https://github.com/amitray007/headroom/releases/download";
 
 /** How this binary reached the machine. Only a standalone install updates itself. */
-export type InstallKind = "homebrew" | "npm" | "python" | "docker" | "standalone";
+export type InstallKind = "app" | "homebrew" | "npm" | "python" | "docker" | "standalone";
 
 /** Everything `headroom update` touches, injected so tests never use the network or the disk. */
 export interface UpdateDeps {
@@ -33,6 +33,7 @@ export interface UpdateOutcome {
 
 /** Work out the install kind from the executable path. Pure; `inDocker` is whether /.dockerenv exists. */
 export function detectInstall(execPath: string, inDocker: boolean): InstallKind {
+  if (execPath.includes(".app/Contents/")) return "app";
   if (execPath.includes("/Cellar/") || execPath.includes("/homebrew/")) return "homebrew";
   if (execPath.includes("node_modules")) return "npm";
   if (/site-packages|\/uv\/tools\/|\/pipx\//.test(execPath)) return "python";
@@ -75,6 +76,10 @@ function restartHint(deps: UpdateDeps): string[] {
 }
 
 const guidance: Record<Exclude<InstallKind, "standalone">, string[]> = {
+  app: [
+    "This copy came with Headroom for Mac.",
+    "Update the app instead: choose Check for Updates in its menu.",
+  ],
   homebrew: ["Installed with Homebrew. Update with:", "  brew upgrade headroom"],
   npm: [
     "Installed from npm. Update with:",
