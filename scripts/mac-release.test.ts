@@ -14,7 +14,12 @@ set -eu
 printf '%s\\n' "$*" >> "$FAKE_LOG"
 case "$1 $2" in
   'api --paginate')
-    if [ "$FAKE_NO_SERVER" != 1 ]; then echo v4.5.6; fi ;;
+    case " $* " in *' --jq '*) echo 'the --slurp option is not supported with --jq' >&2; exit 1 ;; esac
+    if [ "$FAKE_NO_SERVER" = 1 ]; then echo '[[]]'; else
+      echo '[[{"tag_name":"macos-v1.2.3","draft":true,"prerelease":false,"published_at":null},
+        {"tag_name":"v4.5.6","draft":false,"prerelease":false,"published_at":"2026-01-02T00:00:00Z"}],
+        [{"tag_name":"v4.5.5","draft":false,"prerelease":false,"published_at":"2026-01-01T00:00:00Z"}]]'
+    fi ;;
   'release view') echo "$FAKE_DRAFT" ;;
   'release edit') ;;
   'release upload')
