@@ -181,7 +181,13 @@ jobs:
           mise exec -- bun scripts/render-cask.ts "$VERSION" "$RUNNER_TEMP/mac-release/SHA256SUMS" > Casks/headroom-mac.rb
       - name: Smoke-test the cask
         run: |
-          brew install --cask ./Casks/headroom-mac.rb
+          # Homebrew 7 loads casks only from a trusted tap, not from a file path.
+          brew tap-new --no-git headroom/smoke
+          tap=$(brew --repository headroom/smoke)
+          mkdir -p "$tap/Casks"
+          cp Casks/headroom-mac.rb "$tap/Casks/"
+          brew trust headroom/smoke
+          brew install --cask headroom/smoke/headroom-mac
           app=/Applications/Headroom.app
           xattr -lr "$app" > "$RUNNER_TEMP/headroom-xattrs"
           if grep -q com.apple.quarantine "$RUNNER_TEMP/headroom-xattrs"; then
