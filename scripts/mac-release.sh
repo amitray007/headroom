@@ -16,7 +16,7 @@ shasum -a 256 -c SHA256SUMS
 # Never let a Mac release supply releases/latest, even during a retry.
 server_latest() {
   local server
-  server=$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" --jq \
+  server=$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" | jq -r \
     '[.[][] | select(.draft == false and .prerelease == false) | select(.tag_name | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort_by(.published_at) | last | .tag_name // empty')
   test -n "$server" || { echo 'no published server release; refusing Mac publication' >&2; return 1; }
   gh release edit "$tag" --latest=false
