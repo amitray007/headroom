@@ -1,7 +1,6 @@
 cask "headroom-mac" do
-  version "0.1.0"
-  # No archive exists until the first owner release. The release job replaces this cask.
-  sha256 :no_check
+  version "0.1.1"
+  sha256 "af9ca2747da4bffbdb474b8a4ef05010b7249287f45bd18cacc04f0a1d609345"
 
   url "https://github.com/amitray007/headroom/releases/download/macos-v#{version}/Headroom-#{version}.zip"
   name "Headroom"
@@ -13,8 +12,6 @@ cask "headroom-mac" do
     regex(/^macos-v(\d+(?:\.\d+)+)$/i)
     strategy :github_releases
   end
-
-  disable! date: "2026-10-30", because: "is awaiting its first release"
 
   depends_on macos: ">= :sequoia"
 
