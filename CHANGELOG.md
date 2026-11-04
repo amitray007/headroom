@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.16](https://github.com/amitray007/headroom/compare/v0.1.15...v0.1.16) (2026-11-04)
+
+
+### Bug Fixes
+
+* pipe paginated releases to jq in the Mac release script ([5b7fe6c](https://github.com/amitray007/headroom/commit/5b7fe6cc01a9bdde6911b01d2ea124d796d92aab))
+* unblock the Mac release by piping paginated releases to jq ([a8b1798](https://github.com/amitray007/headroom/commit/a8b1798380a0bb3f4799d7a72e30805a8e535b86))
+
 ## [0.1.15](https://github.com/amitray007/headroom/compare/v0.1.14...v0.1.15) (2026-11-03)
 
 
