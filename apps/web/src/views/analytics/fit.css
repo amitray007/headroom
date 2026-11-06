@@ -358,7 +358,7 @@
   text-align: right;
   white-space: nowrap;
 }
-.fit-verdict[data-v="0"] {
+.fit-verdict[data-v="too_small"] {
   color: var(--foreground);
   font-weight: 500;
 }
