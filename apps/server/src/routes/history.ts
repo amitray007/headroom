@@ -3,14 +3,14 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import { Hono } from "hono";
 import { accepts } from "hono/accepts";
 
-import { type HistoryReader, historyMarker } from "@headroom/core";
+import { historyMarker } from "@headroom/core";
 import { encodeHistory } from "@headroom/view-model/history";
 
 import { parseTz } from "./tz.ts";
 
 import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
-import { bucketMs, historyRequest, readHistory } from "../read-model.ts";
+import { bucketMs, historyRequest, readHourlyHistory, type SharedHistory } from "../read-model.ts";
 
 const ranges = new Set(["7", "30", "90"]);
 const cacheLimit = 8;
@@ -21,7 +21,7 @@ const cacheLimit = 8;
  * thread, so the reader keeps its hourly fold and reads only new readings after a sync, and the
  * body is cached gzipped until a snapshot, sync run or event changes.
  */
-export function historyRoutes(ctx: AppContext, reader: HistoryReader): Hono<Env> {
+export function historyRoutes(ctx: AppContext, history: SharedHistory): Hono<Env> {
   const app = new Hono<Env>();
   app.use(requireSession(ctx));
   const cache = new Map<string, Uint8Array<ArrayBuffer>>();
@@ -31,6 +31,7 @@ export function historyRoutes(ctx: AppContext, reader: HistoryReader): Hono<Env>
     if (!ranges.has(param)) return c.json({ error: "invalid_days" }, 400);
     const tz = parseTz(c.req.query("tz"));
     if (tz === null) return c.json({ error: "invalid_tz" }, 400);
+    history.lastTzOffsetMinutes = tz;
     const request = historyRequest(ctx, ctx.now().getTime(), Number(param));
     const { connectionIds } = request;
     const key = [
@@ -43,7 +44,9 @@ export function historyRoutes(ctx: AppContext, reader: HistoryReader): Hono<Env>
     ].join("|");
     let body = cache.get(key);
     if (body === undefined) {
-      const json = JSON.stringify(encodeHistory(readHistory(ctx, reader, request, tz)));
+      const json = JSON.stringify(
+        encodeHistory(readHourlyHistory(ctx, history.reader, request, tz)),
+      );
       body = gzipSync(json);
       if (cache.size >= cacheLimit) cache.delete(cache.keys().next().value!);
       cache.set(key, body);

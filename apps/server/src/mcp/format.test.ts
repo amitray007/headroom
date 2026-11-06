@@ -192,6 +192,26 @@ describe("formatStatus", () => {
     );
   });
 
+  test("finds the next limit back among the filtered accounts", () => {
+    const text = formatStatus(
+      feed(
+        [
+          account({
+            id: "c1",
+            provider: "codex",
+            name: "Spare",
+            plan: null,
+            limits: [limit({ percentLeft: 0, resetsAt: now + hour })],
+          }),
+          account({ limits: [limit({ percentLeft: 0, resetsAt: now + 3 * hour })] }),
+        ],
+        { nextLimitBack: { accountId: "c1", metricKey: "weekly", at: now + hour } },
+      ),
+      "claude",
+    );
+    expect(text.split("\n").at(-1)).toBe("next limit back: Work weekly in 3 h");
+  });
+
   test("filters by provider and says so when none match", () => {
     const f = feed([account()]);
     expect(formatStatus(f, "claude")).toBe("claude · Work (Max) · private API");
@@ -280,8 +300,16 @@ describe("formatHistory", () => {
     );
   });
 
-  test("says when there is no history or no closed window", () => {
-    expect(formatHistory(analytics([], null), new Map(), 30)).toBe("last 30 days, no history yet");
+  test("says when there is no account, no history or no closed window", () => {
+    expect(formatHistory(analytics([], null), new Map(), 30)).toBe(
+      "no active accounts with percentage limits",
+    );
+    expect(formatHistory(analytics([], 12), new Map(), 30, "codex")).toBe(
+      "no active codex accounts with percentage limits",
+    );
+    expect(formatHistory(analytics([story("a")], null), new Map(), 30)).toBe(
+      "last 30 days, no history yet\nclaude · Work (Max): no closed windows yet",
+    );
     expect(formatHistory(analytics([story("a")], 5), new Map(), 30)).toBe(
       "last 30 days, history covers 5 days\nclaude · Work (Max): no closed windows yet",
     );

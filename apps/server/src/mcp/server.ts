@@ -1,13 +1,21 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
-import { type HistoryReader, providerSchema } from "@headroom/core";
+import { providerSchema } from "@headroom/core";
+import { isInactive } from "@headroom/view-model/accounts";
 import { buildAnalytics, planFitOf } from "@headroom/view-model/analytics";
 import { monthlyUsd } from "@headroom/view-model/wallet";
 
 import type { AppContext } from "../bootstrap.ts";
 import { overviewConnections } from "../overview-model.ts";
-import { currentAppFeed, historyRequest, readHistory } from "../read-model.ts";
+import {
+  currentAppStatus,
+  day,
+  historyKeepDays,
+  historyRequest,
+  readHourlyHistory,
+  type SharedHistory,
+} from "../read-model.ts";
 import { version } from "../version.ts";
 import { formatHistory, formatStatus } from "./format.ts";
 
@@ -29,12 +37,15 @@ const text = (value: string) => ({ content: [{ type: "text" as const, text: valu
 
 function historyText(
   ctx: AppContext,
-  reader: HistoryReader,
+  history: SharedHistory,
   input: z.infer<typeof historyInput>,
 ): string {
   const now = ctx.now().getTime();
+  // Plan fit leaves out paused and disconnected accounts, as the dashboard does.
   const connections = overviewConnections(ctx, now).filter(
-    (connection) => input.provider === undefined || connection.provider === input.provider,
+    (connection) =>
+      !isInactive(connection) &&
+      (input.provider === undefined || connection.provider === input.provider),
   );
   const costs = ctx.wallet.book().costs;
   const perUsd = ctx.exchangeRates.view().perUsd;
@@ -44,19 +55,19 @@ function historyText(
       monthlyUsd(costs[connection.id] ?? null, perUsd, false).usd,
     ]),
   );
-  const request = historyRequest(ctx, now, input.days);
-  const history = readHistory(ctx, reader, request, 0);
-  const analytics = buildAnalytics(connections, history, now, input.days, monthlyCosts);
-  // Plan fit leaves out paused and disconnected accounts, as the dashboard does.
-  const accounts = analytics.accounts.filter((story) => !story.inactive);
+  // Read the whole kept range, not just `days`: a window that ends inside the span often starts before it.
+  // The dashboard reads the same range in its own zone, so this reuses its fold.
+  const request = historyRequest(ctx, now, historyKeepDays);
+  const stored = readHourlyHistory(ctx, history.reader, request, history.lastTzOffsetMinutes);
+  const analytics = buildAnalytics(connections, stored, now, input.days, monthlyCosts);
   const fits = new Map(
-    accounts.map((story) => [story.id, planFitOf(story, now, request.to - request.from)]),
+    analytics.accounts.map((story) => [story.id, planFitOf(story, now, input.days * day)]),
   );
-  return formatHistory({ ...analytics, accounts }, fits, input.days);
+  return formatHistory(analytics, fits, input.days, input.provider);
 }
 
 /** A fresh server per request: the tools are stateless reads of the shared context and history fold. */
-export function createMcpServer(ctx: AppContext, reader: HistoryReader): McpServer {
+export function createMcpServer(ctx: AppContext, history: SharedHistory): McpServer {
   const server = new McpServer({ name: "headroom", version }, { instructions });
   server.registerTool(
     "status",
@@ -66,7 +77,7 @@ export function createMcpServer(ctx: AppContext, reader: HistoryReader): McpServ
       inputSchema: statusInput,
       annotations,
     },
-    (input) => text(formatStatus(currentAppFeed(ctx, ctx.now().getTime(), 0), input.provider)),
+    (input) => text(formatStatus(currentAppStatus(ctx, ctx.now().getTime()), input.provider)),
   );
   server.registerTool(
     "history",
@@ -76,7 +87,7 @@ export function createMcpServer(ctx: AppContext, reader: HistoryReader): McpServ
       inputSchema: historyInput,
       annotations,
     },
-    (input) => text(historyText(ctx, reader, input)),
+    (input) => text(historyText(ctx, history, input)),
   );
   return server;
 }

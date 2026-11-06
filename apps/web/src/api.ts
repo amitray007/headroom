@@ -141,6 +141,8 @@ const createdTokenSchema = z.object({
   id: z.string(),
   name: z.string().nullable(),
   key: z.string(),
+  /** Null when the server has no public URL; the browser then uses its own origin. */
+  mcpUrl: z.string().nullable().default(null),
 });
 const meSchema = z.object({ id: z.string(), name: z.string(), email: z.string() });
 const providersSchema = z.object({

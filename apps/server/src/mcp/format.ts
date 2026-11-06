@@ -2,12 +2,14 @@ import type { z } from "zod";
 
 import type { Provider } from "@headroom/core";
 import type { AccountStory, PlanFit } from "@headroom/view-model/analytics";
-import type { appFeedSchema } from "@headroom/view-model/app-feed";
+import { type appFeedSchema, nextLimitBackOf } from "@headroom/view-model/app-feed";
 import { age, countdown } from "@headroom/view-model/time";
 import { formatMoney } from "@headroom/view-model/wallet-money";
 
 type Feed = z.infer<typeof appFeedSchema>;
 type FeedAccount = Feed["accounts"][number];
+/** What the status text reads: the feed without its notices. */
+type Status = Pick<Feed, "generatedAt" | "staleAfterMs" | "accounts" | "summary">;
 
 type HistoryAccount = Pick<AccountStory, "id" | "provider" | "name" | "plan">;
 
@@ -39,7 +41,7 @@ function within(target: number, now: number): string | null {
 const privateMark = (metric: { interface: string }, account: FeedAccount): string =>
   metric.interface === "private" && account.interface !== "private" ? " (private)" : "";
 
-function headerOf(account: FeedAccount, feed: Feed): string {
+function headerOf(account: FeedAccount, feed: Status): string {
   const parts = [label(account.provider, account.name, account.plan)];
   if (account.interface === "private") parts.push("private API");
   const state = stateWords[account.state];
@@ -96,7 +98,7 @@ function bankedLine(banked: NonNullable<FeedAccount["banked"]>, now: number): st
   return `banked: ${figure(banked.count)} ${banked.unit}${expiry}`;
 }
 
-function accountBlock(account: FeedAccount, feed: Feed): string[] {
+function accountBlock(account: FeedAccount, feed: Status): string[] {
   const now = feed.generatedAt;
   const banked = account.banked === null ? null : bankedLine(account.banked, now);
   return [
@@ -108,7 +110,7 @@ function accountBlock(account: FeedAccount, feed: Feed): string[] {
 }
 
 /** One text block per account, listing only the facts that are not defaults. */
-export function formatStatus(feed: Feed, provider?: Provider): string {
+export function formatStatus(feed: Status, provider?: Provider): string {
   const accounts = feed.accounts.filter(
     (account) => provider === undefined || account.provider === provider,
   );
@@ -117,7 +119,11 @@ export function formatStatus(feed: Feed, provider?: Provider): string {
   const lines = accounts.flatMap((account) => accountBlock(account, feed));
   const total = feed.summary.monthlyPlanTotal;
   if (provider === undefined && total !== null) lines.push(`plans: ${formatMoney(total)}/month`);
-  const back = feed.summary.nextLimitBack;
+  // The summary's next limit can belong to a filtered-out provider; work it out from the shown accounts.
+  const back =
+    provider === undefined
+      ? feed.summary.nextLimitBack
+      : nextLimitBackOf(accounts, feed.generatedAt);
   const backAccount =
     back === null ? undefined : accounts.find((account) => account.id === back.accountId);
   const backIn = back === null ? null : within(back.at, feed.generatedAt);
@@ -158,7 +164,11 @@ export function formatHistory(
   analytics: HistoryModel,
   fits: ReadonlyMap<string, PlanFit | null>,
   days: number,
+  provider?: Provider,
 ): string {
+  if (analytics.accounts.length === 0) {
+    return `no active ${provider === undefined ? "" : `${provider} `}accounts with percentage limits`;
+  }
   const coverage = analytics.history.coverageDays;
   const first =
     analytics.history.empty || coverage === null

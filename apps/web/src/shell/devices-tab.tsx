@@ -42,14 +42,14 @@ export function DevicesTab() {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [refresh, setRefresh] = useState(false);
-  const [created, setCreated] = useState<{ readonly name: string; readonly key: string } | null>(
-    null,
-  );
+  const [created, setCreated] = useState<{
+    readonly name: string;
+    readonly key: string;
+    readonly mcpUrl: string;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<string | null>(null);
   const nameId = useId();
-  // Agents send the token as a bearer header to this server's read-only MCP endpoint.
-  const mcpAddress = `${window.location.origin}/api/mcp`;
   const reload = async (): Promise<void> => {
     setError(null);
     try {
@@ -79,7 +79,12 @@ export function DevicesTab() {
     setError(null);
     try {
       const token = await api.createToken(name.trim(), refresh);
-      setCreated({ name: token.name ?? name.trim(), key: token.key });
+      setCreated({
+        name: token.name ?? name.trim(),
+        key: token.key,
+        // Agents send the token as a bearer header to this server's read-only MCP endpoint.
+        mcpUrl: token.mcpUrl ?? `${window.location.origin}/api/mcp`,
+      });
       setName("");
       await reload();
     } catch (cause) {
@@ -163,8 +168,8 @@ export function DevicesTab() {
               <Button onClick={() => setCreated(null)}>Done</Button>
             </div>
             <div className="key-field">
-              <code aria-label="MCP address">{mcpAddress}</code>
-              <CopyButton value={mcpAddress} label="Copy MCP Address" size="sm" iconOnly />
+              <code aria-label="MCP address">{created.mcpUrl}</code>
+              <CopyButton value={created.mcpUrl} label="Copy MCP Address" size="sm" iconOnly />
             </div>
           </div>
         )}

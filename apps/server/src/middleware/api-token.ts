@@ -18,7 +18,7 @@ function allowedMethods(path: string): string[] {
   return ["GET", "HEAD"];
 }
 
-/** Per-process failed-attempt window, bounded even when many addresses send invalid keys. Mount one guard on every token route so they share it. */
+/** Per-process failed-attempt window, bounded even when many addresses send invalid keys. */
 export function requireApiToken(
   ctx: AppContext,
   address: (c: Context<Env>) => string,
@@ -63,6 +63,8 @@ export function requireApiToken(
         count: (current?.count ?? 0) + 1,
         until: current?.until ?? now + windowMs,
       });
+      // MCP clients read this to tell a bad token from a server that wants OAuth.
+      c.header("WWW-Authenticate", match ? 'Bearer error="invalid_token"' : "Bearer");
       return c.json({ error: "invalid_token" }, 401);
     }
     const scopes = apiTokenScopesOf(result.key.permissions);

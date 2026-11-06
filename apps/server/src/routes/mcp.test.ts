@@ -128,22 +128,39 @@ describe("POST /api/mcp", () => {
     }
   });
 
-  test("shares the failed-token limit with the app feed", async () => {
+  test("keeps its own failed-token window, apart from the app feed", async () => {
     const h = await fixture();
     try {
-      const bad = { authorization: "Bearer wrong" };
-      const feeds = await Promise.all(
+      const bad = { authorization: "Bearer wrong", "content-type": "application/json" };
+      const posts = await Promise.all(
         Array.from({ length: 10 }, async () =>
-          h.app.request(url(h.ctx, "/api/app/v1/feed"), { headers: bad }),
+          h.app.request(url(h.ctx, "/api/mcp"), { method: "POST", headers: bad, body: "{}" }),
         ),
       );
-      expect(feeds.map((feed) => feed.status)).toEqual(Array.from({ length: 10 }, () => 401));
-      const response = await h.app.request(url(h.ctx, "/api/mcp"), {
+      expect(posts.map((post) => post.status)).toEqual(Array.from({ length: 10 }, () => 401));
+      expect(posts[0]?.headers.get("www-authenticate")).toBe('Bearer error="invalid_token"');
+      const locked = await h.app.request(url(h.ctx, "/api/mcp"), {
         method: "POST",
-        headers: { ...bad, "content-type": "application/json" },
+        headers: bad,
         body: "{}",
       });
-      expect(response.status).toBe(429);
+      expect(locked.status).toBe(429);
+      const feed = await h.app.request(url(h.ctx, "/api/app/v1/feed"), {
+        headers: { authorization: "Bearer wrong" },
+      });
+      expect(feed.status).toBe(401);
+    } finally {
+      h.ctx.sqlite.close();
+    }
+  });
+
+  test("answers an OAuth discovery probe with 404", async () => {
+    const h = await fixture();
+    try {
+      const probe = await h.app.request(
+        url(h.ctx, "/.well-known/oauth-protected-resource/api/mcp"),
+      );
+      expect(probe.status).toBe(404);
     } finally {
       h.ctx.sqlite.close();
     }
@@ -217,14 +234,14 @@ describe("POST /api/mcp", () => {
       const result = await h.call("history", { days: 30 });
       expect(result.content?.[0]?.text).toBe(
         [
-          "last 30 days, history covers 30 days",
+          "last 30 days, history covers 37 days",
           "marks: ! hit the limit",
           "claude · Personal (Max) weekly: 4 windows, avg peak 79%, max 100%, hit limit 1x (1 h locked), fit: fits, ~$4/month unused",
           "  peaks: 64 82 100! 71",
         ].join("\n"),
       );
       const other = await h.call("history", { provider: "codex" });
-      expect(other.content?.[0]?.text).toBe("last 30 days, no history yet");
+      expect(other.content?.[0]?.text).toBe("no active codex accounts with percentage limits");
     } finally {
       h.ctx.sqlite.close();
     }
@@ -234,7 +251,8 @@ describe("POST /api/mcp", () => {
     const h = await fixture();
     try {
       const lastWeek = await h.call("history", { days: 7 });
-      expect(lastWeek.content?.[0]?.text).toStartWith("last 7 days, history covers ");
+      // The window that ended this week started before the span and still counts.
+      expect(lastWeek.content?.[0]?.text).toContain("weekly: 1 window,");
       const response = await h.rpc({
         jsonrpc: "2.0",
         id: 1,
