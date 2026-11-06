@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.2](https://github.com/amitray007/headroom/compare/macos-v0.1.1...macos-v0.1.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* hide the Mac Settings title bar background that frosts on hover ([ec5b359](https://github.com/amitray007/headroom/commit/ec5b359b406a072e256b2f00fba09617e7268bbd))
+* keep Mac Settings pane titles out of the frosted title bar ([7b698b6](https://github.com/amitray007/headroom/commit/7b698b6859eddee43ca9b2e3d0be9b8a0b18953f))
+* keep the Mac Settings pane title readable when hovering the title bar ([dfaa461](https://github.com/amitray007/headroom/commit/dfaa461339537d448d8d38d587a4db6ec02ff345))
+* lead the Mac app with Claude's all-models weekly, as the dashboard does ([b9e9de5](https://github.com/amitray007/headroom/commit/b9e9de5d19d71f605897c4f09fc6f0bfeff8d13e))
+* mark Claude model weeklies as parts of the all-models weekly ([1538545](https://github.com/amitray007/headroom/commit/153854596b83de6ca5bf77d3f9a255129b7b4053))
+* stop the Mac Settings title bar frosting on hover ([01171db](https://github.com/amitray007/headroom/commit/01171dbdb6194120dd1a9b54a953b66ea1d7d9c6))
+
 ## [0.1.1](https://github.com/amitray007/headroom/compare/macos-v0.1.0...macos-v0.1.1) (2026-11-03)
 
 
