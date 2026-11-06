@@ -146,7 +146,7 @@ interface Candidate {
 }
 
 /** A model-scoped weekly window, such as Weekly Fable. */
-function isScopedWeekly(provider: Provider, key: string): boolean {
+export function isScopedWeekly(provider: Provider, key: string): boolean {
   return provider === "claude" && (key.startsWith("limits.") || key === "seven_day_sonnet");
 }
 

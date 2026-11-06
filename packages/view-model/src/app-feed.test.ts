@@ -228,6 +228,20 @@ describe("app feed", () => {
     expect(build([off]).accounts[0]?.charges[0]?.cap).toBeNull();
   });
 
+  test("Claude model weeklies are parts of the all-models weekly", () => {
+    const claude = connection("claude", {
+      metrics: [
+        percent("seven_day", 30, { resetsAt: now + 72 * hour }),
+        percent("limits.Fable", 90, { resetsAt: now + 72 * hour }),
+        percent("seven_day_sonnet", 10, { resetsAt: now + 72 * hour }),
+      ],
+    });
+    const parts = Object.fromEntries(
+      build([claude]).accounts[0]!.limits.map((limit) => [limit.key, limit.part]),
+    );
+    expect(parts).toEqual({ seven_day: false, "limits.Fable": true, seven_day_sonnet: true });
+  });
+
   test("Cursor parts, provider caps, units, banked expiries and the next exhausted limit", () => {
     const cursor = connection("cursor", {
       metrics: [

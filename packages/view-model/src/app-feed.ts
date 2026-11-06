@@ -20,6 +20,7 @@ import { accountName, planLabel } from "./labels.ts";
 import {
   deriveNotifications,
   expiringTopUps,
+  isScopedWeekly,
   metricOf,
   numberOf,
   projectedRunOut,
@@ -248,6 +249,14 @@ function bankedOf(
   };
 }
 
+/** A limit inside the account's total: Cursor's Auto and API pools, Claude's model weeklies. */
+function isPartLimit(provider: Provider, key: string): boolean {
+  return (
+    isScopedWeekly(provider, key) ||
+    (provider === "cursor" && ["included.auto_percent", "included.api_percent"].includes(key))
+  );
+}
+
 /** Pure: the caller supplies the representation time, preferences, Wallet and stored rates. */
 export function buildAppFeed(input: FeedInput): Feed {
   const accounts = input.connections.map((connection) => {
@@ -282,9 +291,7 @@ export function buildAppFeed(input: FeedInput): Feed {
           // The notices' recent-rate projection, anchored to the reading rather than the request,
           // without the pacing notice's one-day lead: the popover shows any run-out before the reset.
           runsOutAt,
-          part:
-            connection.provider === "cursor" &&
-            ["included.auto_percent", "included.api_percent"].includes(window.key),
+          part: isPartLimit(connection.provider, window.key),
           interface: metricOf(connection, window.key)?.interface ?? connection.interface,
         };
       }),
