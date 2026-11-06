@@ -176,7 +176,7 @@
           "resetsAt": 1793616736604,
           "resetWords": "resets",
           "runsOutAt": null,
-          "part": false,
+          "part": true,
           "interface": "private"
         }
       ],
@@ -294,7 +294,7 @@
           "resetsAt": 1793320660624,
           "resetWords": "resets",
           "runsOutAt": null,
-          "part": false,
+          "part": true,
           "interface": "private"
         }
       ],
