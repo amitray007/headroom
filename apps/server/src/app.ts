@@ -24,6 +24,8 @@ import { connectionRoutes } from "./routes/connections.ts";
 import { deliveryRoutes } from "./routes/delivery.ts";
 import { exchangeRateRoutes } from "./routes/exchange-rates.ts";
 import { orderRoutes } from "./routes/order.ts";
+import { mcpRoutes } from "./routes/mcp.ts";
+import { createSharedHistory } from "./read-model.ts";
 import { historyRoutes } from "./routes/history.ts";
 import { overviewRoutes } from "./routes/overview.ts";
 import { providerRoutes } from "./routes/providers.ts";
@@ -85,6 +87,10 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/app/v1/pair", appPairRoutes(ctx, addressOf));
   api.use("/app/v1/*", requireApiToken(ctx, addressOf));
   api.route("/app/v1", appRoutes(ctx));
+  const history = createSharedHistory();
+  // Its own failure window: an agent retrying a revoked token must not lock the Mac app out.
+  api.use("/mcp", requireApiToken(ctx, addressOf));
+  api.route("/mcp", mcpRoutes(ctx, history));
 
   api.use(
     cors({
@@ -127,7 +133,7 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/connections", connectionRoutes(ctx));
   api.route("/attempts", attemptRoutes(ctx));
   api.route("/overview", overviewRoutes(ctx));
-  api.route("/history", historyRoutes(ctx));
+  api.route("/history", historyRoutes(ctx, history));
   api.route("/order", orderRoutes(ctx));
   api.route("/settings", settingsRoutes(ctx));
   api.route("/notices", noticeRoutes(ctx));
@@ -136,6 +142,8 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/wallet", walletRoutes(ctx));
 
   app.route("/api", api);
+  // Headroom offers no OAuth: an MCP client's discovery probe gets 404, not the web UI's index page.
+  app.get("/.well-known/*", (c) => c.json({ error: "not_found" }, 404));
 
   // Built web UI, when present: static assets, then index.html for client-side routes.
   const web = resolveWebAssets(ctx.config.webDir);

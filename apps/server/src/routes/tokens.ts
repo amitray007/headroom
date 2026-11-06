@@ -43,7 +43,10 @@ export function tokenRoutes(ctx: AppContext): Hono<Env> {
         permissions: { app: parsed.data.refresh === true ? ["read", "refresh"] : ["read"] },
       },
     });
-    return c.json({ id: token.id, name: token.name, key: token.key }, 201);
+    // The configured public address reaches this server from other machines; the browser falls back to its own.
+    const mcpUrl =
+      ctx.config.publicUrl === undefined ? null : new URL("/api/mcp", ctx.config.publicUrl).href;
+    return c.json({ id: token.id, name: token.name, key: token.key, mcpUrl }, 201);
   });
   app.delete("/:id", (c) => {
     const id = tokenId.safeParse(c.req.param("id"));

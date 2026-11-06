@@ -258,8 +258,22 @@ function isPartLimit(provider: Provider, key: string): boolean {
 }
 
 /** Pure: the caller supplies the representation time, preferences, Wallet and stored rates. */
-export function buildAppFeed(input: FeedInput): Feed {
-  const accounts = input.connections.map((connection) => {
+type FeedAccount = Feed["accounts"][number];
+
+/** The parts of the feed input the accounts and summary read. */
+type StatusInput = Pick<
+  FeedInput,
+  "connections" | "providerOrder" | "wallet" | "rates" | "generatedAt"
+>;
+
+/** The feed's accounts and summary, without notices, for callers that never show them. */
+export interface AppStatus {
+  readonly accounts: FeedAccount[];
+  readonly summary: Feed["summary"];
+}
+
+function feedAccounts(connections: readonly OverviewConnection[], generatedAt: number) {
+  return connections.map((connection): FeedAccount => {
     const panel = presentPanel(connection);
     return {
       id: connection.id,
@@ -276,7 +290,7 @@ export function buildAppFeed(input: FeedInput): Feed {
         const runsOutAt = projectedRunOut(
           connection,
           window,
-          connection.snapshot?.observedAt ?? input.generatedAt,
+          connection.snapshot?.observedAt ?? generatedAt,
         );
         return {
           key: window.key,
@@ -299,6 +313,33 @@ export function buildAppFeed(input: FeedInput): Feed {
       banked: bankedOf(connection, panel),
     };
   });
+}
+
+/** The earliest future reset of an exhausted whole limit on a ready or partial account. */
+export function nextLimitBackOf(
+  accounts: readonly FeedAccount[],
+  now: number,
+): Feed["summary"]["nextLimitBack"] {
+  return (
+    accounts
+      .filter((account) => account.state === "ready" || account.state === "partial")
+      .flatMap((account) =>
+        account.limits
+          .filter(
+            (limit) =>
+              !limit.part &&
+              limit.percentLeft === 0 &&
+              limit.resetsAt !== null &&
+              limit.resetsAt > now,
+          )
+          .map((limit) => ({ accountId: account.id, metricKey: limit.key, at: limit.resetsAt! })),
+      )
+      .toSorted((a, b) => a.at - b.at)[0] ?? null
+  );
+}
+
+export function buildAppStatus(input: StatusInput): AppStatus {
+  const accounts = feedAccounts(input.connections, input.generatedAt);
   const totals = new Map<string, number | null>();
   for (const charge of accounts.flatMap((account) => account.charges)) {
     if (charge.kind !== "spend") continue;
@@ -316,21 +357,20 @@ export function buildAppFeed(input: FeedInput): Feed {
     input.generatedAt,
   );
   const hasCost = wallet.counts.paid + wallet.counts.free + wallet.counts.included > 0;
-  const nextLimitBack =
-    accounts
-      .filter((account) => account.state === "ready" || account.state === "partial")
-      .flatMap((account) =>
-        account.limits
-          .filter(
-            (limit) =>
-              !limit.part &&
-              limit.percentLeft === 0 &&
-              limit.resetsAt !== null &&
-              limit.resetsAt > input.generatedAt,
-          )
-          .map((limit) => ({ accountId: account.id, metricKey: limit.key, at: limit.resetsAt! })),
-      )
-      .toSorted((a, b) => a.at - b.at)[0] ?? null;
+  return {
+    accounts,
+    summary: {
+      monthlyPlanTotal: hasCost && wallet.monthly.missing === 0 ? wallet.monthly.money : null,
+      extraSpend: [...totals]
+        .toSorted(([a], [b]) => a.localeCompare(b))
+        .map(([unit, value]) => ({ unit, value })),
+      nextLimitBack: nextLimitBackOf(accounts, input.generatedAt),
+    },
+  };
+}
+
+export function buildAppFeed(input: FeedInput): Feed {
+  const { accounts, summary } = buildAppStatus(input);
   const notices = deriveNotifications(
     input.connections,
     {
@@ -355,13 +395,7 @@ export function buildAppFeed(input: FeedInput): Feed {
     dashboardUrl: input.dashboardUrl,
     providerOrder: [...input.providerOrder],
     accounts,
-    summary: {
-      monthlyPlanTotal: hasCost && wallet.monthly.missing === 0 ? wallet.monthly.money : null,
-      extraSpend: [...totals]
-        .toSorted(([a], [b]) => a.localeCompare(b))
-        .map(([unit, value]) => ({ unit, value })),
-      nextLimitBack,
-    },
+    summary,
     notices,
   });
 }

@@ -89,7 +89,13 @@ export { CollectionService, type CollectionOutcome } from "./services/collect.ts
 export { upgradeIdentities } from "./services/identity-upgrade.ts";
 export { ActionStore, type AccountActionRow } from "./actions.ts";
 export { AccountEventStore } from "./account-events.ts";
-export { createHistoryReader, historyMarker, readHistory, type HistoryRange } from "./history.ts";
+export {
+  createHistoryReader,
+  historyMarker,
+  readHistory,
+  type HistoryRange,
+  type HistoryReader,
+} from "./history.ts";
 export { AutomationStore } from "./automation.ts";
 export {
   detectAccountEvents,

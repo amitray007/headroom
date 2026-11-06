@@ -4,7 +4,12 @@ import { z } from "zod";
 import { createApp, version } from "../app.ts";
 import { jsonPost, signedIn, testContext, url } from "../test-helpers.ts";
 
-const createdSchema = z.object({ id: z.string(), name: z.string(), key: z.string() });
+const createdSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  key: z.string(),
+  mcpUrl: z.string().nullable(),
+});
 const listSchema = z.object({
   tokens: z.array(
     z
@@ -78,6 +83,7 @@ describe("read-only API tokens", () => {
             route.path.startsWith("/api/") &&
             !route.path.startsWith("/api/auth/") &&
             !route.path.startsWith("/api/app/") &&
+            route.path !== "/api/mcp" &&
             route.path !== "/api/setup",
         )
         .map((route) => `${route.method} ${concrete(route.path)}`),
@@ -143,6 +149,23 @@ describe("read-only API tokens", () => {
           }),
         ),
       ),
+    );
+    ctx.sqlite.close();
+  });
+
+  test("creation names the MCP address from the public URL, or none without one", async () => {
+    const plain = await fixture();
+    expect(plain.token.mcpUrl).toBeNull();
+    plain.ctx.sqlite.close();
+    const ctx = testContext({ HEADROOM_PUBLIC_URL: "https://headroom.example.com" });
+    const app = createApp(ctx);
+    const cookie = await signedIn(ctx, app);
+    const response = await app.request(
+      url(ctx, "/api/tokens"),
+      jsonPost(ctx, { name: "Agent" }, { cookie }),
+    );
+    expect(createdSchema.parse(await response.json()).mcpUrl).toBe(
+      "https://headroom.example.com/api/mcp",
     );
     ctx.sqlite.close();
   });

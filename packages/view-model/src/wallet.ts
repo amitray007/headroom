@@ -239,6 +239,25 @@ export function monthlyOf(cost: Cost | null): Money | null {
   return { minor, currency: cost.price.currency };
 }
 
+/**
+ * Monthly cost in US dollars from the Wallet: 0 for a free or included plan. Null is unknown, with the reason in
+ * `note`: no cost entry, the Wallet did not load, or the price is in a currency with no exchange rate.
+ */
+export function monthlyUsd(
+  cost: Cost | null,
+  perUsd: Readonly<Partial<Record<string, number>>> | null,
+  walletFailed: boolean,
+): { readonly usd: number | null; readonly note: string } {
+  if (walletFailed) return { usd: null, note: "Price unavailable" };
+  // A free plan, or one included in another subscription, is a known $0: monthlyOf returns zero for it.
+  const monthly = monthlyOf(cost);
+  if (monthly === null) return { usd: null, note: "Price not set" };
+  const dollars = convert(monthly, "USD", perUsd ?? {});
+  return dollars === null
+    ? { usd: null, note: `Price in ${monthly.currency}, no rate` }
+    : { usd: dollars.minor / 100, note: "" };
+}
+
 const usageSpendMetrics: Partial<Record<Provider, { key: string; label: string }>> = {
   claude: { key: "extra_usage.used", label: "Extra usage this month" },
   cursor: { key: "on_demand.used", label: "On-demand this cycle" },
