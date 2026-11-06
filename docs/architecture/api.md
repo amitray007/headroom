@@ -65,7 +65,7 @@ The strict `appFeedSchema` in `packages/view-model/src/app-feed.ts` defines the 
 | `providerOrder`, `accounts` | The same provider and account order as the overview |
 | `summary.monthlyPlanTotal` | Wallet monthly price total as `{ minor, currency }`, or null when no cost is entered or a conversion rate is missing |
 | `summary.extraSpend` | Spend totals as `{ unit, value }`, sorted by unit. Any unread spend makes that unit's total null |
-| `summary.nextLimitBack` | The earliest future reset of an exhausted limit on a ready or partial account, as `{ accountId, metricKey, at }`, or null. Cursor parts do not count |
+| `summary.nextLimitBack` | The earliest future reset of an exhausted limit on a ready or partial account, as `{ accountId, metricKey, at }`, or null. Limits with `part: true` do not count |
 | `notices` | Validated `notificationEventSchema` events from the delivery derivation, with exact time style, the request offset and Wallet expiry notices. Each adds `read`, true when the owner marked it read. Dashboard links use `dashboardUrl` when set |
 
 Each account carries its internal `id`, provider, display name, plan, display identity, state, reconnect reason, interface, `lastSuccessAt` and `observedAt`. These timestamps let the app show age without changing the feed each second. It carries no provider account id, workspace id, credential, raw response or run error text.
