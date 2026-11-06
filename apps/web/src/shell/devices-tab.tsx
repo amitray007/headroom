@@ -48,6 +48,8 @@ export function DevicesTab() {
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<string | null>(null);
   const nameId = useId();
+  // Agents send the token as a bearer header to this server's read-only MCP endpoint.
+  const mcpAddress = `${window.location.origin}/api/mcp`;
   const reload = async (): Promise<void> => {
     setError(null);
     try {
@@ -116,8 +118,8 @@ export function DevicesTab() {
                 <b>Device Name</b>
                 <span className="muted">
                   {refresh
-                    ? "A token lets Headroom for Mac read this server and change its Refresh Every."
-                    : "A token lets Headroom for Mac read this server."}
+                    ? "A token lets Headroom for Mac or an AI agent read this server. The Mac app can also change its Refresh Every."
+                    : "A token lets Headroom for Mac or an AI agent read this server."}
                 </span>
               </label>
               <Segmented
@@ -149,7 +151,8 @@ export function DevicesTab() {
             <span className="sbody">
               <b>Token for {created.name}</b>
               <span className="muted">
-                Shown once. Paste it into Headroom for Mac with this server&apos;s address.
+                Shown once. Paste it into Headroom for Mac with this server&apos;s address, or give
+                it to an AI agent with the MCP address below.
               </span>
             </span>
             <div className="device-create">
@@ -158,6 +161,10 @@ export function DevicesTab() {
                 <CopyButton value={created.key} label="Copy Token" size="sm" iconOnly />
               </div>
               <Button onClick={() => setCreated(null)}>Done</Button>
+            </div>
+            <div className="key-field">
+              <code aria-label="MCP address">{mcpAddress}</code>
+              <CopyButton value={mcpAddress} label="Copy MCP Address" size="sm" iconOnly />
             </div>
           </div>
         )}
@@ -178,7 +185,7 @@ export function DevicesTab() {
           </div>
         ) : tokens.length === 0 ? (
           <EmptyState compact icon={<KeyIcon />} title="No devices yet">
-            Create a token above, then add this server in Headroom for Mac.
+            Create a token above, then add this server in Headroom for Mac or an MCP client.
           </EmptyState>
         ) : (
           tokens.map((token) => {
