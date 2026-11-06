@@ -45,6 +45,10 @@ Run the checks in [the validation plan](../validation.md) after implementation a
 
 ## Headroom validation results
 
+Kimi Code was added on 2026-11-06 from the official clients' pinned source revisions in its [dossier](../providers/kimi.md). Its OAuth and usage reads are **source-inspected**. Synthetic tests cover regional device approval, denial, expiry, throttling, credential encryption, account isolation, refresh rotation, reconnect continuity, schema drift and session/weekly resets. Desktop and phone browser checks use Demo Mode or throwaway synthetic servers. Implementation tests made no real account requests.
+
+The owner completed browser approval. Normalized local metadata showed `device_code`, `ready`, `quota.five_hour` and `quota.weekly`, without collection errors. This is a **prior observation**, not proof for all plans or deployments. No account identifiers, quota values, credentials or raw provider responses were recorded. Monthly stats are outside scope. Remaining live refresh, revocation, two-account and deployment gates are **unvalidated**.
+
 | Date | Check | Result |
 | --- | --- | --- |
 | 2026-10-01 | `codex login --device-auth` (CLI 0.159.3) run headless on macOS with `CODEX_HOME` set to an empty directory and stdin closed | Printed the verification URL and a one-time code with a fifteen-minute expiry, wrote only `log/codex-login.log`, polled until killed. No sign-in was completed, so `auth.json` creation and refresh remain to be observed |

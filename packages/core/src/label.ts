@@ -17,6 +17,7 @@ const fallbackLabels: Readonly<Record<Provider, string>> = {
   antigravity: "Antigravity",
   copilot: "Copilot",
   cursor: "Cursor",
+  kimi: "Kimi Code",
   vercel_ai_gateway: "Vercel AI Gateway",
 };
 

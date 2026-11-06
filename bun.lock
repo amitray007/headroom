@@ -26,6 +26,7 @@
         "@headroom/connector-copilot": "workspace:*",
         "@headroom/connector-cursor": "workspace:*",
         "@headroom/connector-grok": "workspace:*",
+        "@headroom/connector-kimi": "workspace:*",
         "@headroom/connector-vercel-ai-gateway": "workspace:*",
         "@headroom/core": "workspace:*",
         "@headroom/view-model": "workspace:*",
@@ -96,6 +97,14 @@
     },
     "packages/connectors/grok": {
       "name": "@headroom/connector-grok",
+      "version": "0.1.0",
+      "dependencies": {
+        "@headroom/core": "workspace:*",
+        "zod": "4.6.7",
+      },
+    },
+    "packages/connectors/kimi": {
+      "name": "@headroom/connector-kimi",
       "version": "0.1.0",
       "dependencies": {
         "@headroom/core": "workspace:*",
@@ -240,6 +249,8 @@
     "@headroom/connector-cursor": ["@headroom/connector-cursor@workspace:packages/connectors/cursor"],
 
     "@headroom/connector-grok": ["@headroom/connector-grok@workspace:packages/connectors/grok"],
+
+    "@headroom/connector-kimi": ["@headroom/connector-kimi@workspace:packages/connectors/kimi"],
 
     "@headroom/connector-vercel-ai-gateway": ["@headroom/connector-vercel-ai-gateway@workspace:packages/connectors/vercel-ai-gateway"],
 

@@ -27,6 +27,7 @@ const cardOrder: readonly Provider[] = [
   "copilot",
   "grok",
   "antigravity",
+  "kimi",
   "vercel_ai_gateway",
 ];
 

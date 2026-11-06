@@ -148,6 +148,7 @@ function spanOf(scope: string): Span {
 
 function decimalsFor(used: number | null, provider: OverviewConnection["provider"]): number {
   if (provider === "copilot") return 1;
+  if (provider === "kimi") return used !== null && !Number.isInteger(used) ? 2 : 0;
   return used !== null && used > 0 && used < 1 ? 1 : 0;
 }
 
@@ -687,6 +688,20 @@ function leftovers(context: Context): Built {
   return { meters, others: [], facts };
 }
 
+function kimi(context: Context): Built {
+  // Consume old cached monthly metrics so the generic fallback cannot display them.
+  take(context, "quota.monthly_total");
+  take(context, "quota.monthly_code");
+  return {
+    meters: [
+      ...meterFor(context, "quota.five_hour", { label: "Session", window: "5 hours" }),
+      ...meterFor(context, "quota.weekly", { label: "Weekly", window: "7 days" }),
+    ],
+    others: [],
+    facts: [],
+  };
+}
+
 const builders: Record<OverviewConnection["provider"], (context: Context) => Built> = {
   claude,
   codex,
@@ -694,6 +709,7 @@ const builders: Record<OverviewConnection["provider"], (context: Context) => Bui
   grok,
   antigravity,
   copilot,
+  kimi,
   vercel_ai_gateway: vercel,
 };
 

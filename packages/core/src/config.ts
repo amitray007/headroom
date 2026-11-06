@@ -55,7 +55,7 @@ export const configSchema = z.object({
     .transform((value) => value === "true"),
   /** Directory with the built web UI (index.html and assets). Empty disables static serving. */
   webDir: z.string().default("apps/web/dist"),
-  /** Connectors the owner has turned on, comma separated. All seven by default (D36); list fewer to turn some off. */
+  /** Connectors the owner has turned on, comma separated. All eight by default (D36, D51); list fewer to turn some off. */
   enabledProviders: z
     .string()
     .default(allProviders)

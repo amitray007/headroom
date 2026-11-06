@@ -13,7 +13,10 @@ with the owner's username.
 
 The favicons and app icons are in `apps/web/public` (served from the site root). They are generated from the mark geometry in `src/ui/logo-geometry.ts` with `mise exec -- bun scripts/brand.ts`, which needs headless Chrome.
 
+`kimi.svg` is the Kimi Code mark from the official [Kimi Code VS Code resources](https://github.com/MoonshotAI/kimi-code/blob/eb2035f3cad57cc12d4d5082ec626f7f0ea5f651/apps/vscode/resources/kimi-icon.svg), fetched 2026-11-06 for provider identification. It retains `currentColor` and follows the surrounding theme.
+
 ## Account avatar
+
 
 The signed-in avatar is loaded from DiceBear's "Voxel Bot" style, seeded with the owner's username:
 `https://api.dicebear.com/10.x/voxel-bot/svg?tags=animation&seed=<username>`. The username is sent to

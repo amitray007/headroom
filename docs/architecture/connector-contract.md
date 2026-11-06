@@ -27,8 +27,8 @@ A connector that uses CLI login implements `BeginConnect` by asking the shared C
 - `open_url`: provider approval URL and expiry.
 - `device_code`: verification URL, user code and expiry. The polling credential never reaches the browser.
 - `paste_redirect`: approval URL plus a field that accepts the redirected URL or the displayed code; the connector extracts code and state.
-- `select_account`: list of accounts or teams with stable ids and labels; the user picks one.
-- `api_key`: fields for that provider and a link to its key page.
+- `select_account`: list of accounts, teams or account regions with stable ids and labels; the user picks one. Optional `label` and `hint` identify the choice; absent values retain the account-selection wording.
+- `api_key`: required fields for that provider and a link to its key page. Secret fields are cleared after submission.
 - `paste_file`: a field for the contents of an existing CLI or CLIProxyAPI auth file, with the expected file name shown.
 
 These are Headroom interface choices. A provider supports only the variants its dossier lists.

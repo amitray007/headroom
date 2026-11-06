@@ -50,6 +50,8 @@ export const nextStepPayloadSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("select_account"),
+    label: z.string().optional(),
+    hint: z.string().optional(),
     options: z.array(z.object({ id: z.string().min(1), label: z.string().min(1) })).min(1),
   }),
   z.object({

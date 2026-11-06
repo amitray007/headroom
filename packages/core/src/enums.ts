@@ -170,6 +170,7 @@ export const providers = [
   "antigravity",
   "copilot",
   "cursor",
+  "kimi",
   "vercel_ai_gateway",
 ] as const;
 export const providerSchema = z.enum(providers);

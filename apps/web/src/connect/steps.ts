@@ -81,6 +81,14 @@ export function acceptsPlaceholder(accepts: Accepts): string {
   return acceptsPlaceholders[accepts];
 }
 
+/** Approval can expire before Headroom's overall attempt deadline. */
+export function approvalDeadline(attempt: Pick<Attempt, "expiresAt" | "nextStep">): number {
+  const step = attempt.nextStep;
+  return step !== null && "expiresAt" in step
+    ? Math.min(attempt.expiresAt, step.expiresAt)
+    : attempt.expiresAt;
+}
+
 /** "9:42" for the time left. Zero once it has passed. */
 export function clockLeft(expiresAt: number, now: number): string {
   const seconds = Math.max(0, Math.ceil((expiresAt - now) / 1000));
@@ -104,7 +112,7 @@ const categoryReasons: Record<string, string> = {
   identity_mismatch:
     "This is a different account than the one being reconnected. Nothing was saved.",
   invalid_response:
-    "The provider's reply was unreadable. Nothing was saved. Check what you pasted.",
+    "Headroom could not process the provider's sign-in reply. Nothing was saved. Try again.",
   unsupported_metric: "The provider reports no limits for this account. Nothing was saved.",
   selection_required: "Choose an account first. Nothing was saved.",
   internal_error: "Something went wrong checking the sign-in. Nothing was saved.",

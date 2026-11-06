@@ -50,5 +50,5 @@ The first milestone is a real connect-and-refresh proof, not a chart-filled mock
 
 - Whether the first deployment supports only one owner or multiple dashboard users. Account isolation remains required in either case.
 - Alert thresholds beyond the current settings. History retention is D29.
-- Which private-interface connectors ship enabled by default. Decided (D36): all seven are on by default; the owner turns one off with `HEADROOM_ENABLED_PROVIDERS`. Claude carries the highest policy risk, so the owner should read Anthropic's terms first.
+- Which private-interface connectors ship enabled by default. Decided (D36, extended by D51): all eight are on by default; the owner turns one off with `HEADROOM_ENABLED_PROVIDERS`. Claude carries the highest policy risk, so the owner should read Anthropic's terms first.
 - Public release channel and support policy.

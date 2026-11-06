@@ -10,6 +10,7 @@
     "@headroom/connector-copilot": "workspace:*",
     "@headroom/connector-cursor": "workspace:*",
     "@headroom/connector-grok": "workspace:*",
+    "@headroom/connector-kimi": "workspace:*",
     "@headroom/connector-vercel-ai-gateway": "workspace:*",
     "@headroom/core": "workspace:*",
     "@headroom/view-model": "workspace:*",

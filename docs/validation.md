@@ -41,6 +41,7 @@ Do not conduct live account checks until the account owner authorizes them. Agen
 | Vercel | Gateway key scope, pinned `@ai-sdk/gateway` version, balance and total used, team selection, spend report plan gate |
 | Grok | CLI device login, refresh at `auth.x.ai`, weekly pool and cap from the billing route, 412 on team logins handled as `partial`, management API balance as a separate connection |
 | Antigravity | Google OAuth with pasted redirect, project id, `retrieveUserQuotaSummary` buckets and resets, refresh, credits stay unknown |
+| Kimi Code | Regional device approval, stable `/me` identity when changing an old key connection to browser sign-in, modern and legacy session/weekly `/usages` windows and resets; monthly stats excluded, automatic token refresh and rotation, expiry/denial/cancel, missing weekly data, revocation, same-account reconnect and two-account isolation; no inference, cross-region fallback or mutation |
 
 ## Reset action checks
 

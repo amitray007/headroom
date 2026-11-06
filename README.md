@@ -6,7 +6,7 @@
 
 **Every AI plan you pay for, on one screen.**
 
-Self-hosted dashboard for Claude, Codex, Cursor, Copilot, Grok, Antigravity and Vercel AI Gateway.<br>
+Self-hosted dashboard for Claude, Codex, Cursor, Copilot, Grok, Antigravity, Kimi Code and Vercel AI Gateway.<br>
 Live limits, resets, credits and spend for every account, with credentials encrypted on your own server.
 
 [![CI](https://github.com/amitray007/headroom/actions/workflows/ci.yml/badge.svg)](https://github.com/amitray007/headroom/actions/workflows/ci.yml)
@@ -79,11 +79,12 @@ Headroom holds the sign-in tokens for every AI account you connect. A hosted cop
 | Copilot | GitHub device code, or import a `gh` token | AI credits, credits used, extra usage, chat and completions | Private |
 | Grok | Grok CLI device sign-in, or import `auth.json` | Weekly pool, chat and code share, on-demand cap, prepaid balance | Private |
 | Antigravity | Google sign-in, then paste the redirect | Gemini and Claude/GPT quota pools | Private |
+| Kimi Code | Browser sign-in and account region | Session and reported weekly usage with reset times | Private |
 | Vercel AI Gateway | API key | Credit balance, credits used, spend | Official |
 
 - **Private:** the endpoint the provider's own app or CLI calls. It can change without notice.
 - **Official:** a published API.
-- **Enable providers** with `HEADROOM_ENABLED_PROVIDERS`. The default is all seven.
+- **Enable providers** with `HEADROOM_ENABLED_PROVIDERS`. The default is all eight.
 - **Evidence:** the [provider dossiers](docs/providers/README.md) record what is validated.
 
 ## How it works
@@ -190,7 +191,7 @@ headroom service uninstall
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `HEADROOM_PUBLIC_URL` | none | The address you open Headroom at. Required behind a proxy; passkeys and cookies use it |
-| `HEADROOM_ENABLED_PROVIDERS` | all seven | Comma list: `codex`, `claude`, `grok`, `antigravity`, `copilot`, `cursor`, `vercel_ai_gateway` |
+| `HEADROOM_ENABLED_PROVIDERS` | all eight | Comma list: `codex`, `claude`, `grok`, `antigravity`, `copilot`, `cursor`, `kimi`, `vercel_ai_gateway` |
 | `HEADROOM_HOST` | `127.0.0.1` | Listen address. The container image sets `0.0.0.0` |
 | `HEADROOM_PORT` | `4323`, or the next free port up to `4342` | HTTP port. Set, it is exact and Headroom fails if the port is busy (`--port` overrides). Unset, the binary keeps the port it used last; an install that already has data keeps `8080`. The container image sets `8080` |
 | `HEADROOM_DATA_DIR` | macOS `~/Library/Application Support/Headroom/data`, Linux `~/.local/share/headroom/data` | Where the database lives |
