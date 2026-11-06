@@ -23,6 +23,7 @@ test("defaults on macOS live under Application Support", () => {
       "antigravity",
       "copilot",
       "cursor",
+      "zai",
       "vercel_ai_gateway",
     ],
     refreshIntervalSeconds: 900,

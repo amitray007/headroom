@@ -1,6 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignoreIssues": { "apps/server/src/web-assets.ts": ["exports"] },
+  "ignoreIssues": {
+    "apps/server/src/web-assets.ts": ["exports"]
+  },
   "workspaces": {
     ".": {
       "entry": ["scripts/*.ts"],
@@ -47,6 +49,10 @@
       "project": ["src/**/*.ts"]
     },
     "packages/connectors/cursor": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/connectors/zai": {
       "entry": ["src/**/*.test.ts"],
       "project": ["src/**/*.ts"]
     }

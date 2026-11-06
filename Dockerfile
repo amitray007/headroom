@@ -17,6 +17,7 @@ COPY packages/connectors/codex/package.json packages/connectors/codex/package.js
 COPY packages/connectors/copilot/package.json packages/connectors/copilot/package.json
 COPY packages/connectors/cursor/package.json packages/connectors/cursor/package.json
 COPY packages/connectors/grok/package.json packages/connectors/grok/package.json
+COPY packages/connectors/zai/package.json packages/connectors/zai/package.json
 COPY packages/connectors/vercel-ai-gateway/package.json packages/connectors/vercel-ai-gateway/package.json
 RUN bun install --frozen-lockfile
 COPY . .

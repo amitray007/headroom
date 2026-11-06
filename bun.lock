@@ -27,6 +27,7 @@
         "@headroom/connector-cursor": "workspace:*",
         "@headroom/connector-grok": "workspace:*",
         "@headroom/connector-vercel-ai-gateway": "workspace:*",
+        "@headroom/connector-zai": "workspace:*",
         "@headroom/core": "workspace:*",
         "@headroom/view-model": "workspace:*",
         "hono": "4.13.13",
@@ -107,6 +108,14 @@
       "version": "0.1.0",
       "dependencies": {
         "@ai-sdk/gateway": "4.0.110",
+        "@headroom/core": "workspace:*",
+        "zod": "4.6.7",
+      },
+    },
+    "packages/connectors/zai": {
+      "name": "@headroom/connector-zai",
+      "version": "0.1.0",
+      "dependencies": {
         "@headroom/core": "workspace:*",
         "zod": "4.6.7",
       },
@@ -242,6 +251,8 @@
     "@headroom/connector-grok": ["@headroom/connector-grok@workspace:packages/connectors/grok"],
 
     "@headroom/connector-vercel-ai-gateway": ["@headroom/connector-vercel-ai-gateway@workspace:packages/connectors/vercel-ai-gateway"],
+
+    "@headroom/connector-zai": ["@headroom/connector-zai@workspace:packages/connectors/zai"],
 
     "@headroom/core": ["@headroom/core@workspace:packages/core"],
 

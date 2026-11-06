@@ -41,6 +41,7 @@ Do not conduct live account checks until the account owner authorizes them. Agen
 | Vercel | Gateway key scope, pinned `@ai-sdk/gateway` version, balance and total used, team selection, spend report plan gate |
 | Grok | CLI device login, refresh at `auth.x.ai`, weekly pool and cap from the billing route, 412 on team logins handled as `partial`, management API balance as a separate connection |
 | Antigravity | Google OAuth with pasted redirect, project id, `retrieveUserQuotaSummary` buckets and resets, refresh, credits stay unknown |
+| Z.ai | Browser approval, denial/expiry/cancel, server-only polling secret, business-session exchange and renewal, stable customer identity, same-account reconnect and account isolation; modern and legacy coding windows, optional MCP monthly counts and resets; read-only five-hour/weekly reset inventory, dual-token personal scope, empty versus missing cards, duplicate/expired cards, localized reset auth failure; 401/403/429/5xx and schema drift; no key creation, inference, redirects or account actions |
 
 ## Reset action checks
 

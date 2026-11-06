@@ -758,3 +758,128 @@ describe("general", () => {
     expect(formatUsd(1234.5)).toBe("$1,234.50");
   });
 });
+
+describe("z.ai", () => {
+  test("shows coding pools and the separately reported monthly MCP allowance", () => {
+    const panel = presentPanel(
+      connection("zai", {
+        metrics: [
+          percent("quota.18000s", 24.25, { scope: "window:18000s", resetsAt: reset }),
+          percent("quota.604800s", 80, { scope: "window:604800s", resetsAt: reset + 1 }),
+          percent("mcp.monthly", 15, { scope: "window:monthly", resetsAt: reset + 2 }),
+          metric("mcp.monthly.used", {
+            kind: "absolute_quota",
+            unit: "requests",
+            valueNum: 150,
+            valueText: "150",
+          }),
+          metric("mcp.monthly.limit", {
+            kind: "absolute_quota",
+            unit: "requests",
+            valueNum: 1000,
+            valueText: "1000",
+          }),
+        ],
+      }),
+    );
+    expect(meters(panel.cells)).toEqual([
+      ["Session", "5 hours", 24.25],
+      ["Weekly", "7 days", 80],
+      ["MCP", "monthly", 15],
+    ]);
+    expect(panel.facts).toContainEqual({
+      key: "mcp.calls",
+      label: "MCP Calls",
+      value: "150 of 1,000",
+    });
+    expect(panel.cells.some((cell) => cell.kind === "amount" && cell.unit === "usd")).toBe(false);
+  });
+  test("missing values stay unknown and an omitted MCP bucket creates no monthly meter", () => {
+    const panel = presentPanel(
+      connection("zai", {
+        metrics: [metric("quota.18000s", { scope: "window:18000s", availability: "unknown" })],
+      }),
+    );
+    expect(meters(panel.cells)).toEqual([["Session", "5 hours", null]]);
+    expect(panel.cells[0]).toMatchObject({ resetsAt: null, resetWords: "resets" });
+  });
+});
+
+const resetInventoryMetric = (key: string, n: number | null) =>
+  metric(key, {
+    kind: "reset_inventory",
+    unit: "resets",
+    valueText: n === null ? null : String(n),
+    valueNum: n,
+    availability: n === null ? "unknown" : "available",
+  });
+
+test("Z.ai shows the total reset inventory, target counts and labelled expiries without a redeem action", () => {
+  const at = 1800000000000;
+  const panel = presentPanel(
+    connection("zai", {
+      metrics: [
+        percent("quota.18000s", 25, { scope: "window:18000s" }),
+        resetInventoryMetric("reset_credits.available_count", 3),
+        resetInventoryMetric("reset_credits.five_hour.available_count", 2),
+        resetInventoryMetric("reset_credits.weekly.available_count", 1),
+      ],
+      resetCredits: [
+        credit("five_hour:1", { expiresAt: at + 7200000, rawLabel: "5-hour reset" }),
+        credit("five_hour:2", { expiresAt: at + 7200000, rawLabel: "5-hour reset" }),
+        credit("weekly:1", { expiresAt: at + 86400000, rawLabel: "Weekly reset" }),
+      ],
+    }),
+    at,
+  );
+  expect(panel.cells.find((c) => c.kind === "resets")).toMatchObject({
+    label: "Reset Cards",
+    count: 3,
+    expiries: [at + 7200000, at + 7200000, at + 86400000],
+  });
+  expect(panel.facts).toContainEqual({
+    key: "reset_credits.five_hour.available_count",
+    label: "Session Cards",
+    value: "2",
+  });
+  expect(panel.facts).toContainEqual({
+    key: "reset_credits.weekly.available_count",
+    label: "Weekly Cards",
+    value: "1",
+  });
+  expect(panel.hold).toBeNull();
+});
+
+test("Z.ai distinguishes an empty reset inventory from an unknown total without summing a partial list", () => {
+  const unknown = presentPanel(
+    connection("zai", {
+      metrics: [
+        resetInventoryMetric("reset_credits.available_count", null),
+        resetInventoryMetric("reset_credits.five_hour.available_count", 1),
+        resetInventoryMetric("reset_credits.weekly.available_count", null),
+      ],
+    }),
+  );
+  const empty = presentPanel(
+    connection("zai", {
+      metrics: [
+        resetInventoryMetric("reset_credits.available_count", 0),
+        resetInventoryMetric("reset_credits.five_hour.available_count", 0),
+        resetInventoryMetric("reset_credits.weekly.available_count", 0),
+      ],
+    }),
+  );
+  expect(unknown.cells.find((cell) => cell.kind === "resets")).toMatchObject({
+    count: null,
+    countLabel: "card",
+  });
+  expect(empty.cells.find((cell) => cell.kind === "resets")).toMatchObject({
+    count: 0,
+    countLabel: "card",
+  });
+  expect(unknown.facts).toContainEqual({
+    key: "reset_credits.weekly.available_count",
+    label: "Weekly Cards",
+    value: "Unknown",
+  });
+});

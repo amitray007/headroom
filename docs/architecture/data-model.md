@@ -34,6 +34,7 @@ This is the logical schema behind the SQLite database. Migrations live in `packa
 
 | Field | Values |
 | --- | --- |
+| `connections.provider` | `codex`, `claude`, `grok`, `antigravity`, `copilot`, `cursor`, `zai`, `vercel_ai_gateway` |
 | `connections.state` | `ready`, `partial`, `reconnect_required`, `paused` |
 | `connections.scope` | `individual`, `member`, `team_admin`, `organization` |
 | `connections.auth_method` | `cli_login`, `device_code`, `paste_redirect`, `approval_poll`, `api_key`, `import` |

@@ -26,6 +26,7 @@ Each dossier describes metrics, connection steps, tools, limitations and sources
 | Vercel AI Gateway | [Vercel AI Gateway](providers/vercel-ai-gateway.md) |
 | Grok / Grok Build | [Grok](providers/grok.md) |
 | Antigravity | [Antigravity](providers/antigravity.md) |
+| Z.ai GLM Coding Plan | [Z.ai](providers/zai.md) |
 
 ## Shared references
 

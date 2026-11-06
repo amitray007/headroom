@@ -17,6 +17,7 @@ const fallbackLabels: Readonly<Record<Provider, string>> = {
   antigravity: "Antigravity",
   copilot: "Copilot",
   cursor: "Cursor",
+  zai: "Z.ai Coding Plan",
   vercel_ai_gateway: "Vercel AI Gateway",
 };
 

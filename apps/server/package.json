@@ -11,6 +11,7 @@
     "@headroom/connector-cursor": "workspace:*",
     "@headroom/connector-grok": "workspace:*",
     "@headroom/connector-vercel-ai-gateway": "workspace:*",
+    "@headroom/connector-zai": "workspace:*",
     "@headroom/core": "workspace:*",
     "@headroom/view-model": "workspace:*",
     "hono": "4.13.13",

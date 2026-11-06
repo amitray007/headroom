@@ -10,6 +10,7 @@ const defaultOrder: readonly Provider[] = [
   "grok",
   "antigravity",
   "copilot",
+  "zai",
   "vercel_ai_gateway",
 ];
 
@@ -17,6 +18,7 @@ const providerNames: Record<Provider, string> = {
   claude: "Claude",
   codex: "Codex",
   cursor: "Cursor",
+  zai: "Z.ai",
   grok: "Grok",
   antigravity: "Antigravity",
   copilot: "Copilot",

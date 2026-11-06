@@ -144,6 +144,16 @@ function AmountCell(props: { readonly cell: Extract<Cell, { kind: "amount" }> })
   );
 }
 
+function resetExpiryDetails(cell: Extract<Cell, { kind: "resets" }>) {
+  if (cell.details !== undefined) return cell.details;
+  const occurrences = new Map<number, number>();
+  return cell.expiries.map((at, index) => {
+    const ordinal = occurrences.get(at) ?? 0;
+    occurrences.set(at, ordinal + 1);
+    return { key: `${at}:${ordinal}`, label: `Reset ${index + 1}`, expiresAt: at };
+  });
+}
+
 function ResetsCell(props: { readonly cell: Extract<Cell, { kind: "resets" }> }) {
   const { cell } = props;
   const { settings } = useSettings();
@@ -163,19 +173,31 @@ function ResetsCell(props: { readonly cell: Extract<Cell, { kind: "resets" }> })
       <Label label={cell.label} window={cell.window} />
       <div className="value">
         <CountUp value={cell.count} />
-        <span className="of">{cell.count === 1 ? "full reset" : "full resets"}</span>
+        <span className="of">
+          {cell.countLabel === "card"
+            ? cell.count === 1
+              ? "card"
+              : "cards"
+            : cell.count === 1
+              ? "full reset"
+              : "full resets"}
+        </span>
       </div>
       <div className="caption">
         {first === undefined ? (
-          "No expiry reported"
+          cell.countLabel === "card" && cell.count === 0 ? (
+            "None available"
+          ) : (
+            "No expiry reported"
+          )
         ) : (
           <>
             <When at={first} kind="until" prefix="First expires" />
             <InfoTip label="All reset expiry times">
               <b>Banked Resets</b>
-              {cell.expiries.map((at, index) => (
-                <span key={at}>
-                  {`Reset ${index + 1} · expires ${exactFull(at, now, settings.clock)}`}
+              {resetExpiryDetails(cell).map((detail) => (
+                <span key={detail.key}>
+                  {`${detail.label} · expires ${exactFull(detail.expiresAt, now, settings.clock)}`}
                 </span>
               ))}
             </InfoTip>
