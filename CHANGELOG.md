@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.17](https://github.com/amitray007/headroom/compare/v0.1.16...v0.1.17) (2026-11-06)
+
+
+### Bug Fixes
+
+* lead the Mac app with Claude's all-models weekly, as the dashboard does ([b9e9de5](https://github.com/amitray007/headroom/commit/b9e9de5d19d71f605897c4f09fc6f0bfeff8d13e))
+* mark Claude model weeklies as parts of the all-models weekly ([1538545](https://github.com/amitray007/headroom/commit/153854596b83de6ca5bf77d3f9a255129b7b4053))
+
 ## [0.1.16](https://github.com/amitray007/headroom/compare/v0.1.15...v0.1.16) (2026-11-04)
 
 
