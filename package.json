@@ -1,6 +1,6 @@
 {
   "name": "headroom",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "private": true,
   "description": "Self-hosted dashboard for AI account allowances, balances and usage",
   "license": "MIT",
