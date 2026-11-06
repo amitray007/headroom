@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   acceptsLabel,
+  approvalDeadline,
   clockLeft,
   defaultMethod,
   isTerminal,
@@ -26,6 +27,22 @@ function attempt(state: Attempt["state"], pollAfterMs = 0): Attempt {
     pollAfterMs,
   };
 }
+
+test("browser approval counts down to the provider deadline, bounded by the attempt", () => {
+  const waiting = {
+    ...attempt("awaiting_user"),
+    expiresAt: 900_000,
+    nextStep: {
+      kind: "device_code" as const,
+      verificationUrl: "https://example.com/verify",
+      userCode: "SAMPLE",
+      expiresAt: 600_000,
+    },
+  };
+  expect(approvalDeadline(waiting)).toBe(600_000);
+  expect(approvalDeadline({ ...waiting, expiresAt: 300_000 })).toBe(300_000);
+  expect(approvalDeadline({ ...waiting, nextStep: null })).toBe(900_000);
+});
 
 describe("attempt states", () => {
   test("terminal states end the attempt", () => {
@@ -127,6 +144,16 @@ describe("stoppedReason", () => {
   test("a failure maps its category to plain words", () => {
     expect(stoppedReason({ state: "failed", error: "rate_limited: HTTP 429 secret" })).toBe(
       "The provider asked to slow down. Nothing was saved. Try again in a minute.",
+    );
+  });
+  test("a rejected provider reply does not tell a browser sign-in user that they pasted something", () => {
+    expect(
+      stoppedReason({
+        state: "failed",
+        error: "invalid_response: Kimi returned an unexpected approval host",
+      }),
+    ).toBe(
+      "Headroom could not process the provider's sign-in reply. Nothing was saved. Try again.",
     );
   });
   test("an unknown category falls back and never leaks the raw text", () => {

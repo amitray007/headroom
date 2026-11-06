@@ -40,6 +40,7 @@ Completion criteria:
 Status: Vercel and Grok implemented and validated live on 2026-10-01. Vercel stays `partial` on a Hobby team because the spend report is Pro-only. The Grok management-API balance connection is deferred; the CLI billing body already carries the prepaid balance.
 
 - Vercel AI Gateway: key validation, team scope, `getCredits()` and `getSpendReport()` through the pinned `@ai-sdk/gateway` package, spend report where the plan allows it.
+- Kimi Code (2026-11-06): one regional browser approval flow, encrypted access/refresh session, direct identity and five-hour/weekly quota reads, automatic refresh, legacy key continuity and drift handling. Monthly stats were removed at the owner's request after the Code session returned only short-window metrics. Remaining live refresh, revocation and deployment gates stay unvalidated. See the [Kimi Code dossier](providers/kimi.md).
 - Grok: `grok login --device-auth` through the CLI runner, credential import, refresh at `auth.x.ai`, weekly shared pool and pay-as-you-go cap from `cli-chat-proxy.grok.com/v1/billing`, plan from `/v1/settings`. Team or business logins answer 412 and become `partial`. Management API prepaid balance as a separate `api_key` connection.
 
 Completion: each connector passes the shared checks in [validation](validation.md); a failed spend report never discards a working balance.

@@ -1,6 +1,6 @@
 # Provider findings
 
-Research baseline: 2026-10-01. All seven connectors are implemented; each dossier records which findings are validated against a live account and which are not. The matrix is a map of the evidence, not a support promise. Connection methods follow [ADR 0001](../decisions/0001-direct-provider-clients.md): an official CLI may run once for sign-in, collection is always direct HTTP.
+Research baseline: 2026-10-01; Kimi Code added 2026-11-06. Eight connectors are implemented; each dossier records which findings are validated against a live account and which are not. The matrix is a map of the evidence, not a support promise. Connection methods follow [ADR 0001](../decisions/0001-direct-provider-clients.md): an official CLI may run once for sign-in, collection is always direct HTTP.
 
 ## Connection matrix
 
@@ -13,6 +13,7 @@ Research baseline: 2026-10-01. All seven connectors are implemented; each dossie
 | [Vercel AI Gateway](vercel-ai-gateway.md) | Gateway API key | `@ai-sdk/gateway` `getCredits` and `getSpendReport` (official) | Team selection; spend report is Pro and Enterprise only |
 | [Grok](grok.md) | `grok login --device-auth` via the runner, or import `auth.json`; management API key | `cli-chat-proxy.grok.com/v1/billing` (private); prepaid balance (official) | Team logins answer 412; unified weekly billing only |
 | [Antigravity](antigravity.md) | Direct Google OAuth plus pasted redirect | `retrieveUserQuotaSummary` (private) | `agy` needs a Linux keyring; credits unknown |
+| [Kimi Code](kimi.md) | Kimi browser device approval and explicit account region | `/coding/v1/me` and five-hour/weekly `/coding/v1/usages` windows (private) | Source-inspected with synthetic tests; live approval, subscription, token refresh and deployment checks remain unvalidated |
 
 ## Reading a dossier
 

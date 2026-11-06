@@ -79,8 +79,8 @@ describe("demoOverview", () => {
 
   test("every provider is present, in the default order, with 1 to 3 accounts", () => {
     expect(providerOrder).toEqual([...providers]);
-    expect(connections.length).toBeGreaterThanOrEqual(11);
-    expect(connections.length).toBeLessThanOrEqual(13);
+    expect(connections.length).toBeGreaterThanOrEqual(12);
+    expect(connections.length).toBeLessThanOrEqual(14);
     const seen = connections.map((connection) => connection.provider);
     expect([...new Set(seen)]).toEqual([...providers]);
     for (const provider of providers) {

@@ -7,6 +7,7 @@ import { createCodexConnector } from "@headroom/connector-codex";
 import { createCopilotConnector } from "@headroom/connector-copilot";
 import { createCursorConnector } from "@headroom/connector-cursor";
 import { createGrokConnector } from "@headroom/connector-grok";
+import { createKimiConnector } from "@headroom/connector-kimi";
 import { createVercelConnector } from "@headroom/connector-vercel-ai-gateway";
 import { baseUrl, loadConfig } from "@headroom/core";
 
@@ -90,6 +91,7 @@ const ctx = bootstrap({
     createCopilotConnector(),
     createCursorConnector(),
     createVercelConnector(),
+    createKimiConnector(),
   ],
   log: (level, message) => {
     if (levels[level] < threshold) return;

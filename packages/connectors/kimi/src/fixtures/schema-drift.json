@@ -1,0 +1,8 @@
+{
+  "usages": {
+    "limit_5h": { "used_ratio": "unreadable", "reset_time": "2026-11-06T20:00:00Z" },
+    "limit_7d": { "used_ratio": 0.62, "reset_time": "not-a-date" },
+    "limit_month_total": { "used_ratio": 0.41, "reset_time": "2026-12-01T00:00:00Z" },
+    "future_bucket": { "used_ratio": 0.7 }
+  }
+}

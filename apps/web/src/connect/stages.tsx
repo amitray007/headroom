@@ -194,9 +194,9 @@ function SelectStage(
   };
   return (
     <form className="stage" onSubmit={submit}>
-      <Lead>Choose which account to connect.</Lead>
+      <Lead>{step.hint ?? "Choose which account to connect."}</Lead>
       <fieldset className="choices">
-        <legend className="sr">Account</legend>
+        <legend className="sr">{step.label ?? "Account"}</legend>
         {step.options.map((option) => (
           <label key={option.id} className="choice">
             <input

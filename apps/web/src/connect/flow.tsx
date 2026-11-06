@@ -15,6 +15,7 @@ import { Stepper, type StepState } from "../ui/stepper.tsx";
 import { CheckStage, SignInStage } from "./stages.tsx";
 import {
   clockLeft,
+  approvalDeadline,
   defaultMethod,
   isTerminal,
   isUsable,
@@ -149,7 +150,7 @@ export function ConnectFlow(props: FlowProps) {
 
   const waiting = attempt !== null && !isTerminal(attempt.state) && attempt.state !== "validating";
   const now = useSecondClock();
-  const left = attempt !== null && waiting ? clockLeft(attempt.expiresAt, now) : null;
+  const left = attempt !== null && waiting ? clockLeft(approvalDeadline(attempt), now) : null;
 
   function cancel(): void {
     generation.current += 1;

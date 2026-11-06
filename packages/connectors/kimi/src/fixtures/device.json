@@ -1,0 +1,8 @@
+{
+  "user_code": "SAMPLE-CODE",
+  "device_code": "synthetic-private-device-code",
+  "verification_uri": "https://www.kimi.ai/code/authorize_device",
+  "verification_uri_complete": "https://www.kimi.ai/code/authorize_device?user_code=SAMPLE-CODE",
+  "expires_in": 600,
+  "interval": 5
+}

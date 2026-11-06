@@ -935,6 +935,17 @@ interface Account {
  * figure. Three things are meant to be noticed: the Claude Pro weekly limit running low, a Codex Pro reset credit
  * about to expire, and the Antigravity free account that needs a new sign-in.
  */
+function kimiParts(draw: Draw): Parts {
+  return {
+    plan: "Vivace",
+    metrics: [
+      usedWindow(draw, "quota.five_hour", sessionWindow, 10, 45, 1),
+      usedWindow(draw, "quota.weekly", olderWeeklyWindow, 20, 65, 1),
+    ],
+    resetCredits: [],
+  };
+}
+
 const accounts: readonly Account[] = [
   {
     provider: "codex",
@@ -1038,6 +1049,15 @@ const accounts: readonly Account[] = [
     authMethod: "approval_poll",
     interface: "private",
     parts: (draw) => cursorParts(draw, "pro_plus"),
+  },
+  {
+    provider: "kimi",
+    n: 1,
+    name: null,
+    identity: (owner) => owner.main,
+    authMethod: "device_code",
+    interface: "private",
+    parts: kimiParts,
   },
   {
     provider: "vercel_ai_gateway",

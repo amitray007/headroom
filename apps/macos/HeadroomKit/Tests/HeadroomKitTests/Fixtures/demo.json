@@ -12,6 +12,7 @@
     "antigravity",
     "copilot",
     "cursor",
+    "kimi",
     "vercel_ai_gateway"
   ],
   "accounts": [
@@ -800,11 +801,55 @@
       "banked": null
     },
     {
+      "id": "demo-kimi-1",
+      "provider": "kimi",
+      "name": "Account 12",
+      "plan": "Vivace",
+      "identity": "account-12@example.invalid",
+      "state": "ready",
+      "reconnectReason": null,
+      "interface": "private",
+      "lastSuccessAt": 1793285598771,
+      "observedAt": 1793285598262,
+      "limits": [
+        {
+          "key": "quota.five_hour",
+          "label": "Session",
+          "window": "5 hours",
+          "windowKind": "session",
+          "percentLeft": 85.6,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793289853833,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        },
+        {
+          "key": "quota.weekly",
+          "label": "Weekly",
+          "window": "7 days",
+          "windowKind": "weekly",
+          "percentLeft": 36.7,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793537123158,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        }
+      ],
+      "charges": [],
+      "banked": null
+    },
+    {
       "id": "demo-vercel-ai-gateway-1",
       "provider": "vercel_ai_gateway",
-      "name": "Account 12",
+      "name": "Account 13",
       "plan": null,
-      "identity": "account-12@example.invalid",
+      "identity": "account-13@example.invalid",
       "state": "ready",
       "reconnectReason": null,
       "interface": "official",
@@ -854,9 +899,9 @@
     {
       "id": "demo-vercel-ai-gateway-2",
       "provider": "vercel_ai_gateway",
-      "name": "Account 13",
+      "name": "Account 14",
       "plan": null,
-      "identity": "account-13@example.invalid",
+      "identity": "account-14@example.invalid",
       "state": "partial",
       "reconnectReason": null,
       "interface": "official",
@@ -1172,7 +1217,7 @@
       "provider": "vercel_ai_gateway",
       "connection": {
         "id": "demo-vercel-ai-gateway-1",
-        "name": "Account 12",
+        "name": "Account 13",
         "plan": null
       },
       "subject": {
