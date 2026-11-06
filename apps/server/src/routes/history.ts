@@ -3,18 +3,16 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import { Hono } from "hono";
 import { accepts } from "hono/accepts";
 
-import { createHistoryReader, historyMarker } from "@headroom/core";
+import { type HistoryReader, historyMarker } from "@headroom/core";
 import { encodeHistory } from "@headroom/view-model/history";
 
 import { parseTz } from "./tz.ts";
 
 import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
+import { bucketMs, historyRequest, readHistory } from "../read-model.ts";
 
-const day = 86_400_000;
-const bucketMs = 3_600_000;
 const ranges = new Set(["7", "30", "90"]);
-const longest = 90 * day;
 const cacheLimit = 8;
 
 /**
@@ -23,10 +21,9 @@ const cacheLimit = 8;
  * thread, so the reader keeps its hourly fold and reads only new readings after a sync, and the
  * body is cached gzipped until a snapshot, sync run or event changes.
  */
-export function historyRoutes(ctx: AppContext): Hono<Env> {
+export function historyRoutes(ctx: AppContext, reader: HistoryReader): Hono<Env> {
   const app = new Hono<Env>();
   app.use(requireSession(ctx));
-  const reader = createHistoryReader({ keepMs: longest });
   const cache = new Map<string, Uint8Array<ArrayBuffer>>();
 
   app.get("/", (c) => {
@@ -34,35 +31,19 @@ export function historyRoutes(ctx: AppContext): Hono<Env> {
     if (!ranges.has(param)) return c.json({ error: "invalid_days" }, 400);
     const tz = parseTz(c.req.query("tz"));
     if (tz === null) return c.json({ error: "invalid_tz" }, 400);
-    const to = ctx.now().getTime();
-    const from = to - Number(param) * day;
-    const connectionIds = ctx.order.arrange(ctx.connections.list()).map((row) => row.id);
-    const retentionDays = ctx.settings.get().historyRetentionDays;
+    const request = historyRequest(ctx, ctx.now().getTime(), Number(param));
+    const { connectionIds } = request;
     const key = [
       param,
       tz,
-      retentionDays,
-      Math.floor(to / bucketMs),
+      request.retentionDays,
+      Math.floor(request.to / bucketMs),
       historyMarker(ctx.db, connectionIds),
       connectionIds.toSorted().join(","),
     ].join("|");
     let body = cache.get(key);
     if (body === undefined) {
-      const json = JSON.stringify(
-        encodeHistory({
-          from,
-          to,
-          bucketMs,
-          retentionDays,
-          connections: reader.read(ctx.db, {
-            from,
-            to,
-            bucketMs,
-            tzOffsetMinutes: tz,
-            connectionIds,
-          }),
-        }),
-      );
+      const json = JSON.stringify(encodeHistory(readHistory(ctx, reader, request, tz)));
       body = gzipSync(json);
       if (cache.size >= cacheLimit) cache.delete(cache.keys().next().value!);
       cache.set(key, body);

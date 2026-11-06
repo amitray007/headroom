@@ -2,7 +2,7 @@
 
 **Status: implemented in `apps/server`. The web client in `apps/web` uses sessions; the app API uses tokens that read, and optionally change Refresh Every.**
 
-Every route lives under `/api`. Instants are epoch milliseconds. All routes except `/api/auth/*`, `/api/setup`, `/healthz` and `/api/app/v1/*` need a Better Auth session. Mutating routes also pass the cross-site guard. Error bodies are `{ "error": "<code>" }`.
+Every route lives under `/api`. Instants are epoch milliseconds. All routes except `/api/auth/*`, `/api/setup`, `/healthz`, `/api/app/v1/*` and `/api/mcp` need a Better Auth session. Mutating routes also pass the cross-site guard. Error bodies are `{ "error": "<code>" }`.
 
 ## Routes
 
@@ -27,6 +27,7 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 | `GET /api/tokens`, `POST /api/tokens`, `DELETE /api/tokens/:id` | Session-only device token management, see [API tokens](#api-tokens) |
 | `GET /api/app/v1/feed?tz=<minutes>` | Token-only account feed, notices and Wallet summary, see [App feed](#app-feed) |
 | `GET /api/app/v1/whoami` | Token-only API version, server version, token name and scopes |
+| `POST /api/mcp` | Token-only, any scope: read-only MCP server for AI agents, see [MCP](#mcp) |
 | `GET /api/notices/read`, `PUT /api/notices/read` | Session-only: the ids of notices marked read, and marking ids read or unread, see [Notice read state](#notice-read-state) |
 | `PUT /api/app/v1/notices/read` | Token-only, any scope: mark notices read or unread, see [Notice read state](#notice-read-state) |
 | `PUT /api/app/v1/settings/refresh` | Token-only, `refresh` scope: set Refresh Every, see [API tokens](#api-tokens) |
@@ -79,6 +80,21 @@ The Wallet total uses the owner's display currency and the server's stored excha
 The route sends `Cache-Control: no-store` and a strong `ETag`, the quoted SHA-256 hash of the exact JSON body. A matching `If-None-Match` returns 304 with the ETag and no body. A list of validators, weak validators and `*` are accepted for GET and HEAD. Content changes, including notice changes, produce a new body and validator. The route keeps up to eight offset representations in process memory; eviction or restart can produce a new `generatedAt`.
 
 `mise run mac:contract` writes `apps/macos/Contract/openapi.json` from the feed and whoami Zod schemas with `z.toJSONSchema()`. The OpenAPI 3.1 document has sorted keys and stable formatting. `mise run check` runs its `--check` mode and fails if the committed file differs. It builds no Swift code.
+
+## MCP
+
+`POST /api/mcp` is a Model Context Protocol server for AI agents ([ADR 0006](../decisions/0006-mcp-server.md)). It takes any app token in `Authorization: Bearer`, through the same guard and failure limit as the [App feed](#app-feed); a session cookie does not authenticate it, and no tool uses the `refresh` scope. Only POST is allowed; other methods return 405 with `Allow: POST`. Responses carry `Cache-Control: no-store`. The official SDK's `createMcpHandler` serves the 2026-07-28 revision and answers 2025-era clients statelessly, so there is no MCP session. A tool call answers in one JSON body; the SDK streams only a `subscriptions/listen` request, and nothing publishes to it.
+
+Two tools, both annotated read-only and idempotent, answer in short plain text with relative times:
+
+| Tool | Input | Answer |
+| --- | --- | --- |
+| `status` | `provider` (optional) | Each account's limits now: percent left, reset, the pace projection from the feed's `runsOutAt`, charges with caps, banked resets, the monthly plan total and the next limit to come back |
+| `history` | `days` 7, 30 or 90 (default 30), `provider` (optional) | Each account's main limit from stored readings: windows, average and highest peak, times at the limit and hours locked, early resets, the Plan fit verdict and the estimated unused plan cost |
+
+Neither tool collects from a provider or changes state. An account on a private interface carries `private API` in its header, and a private metric on an official account carries `(private)`. A reset time that has passed reads `reset due, not read since`. `history` leaves out paused and disconnected accounts, as Plan fit does. It uses the Analytics model in `@headroom/view-model/analytics` and shares the [History](#history) reader, read with hours on UTC boundaries. No answer carries an internal id, provider account id, credential or raw response.
+
+Add it to Claude Code with `claude mcp add --transport http headroom https://<host>/api/mcp --header "Authorization: Bearer <token>"`; other clients take the same URL and header.
 
 ## History
 

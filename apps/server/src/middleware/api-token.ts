@@ -9,8 +9,16 @@ import type { Env } from "./session.ts";
 const refreshPath = /\/app\/v1\/settings\/refresh$/;
 /** A write any valid token can make: it changes Headroom's own read marks, not an account. */
 const noticeReadPath = /\/app\/v1\/notices\/read$/;
+/** The read-only MCP server: JSON-RPC over POST. */
+const mcpPath = /\/api\/mcp$/;
 
-/** Per-process failed-attempt window, bounded even when many addresses send invalid keys. */
+function allowedMethods(path: string): string[] {
+  if (refreshPath.test(path) || noticeReadPath.test(path)) return ["PUT"];
+  if (mcpPath.test(path)) return ["POST"];
+  return ["GET", "HEAD"];
+}
+
+/** Per-process failed-attempt window, bounded even when many addresses send invalid keys. Mount one guard on every token route so they share it. */
 export function requireApiToken(
   ctx: AppContext,
   address: (c: Context<Env>) => string,
@@ -21,7 +29,7 @@ export function requireApiToken(
   return async (c, next) => {
     c.header("Cache-Control", "no-store");
     const write = refreshPath.test(c.req.path);
-    const allowed = write || noticeReadPath.test(c.req.path) ? ["PUT"] : ["GET", "HEAD"];
+    const allowed = allowedMethods(c.req.path);
     if (!allowed.includes(c.req.method)) {
       c.header("Allow", allowed.join(", "));
       return c.json({ error: "method_not_allowed" }, 405);
@@ -63,6 +71,8 @@ export function requireApiToken(
     c.set("apiTokenName", result.key.name);
     c.set("apiTokenScopes", scopes);
     await next();
+    // A handler that returns its own Response, such as the MCP SDK's, drops headers set before next().
+    c.res.headers.set("Cache-Control", "no-store");
     return undefined;
   };
 }

@@ -6,6 +6,7 @@ import { secureHeaders } from "hono/secure-headers";
 import {
   appliedMigrations,
   clientIpHeader,
+  createHistoryReader,
   minimumPasswordLength,
   minimumUsernameLength,
   ownerExists,
@@ -24,6 +25,8 @@ import { connectionRoutes } from "./routes/connections.ts";
 import { deliveryRoutes } from "./routes/delivery.ts";
 import { exchangeRateRoutes } from "./routes/exchange-rates.ts";
 import { orderRoutes } from "./routes/order.ts";
+import { mcpRoutes } from "./routes/mcp.ts";
+import { historyKeepMs } from "./read-model.ts";
 import { historyRoutes } from "./routes/history.ts";
 import { overviewRoutes } from "./routes/overview.ts";
 import { providerRoutes } from "./routes/providers.ts";
@@ -83,8 +86,12 @@ export function createApp(ctx: AppContext): Hono {
     clientAddress(c.req.raw, ctx.config.trustProxy, () => socketAddress(c));
   // Registered first: the app has no token until a pairing is approved (D48).
   api.route("/app/v1/pair", appPairRoutes(ctx, addressOf));
-  api.use("/app/v1/*", requireApiToken(ctx, addressOf));
+  const tokenOnly = requireApiToken(ctx, addressOf);
+  api.use("/app/v1/*", tokenOnly);
   api.route("/app/v1", appRoutes(ctx));
+  const history = createHistoryReader({ keepMs: historyKeepMs });
+  api.use("/mcp", tokenOnly);
+  api.route("/mcp", mcpRoutes(ctx, history));
 
   api.use(
     cors({
@@ -127,7 +134,7 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/connections", connectionRoutes(ctx));
   api.route("/attempts", attemptRoutes(ctx));
   api.route("/overview", overviewRoutes(ctx));
-  api.route("/history", historyRoutes(ctx));
+  api.route("/history", historyRoutes(ctx, history));
   api.route("/order", orderRoutes(ctx));
   api.route("/settings", settingsRoutes(ctx));
   api.route("/notices", noticeRoutes(ctx));

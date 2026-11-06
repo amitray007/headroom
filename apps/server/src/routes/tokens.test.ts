@@ -78,6 +78,7 @@ describe("read-only API tokens", () => {
             route.path.startsWith("/api/") &&
             !route.path.startsWith("/api/auth/") &&
             !route.path.startsWith("/api/app/") &&
+            route.path !== "/api/mcp" &&
             route.path !== "/api/setup",
         )
         .map((route) => `${route.method} ${concrete(route.path)}`),
