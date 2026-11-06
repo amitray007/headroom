@@ -42,12 +42,10 @@ struct SettingsView: View {
           case .about: AboutPane(model: model)
           }
         }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 24)
+        // The pane title sits in the traffic lights' row, 24 pt from the top.
+        .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 7).padding(.bottom, 24)
       }
       .scrollIndicators(.never).hidingTopScrollEdge().id(model.selectedPane)
-      // On hover macOS frosts the title bar over whatever sits under it, so the pane starts
-      // below the bar, its title level with the first sidebar row.
-      .padding(.top, SettingsWindowChrome.barHeight)
       .background(HR.raisedSurface)
     }
     .font(HR.popoverFont(14)).foregroundStyle(HR.ink).tint(HR.ink)
@@ -1139,8 +1137,8 @@ struct SourceEditor: View {
 }
 
 extension View {
-  /// macOS 26 blurs and rules off a scroll view's top edge near window chrome; the pane's top
-  /// edge meets the title bar, so keep it plain.
+  /// The pane scrolls under the transparent title bar. macOS 26 blurs content under window
+  /// chrome and rules it off, which turned the pane title into a frosted band.
   @ViewBuilder fileprivate func hidingTopScrollEdge() -> some View {
     if #available(macOS 26, *) {
       scrollEdgeEffectHidden(true, for: .top)
@@ -1152,7 +1150,8 @@ extension View {
 
 /// Runs the Settings content under a transparent title bar and sets the close, minimize and zoom
 /// buttons in from the corner. Without help macOS puts them tight in the rounded corner; an empty
-/// toolbar moved them, but on macOS 26 it also frosted the pane under it on hover.
+/// toolbar moved them, but on macOS 26 it also frosted the pane under it on hover. The title
+/// bar's own background frosts it on hover too, so it stays hidden.
 private struct SettingsWindowChrome: NSViewRepresentable {
   /// The title bar height, where the close button's row ends and the content begins.
   static let barHeight: CGFloat = 48
@@ -1206,6 +1205,11 @@ private struct SettingsWindowChrome: NSViewRepresentable {
       frame.size.height = SettingsWindowChrome.barHeight
       frame.origin.y = window.frame.height - SettingsWindowChrome.barHeight
       if container.frame != frame { container.frame = frame }
+      // Its scroll pocket blurs the pane title and draws a lighter band with a hard edge when the
+      // pointer enters the bar. Over this window's own surfaces it adds nothing.
+      for view in container.subviews where view.className == "NSTitlebarBackgroundView" {
+        view.isHidden = true
+      }
       let buttons = WindowButtons.all(of: window)
       // Keep macOS's own spacing between the three buttons.
       let step = buttons.count > 1 ? buttons[1].frame.minX - buttons[0].frame.minX : 20
