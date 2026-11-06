@@ -24,7 +24,7 @@ struct SettingsView: View {
         Spacer()
       }
       // The window content runs under the title bar; the list starts below the traffic lights.
-      .padding(.horizontal, 10).padding(.top, 48).frame(width: 165)
+      .padding(.horizontal, 10).padding(.top, SettingsWindowChrome.barHeight).frame(width: 165)
       .background(HR.background)
       .overlay(alignment: .trailing) { Rectangle().fill(HR.borderSubtle).frame(width: 1) }
       ScrollView {
@@ -42,10 +42,12 @@ struct SettingsView: View {
           case .about: AboutPane(model: model)
           }
         }
-        // The pane title sits in the traffic lights' row, 24 pt from the top.
-        .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 7).padding(.bottom, 24)
+        .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 24)
       }
       .scrollIndicators(.never).hidingTopScrollEdge().id(model.selectedPane)
+      // On hover macOS frosts the title bar over whatever sits under it, so the pane starts
+      // below the bar, its title level with the first sidebar row.
+      .padding(.top, SettingsWindowChrome.barHeight)
       .background(HR.raisedSurface)
     }
     .font(HR.popoverFont(14)).foregroundStyle(HR.ink).tint(HR.ink)
@@ -1137,8 +1139,8 @@ struct SourceEditor: View {
 }
 
 extension View {
-  /// The pane scrolls under the transparent title bar. macOS 26 blurs content under window
-  /// chrome and rules it off, which turned the pane title into a frosted band.
+  /// macOS 26 blurs and rules off a scroll view's top edge near window chrome; the pane's top
+  /// edge meets the title bar, so keep it plain.
   @ViewBuilder fileprivate func hidingTopScrollEdge() -> some View {
     if #available(macOS 26, *) {
       scrollEdgeEffectHidden(true, for: .top)
@@ -1152,12 +1154,14 @@ extension View {
 /// buttons in from the corner. Without help macOS puts them tight in the rounded corner; an empty
 /// toolbar moved them, but on macOS 26 it also frosted the pane under it on hover.
 private struct SettingsWindowChrome: NSViewRepresentable {
+  /// The title bar height, where the close button's row ends and the content begins.
+  static let barHeight: CGFloat = 48
+
   func makeNSView(context: Context) -> NSView { ChromeView() }
   func updateNSView(_ view: NSView, context: Context) {}
 
   private final class ChromeView: NSView {
-    /// The title bar height and the leading edge of the close button.
-    static let barHeight: CGFloat = 48
+    /// The leading edge of the close button.
     static let leading: CGFloat = 18
     private var observers: [NSObjectProtocol] = []
     private var placing = false
@@ -1199,8 +1203,8 @@ private struct SettingsWindowChrome: NSViewRepresentable {
       placing = true
       defer { placing = false }
       var frame = container.frame
-      frame.size.height = Self.barHeight
-      frame.origin.y = window.frame.height - Self.barHeight
+      frame.size.height = SettingsWindowChrome.barHeight
+      frame.origin.y = window.frame.height - SettingsWindowChrome.barHeight
       if container.frame != frame { container.frame = frame }
       let buttons = WindowButtons.all(of: window)
       // Keep macOS's own spacing between the three buttons.
@@ -1208,7 +1212,7 @@ private struct SettingsWindowChrome: NSViewRepresentable {
       for (index, button) in buttons.enumerated() {
         let origin = NSPoint(
           x: Self.leading + CGFloat(index) * step,
-          y: ((Self.barHeight - button.frame.height) / 2).rounded())
+          y: ((SettingsWindowChrome.barHeight - button.frame.height) / 2).rounded())
         if button.frame.origin != origin { button.setFrameOrigin(origin) }
       }
     }
