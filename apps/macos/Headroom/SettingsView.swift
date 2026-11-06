@@ -1139,8 +1139,8 @@ struct SourceEditor: View {
 }
 
 extension View {
-  /// The pane scrolls under the transparent title bar. macOS 26 blurs content under window
-  /// chrome and rules it off, which turned the pane title into a frosted band.
+  /// macOS 26 blurs and rules off a scroll view's top edge near window chrome; the pane's top
+  /// edge meets the title bar, so keep it plain.
   @ViewBuilder fileprivate func hidingTopScrollEdge() -> some View {
     if #available(macOS 26, *) {
       scrollEdgeEffectHidden(true, for: .top)
