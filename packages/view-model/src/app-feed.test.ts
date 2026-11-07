@@ -404,3 +404,30 @@ describe("app feed", () => {
     }
   });
 });
+
+const resetInventoryMetric = (key: string, n: number) =>
+  metric(key, { kind: "reset_inventory", unit: "resets", valueNum: n, valueText: String(n) });
+
+test("Z.ai Mac feed carries the total reset inventory and duplicate expiry times", () => {
+  const at = 1800000000000;
+  const account = connection("zai", {
+    metrics: [
+      resetInventoryMetric("reset_credits.available_count", 3),
+      resetInventoryMetric("reset_credits.five_hour.available_count", 2),
+      resetInventoryMetric("reset_credits.weekly.available_count", 1),
+    ],
+    resetCredits: [
+      credit("five_hour:0", { expiresAt: at + 7200000, rawLabel: "5-hour reset" }),
+      credit("five_hour:1", { expiresAt: at + 7200000, rawLabel: "5-hour reset" }),
+      credit("weekly:0", { expiresAt: at + 86400000, rawLabel: "Weekly reset" }),
+    ],
+  });
+  const feed = build([account]);
+  expect(feed.accounts[0]?.banked).toEqual({
+    count: 3,
+    unit: "Reset Cards",
+    expiries: [at + 7200000, at + 7200000, at + 86400000],
+    interface: "private",
+  });
+  expect(appFeedSchema.safeParse(feed).success).toBe(true);
+});

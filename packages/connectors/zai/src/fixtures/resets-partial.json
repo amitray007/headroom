@@ -1,0 +1,7 @@
+{
+  "code": 0,
+  "data": {
+    "available_five_hour_resets": [{ "expire_at": 1800007200000 }],
+    "available_week_resets": [{ "expire_at": "changed-schema" }]
+  }
+}

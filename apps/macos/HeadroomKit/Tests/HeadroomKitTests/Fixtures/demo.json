@@ -12,6 +12,7 @@
     "antigravity",
     "copilot",
     "cursor",
+    "zai",
     "vercel_ai_gateway"
   ],
   "accounts": [
@@ -800,11 +801,74 @@
       "banked": null
     },
     {
-      "id": "demo-vercel-ai-gateway-1",
-      "provider": "vercel_ai_gateway",
+      "id": "demo-zai-1",
+      "provider": "zai",
       "name": "Account 12",
       "plan": null,
       "identity": "account-12@example.invalid",
+      "state": "ready",
+      "reconnectReason": null,
+      "interface": "private",
+      "lastSuccessAt": 1793285765943,
+      "observedAt": 1793285764888,
+      "limits": [
+        {
+          "key": "quota.18000s",
+          "label": "Session",
+          "window": "5 hours",
+          "windowKind": "session",
+          "percentLeft": 67.2,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793296090263,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        },
+        {
+          "key": "quota.604800s",
+          "label": "Weekly",
+          "window": "7 days",
+          "windowKind": "weekly",
+          "percentLeft": 74.3,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1793520396320,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        },
+        {
+          "key": "mcp.monthly",
+          "label": "MCP",
+          "window": "monthly",
+          "windowKind": "other",
+          "percentLeft": 55.2,
+          "unlimited": false,
+          "notStarted": false,
+          "resetsAt": 1795014000000,
+          "resetWords": "resets",
+          "runsOutAt": null,
+          "part": false,
+          "interface": "private"
+        }
+      ],
+      "charges": [],
+      "banked": {
+        "count": 3,
+        "unit": "Reset Cards",
+        "expiries": [1793681469720, 1793681469720, 1793855672279],
+        "interface": "private"
+      }
+    },
+    {
+      "id": "demo-vercel-ai-gateway-1",
+      "provider": "vercel_ai_gateway",
+      "name": "Account 13",
+      "plan": null,
+      "identity": "account-13@example.invalid",
       "state": "ready",
       "reconnectReason": null,
       "interface": "official",
@@ -854,9 +918,9 @@
     {
       "id": "demo-vercel-ai-gateway-2",
       "provider": "vercel_ai_gateway",
-      "name": "Account 13",
+      "name": "Account 14",
       "plan": null,
-      "identity": "account-13@example.invalid",
+      "identity": "account-14@example.invalid",
       "state": "partial",
       "reconnectReason": null,
       "interface": "official",
@@ -1172,7 +1236,7 @@
       "provider": "vercel_ai_gateway",
       "connection": {
         "id": "demo-vercel-ai-gateway-1",
-        "name": "Account 12",
+        "name": "Account 13",
         "plan": null
       },
       "subject": {

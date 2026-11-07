@@ -13,6 +13,9 @@ with the owner's username.
 
 The favicons and app icons are in `apps/web/public` (served from the site root). They are generated from the mark geometry in `src/ui/logo-geometry.ts` with `mise exec -- bun scripts/brand.ts`, which needs headless Chrome.
 
+
+`zai.svg` contains the Z mark geometry from the [official z.ai favicon](https://z-cdn.chatglm.cn/z-ai/static/logo.svg), fetched 2026-11-06 for provider identification. Unused definitions and the background were removed; the mark uses `currentColor` to follow the theme.
+
 ## Account avatar
 
 The signed-in avatar is loaded from DiceBear's "Voxel Bot" style, seeded with the owner's username:

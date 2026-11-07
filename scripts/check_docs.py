@@ -6,7 +6,7 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-PROVIDERS = {"claude", "codex", "cursor", "copilot", "vercel-ai-gateway", "grok", "antigravity"}
+PROVIDERS = {"claude", "codex", "cursor", "copilot", "vercel-ai-gateway", "grok", "antigravity", "zai"}
 STALE_STATES = {"connected", "connected_partial", "connected_with_limited_metrics", "pending_validation", "account_selection", "needs_reconnect", "waiting_for_browser", "waiting_for_code", "experimental", "experimental_member", "login_attempt"}
 SECTIONS = ["Scope and recommendation", "Evidence status", "Metrics", "Connect workflow", "APIs and tools", "Available packages and limits", "Prior observations", "Cannot promise", "Implementation and validation checklist", "Sources"]
 errors = []

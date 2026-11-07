@@ -32,6 +32,7 @@ const providerMethods = {
   antigravity: { interface: "private", methods: ["paste_redirect"] },
   copilot: { interface: "official", methods: ["device_code"] },
   cursor: { interface: "private", methods: ["import"] },
+  zai: { interface: "private", methods: ["approval_poll"] },
   vercel_ai_gateway: { interface: "official", methods: ["api_key"] },
 } as const;
 

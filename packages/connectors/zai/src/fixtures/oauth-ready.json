@@ -1,0 +1,9 @@
+{
+  "code": 0,
+  "data": {
+    "status": "ready",
+    "token": "synthetic-zcode-app-token",
+    "user": { "user_id": "synthetic-chat-user", "name": "Sample Z.ai Owner" },
+    "zai": { "access_token": "synthetic-oauth-token" }
+  }
+}

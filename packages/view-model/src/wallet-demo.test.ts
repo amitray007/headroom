@@ -31,18 +31,21 @@ describe("demoWallet", () => {
     }
   });
 
-  test("shows every kind, one paid-looking account Not set, and one account billed in rupees", () => {
+  test("shows every kind, leaves Cursor and Z.ai costs Not set, and has an account billed in rupees", () => {
     for (const seed of seeds) {
       const { overview, book } = build(seed);
       const summary = summarize(overview.connections, overview.providerOrder, book, rates, anchor);
       expect(summary.counts.paid).toBeGreaterThan(1);
       expect(summary.counts.free).toBeGreaterThan(0);
       expect(summary.counts.included).toBeGreaterThan(0);
-      expect(summary.counts.notSet).toBe(1);
+      expect(summary.counts.notSet).toBe(2);
       const notSet = summary.providers
         .flatMap((group) => group.accounts)
-        .find((account) => account.cost === null);
-      expect(notSet?.connection.provider).toBe("cursor");
+        .filter((account) => account.cost === null);
+      expect(notSet.map((account) => account.connection.provider).toSorted()).toEqual([
+        "cursor",
+        "zai",
+      ]);
       const costs = Object.values(book.costs);
       expect(costs.some((cost) => cost.kind === "paid" && cost.cycle === "annual")).toBe(true);
       expect(costs.some((cost) => cost.kind === "paid" && cost.price.currency === "INR")).toBe(

@@ -46,8 +46,14 @@ export type Cell =
       readonly window: string;
       /** Null when the provider reported the count as unknown. */
       readonly count: number | null;
+      readonly countLabel?: "card";
       /** Expiry instants of usable resets, soonest first. */
       readonly expiries: readonly number[];
+      readonly details?: readonly {
+        readonly key: string;
+        readonly label: string;
+        readonly expiresAt: number;
+      }[];
     };
 
 type MeterCell = Extract<Cell, { kind: "meter" }>;
@@ -148,6 +154,7 @@ function spanOf(scope: string): Span {
 
 function decimalsFor(used: number | null, provider: OverviewConnection["provider"]): number {
   if (provider === "copilot") return 1;
+  if (provider === "zai") return used !== null && !Number.isInteger(used) ? 2 : 0;
   return used !== null && used > 0 && used < 1 ? 1 : 0;
 }
 
@@ -203,7 +210,10 @@ function meterOf(context: Context, metric: Metric, options: MeterOptions): Meter
     used,
     unlimited,
     resetsAt: metric.resetsAt,
-    resetWords: resetWordsOf(metric, options.resetWords ?? "resets"),
+    resetWords:
+      context.connection.provider === "zai"
+        ? (options.resetWords ?? "resets")
+        : resetWordsOf(metric, options.resetWords ?? "resets"),
     decimals: decimalsFor(used, context.connection.provider),
   };
 }
@@ -687,6 +697,69 @@ function leftovers(context: Context): Built {
   return { meters, others: [], facts };
 }
 
+function zai(context: Context): Built {
+  const meters: MeterCell[] = [];
+  for (const key of keysWith(context, "quota.", "")) {
+    const metric = take(context, key);
+    if (metric === null || metric.kind !== "quota_percentage") continue;
+    const span = spanOf(metric.scope);
+    meters.push(meterOf(context, metric, { label: span.label, window: span.window }));
+  }
+  meters.sort((a, b) =>
+    a.key === "quota.18000s" ? -1 : b.key === "quota.18000s" ? 1 : a.key.localeCompare(b.key),
+  );
+  meters.push(...meterFor(context, "mcp.monthly", { label: "MCP", window: "monthly" }));
+  const used = take(context, "mcp.monthly.used");
+  const limit = take(context, "mcp.monthly.limit");
+  take(context, "mcp.monthly.remaining");
+  const calls = used === null ? null : numberOf(used);
+  const total = limit === null ? null : numberOf(limit);
+  const facts =
+    used === null && limit === null
+      ? []
+      : [
+          factOf(
+            "mcp.calls",
+            "MCP Calls",
+            `${calls === null ? "Unknown" : formatNumber(calls, 0)}${total === null ? "" : ` of ${formatNumber(total, 0)}`}`,
+          ),
+        ];
+  const inventory = take(context, "reset_credits.available_count");
+  for (const [name, label] of [
+    ["five_hour", "Session Cards"],
+    ["weekly", "Weekly Cards"],
+  ] as const) {
+    facts.push(
+      ...factFor(context, `reset_credits.${name}.available_count`, label, (n) =>
+        formatNumber(n, 0),
+      ),
+    );
+  }
+  const stored = (context.connection.snapshot?.resetCredits ?? [])
+    .filter((card) => card.usable && card.expiresAt !== null)
+    .toSorted((a, b) => (a.expiresAt ?? 0) - (b.expiresAt ?? 0));
+  const others: Cell[] =
+    inventory === null
+      ? []
+      : [
+          {
+            kind: "resets",
+            key: "reset_credits.available_count",
+            label: "Reset Cards",
+            countLabel: "card",
+            window: "available",
+            count: numberOf(inventory),
+            expiries: stored.map((card) => card.expiresAt ?? 0),
+            details: stored.map((card) => ({
+              key: card.providerCreditId,
+              label: card.rawLabel ?? "Reset card",
+              expiresAt: card.expiresAt ?? 0,
+            })),
+          },
+        ];
+  return { meters, others, facts };
+}
+
 const builders: Record<OverviewConnection["provider"], (context: Context) => Built> = {
   claude,
   codex,
@@ -694,6 +767,7 @@ const builders: Record<OverviewConnection["provider"], (context: Context) => Bui
   grok,
   antigravity,
   copilot,
+  zai,
   vercel_ai_gateway: vercel,
 };
 

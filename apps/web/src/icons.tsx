@@ -10,6 +10,7 @@ import codexRaw from "./assets/codex.svg?raw";
 import copilotRaw from "./assets/copilot.svg?raw";
 import cursorRaw from "./assets/cursor.svg?raw";
 import grokRaw from "./assets/grok.svg?raw";
+import zaiRaw from "./assets/zai.svg?raw";
 import telegramUrl from "./assets/telegram.svg";
 import vercelRaw from "./assets/vercel_ai_gateway.svg?raw";
 import { inlineSvg } from "./ui/inline-svg.ts";
@@ -187,6 +188,7 @@ const marks: Record<Provider, Mark> = {
   cursor: { kind: "inline", svg: inlineSvg(cursorRaw, true) },
   copilot: { kind: "inline", svg: inlineSvg(copilotRaw, true) },
   grok: { kind: "inline", svg: inlineSvg(grokRaw, true) },
+  zai: { kind: "inline", svg: inlineSvg(zaiRaw, true) },
   antigravity: { kind: "image", url: antigravityUrl },
   vercel_ai_gateway: { kind: "inline", svg: inlineSvg(vercelRaw, true) },
 };

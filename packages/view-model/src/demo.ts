@@ -935,6 +935,50 @@ interface Account {
  * figure. Three things are meant to be noticed: the Claude Pro weekly limit running low, a Codex Pro reset credit
  * about to expire, and the Antigravity free account that needs a new sign-in.
  */
+function zaiParts(draw: Draw): Parts {
+  const sessionExpiry = ahead(draw, "zai-session-cards", 4 * day, 5 * day);
+  const weeklyExpiry = ahead(draw, "zai-weekly-card", 6 * day, 8 * day);
+  const resetCredits = [
+    resetCredit("five_hour:0", sessionExpiry, "5-hour reset"),
+    resetCredit("five_hour:1", sessionExpiry, "5-hour reset"),
+    resetCredit("weekly:0", weeklyExpiry, "Weekly reset"),
+  ];
+  return {
+    plan: null,
+    metrics: [
+      usedWindow(draw, "quota.18000s", sessionWindow, 10, 40, 1),
+      usedWindow(draw, "quota.604800s", olderWeeklyWindow, 20, 65, 1),
+      {
+        ...usedWindow(draw, "mcp.monthly", olderWeeklyWindow, 10, 50, 1),
+        scope: "window:monthly",
+        resetsAt: draw.anchor + 20 * day,
+      },
+      metricOf({
+        key: "reset_credits.available_count",
+        kind: "reset_inventory",
+        scope: "account",
+        unit: "resets",
+        text: "3",
+      }),
+      metricOf({
+        key: "reset_credits.five_hour.available_count",
+        kind: "reset_inventory",
+        scope: "window:18000s",
+        unit: "resets",
+        text: "2",
+      }),
+      metricOf({
+        key: "reset_credits.weekly.available_count",
+        kind: "reset_inventory",
+        scope: "window:604800s",
+        unit: "resets",
+        text: "1",
+      }),
+    ],
+    resetCredits,
+  };
+}
+
 const accounts: readonly Account[] = [
   {
     provider: "codex",
@@ -1038,6 +1082,15 @@ const accounts: readonly Account[] = [
     authMethod: "approval_poll",
     interface: "private",
     parts: (draw) => cursorParts(draw, "pro_plus"),
+  },
+  {
+    provider: "zai",
+    n: 1,
+    name: null,
+    identity: () => null,
+    authMethod: "approval_poll",
+    interface: "private",
+    parts: zaiParts,
   },
   {
     provider: "vercel_ai_gateway",

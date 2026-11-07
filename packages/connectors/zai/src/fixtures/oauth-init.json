@@ -1,0 +1,9 @@
+{
+  "code": 0,
+  "data": {
+    "flow_id": "synthetic-flow",
+    "authorize_url": "https://chat.z.ai/api/oauth/authorize?client_id=client_P8X5CMWmlaRO9gyO-KSqtg&redirect_uri=https%3A%2F%2Fzcode.z.ai%2Fapi%2Fv1%2Foauth%2Fcli%2Fcallback%2Fzai&state=synthetic-state&response_type=code",
+    "expires_at": 1800000300,
+    "poll_interval_sec": 2
+  }
+}

@@ -71,3 +71,13 @@ Inspected on 2026-10-01 at v8.0.8 from the [repository](https://github.com/route
 ## Research dates
 
 Provider dossiers mark their review date and sources. Package observations in [the tool catalog](tools.md) come from the conversation and linked repositories; exact historical package versions are not dependency pins. Recheck release and license metadata when adopting a package.
+
+## Z.ai Coding Plan, 2026-11-06
+
+Connector `0.3.0` uses source-inspected private endpoints from official ZCode revision `a9fe401eede6e6e5e01be9048679c206fe6f02d9` and the official console modules in its [dossier](../providers/zai.md). Public sign-in initialization without an account returned the expected official authorize URL, registered callback, 300-second lifetime and 2-second interval. This public protocol check does not validate quota access.
+
+Synthetic fixtures and in-memory database tests cover browser approval and server-only polling secrets; encrypted per-account sessions and the retained ZCode JWT; stable customer identity, same-account reconnect and history; business-token renewal before collection; coding quota windows, optional monthly MCP calls, known zero and missing data; read-only reset-card counts and expiry, including duplicates and partially malformed inventories; and safe 401/403/429/5xx handling. Reset-read failures leave working quota values intact. No model request, key creation, provider reset grant, redemption or history acknowledgment is part of the connector.
+
+Live session acceptance, quota and card comparison, revocation and deployment remain unvalidated. Root OAuth refresh is not implemented by the provider’s client; Headroom renews the business token only and requires browser Reconnect when the root sign-in expires. Older local sessions that did not retain the ZCode JWT need one more browser approval to supply it.
+
+The independent Z.ai pull-request branch was checked against upstream `61dca17` on 2026-11-06: `mise run check` passed 1,471 tests and the app contract/compatibility checks; `mise run mac:test` passed 258 tests; demo and server binary builds passed. Desktop (1280 × 800) and phone (390 × 844) synthetic before/after captures compare the provider picker with that base. The new quota and reset-card views were checked in light and dark, including repeated expiry times, with no page/console errors or horizontal overflow. These checks establish fixture behavior, not live-account quota or card access.
