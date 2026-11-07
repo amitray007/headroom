@@ -45,7 +45,8 @@ struct MenuItemLabel: View {
         }
       }
     case .accounts where !readings.isEmpty:
-      withDot {
+      // The dot speaks for the whole item, so it keeps the slots' spacing from the last one.
+      withDot(spacing: 6) {
         HStack(spacing: 6) {
           ForEach(Array(readings.enumerated()), id: \.offset) { index, reading in
             MenuMark(style: status.markStyle, tone: status.slotMarks[index]) {
@@ -123,9 +124,12 @@ struct MenuItemLabel: View {
       .padding(.leading, -4).padding(.trailing, -2 + MenuDot.overhang(status))
   }
 
-  /// Meters fill their whole icon, so the dot sits after them.
-  private func withDot<Meters: View>(@ViewBuilder _ content: () -> Meters) -> some View {
-    HStack(spacing: 3) {
+  /// Meters fill their whole icon, so the dot sits against its lower-right corner, outside it:
+  /// a badge on the corner would hide part of a reading.
+  private func withDot<Meters: View>(
+    spacing: CGFloat = 1, @ViewBuilder _ content: () -> Meters
+  ) -> some View {
+    HStack(alignment: .bottom, spacing: spacing) {
       content()
       if let dot = status.dot { MenuDot(tone: dot, colors: status.colors) }
     }
