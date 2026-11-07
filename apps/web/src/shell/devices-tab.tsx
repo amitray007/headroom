@@ -1,40 +1,18 @@
 import { useEffect, useId, useState } from "react";
 
-import { shortDate } from "@headroom/view-model/time";
-
 import { api, type ApiToken } from "../api.ts";
 import { KeyIcon } from "../icons.tsx";
-import { When } from "../lib/when.tsx";
 import { Button } from "../ui/button.tsx";
 import { CopyButton } from "../ui/copy-button.tsx";
-import { EmptyState } from "../ui/empty-state.tsx";
 import { ErrorNotice } from "../ui/error-notice.tsx";
 import { Segmented } from "../ui/segmented.tsx";
-import { Sk } from "../ui/skeleton.tsx";
 import { Section } from "./settings-rows.tsx";
+import { TokenList } from "./token-list.tsx";
 import "./devices.css";
 
-/** The token's visible start, what it may do, its last use and, when set, its expiry. */
-function DeviceNote(props: { readonly token: ApiToken }) {
-  const { token } = props;
-  return (
-    <span className="muted">
-      <code>{token.start ?? token.prefix}…</code>
-      {token.scopes.includes("refresh") ? " · Read & Write" : " · Read Only"}
-      {" · "}
-      {token.lastUsedAt === null ? (
-        "Never used"
-      ) : (
-        <>
-          Used <When at={token.lastUsedAt} kind="ago" />
-        </>
-      )}
-      {" · Added "}
-      {shortDate(token.createdAt)}
-      {token.expiresAt === null ? null : ` · Expires ${shortDate(token.expiresAt)}`}
-    </span>
-  );
-}
+/** Agent tokens list in the Agents tab. */
+const devicesOf = (tokens: readonly ApiToken[]): ApiToken[] =>
+  tokens.filter((token) => token.kind === "device");
 
 /** Keys live only in this mounted tab and are discarded when it closes. The parent remounts it when Demo Mode changes. */
 export function DevicesTab() {
@@ -48,12 +26,11 @@ export function DevicesTab() {
     readonly mcpUrl: string;
   } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState<string | null>(null);
   const nameId = useId();
   const reload = async (): Promise<void> => {
     setError(null);
     try {
-      setTokens((await api.tokens()).tokens);
+      setTokens(devicesOf((await api.tokens()).tokens));
     } catch {
       setError("Headroom could not load your devices.");
     }
@@ -63,7 +40,7 @@ export function DevicesTab() {
     void api
       .tokens()
       .then((result) => {
-        if (active) setTokens(result.tokens);
+        if (active) setTokens(devicesOf(result.tokens));
         return undefined;
       })
       .catch(() => {
@@ -93,16 +70,17 @@ export function DevicesTab() {
       setBusy(false);
     }
   };
-  const revoke = async (id: string): Promise<void> => {
-    if (busy) return;
+  const revoke = async (id: string): Promise<boolean> => {
+    if (busy) return false;
     setBusy(true);
     setError(null);
     try {
       await api.revokeToken(id);
-      setConfirm(null);
       await reload();
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Headroom could not revoke the token.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -180,62 +158,17 @@ export function DevicesTab() {
             {error}
           </ErrorNotice>
         )}
-        {tokens === null ? (
-          <div className="srow" aria-busy="true">
-            <span className="sbody">
-              <Sk width={120} height={14} />
-              <Sk width={220} height={12} />
-            </span>
-            <Sk width={76} height={30} className="sk-pill" />
-          </div>
-        ) : tokens.length === 0 ? (
-          <EmptyState compact icon={<KeyIcon />} title="No devices yet">
-            Create a token above, then add this server in Headroom for Mac or an MCP client.
-          </EmptyState>
-        ) : (
-          tokens.map((token) => {
-            const label = token.name ?? "Unnamed device";
-            return (
-              <div key={token.id} className="srow device-row">
-                {confirm === token.id ? (
-                  <span className="sbody">
-                    <b>Revoke {label}?</b>
-                    <span className="muted">It loses access to this server at once.</span>
-                  </span>
-                ) : (
-                  <span className="sbody">
-                    <b>{label}</b>
-                    <DeviceNote token={token} />
-                  </span>
-                )}
-                {confirm === token.id ? (
-                  <span className="device-actions">
-                    <Button size="sm" disabled={busy} onClick={() => setConfirm(null)}>
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      busy={busy}
-                      onClick={() => void revoke(token.id)}
-                    >
-                      Revoke
-                    </Button>
-                  </span>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="quiet-danger"
-                    disabled={busy}
-                    onClick={() => setConfirm(token.id)}
-                  >
-                    Revoke
-                  </Button>
-                )}
-              </div>
-            );
-          })
-        )}
+        <TokenList
+          tokens={tokens}
+          busy={busy}
+          unnamed="Unnamed device"
+          empty={{
+            icon: <KeyIcon />,
+            title: "No devices yet",
+            body: "Create a token above, then add this server in Headroom for Mac or an MCP client.",
+          }}
+          onRevoke={revoke}
+        />
       </Section>
     </>
   );

@@ -173,4 +173,4 @@ export {
 } from "./notifications/deliveries.ts";
 export { cliAvailability } from "./cli-availability.ts";
 
-export { ApiTokenStore, apiTokenScopesOf } from "./api-tokens.ts";
+export { ApiTokenStore, apiTokenKindOf, apiTokenScopesOf } from "./api-tokens.ts";

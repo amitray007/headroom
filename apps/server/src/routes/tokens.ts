@@ -1,14 +1,18 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { ApiTokenStore } from "@headroom/core";
+import { ApiTokenStore, apiTokenKindSchema } from "@headroom/core";
 
 import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
 
-/** `refresh` opts the token into changing Refresh Every; every token can read. */
+/** `refresh` opts the token into changing Refresh Every; every token can read. `kind` defaults to `device`. */
 const createBody = z
-  .object({ name: z.string().trim().min(1).max(40), refresh: z.boolean().optional() })
+  .object({
+    name: z.string().trim().min(1).max(40),
+    refresh: z.boolean().optional(),
+    kind: apiTokenKindSchema.optional(),
+  })
   .strict();
 const tokenId = z.string().min(1).max(128);
 
@@ -35,20 +39,26 @@ export function tokenRoutes(ctx: AppContext): Hono<Env> {
       lastUsedAt: token.lastUsedAt?.getTime() ?? null,
       expiresAt: token.expiresAt?.getTime() ?? null,
       scopes: token.scopes,
+      kind: token.kind,
     }));
     return c.json({ tokens, mcpUrl: mcpAddress(ctx) });
   });
   app.post("/", async (c) => {
     const parsed = createBody.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: "invalid_body" }, 400);
+    const kind = parsed.data.kind ?? "device";
     const token = await ctx.auth.api.createApiKey({
       body: {
         name: parsed.data.name,
         userId: c.get("session").user.id,
         permissions: { app: parsed.data.refresh === true ? ["read", "refresh"] : ["read"] },
+        metadata: { kind },
       },
     });
-    return c.json({ id: token.id, name: token.name, key: token.key, mcpUrl: mcpAddress(ctx) }, 201);
+    return c.json(
+      { id: token.id, name: token.name, key: token.key, kind, mcpUrl: mcpAddress(ctx) },
+      201,
+    );
   });
   app.delete("/:id", (c) => {
     const id = tokenId.safeParse(c.req.param("id"));
