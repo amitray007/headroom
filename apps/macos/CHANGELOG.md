@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.3](https://github.com/amitray007/headroom/compare/macos-v0.1.2...macos-v0.1.3) (2026-11-07)
+
+
+### Features
+
+* **macos:** move the notification dot to the menu bar icon's corner ([ca84113](https://github.com/amitray007/headroom/commit/ca8411317fb4bc401261d423b542fa67c17e85d8))
+* put the menu bar dot on the icon's corner as a badge ([8b7119a](https://github.com/amitray007/headroom/commit/8b7119a33ce3b3f697b124e0dec282469323b509))
+
+
+### Bug Fixes
+
+* keep the menu bar dot off the readings it sat on ([dc07e8f](https://github.com/amitray007/headroom/commit/dc07e8fc4311b6ff73bdf352b93edb225f126d29))
+
 ## [0.1.2](https://github.com/amitray007/headroom/compare/macos-v0.1.1...macos-v0.1.2) (2026-11-06)
 
 
