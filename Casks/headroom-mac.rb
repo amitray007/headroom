@@ -1,6 +1,6 @@
 cask "headroom-mac" do
-  version "0.1.1"
-  sha256 "af9ca2747da4bffbdb474b8a4ef05010b7249287f45bd18cacc04f0a1d609345"
+  version "0.1.3"
+  sha256 "9a582a50aee2a7c2ec1b70d86b0c23df480a4564b79362330bec22b17c3e9a5f"
 
   url "https://github.com/amitray007/headroom/releases/download/macos-v#{version}/Headroom-#{version}.zip"
   name "Headroom"
