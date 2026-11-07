@@ -12,7 +12,16 @@ import { useDevicePrefs } from "../lib/device-prefs.ts";
 import { isDemoSite } from "../lib/site.ts";
 import { useSettings } from "../lib/settings.tsx";
 import type { SettingsPatch } from "../lib/settings-store.ts";
-import { BellIcon, EyeIcon, GearIcon, KeyIcon, LinkIcon, PlugIcon, ResetIcon } from "../icons.tsx";
+import {
+  AgentIcon,
+  BellIcon,
+  EyeIcon,
+  GearIcon,
+  KeyIcon,
+  LinkIcon,
+  PlugIcon,
+  ResetIcon,
+} from "../icons.tsx";
 import { Dialog } from "../ui/dialog.tsx";
 import { ErrorNotice } from "../ui/error-notice.tsx";
 import { Segmented } from "../ui/segmented.tsx";
@@ -20,6 +29,7 @@ import { Select } from "../ui/select.tsx";
 import { Sk } from "../ui/skeleton.tsx";
 import { SlideSwap, type SwapDirection } from "../ui/slide-swap.tsx";
 import { Tabs } from "../ui/tabs.tsx";
+import { AgentsTab } from "./agents-tab.tsx";
 import { AutomationsTab } from "./automations-tab.tsx";
 import { DevicesTab } from "./devices-tab.tsx";
 import { ChannelsTab } from "./delivery/tab.tsx";
@@ -131,6 +141,7 @@ const sections = [
   { value: "automations", label: "Automations", icon: <ResetIcon /> },
   { value: "channels", label: "Channels", icon: <LinkIcon /> },
   { value: "devices", label: "Devices", icon: <KeyIcon /> },
+  { value: "agents", label: "Agents", icon: <AgentIcon /> },
   { value: "privacy", label: "Privacy", icon: <EyeIcon /> },
 ] as const;
 
@@ -540,6 +551,7 @@ export function SettingsDialog(props: {
               ) : null}
               {tab === "channels" ? <ChannelsTab /> : null}
               {props.open && tab === "devices" ? <DevicesTab key={String(demo)} /> : null}
+              {props.open && tab === "agents" ? <AgentsTab key={String(demo)} /> : null}
               {tab === "privacy" ? <Privacy /> : null}
             </SlideSwap>
           </div>

@@ -12,6 +12,11 @@ const createBody = z
   .strict();
 const tokenId = z.string().min(1).max(128);
 
+/** The configured public address reaches this server from other machines; null lets the browser use its own origin. */
+function mcpAddress(ctx: AppContext): string | null {
+  return ctx.config.publicUrl === undefined ? null : new URL("/api/mcp", ctx.config.publicUrl).href;
+}
+
 export function tokenRoutes(ctx: AppContext): Hono<Env> {
   const app = new Hono<Env>();
   const store = new ApiTokenStore(ctx.db);
@@ -31,7 +36,7 @@ export function tokenRoutes(ctx: AppContext): Hono<Env> {
       expiresAt: token.expiresAt?.getTime() ?? null,
       scopes: token.scopes,
     }));
-    return c.json({ tokens });
+    return c.json({ tokens, mcpUrl: mcpAddress(ctx) });
   });
   app.post("/", async (c) => {
     const parsed = createBody.safeParse(await c.req.json().catch(() => null));
@@ -43,10 +48,7 @@ export function tokenRoutes(ctx: AppContext): Hono<Env> {
         permissions: { app: parsed.data.refresh === true ? ["read", "refresh"] : ["read"] },
       },
     });
-    // The configured public address reaches this server from other machines; the browser falls back to its own.
-    const mcpUrl =
-      ctx.config.publicUrl === undefined ? null : new URL("/api/mcp", ctx.config.publicUrl).href;
-    return c.json({ id: token.id, name: token.name, key: token.key, mcpUrl }, 201);
+    return c.json({ id: token.id, name: token.name, key: token.key, mcpUrl: mcpAddress(ctx) }, 201);
   });
   app.delete("/:id", (c) => {
     const id = tokenId.safeParse(c.req.param("id"));

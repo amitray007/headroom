@@ -200,6 +200,10 @@ headroom service uninstall
 
 Every variable is listed in [Deployment and credential storage](docs/architecture/deployment.md).
 
+## Connect an AI agent
+
+Headroom has a read-only MCP server, so an agent such as Claude Code, Codex or Cursor can ask about your allowances. Open Settings, then Agents, pick your client, press Create Token and copy the setup. The token is shown once. Revoke it in Settings, Devices. See [MCP](docs/architecture/api.md#mcp).
+
 ## Security
 
 - Credentials are sealed per account with AES-256-GCM. The master key never enters the database.

@@ -113,7 +113,7 @@ function getRoute(path: string): Response {
         staleAfterMs: 3_600_000,
       });
     case "/api/tokens":
-      return Response.json({ tokens: [] });
+      return Response.json({ tokens: [], mcpUrl: null });
     case "/api/settings":
       return Response.json({ settings });
     case "/api/exchange-rates":

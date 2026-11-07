@@ -1,0 +1,132 @@
+/* Agents: the client switcher, the setup card (the hero), then the token row that completes it. */
+.agents {
+  display: grid;
+  gap: 16px;
+  padding-block: 8px 0;
+}
+.agent-stage {
+  min-width: 0;
+  animation: agent-fade 140ms linear;
+}
+@keyframes agent-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-stage {
+    animation: none;
+  }
+}
+.agent-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+.agent-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 40px;
+  padding-inline: 16px 6px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+}
+.agent-where {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 var(--text-xs) / 1 var(--mono);
+  color: var(--text-muted);
+}
+.agent-card pre {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+  white-space: pre;
+  font: 400 var(--text-sm) / 1.65 var(--mono);
+  color: var(--foreground);
+}
+.agent-card code {
+  font: inherit;
+  user-select: all;
+}
+.agent-token {
+  padding-inline: 2px;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--foreground) 9%, transparent);
+}
+.agent-token.placeholder {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+.agent-fields {
+  display: grid;
+  gap: 16px;
+}
+.agent-field {
+  display: grid;
+  gap: 6px;
+}
+.agent-field .muted {
+  font-size: var(--text-xs);
+}
+.agent-field .key-field {
+  flex: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.agent-token-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+.agent-token-row .muted {
+  font-size: var(--text-xs);
+}
+.agent-done {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+.agent-done svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--success);
+}
+@media (max-width: 520px) {
+  .agents .seg.full button {
+    font-size: var(--text-xs);
+    gap: 5px;
+  }
+  .agents .seg-icon svg,
+  .agents .brand.sm,
+  .agents .brand.sm svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+/* The narrowest phones have no room for the marks beside the names. */
+@media (max-width: 400px) {
+  .agents .seg-icon {
+    display: none;
+  }
+}
+
+/* Codex's mark sits inside a wide viewBox margin; scale it to read at the same size as its neighbours. */
+.agent-mark {
+  display: inline-grid;
+}
+.agent-mark.codex svg {
+  scale: 1.35;
+}

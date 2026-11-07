@@ -108,7 +108,11 @@ const pairingSchema = z.object({
   status: appPairingStatusSchema,
   expiresAt: z.number(),
 });
-const tokensSchema = z.object({ tokens: z.array(tokenSchema) });
+const tokensSchema = z.object({
+  tokens: z.array(tokenSchema),
+  /** Null when the server has no public URL; the browser then uses its own origin. */
+  mcpUrl: z.string().nullable().default(null),
+});
 
 /** Two synthetic linked devices for Demo Mode. Their starts are made up and match no key. */
 function demoTokens(now: number): ApiToken[] {
@@ -444,7 +448,7 @@ export const api = {
   ),
   tokens: () =>
     demoOn()
-      ? Promise.resolve({ tokens: demoTokens(Date.now()) })
+      ? Promise.resolve({ tokens: demoTokens(Date.now()), mcpUrl: null })
       : request("GET", "/api/tokens", tokensSchema),
   createToken: changesAccount((name: string, refresh: boolean) =>
     request("POST", "/api/tokens", createdTokenSchema, { name, refresh }),

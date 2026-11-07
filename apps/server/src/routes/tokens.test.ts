@@ -11,6 +11,7 @@ const createdSchema = z.object({
   mcpUrl: z.string().nullable(),
 });
 const listSchema = z.object({
+  mcpUrl: z.string().nullable(),
   tokens: z.array(
     z
       .object({
@@ -170,6 +171,23 @@ describe("read-only API tokens", () => {
     ctx.sqlite.close();
   });
 
+  test("the list names the MCP address too", async () => {
+    const { ctx, app, cookie } = await fixture();
+    const none = await app.request(url(ctx, "/api/tokens"), { headers: { cookie } });
+    expect(listSchema.parse(await none.json()).mcpUrl).toBeNull();
+    ctx.sqlite.close();
+    const withUrl = testContext({ HEADROOM_PUBLIC_URL: "https://headroom.example.com" });
+    const other = createApp(withUrl);
+    const session = await signedIn(withUrl, other);
+    const response = await other.request(url(withUrl, "/api/tokens"), {
+      headers: { cookie: session },
+    });
+    expect(listSchema.parse(await response.json()).mcpUrl).toBe(
+      "https://headroom.example.com/api/mcp",
+    );
+    withUrl.sqlite.close();
+  });
+
   test("list is a safe projection, shows use, and revocation is immediate", async () => {
     const { ctx, app, headers, cookie, token } = await fixture();
     const stored = ctx.sqlite
@@ -204,7 +222,7 @@ describe("read-only API tokens", () => {
     ).toBe(200);
     expect((await app.request(url(ctx, "/api/app/v1/whoami"), { headers })).status).toBe(401);
     const after = await app.request(url(ctx, "/api/tokens"), { headers: { cookie } });
-    expect(await after.json()).toEqual({ tokens: [] });
+    expect(await after.json()).toEqual({ tokens: [], mcpUrl: null });
     ctx.sqlite.close();
   });
 
