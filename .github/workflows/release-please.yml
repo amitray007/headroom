@@ -84,6 +84,9 @@ jobs:
     uses: ./.github/workflows/homebrew.yml
     with:
       version: ${{ needs.release-please.outputs.version }}
+    # Called workflows see only the secrets passed here; without the key the push falls back to GITHUB_TOKEN and the ruleset rejects it.
+    secrets:
+      RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
   macos:
     needs: release-please
@@ -93,3 +96,5 @@ jobs:
     uses: ./.github/workflows/macos.yml
     with:
       version: ${{ needs.release-please.outputs.mac_version }}
+    secrets:
+      RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
