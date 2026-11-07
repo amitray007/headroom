@@ -24,6 +24,9 @@ on:
         description: Mac release version without macos-v, such as 0.1.1
         type: string
         required: true
+    secrets:
+      RELEASE_DEPLOY_KEY:
+        required: true
   workflow_dispatch:
     inputs:
       version:
