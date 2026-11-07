@@ -123,12 +123,23 @@ struct MenuItemLabel: View {
       .padding(.leading, -4).padding(.trailing, -2 + MenuDot.overhang(status))
   }
 
-  /// Meters fill their whole icon, so the dot sits after them.
+  /// Meters fill their whole icon, so the dot sits on its lower corner as a badge. A clear
+  /// ring cut through the meters keeps the badge apart from what it covers.
   private func withDot<Meters: View>(@ViewBuilder _ content: () -> Meters) -> some View {
-    HStack(spacing: 3) {
-      content()
-      if let dot = status.dot { MenuDot(tone: dot, colors: status.colors) }
-    }
+    let badge = MenuDot.badge(status)
+    return content()
+      .overlay(alignment: .bottomTrailing) {
+        if let dot = status.dot {
+          ZStack {
+            Circle().frame(width: badge.cut, height: badge.cut).blendMode(.destinationOut)
+            MenuDot(tone: dot, colors: status.colors)
+          }
+          .offset(x: badge.reach, y: badge.reach)
+        }
+      }
+      .compositingGroup()
+      // The image ends at the frame, so the part of the dot past the edge needs room.
+      .padding(.trailing, status.dot == nil ? 0 : badge.reach - MenuDot.gap)
   }
 
 }
@@ -189,6 +200,15 @@ struct MenuDot: View {
   /// How far a ringed dot reaches past a plain one on each side.
   static func overhang(_ status: MenuStatus) -> CGFloat {
     status.colors && status.dot.flatMap(MenuColor.fill) != nil ? (ringed - 5) / 2 : 0
+  }
+  /// The clear gap a badge cuts around itself.
+  static let gap: CGFloat = 1.5
+  /// A badge's cut-out diameter, and how far the cut reaches past the corner it sits on. The
+  /// dot's center sits 1 pt inside the corner, so a ringed dot under an 18 pt chip stays inside
+  /// the 24 pt image.
+  static func badge(_ status: MenuStatus) -> (cut: CGFloat, reach: CGFloat) {
+    let cut = 5 + 2 * overhang(status) + 2 * gap
+    return (cut, cut / 2 - 1)
   }
 }
 
