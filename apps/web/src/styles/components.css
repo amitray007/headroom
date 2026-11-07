@@ -71,6 +71,12 @@
   width: 24px;
   height: 24px;
 }
+.brand.sm,
+.brand.sm svg,
+.brand.sm img {
+  width: 16px;
+  height: 16px;
+}
 .provider {
   margin-bottom: var(--space-7);
 }
@@ -1041,6 +1047,27 @@ time.when {
   height: 32px;
   padding: 0;
   font-size: var(--text-sm);
+}
+.seg button:has(.seg-icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.seg-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  color: var(--text-muted);
+  transition: color var(--dur-fast) var(--ease-standard);
+}
+.seg button[aria-pressed="true"] .seg-icon {
+  color: var(--foreground);
+}
+.seg-icon svg {
+  width: 16px;
+  height: 16px;
 }
 .seg:disabled {
   opacity: 0.5;
@@ -2535,4 +2562,13 @@ html[data-density="compact"] .accounts .tname {
 .banked .info {
   margin-left: 0;
   vertical-align: baseline;
+}
+/* Image marks (Claude) have no currentColor: grey them, and let the pressed option show at full strength. */
+.seg-icon .brand img {
+  filter: grayscale(1);
+  opacity: 0.6;
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.seg button[aria-pressed="true"] .seg-icon .brand img {
+  opacity: 1;
 }

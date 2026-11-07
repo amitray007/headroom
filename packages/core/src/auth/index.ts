@@ -62,6 +62,8 @@ export function createAuth(options: AuthOptions) {
         startingCharactersConfig: { charactersLength: 11 },
         // A token reads only, unless the owner opts it into `refresh` when creating it.
         permissions: { defaultPermissions: { app: [apiTokenScopes[0]] } },
+        // Metadata holds only the token kind, set by POST /api/tokens.
+        enableMetadata: true,
         // The plugin window resets only after a quiet minute, so steady polling would hit the cap and
         // read as a revoked token. The address limiter in requireApiToken bounds failed guesses.
         rateLimit: { enabled: false },

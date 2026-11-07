@@ -8,9 +8,11 @@ const createdSchema = z.object({
   id: z.string(),
   name: z.string(),
   key: z.string(),
+  kind: z.enum(["device", "agent"]),
   mcpUrl: z.string().nullable(),
 });
 const listSchema = z.object({
+  mcpUrl: z.string().nullable(),
   tokens: z.array(
     z
       .object({
@@ -22,6 +24,7 @@ const listSchema = z.object({
         lastUsedAt: z.number().nullable(),
         expiresAt: z.number().nullable(),
         scopes: z.array(z.enum(["read", "refresh"])),
+        kind: z.enum(["device", "agent"]),
       })
       .strict(),
   ),
@@ -170,6 +173,42 @@ describe("read-only API tokens", () => {
     ctx.sqlite.close();
   });
 
+  test("the list names the MCP address too", async () => {
+    const { ctx, app, cookie } = await fixture();
+    const none = await app.request(url(ctx, "/api/tokens"), { headers: { cookie } });
+    expect(listSchema.parse(await none.json()).mcpUrl).toBeNull();
+    ctx.sqlite.close();
+    const withUrl = testContext({ HEADROOM_PUBLIC_URL: "https://headroom.example.com" });
+    const other = createApp(withUrl);
+    const session = await signedIn(withUrl, other);
+    const response = await other.request(url(withUrl, "/api/tokens"), {
+      headers: { cookie: session },
+    });
+    expect(listSchema.parse(await response.json()).mcpUrl).toBe(
+      "https://headroom.example.com/api/mcp",
+    );
+    withUrl.sqlite.close();
+  });
+
+  test("an agent token keeps its kind, and a token without one lists as a device", async () => {
+    const { ctx, app, cookie, token } = await fixture();
+    expect(token.kind).toBe("device");
+    const response = await app.request(
+      url(ctx, "/api/tokens"),
+      jsonPost(ctx, { name: "Claude Code", kind: "agent" }, { cookie }),
+    );
+    const agent = createdSchema.parse(await response.json());
+    expect(agent.kind).toBe("agent");
+    // A paired Mac app's token carries no metadata.
+    ctx.sqlite.run("UPDATE apikey SET metadata = NULL WHERE id = ?", [token.id]);
+    const list = await app.request(url(ctx, "/api/tokens"), { headers: { cookie } });
+    const kinds = Object.fromEntries(
+      listSchema.parse(await list.json()).tokens.map((listed) => [listed.id, listed.kind]),
+    );
+    expect(kinds).toEqual({ [token.id]: "device", [agent.id]: "agent" });
+    ctx.sqlite.close();
+  });
+
   test("list is a safe projection, shows use, and revocation is immediate", async () => {
     const { ctx, app, headers, cookie, token } = await fixture();
     const stored = ctx.sqlite
@@ -192,6 +231,7 @@ describe("read-only API tokens", () => {
       start: token.key.slice(0, 11),
       expiresAt: null,
       scopes: ["read"],
+      kind: "device",
     });
     expect(listed?.lastUsedAt).toBeNumber();
     expect(
@@ -204,7 +244,7 @@ describe("read-only API tokens", () => {
     ).toBe(200);
     expect((await app.request(url(ctx, "/api/app/v1/whoami"), { headers })).status).toBe(401);
     const after = await app.request(url(ctx, "/api/tokens"), { headers: { cookie } });
-    expect(await after.json()).toEqual({ tokens: [] });
+    expect(await after.json()).toEqual({ tokens: [], mcpUrl: null });
     ctx.sqlite.close();
   });
 
@@ -245,6 +285,8 @@ describe("read-only API tokens", () => {
         { name: "x".repeat(41) },
         { name: 4 },
         { name: "Mac", permissions: { app: ["write"] } },
+        { name: "Mac", kind: "phone" },
+        { name: "Mac", metadata: { kind: "agent" } },
         null,
       ].map(async (body) => {
         expect(

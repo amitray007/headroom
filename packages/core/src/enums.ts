@@ -320,6 +320,14 @@ export const apiTokenScopeSchema = z.enum(apiTokenScopes);
 export type ApiTokenScope = z.infer<typeof apiTokenScopeSchema>;
 
 /**
+ * Who holds an app token: a `device` (Headroom for Mac) or an AI `agent` over MCP. Stored in
+ * `apikey.metadata`; a token without one is a `device`. Settings lists each kind in its own tab.
+ */
+export const apiTokenKinds = ["device", "agent"] as const;
+export const apiTokenKindSchema = z.enum(apiTokenKinds);
+export type ApiTokenKind = z.infer<typeof apiTokenKindSchema>;
+
+/**
  * Where a device pairing stands (D48). The app polls with its device code: `pending` until the
  * owner answers, `approved` once with the new token, `denied` or `expired` when it ends without one.
  * Pairings live in server memory for ten minutes and are never stored.

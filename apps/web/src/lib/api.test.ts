@@ -165,13 +165,17 @@ describe("demo mode guard", () => {
   afterEach(() => {
     devicePrefs().setDemo(false);
   });
-  test("Demo Mode shows synthetic devices without a request", async () => {
+  test("Demo Mode shows synthetic devices and an agent without a request", async () => {
     const prefs = devicePrefs();
     prefs.setDemo(true);
     const calls = stub({ tokens: [{ key: "must-not-be-read" }] });
     try {
       const { tokens } = await api.tokens();
-      expect(tokens.map((token) => token.id)).toEqual(["demo-token-studio", "demo-token-desk"]);
+      expect(tokens.map((token) => token.id)).toEqual([
+        "demo-token-studio",
+        "demo-token-desk",
+        "demo-token-agent",
+      ]);
       expect(JSON.stringify(tokens)).not.toContain("must-not-be-read");
       expect(calls).toEqual([]);
     } finally {

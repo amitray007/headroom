@@ -78,6 +78,12 @@ export const KeyIcon = stroke(
     <path d="m10.9 12.1 9.1-9.1M15 7l3 3" />
   </>,
 );
+export const AgentIcon = stroke(
+  <>
+    <rect x="4" y="8" width="16" height="12" rx="3" />
+    <path d="M12 8V4M9 13v1M15 13v1" />
+  </>,
+);
 export const SignOutIcon = stroke(
   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />,
 );
@@ -185,10 +191,10 @@ const marks: Record<Provider, Mark> = {
   vercel_ai_gateway: { kind: "inline", svg: inlineSvg(vercelRaw, true) },
 };
 
-/** Provider brand mark: 20 px by default, 24 px with size={24}. Decorative; name the provider in text. */
-export function BrandMark(props: { readonly provider: Provider; readonly size?: 20 | 24 }) {
+/** Provider brand mark: 20 px by default, 16 px or 24 px with size. Decorative; name the provider in text. */
+export function BrandMark(props: { readonly provider: Provider; readonly size?: 16 | 20 | 24 }) {
   const mark = marks[props.provider];
-  const className = props.size === 24 ? "brand lg" : "brand";
+  const className = props.size === 24 ? "brand lg" : props.size === 16 ? "brand sm" : "brand";
   if (mark.kind === "image") {
     return (
       <span className={className} aria-hidden="true">

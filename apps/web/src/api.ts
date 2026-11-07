@@ -1,5 +1,6 @@
 import {
   accountActionKindSchema,
+  apiTokenKindSchema,
   appPairingStatusSchema,
   accountActionStateSchema,
   attemptStateSchema,
@@ -102,15 +103,21 @@ const tokenSchema = z.object({
   expiresAt: z.number().nullable(),
   /** `refresh` lets the device change Refresh Every; every token can read. */
   scopes: z.array(z.enum(["read", "refresh"])),
+  /** Devices lists `device` tokens and Agents lists `agent` tokens. An older server sends none. */
+  kind: apiTokenKindSchema.default("device"),
 });
 const pairingSchema = z.object({
   name: z.string(),
   status: appPairingStatusSchema,
   expiresAt: z.number(),
 });
-const tokensSchema = z.object({ tokens: z.array(tokenSchema) });
+const tokensSchema = z.object({
+  tokens: z.array(tokenSchema),
+  /** Null when the server has no public URL; the browser then uses its own origin. */
+  mcpUrl: z.string().nullable().default(null),
+});
 
-/** Two synthetic linked devices for Demo Mode. Their starts are made up and match no key. */
+/** Two synthetic linked devices and one agent for Demo Mode. Their starts are made up and match no key. */
 function demoTokens(now: number): ApiToken[] {
   const day = 86_400_000;
   return [
@@ -123,6 +130,7 @@ function demoTokens(now: number): ApiToken[] {
       lastUsedAt: now - 4 * 60_000,
       expiresAt: null,
       scopes: ["read", "refresh"],
+      kind: "device",
     },
     {
       id: "demo-token-desk",
@@ -133,6 +141,18 @@ function demoTokens(now: number): ApiToken[] {
       lastUsedAt: now - 3 * day,
       expiresAt: null,
       scopes: ["read"],
+      kind: "device",
+    },
+    {
+      id: "demo-token-agent",
+      name: "Claude Code",
+      prefix: "hr_",
+      start: "hr_Demo9vLc",
+      createdAt: now - 5 * day,
+      lastUsedAt: now - 20 * 60_000,
+      expiresAt: null,
+      scopes: ["read"],
+      kind: "agent",
     },
   ];
 }
@@ -444,10 +464,10 @@ export const api = {
   ),
   tokens: () =>
     demoOn()
-      ? Promise.resolve({ tokens: demoTokens(Date.now()) })
+      ? Promise.resolve({ tokens: demoTokens(Date.now()), mcpUrl: null })
       : request("GET", "/api/tokens", tokensSchema),
-  createToken: changesAccount((name: string, refresh: boolean) =>
-    request("POST", "/api/tokens", createdTokenSchema, { name, refresh }),
+  createToken: changesAccount((name: string, refresh: boolean, kind: ApiToken["kind"] = "device") =>
+    request("POST", "/api/tokens", createdTokenSchema, { name, refresh, kind }),
   ),
   revokeToken: changesAccount((id: string) =>
     request(
