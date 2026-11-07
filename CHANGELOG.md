@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.18](https://github.com/amitray007/headroom/compare/v0.1.17...v0.1.18) (2026-11-07)
+
+
+### Features
+
+* add a read-only MCP server for AI agents ([b5bf110](https://github.com/amitray007/headroom/commit/b5bf1101336161e1c9903e114afb00236920d35d))
+* add an Agents settings tab that sets up MCP clients ([4712d50](https://github.com/amitray007/headroom/commit/4712d501870a79c8da27ba5936cb55c8ce0cfde7))
+* let AI agents read Headroom limits over a read-only MCP server ([83fb355](https://github.com/amitray007/headroom/commit/83fb355ba810184d077edbb79c46e232b4dbd51e))
+* list agent tokens in the Agents tab with Revoke ([59e9bf6](https://github.com/amitray007/headroom/commit/59e9bf6b24734decc57d715b23c5aad872c965bb))
+* **macos:** move the notification dot to the menu bar icon's corner ([ca84113](https://github.com/amitray007/headroom/commit/ca8411317fb4bc401261d423b542fa67c17e85d8))
+* set up Claude Code, Codex or Cursor from a new Agents settings tab ([ac67715](https://github.com/amitray007/headroom/commit/ac6771532f30bebe10218e54a6eff53d2392d4b6))
+* show the MCP address when a device token is created ([473cd2b](https://github.com/amitray007/headroom/commit/473cd2bde35b14cad2b8dcb9350956d9735004ac))
+
+
+### Bug Fixes
+
+* address the MCP review findings ([4c74590](https://github.com/amitray007/headroom/commit/4c745902ad8bd8d6af359fa0151be951bc4e965b))
+* **ci:** pass the release deploy key to the cask and formula jobs ([60be38b](https://github.com/amitray007/headroom/commit/60be38b75adae3940d2ae60a6a9fff53236e46f1))
+* **ci:** pass the release deploy key to the cask and formula jobs ([bd13e17](https://github.com/amitray007/headroom/commit/bd13e176fda17194afc75ddddfdaae9750e719d1))
+* keep the menu bar dot off the readings it sat on ([dc07e8f](https://github.com/amitray007/headroom/commit/dc07e8fc4311b6ff73bdf352b93edb225f126d29))
+
 ## [0.1.17](https://github.com/amitray007/headroom/compare/v0.1.16...v0.1.17) (2026-11-06)
 
 
