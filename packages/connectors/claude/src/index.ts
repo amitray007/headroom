@@ -46,10 +46,11 @@ import {
   refreshResponseSchema,
   usageResponseSchema,
   type ClaudeCredential,
+  type ProfileResponse,
   type UsageResponse,
 } from "./schemas.ts";
 
-export const claudeConnectorVersion = "0.3.0";
+export const claudeConnectorVersion = "0.4.0";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -217,18 +218,11 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
 
     async identity(credential: StoredCredential): Promise<Identity> {
       const secret = claudeCredentialSchema.parse(credential.secret);
-      const response = await http(profileUrl, { headers: oauthHeaders(secret.accessToken) });
-      throwForStatus(response, "profile");
-      const profile = profileSchema.safeParse(await response.json().catch(() => null));
-      if (!profile.success)
-        throw new ConnectorError("invalid_response", "profile response shape changed");
-      const plan = secret.subscriptionType;
+      const profile = await readProfile(http, secret.accessToken);
       return {
-        providerAccountId: profile.data.account.uuid,
-        workspaceId: profile.data.organization?.uuid ?? null,
-        label: [profile.data.account.email ?? "Claude", plan ? `(${plan})` : ""]
-          .filter(Boolean)
-          .join(" "),
+        providerAccountId: profile.account.uuid,
+        workspaceId: profile.organization?.uuid ?? null,
+        label: labelFrom(profile, secret),
         assurance: "strong",
       };
     },
@@ -312,7 +306,8 @@ export function createClaudeConnector(options: ClaudeConnectorOptions): Connecto
           });
         }
       }
-      return { observedAt, metrics, resetCredits, failures };
+      const label = await currentLabel(http, secret);
+      return { observedAt, metrics, resetCredits, failures, ...(label && { label }) };
     },
 
     async refresh(credential: StoredCredential): Promise<RefreshResult> {
@@ -579,6 +574,51 @@ async function prepaidMetrics(
       });
   }
   return metrics;
+}
+
+async function readProfile(http: FetchLike, accessToken: string): Promise<ProfileResponse> {
+  const response = await http(profileUrl, { headers: oauthHeaders(accessToken) });
+  throwForStatus(response, "profile");
+  const profile = profileSchema.safeParse(await response.json().catch(() => null));
+  if (!profile.success)
+    throw new ConnectorError("invalid_response", "profile response shape changed");
+  return profile.data;
+}
+
+// Anthropic renamed Max 20x to Ultra on 2026-10-30. Claude Code 2.1.326 still reports Ultra as `claude_max` with
+// this tier, and its credential file says only "max" for both Max plans.
+const ultraTier = "default_claude_max_20x";
+
+/** The organization types Claude Code maps to a plan; any other type keeps the credential's own plan. */
+const plansByOrganizationType = new Map([
+  ["claude_pro", "pro"],
+  ["claude_max", "max"],
+  ["claude_team", "team"],
+  ["claude_enterprise", "enterprise"],
+]);
+
+function planFrom(profile: ProfileResponse, fallback: string | null): string | null {
+  const plan = plansByOrganizationType.get(profile.organization?.organization_type ?? "");
+  if (plan === "max" && profile.organization?.rate_limit_tier === ultraTier) return "ultra";
+  return plan ?? fallback;
+}
+
+function labelFrom(profile: ProfileResponse, secret: ClaudeCredential): string {
+  const plan = planFrom(profile, secret.subscriptionType);
+  return [profile.account.email ?? "Claude", plan ? `(${plan})` : ""].filter(Boolean).join(" ");
+}
+
+/**
+ * The label with the plan as the profile names it now. Null keeps the stored label: a failed read, or a profile with no
+ * email, which would otherwise replace the stored email with the generic "Claude".
+ */
+async function currentLabel(http: FetchLike, secret: ClaudeCredential): Promise<string | null> {
+  try {
+    const profile = await readProfile(http, secret.accessToken);
+    return profile.account.email === undefined ? null : labelFrom(profile, secret);
+  } catch {
+    return null;
+  }
 }
 
 function centsToDollars(cents: number): string {

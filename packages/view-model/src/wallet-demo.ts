@@ -87,7 +87,7 @@ export function demoWallet(
 
   // Claude Max at list price, and a Pro account billed in rupees so the conversion shows.
   set("claude:1", (connection) => {
-    const { price, cycle } = listPrice(connection, "Max 5x", usd(100));
+    const { price, cycle } = listPrice(connection, "Max", usd(100));
     return paid(connection, price, cycle);
   });
   set("claude:2", (connection) => paid(connection, { minor: 199_900, currency: "INR" }, "monthly"));
