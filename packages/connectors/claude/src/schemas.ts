@@ -29,11 +29,19 @@ export const profileSchema = z
   .object({
     account: z.object({ uuid: z.string().min(1), email: z.string().optional() }).loose(),
     organization: z
-      .object({ uuid: z.string().optional(), name: z.string().optional() })
+      .object({
+        uuid: z.string().optional(),
+        name: z.string().optional(),
+        /** "claude_max", "claude_pro", "claude_team", "claude_enterprise". */
+        organization_type: z.string().nullish(),
+        /** "default_claude_max_5x" or "default_claude_max_20x" on a Max-family plan. */
+        rate_limit_tier: z.string().nullish(),
+      })
       .loose()
       .optional(),
   })
   .loose();
+export type ProfileResponse = z.infer<typeof profileSchema>;
 
 export const refreshResponseSchema = z
   .object({

@@ -124,6 +124,8 @@ export interface CollectResult {
   readonly observedAt: number;
   readonly metrics: readonly MetricObservation[];
   readonly resetCredits?: readonly ResetCreditObservation[];
+  /** The connection's current label, in the `identity()` format, when the connector re-read it. */
+  readonly label?: string;
   /** Per-metric failures that did not stop the rest of the collection. */
   readonly failures: readonly ClassifiedError[];
 }

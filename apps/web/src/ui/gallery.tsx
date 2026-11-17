@@ -108,7 +108,7 @@ const accountOptions: readonly SelectOption<string>[] = [
   {
     value: "claude-1",
     label: "Claude",
-    meta: "Max 20x",
+    meta: "Ultra",
     detail: "leila.quist@example.com",
     icon: <BrandMark provider="claude" />,
     group: "Claude",

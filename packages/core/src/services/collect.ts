@@ -159,6 +159,8 @@ export class CollectionService {
     const previousReading = this.deps.observer ? this.deps.snapshots.latest(connection.id) : null;
     this.deps.snapshots.record(connection.id, runId, result, connector.version);
     this.observe(connection, previousReading, result);
+    if (result.label !== undefined && result.label !== connection.label)
+      this.deps.connections.relabel(connection.id, result.label);
     const partial =
       result.failures.length > 0 || result.metrics.some((m) => m.availability !== "available");
     const outcome = partial ? "partial" : "succeeded";

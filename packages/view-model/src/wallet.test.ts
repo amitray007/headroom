@@ -127,9 +127,10 @@ describe("usageSpendOf", () => {
 });
 
 describe("suggestPrices", () => {
-  test("Claude max offers both Max plans, 5x first", () => {
-    expect(suggestPrices("claude", "max").map((item) => item.label)).toEqual(["Max 5x", "Max 20x"]);
-    expect(suggestPrices("claude", "Max 20x").map((item) => item.label)[0]).toBe("Max 20x");
+  test("Claude max offers Max first, then Ultra", () => {
+    expect(suggestPrices("claude", "max").map((item) => item.label)).toEqual(["Max", "Ultra"]);
+    expect(suggestPrices("claude", "ultra").map((item) => item.label)).toEqual(["Ultra"]);
+    expect(suggestPrices("claude", "Max 20x").map((item) => item.label)[0]).toBe("Ultra");
   });
 
   test("matching is case-insensitive and loose", () => {

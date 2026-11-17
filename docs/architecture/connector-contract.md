@@ -12,7 +12,7 @@ Each provider is one TypeScript module that implements one interface. The applic
 | `CancelConnect` | Attempt | Cleanup of connector-private state |
 | `Identity` | Credentials | Provider account id, workspace or team choices, display label, assurance level |
 | `Capabilities` | Credentials, identity | Per-metric and per-action availability with interface label and evidence level |
-| `Collect` | Credentials, identity, requested metric groups | Normalized snapshot plus per-metric failures |
+| `Collect` | Credentials, identity, requested metric groups | Normalized snapshot plus per-metric failures, and optionally the current connection label so a renamed or changed plan replaces the stored one |
 | `Refresh` | Credentials | `refreshed` with new credentials, `not_refreshable`, `transient` with retry guidance, or `rejected` (definitive) |
 | `Classify` | Provider response or error | `transient`, `capability`, `definitive`; the application applies the lifecycle rules from the class |
 | `Disconnect` | Credentials | Revocation result: `revoked`, `local_only` or `failed` |

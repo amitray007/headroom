@@ -75,6 +75,15 @@ describe("CollectionService", () => {
     expect(snapshots.latestRun(connection.id)?.outcome).toBe("succeeded");
   });
 
+  test("a collection that reports a new label replaces the stored one; no label keeps it", async () => {
+    const { service, connector, connections, connection } = setup();
+    connector.collectQueue.push({ ...okCollect(), label: "owner@example.com (ultra)" });
+    await service.run(connection.id);
+    expect(connections.get(connection.id)?.label).toBe("owner@example.com (ultra)");
+    await service.run(connection.id);
+    expect(connections.get(connection.id)?.label).toBe("owner@example.com (ultra)");
+  });
+
   test("refreshes proactively inside the lead window and persists the rotated credential first", async () => {
     const { service, connector, credentials, connection, advance } = setup();
     advance(credentialFixture().expiresAt! - 1_700_000_000_000 - 60_000);

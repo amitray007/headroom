@@ -93,6 +93,29 @@ const identity = {
   assurance: "strong" as const,
 };
 
+const withPlan = (type: string, tier: string) => ({
+  ...profile,
+  organization: { ...profile.organization, organization_type: type, rate_limit_tier: tier },
+});
+
+async function labelFor(body: unknown) {
+  const http = fakeFetch({ [profileUrl]: () => json(body) });
+  const connector = createClaudeConnector({ runner: new FakeRunner(), fetch: http.fetch });
+  return (await connector.identity(credentialFromCredentialsFile(credentialsFile))).label;
+}
+
+/** Collect with no organization, so only the usage and profile routes matter. */
+async function collectWith(routes: Record<string, () => Response>) {
+  const connector = createClaudeConnector({
+    runner: new FakeRunner(),
+    fetch: fakeFetch({ [usageUrl]: () => json(usageMinimal), ...routes }).fetch,
+  });
+  return connector.collect(credentialFromCredentialsFile(credentialsFile), {
+    ...identity,
+    workspaceId: null,
+  });
+}
+
 const grant = (over: Record<string, unknown>) => ({
   label: "Synthetic grant",
   resets_total: 1,
@@ -199,6 +222,31 @@ describe("Claude connector", () => {
     const headers = z.record(z.string(), z.string()).parse(http.calls[0]?.init?.headers);
     expect(headers["anthropic-beta"]).toBe("oauth-2025-04-20");
     expect(headers["authorization"]).toBe("Bearer access-synthetic");
+  });
+
+  test("identity names the plan from the profile: the 20x tier is Ultra, 5x stays Max", async () => {
+    expect(await labelFor(withPlan("claude_max", "default_claude_max_20x"))).toBe(
+      "owner@example.com (ultra)",
+    );
+    expect(await labelFor(withPlan("claude_max", "default_claude_max_5x"))).toBe(
+      "owner@example.com (max)",
+    );
+    expect(await labelFor(withPlan("claude_pro", "default_claude_pro"))).toBe(
+      "owner@example.com (pro)",
+    );
+  });
+
+  test("collect re-reads the label so a renamed plan reaches stored connections", async () => {
+    const ultra = withPlan("claude_max", "default_claude_max_20x");
+    expect((await collectWith({ [profileUrl]: () => json(ultra) })).label).toBe(
+      "owner@example.com (ultra)",
+    );
+    // A failed profile read is not a metric failure; the stored label stays.
+    const failed = await collectWith({ [profileUrl]: () => json({}, 500) });
+    expect(failed.label).toBeUndefined();
+    expect(failed.failures).toEqual([]);
+    const noEmail = { ...ultra, account: { uuid: "acct-uuid" } };
+    expect((await collectWith({ [profileUrl]: () => json(noEmail) })).label).toBeUndefined();
   });
 
   test("collect maps windows, scoped limits, extra usage in dollars and reset grants", async () => {
