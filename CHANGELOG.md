@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.19](https://github.com/amitray007/headroom/compare/v0.1.18...v0.1.19) (2026-11-17)
+
+
+### Bug Fixes
+
+* show Claude's renamed Ultra plan instead of a stale Max ([34da4f8](https://github.com/amitray007/headroom/commit/34da4f86bcb1bb8bd1b81b12dadf977986bcd31b))
+* show Claude's renamed Ultra plan instead of a stale Max ([5505e78](https://github.com/amitray007/headroom/commit/5505e78ad036e3e672a4fbd3347b1c0c32fbc64c))
+* stop re-announcing Codex banked resets after a failed detail call ([53c6ea6](https://github.com/amitray007/headroom/commit/53c6ea656cde4f34444cb34027e2e0e0dccba189))
+* stop re-announcing Codex banked resets after a failed detail call ([b9397e1](https://github.com/amitray007/headroom/commit/b9397e182a269827837a632c455c0a4ec47c8237))
+
 ## [0.1.18](https://github.com/amitray007/headroom/compare/v0.1.17...v0.1.18) (2026-11-07)
 
 
