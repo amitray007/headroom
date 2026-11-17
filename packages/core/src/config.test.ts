@@ -11,7 +11,6 @@ test("defaults on macOS live under Application Support", () => {
     dataDir: "/Users/amy/Library/Application Support/Headroom/data",
     masterKeyFile: "/Users/amy/Library/Application Support/Headroom/headroom.key",
     authSecretFile: "/Users/amy/Library/Application Support/Headroom/headroom.auth-secret",
-    port: 8080,
     host: "127.0.0.1",
     trustedOrigins: [],
     logLevel: "info",
@@ -29,7 +28,8 @@ test("defaults on macOS live under Application Support", () => {
     refreshIntervalSeconds: 900,
     staleAfterSeconds: 43_200,
   });
-  expect(baseUrl(config)).toBe("http://localhost:8080");
+  expect(config.port).toBeUndefined();
+  expect(baseUrl(config)).toBe("http://localhost:4323");
 });
 
 test("defaults on Linux follow XDG and keep the key out of the data directory", () => {
@@ -78,7 +78,7 @@ test("environment overrides, coerces and normalizes origins", () => {
 });
 
 test("empty strings fall back to defaults and bad values fail loudly", () => {
-  expect(loadConfig({ HEADROOM_PORT: "" }).port).toBe(8080);
+  expect(loadConfig({ HEADROOM_PORT: "" }).port).toBeUndefined();
   expect(() => loadConfig({ HEADROOM_PORT: "70000" })).toThrow();
   expect(() => loadConfig({ HEADROOM_PUBLIC_URL: "not a url" })).toThrow();
   expect(() => loadConfig({ HEADROOM_PUBLIC_URL: "https://example.com/dashboard" })).toThrow();

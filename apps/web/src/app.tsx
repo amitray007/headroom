@@ -1,6 +1,7 @@
 import { Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuthSkeleton, SignedOutPage, Unreachable } from "./auth-pages.tsx";
+import { PairPage } from "./pair-page.tsx";
 import { isDemoId } from "./api.ts";
 import { authClient } from "./auth.ts";
 import { ConnectSkeleton } from "./connect/skeletons.tsx";
@@ -204,7 +205,8 @@ export function App() {
       </Suspense>
     );
   }
-  if (session.isPending) return hinted ? <BootFrame route={route} /> : <AuthSkeleton />;
+  if (session.isPending)
+    return hinted && route.page !== "pair" ? <BootFrame route={route} /> : <AuthSkeleton />;
   if (session.error) {
     return (
       <Unreachable
@@ -218,7 +220,9 @@ export function App() {
       />
     );
   }
-  if (session.data === null) return <SignedOutPage />;
+  const pairing = route.page === "pair" ? route.code : null;
+  if (session.data === null) return <SignedOutPage pairing={pairing} />;
+  if (pairing !== null) return <PairPage code={pairing} />;
   const user = session.data.user;
   return (
     <SettingsProvider key={user.id}>

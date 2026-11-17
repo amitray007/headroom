@@ -16,7 +16,10 @@ export {
 export type { AttemptView } from "./services/connect.ts";
 export { notificationEventSchema, type NotificationEvent } from "./notification-event.ts";
 export {
+  historyRetentionOptions,
   kindSwitches,
+  refreshIntervalMinutesSchema,
+  refreshIntervalOptions,
   settingsSchema,
   type KindSwitches,
   type ProviderPrefs,

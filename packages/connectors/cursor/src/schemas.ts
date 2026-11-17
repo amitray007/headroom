@@ -14,6 +14,9 @@ export const jwtClaimsSchema = z
   .object({ sub: z.string().optional(), exp: z.number().optional(), email: z.string().optional() })
   .loose();
 
+/** `AuthService/GetEmail`. Only `email` is read; it labels the connection and never keys it. */
+export const getEmailSchema = z.object({ email: z.string().optional() }).loose();
+
 const planUsageSchema = z
   .object({
     limit: z.number().nullable().optional(),
@@ -26,13 +29,27 @@ const planUsageSchema = z
   })
   .loose();
 
+/**
+ * Connect JSON encodes a protobuf int64 as a decimal string: a Business seat sends `pooledLimit` as one (observed
+ * 2026-10-31). A value past the safe integer range would lose precision or become Infinity, so it is shape drift.
+ */
+const int64Cents = z.union([
+  z.number(),
+  z
+    .string()
+    .regex(/^-?\d+$/)
+    .transform(Number)
+    .pipe(z.number().int()),
+]);
+
 const spendLimitSchema = z
   .object({
     limitType: z.string().optional(),
     individualLimit: z.number().nullable().optional(),
     individualUsed: z.number().nullable().optional(),
-    pooledLimit: z.number().nullable().optional(),
+    pooledLimit: int64Cents.nullable().optional(),
     pooledUsed: z.number().nullable().optional(),
+    pooledRemaining: int64Cents.nullable().optional(),
     totalSpend: z.number().nullable().optional(),
   })
   .loose();

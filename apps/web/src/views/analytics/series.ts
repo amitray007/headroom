@@ -1,9 +1,9 @@
 import { providerName } from "@headroom/view-model/labels";
 
-import type { AccountStory, Analytics, Reading } from "./model.ts";
+import type { AccountStory, Analytics, Reading } from "@headroom/view-model/analytics";
 
 /**
- * Hour-by-hour series for the Analytics cards, derived from the stored history in model.ts.
+ * Hour-by-hour series for the Analytics cards, derived from the stored history in view-model analytics.
  *
  * Units: a slot is one hour. `hourly` holds percentage points of that account's own limit; values from different
  * accounts are never added. Combined measures count accounts instead. An unknown hour is null, never zero.

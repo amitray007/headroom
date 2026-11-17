@@ -1,9 +1,22 @@
 import type { Context, MiddlewareHandler } from "hono";
 
-import { apiTokenScopes } from "@headroom/core";
+import { apiTokenScopesOf } from "@headroom/core";
 
 import type { AppContext } from "../bootstrap.ts";
 import type { Env } from "./session.ts";
+
+/** A write only a token with the `refresh` scope can make. */
+const refreshPath = /\/app\/v1\/settings\/refresh$/;
+/** A write any valid token can make: it changes Headroom's own read marks, not an account. */
+const noticeReadPath = /\/app\/v1\/notices\/read$/;
+/** The read-only MCP server: JSON-RPC over POST. */
+const mcpPath = /\/api\/mcp$/;
+
+function allowedMethods(path: string): string[] {
+  if (refreshPath.test(path) || noticeReadPath.test(path)) return ["PUT"];
+  if (mcpPath.test(path)) return ["POST"];
+  return ["GET", "HEAD"];
+}
 
 /** Per-process failed-attempt window, bounded even when many addresses send invalid keys. */
 export function requireApiToken(
@@ -15,8 +28,10 @@ export function requireApiToken(
   const maxFailures = 10;
   return async (c, next) => {
     c.header("Cache-Control", "no-store");
-    if (c.req.method !== "GET" && c.req.method !== "HEAD") {
-      c.header("Allow", "GET, HEAD");
+    const write = refreshPath.test(c.req.path);
+    const allowed = allowedMethods(c.req.path);
+    if (!allowed.includes(c.req.method)) {
+      c.header("Allow", allowed.join(", "));
       return c.json({ error: "method_not_allowed" }, 405);
     }
     const now = ctx.now().getTime();
@@ -30,7 +45,7 @@ export function requireApiToken(
     const match = /^Bearer ([A-Za-z0-9_-]{1,256})$/.exec(c.req.header("authorization") ?? "");
     const result = match?.[1]
       ? await ctx.auth.api.verifyApiKey({
-          body: { key: match[1], permissions: { app: [...apiTokenScopes] } },
+          body: { key: match[1], permissions: { app: ["read"] } },
         })
       : null;
     if (!result?.valid || !result.key) {
@@ -48,10 +63,18 @@ export function requireApiToken(
         count: (current?.count ?? 0) + 1,
         until: current?.until ?? now + windowMs,
       });
+      // MCP clients read this to tell a bad token from a server that wants OAuth.
+      c.header("WWW-Authenticate", match ? 'Bearer error="invalid_token"' : "Bearer");
       return c.json({ error: "invalid_token" }, 401);
     }
+    const scopes = apiTokenScopesOf(result.key.permissions);
+    // A valid token without the scope is not a failed guess: it is refused, not counted.
+    if (write && !scopes.includes("refresh")) return c.json({ error: "missing_permission" }, 403);
     c.set("apiTokenName", result.key.name);
+    c.set("apiTokenScopes", scopes);
     await next();
+    // A handler that returns its own Response, such as the MCP SDK's, drops headers set before next().
+    c.res.headers.set("Cache-Control", "no-store");
     return undefined;
   };
 }

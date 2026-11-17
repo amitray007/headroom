@@ -15,6 +15,19 @@ const brandFiles = new Set([
   "manifest.webmanifest",
 ]);
 
+/** Icon files other sites may show in an <img> tag, such as a homelab dashboard on the same tailnet. */
+const publicIcons = new Set([...brandFiles].filter((file) => /\.(ico|png|svg)$/.test(file)));
+
+/** True for a root icon path such as /favicon.svg, which is served with Cross-Origin-Resource-Policy: cross-origin. */
+export function isPublicIcon(urlPath: string): boolean {
+  return publicIcons.has(urlPath.replace(/^\/+/, ""));
+}
+
+/** True for a root-level image path such as /favicon.png: when no file matches, it gets 404, not the SPA shell. */
+export function isRootImage(urlPath: string): boolean {
+  return /^\/[^/]+\.(ico|png|svg)$/.test(urlPath);
+}
+
 const contentTypes: Record<string, string> = {
   html: "text/html; charset=utf-8",
   js: "text/javascript; charset=utf-8",

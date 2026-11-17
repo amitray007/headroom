@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 
 import {
+  getEmailUrl,
   grokBotUsageUrl,
   planInfoUrl,
   pollUrl,
@@ -11,6 +12,7 @@ import {
   usageUrl,
 } from "./endpoints.ts";
 import grokBotUsage from "./fixtures/grok-bot-usage.json";
+import periodUsageBusiness from "./fixtures/period-usage-business.json";
 import periodUsageEnterprise from "./fixtures/period-usage-enterprise.json";
 import periodUsageLiveShape from "./fixtures/period-usage-live-shape.json";
 import periodUsageWeekly from "./fixtures/period-usage-weekly.json";
@@ -66,6 +68,104 @@ function collectWithSpend(spendLimitUsage: unknown) {
 }
 
 describe("Cursor connector", () => {
+  test("a Business seat's int64 pool fields arrive as decimal strings and still parse", async () => {
+    const result = await createCursorConnector({
+      fetch: fakeFetch({ [usageUrl]: () => json(periodUsageBusiness) }).fetch,
+    }).collect(credential, identity);
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["included.total_percent"]).toMatchObject({
+      valueText: "45",
+      scope: "billing_cycle",
+    });
+    // The cap is the team pool, so used is the pool's spend, not the member's own share of it.
+    expect(byKey["on_demand.used"]).toMatchObject({ valueText: "300.00", scope: "on_demand:team" });
+    expect(byKey["on_demand.limit"]).toMatchObject({
+      valueText: "412.34",
+      scope: "on_demand:team",
+    });
+  });
+
+  test("an individual on-demand limit keeps the member's own spend", async () => {
+    const result = await collectWithSpend({
+      limitType: "user",
+      individualLimit: 10000,
+      individualUsed: 500,
+      pooledLimit: "41234",
+      pooledUsed: 30000,
+    });
+    const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));
+    expect(byKey["on_demand.used"]).toMatchObject({ valueText: "5.00" });
+    expect(byKey["on_demand.limit"]).toMatchObject({ valueText: "100.00" });
+  });
+
+  test.each([
+    ["0", { individualUsed: 0 }, { valueText: "0.00" }],
+    ["null", { individualUsed: null }, { availability: "unknown" }],
+    ["missing", {}, { availability: "unknown" }],
+    ["0 beside totalSpend", { individualUsed: 0, totalSpend: 700 }, { valueText: "7.00" }],
+  ])(
+    "an individual limit with individual spend %s never takes the team pool's spend",
+    async (_case, individual, expected) => {
+      const result = await collectWithSpend({
+        limitType: "user",
+        individualLimit: 10000,
+        pooledLimit: "41234",
+        pooledUsed: 30000,
+        ...individual,
+      });
+      expect(result.metrics.find((m) => m.providerMetricKey === "on_demand.used")).toMatchObject(
+        expected,
+      );
+    },
+  );
+
+  test("a pool limit never pairs with the member's own spend, even when the pool reports 0", async () => {
+    const zero = await collectWithSpend({
+      limitType: "team",
+      pooledLimit: "41234",
+      pooledUsed: 0,
+      individualUsed: 500,
+      totalSpend: 500,
+    });
+    expect(zero.metrics.find((m) => m.providerMetricKey === "on_demand.used")).toMatchObject({
+      valueText: "0.00",
+    });
+    const missing = await collectWithSpend({
+      limitType: "team",
+      pooledLimit: "41234",
+      individualUsed: 500,
+    });
+    expect(missing.metrics.find((m) => m.providerMetricKey === "on_demand.used")).toMatchObject({
+      availability: "unknown",
+    });
+  });
+
+  test("a non-numeric pool limit is still shape drift", async () => {
+    const error = await rejection(collectWithSpend({ pooledLimit: "12.5", limitType: "team" }));
+    expect(error).toMatchObject({ category: "invalid_response" });
+  });
+
+  test.each([["9007199254740993"], ["9".repeat(400)]])(
+    "a pool limit past the safe integer range (%s) is shape drift, not a rounded or infinite cap",
+    async (pooledLimit) => {
+      const error = await rejection(collectWithSpend({ pooledLimit, limitType: "team" }));
+      expect(error).toMatchObject({ category: "invalid_response" });
+    },
+  );
+
+  test.each([
+    ["9007199254740991", "90071992547409.91"],
+    ["-5", "-0.05"],
+  ])(
+    "a pool limit of %s at the safe integer edge or below zero still parses",
+    async (pooledLimit, valueText) => {
+      const result = await collectWithSpend({ pooledLimit, limitType: "team" });
+      expect(result.metrics.find((m) => m.providerMetricKey === "on_demand.limit")).toMatchObject({
+        valueText,
+      });
+    },
+  );
+
   test("login URL carries the S256 challenge, uuid and cli redirect target", () => {
     const url = new URL(buildLoginUrl(pkce("verifier"), "uuid-1"));
     expect(url.origin + url.pathname).toBe("https://cursor.com/loginDeepControl");
@@ -110,6 +210,64 @@ describe("Cursor connector", () => {
     expect(http.calls[0]?.url).toBe(`${pollUrl}?uuid=uuid-1&verifier=ver`);
   });
 
+  test("identity labels the connection with the GetEmail address and keeps the token subject", async () => {
+    const http = fakeFetch({
+      [getEmailUrl]: () =>
+        json({ email: "owner@example.com", signUpType: "x", isRecentlyCreatedUser: false }),
+    });
+    expect(await createCursorConnector({ fetch: http.fetch }).identity(credential)).toEqual({
+      providerAccountId: "user_01HSYNTHETIC",
+      workspaceId: null,
+      label: "owner@example.com",
+      assurance: "strong",
+    });
+    expect(http.calls).toHaveLength(1);
+    const call = http.calls[0];
+    expect(call?.url).toBe(getEmailUrl);
+    expect(call?.init?.method).toBe("POST");
+    expect(call?.init?.body).toBe("{}");
+    const headers = z.record(z.string(), z.string()).parse(call?.init?.headers);
+    expect(headers["authorization"]).toBe(`Bearer ${access}`);
+    expect(headers["connect-protocol-version"]).toBe("1");
+  });
+
+  test("identity keeps the Cursor label and does not fail when GetEmail fails", async () => {
+    const failures: (() => Response)[] = [
+      () => json({ error: "unauthorized" }, 401),
+      () => json({ error: "boom" }, 500),
+      () => json({}),
+      () => new Response("not json", { status: 200 }),
+      () => {
+        throw new Error("network down");
+      },
+    ];
+    await Promise.all(
+      failures.map(async (failure) => {
+        const http = fakeFetch({ [getEmailUrl]: failure });
+        expect(
+          await createCursorConnector({ fetch: http.fetch }).identity(credential),
+        ).toMatchObject({
+          providerAccountId: "user_01HSYNTHETIC",
+          label: "Cursor",
+        });
+      }),
+    );
+  });
+
+  test("identity falls back to an email claim when GetEmail has none", async () => {
+    const withEmail = {
+      secret: {
+        accessToken: jwt({ sub: "user_01HSYNTHETIC", email: "claim@example.com" }),
+        refreshToken: null,
+      },
+      expiresAt: null,
+    };
+    const http = fakeFetch({ [getEmailUrl]: () => json({}) });
+    expect(await createCursorConnector({ fetch: http.fetch }).identity(withEmail)).toMatchObject({
+      label: "claim@example.com",
+    });
+  });
+
   test("identity is the token subject; usage uses the Connect RPC with a Bearer token", async () => {
     const http = fakeFetch({ [usageUrl]: () => json(periodUsage) });
     const connector = createCursorConnector({ fetch: http.fetch, now: () => 1_700_000_000_000 });
@@ -117,7 +275,8 @@ describe("Cursor connector", () => {
       providerAccountId: "user_01HSYNTHETIC",
     });
     const result = await connector.collect(credential, identity);
-    const headers = z.record(z.string(), z.string()).parse(http.calls[0]?.init?.headers);
+    const usageCall = http.calls.find((call) => call.url === usageUrl);
+    const headers = z.record(z.string(), z.string()).parse(usageCall?.init?.headers);
     expect(headers["connect-protocol-version"]).toBe("1");
     expect(headers["authorization"]).toBe(`Bearer ${access}`);
     const byKey = Object.fromEntries(result.metrics.map((m) => [m.providerMetricKey, m]));

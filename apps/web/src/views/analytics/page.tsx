@@ -1,8 +1,8 @@
 import { memo, useMemo, useState, type ReactNode } from "react";
 
-import { convert } from "@headroom/view-model/wallet-money";
+import { buildAnalytics } from "@headroom/view-model/analytics";
 import { demoHistory } from "@headroom/view-model/history-demo";
-import { monthlyOf } from "@headroom/view-model/wallet";
+import { monthlyUsd } from "@headroom/view-model/wallet";
 import { demoWallet } from "@headroom/view-model/wallet-demo";
 
 import { LoadFailed, NoAccounts } from "../../dashboard/states.tsx";
@@ -17,7 +17,6 @@ import type { ViewProps } from "../props.ts";
 import { AccountFilter } from "./common.tsx";
 import { fitLine, PlanFitCard } from "./fit.tsx";
 import { Head, TabFace } from "./head.tsx";
-import { buildAnalytics } from "./model.ts";
 import { nowLine, RightNowCard } from "./now.tsx";
 import { reportKeys, reports, reportStore, type Report } from "./reports.ts";
 import { RhythmCard, summary } from "./rhythm.tsx";
@@ -74,25 +73,6 @@ const RightNow = memo(RightNowCard);
 const PlanFit = memo(PlanFitCard);
 
 type Connections = NonNullable<ViewProps["overview"]["connections"]>;
-
-/**
- * Monthly cost in US dollars from the Wallet: 0 for a free or included plan. Null is unknown, with the reason in
- * `note`: no cost entry, the Wallet did not load, or the price is in a currency with no exchange rate.
- */
-function monthlyUsd(
-  cost: Parameters<typeof monthlyOf>[0],
-  perUsd: Readonly<Partial<Record<string, number>>> | null,
-  walletFailed: boolean,
-): { readonly usd: number | null; readonly note: string } {
-  if (walletFailed) return { usd: null, note: "Price unavailable" };
-  // A free plan, or one included in another subscription, is a known $0: monthlyOf returns zero for it.
-  const monthly = monthlyOf(cost);
-  if (monthly === null) return { usd: null, note: "Price not set" };
-  const usd = convert(monthly, "USD", perUsd ?? {});
-  return usd === null
-    ? { usd: null, note: `Price in ${monthly.currency}, no rate` }
-    : { usd: usd.minor / 100, note: "" };
-}
 
 const wholeDays = (days: number): string => {
   const count = Math.floor(days);

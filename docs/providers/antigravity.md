@@ -28,6 +28,7 @@ The credits balance stays `unknown`. The quota read was validated on 2026-10-01 
 | Identity email comes from user info; a project id lookup is required for quota calls | source-inspected | CLIProxyAPI [S4] |
 | `v1internal:retrieveUserQuotaSummary` is the only endpoint reporting the merged Gemini and Claude/GPT pools with both five-hour and weekly windows | source-inspected | OpenUsage Antigravity provider doc [S6]; ai-usagebar [S5] |
 | Legacy fallbacks `fetchAvailableModels` and `retrieveUserQuota` know only five-hour windows per model; OpenUsage merges them by worst remaining fraction | source-inspected | OpenUsage [S6] |
+| On a Google AI Pro account, `retrieveUserQuotaSummary` returned only the `Claude and GPT models` group (`3p-weekly`, `3p-5h`) and omitted Gemini buckets; `POST …/v1internal:fetchAvailableModels` with `{ project }` returned `models` keyed by model id carrying `quotaInfo: { remainingFraction, resetTime }`, which the connector merges across `gemini-*` entries by worst remaining fraction into `quota.gemini-5h` | validated | Observed on a Google AI Pro account on 2026-11-01; public clients send `{}`, while `{ project }` succeeded on the live account |
 | Plan name comes from `userTier` | source-inspected | OpenUsage [S6] |
 | The quota summary works for Headroom's token and account | validated | 2026-10-01, see above; a free-tier account with the Starter Quota |
 | Remote CLI prints a secure authorization URL and the browser shows a code to paste | documented | Remote SSH flow [S1] |
@@ -45,9 +46,9 @@ Earlier research observed model-group usage output and tried a credits command. 
 | Dashboard field | Availability | Source and interpretation | Notes and limit |
 | --- | --- | --- | --- |
 | Plan name | `available` when returned | `userTier` | `private`. Provider label; do not map it to an allowance. |
-| Per-model five-hour window | `available` when returned | Legacy `fetchAvailableModels` and `retrieveUserQuota`, merged by worst remaining fraction | `private`. Fallback only; no weekly window. |
+| Per-model five-hour window | `available` when returned | `fetchAvailableModels`, merged across `gemini-*` models by worst remaining fraction into `quota.gemini-5h` | `private`. Fallback only, when the summary reports `3p-5h` but no usable `gemini-5h`; no weekly window. |
 | Connection state | Yes | Direct sign-in | `private`. Login does not prove quota read. |
-| Gemini pool quota | `available` when returned | `retrieveUserQuotaSummary`, five-hour and weekly windows | `private`. Preserve each window. A bucket the tier does not report is omitted, not `unknown`; the free tier validated on 2026-10-01 reported only `gemini-weekly`. |
+| Gemini pool quota | `available` when returned | `retrieveUserQuotaSummary`, five-hour and weekly windows | `private`. Preserve each window. A bucket the tier does not report is omitted, not `unknown`; the free tier validated on 2026-10-01 reported only `gemini-weekly`. A Google AI Pro account on 2026-11-01 reported no Gemini buckets; the per-model fallback supplies the five-hour window. A fraction outside 0..1 is `unknown`. |
 | Claude/GPT pool quota | `available` when returned | `retrieveUserQuotaSummary`, five-hour and weekly windows | `private`. Separate pool; do not add to Gemini. Same tier rule; only `3p-weekly` on the validated account. |
 | Pool reset time | `available` when returned | Reset fields in the summary | `private`. Preserve per-bucket window. |
 | Session or context usage | Candidate through ACP | ACP session usage | `official`. Not subscription allowance. |
@@ -68,7 +69,7 @@ Earlier research observed model-group usage output and tried a credits command. 
 6. Run one read-only `POST …:loadCodeAssist` for the project, then one `POST …:retrieveUserQuotaSummary` with it. Do not make a model request.
 7. Encrypt and store tokens, capabilities and the first snapshot. Mark the attempt `succeeded` and the connection `ready`, or `partial` when quota access fails.
 8. Refresh at the Google token endpoint before collection when the token nears expiry, or after a 401. Persist a rotated refresh token first. A definitive failure sets `reconnect_required`.
-9. When `retrieveUserQuotaSummary` fails or is absent, fall back to `fetchAvailableModels` and `retrieveUserQuota` and keep only five-hour windows. Record the missing weekly window as `unknown`.
+9. When the summary reports `3p-5h` but no usable `gemini-5h`, read `fetchAvailableModels` with `{ project }` and record the worst Gemini five-hour window as `quota.gemini-5h`. A fallback failure is recorded and keeps the summary metrics. A failed summary still fails the collection; `retrieveUserQuota` is not read.
 
 ### Official CLI fallback
 
@@ -83,7 +84,7 @@ The fallback is the official `agy` remote URL and code flow: an isolated `agy` l
 | User info | `GET https://www.googleapis.com/oauth2/v2/userinfo` | `private` | Email for identity. |
 | Project lookup | Antigravity project id lookup per CLIProxyAPI `FetchAntigravityProjectID` | `private` | Required for quota calls. Endpoint pinned during validation. |
 | Quota summary | `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary` with `{ project }` | `private` | Merged pools with five-hour and weekly windows. Validated for Headroom on 2026-10-01; 403 without the project. |
-| Legacy quota | `fetchAvailableModels` and `retrieveUserQuota` on the same hosts | `private` | Five-hour windows per model only. Fallback. |
+| Legacy quota | `POST …/v1internal:fetchAvailableModels` with `{ project }` on the same hosts | `private` | Five-hour windows per model only. Fallback for a missing Gemini five-hour bucket. `retrieveUserQuota` is not read. |
 | Status line JSON | `agy` runtime data: `quota` with `remaining_fraction`, `reset_time`, `reset_in_seconds` | `official` | Fallback and shape reference. |
 | `/usage` (alias `/quota`) and `/credits` | CLI commands [S2] | `official` | Fallback only. Command existence does not establish credit access. |
 
@@ -124,7 +125,7 @@ An earlier CLI check returned two model-group weekly quota and reset rows. A cre
 - [ ] Gate the connector behind a per-provider enable flag and label every metric `official` or `private`.
 - [ ] Prove the paste-redirect flow from a separate browser device.
 - [ ] Prove the project id lookup and the quota summary call on a test account, including both windows per pool.
-- [ ] Prove the legacy fallback merges by worst remaining fraction and reports no weekly window.
+- [ ] Prove the `fetchAvailableModels` fallback on a second account; one Google AI Pro account was observed on 2026-11-01.
 - [ ] Prove token refresh, rotated refresh-token persistence and repeat collection after restart.
 - [ ] Prove revocation handling: `reconnect_required` with the old snapshot kept.
 - [ ] Capture synthetic fixtures for success, partial response and schema drift; bump the connector version on any parser change.

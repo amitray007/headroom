@@ -245,6 +245,15 @@ export const settings = sqliteTable("settings", {
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
 });
 
+/**
+ * Notices the owner has read, one row per notice id. A notice id changes with each period, so a
+ * row older than 90 days names a notice that no longer exists; writes delete those rows.
+ */
+export const noticeReads = sqliteTable("notice_reads", {
+  noticeId: text("notice_id").primaryKey(),
+  readAt: integer("read_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+
 /** The owner's provider order as one JSON array, in its own row so saving settings never clobbers it. */
 export const displayOrder = sqliteTable("display_order", {
   id: text("id").primaryKey(),

@@ -32,6 +32,7 @@ export const cloudCodeHosts = [
  * Validated 2026-10-01: an empty body answers 403 "You do not have a valid license of this product".
  */
 export const quotaSummaryPath = "/v1internal:retrieveUserQuotaSummary";
+export const fetchAvailableModelsPath = "/v1internal:fetchAvailableModels";
 export const loadCodeAssistPath = "/v1internal:loadCodeAssist";
 /** Client metadata `loadCodeAssist` expects; the values CLIProxyAPI sends for Antigravity. */
 export const loadCodeAssistBody = {

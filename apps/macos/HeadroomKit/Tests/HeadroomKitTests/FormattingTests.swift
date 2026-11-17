@@ -1,0 +1,161 @@
+import Foundation
+import Testing
+
+@testable import HeadroomKit
+
+@Test func percentLeftNeverTurnsUnknownIntoZero() {
+  #expect(Formatting.left(used: nil) == nil)
+  #expect(Formatting.left(used: 63) == 37)
+  #expect(Formatting.left(used: 110) == 0)
+  #expect(Formatting.percentLeft(nil) == "Unknown")
+  #expect(Formatting.percentLeft(0) == "0% left")
+  #expect(Formatting.percentLeft(37) == "37% left")
+  #expect(Formatting.percentLeft(37.5) == "38% left")
+}
+
+private let durationCases: [(Double, String)] = [
+  (13080, "3 h 38 min"), (144000, "1 day 16 h"), (410400, "4 days 18 h"), (29, "0 min"),
+  (-60, "0 min"),
+]
+
+@Test(arguments: durationCases)
+func durationsMatchTheMockup(_ seconds: Double, _ expected: String) {
+  #expect(Formatting.duration(seconds) == expected)
+}
+
+@Test func ageClockAndDatesMatchTheMockup() throws {
+  let now = Date(timeIntervalSince1970: 1_793_286_000)  // 2026-10-29 15:00 UTC
+  let utc = try #require(TimeZone(secondsFromGMT: 0))
+  #expect(Formatting.age(now.addingTimeInterval(-7 * 60), now: now) == "7 min ago")
+  #expect(Formatting.age(now.addingTimeInterval(-3 * 3600), now: now) == "3 h ago")
+  #expect(Formatting.age(now.addingTimeInterval(-2 * 86400), now: now) == "2 days ago")
+  #expect(Formatting.age(nil, now: now) == "Unknown")
+  #expect(Formatting.clock(now, timeZone: utc) == "15:00")
+  #expect(Formatting.clock(now, timeZone: utc, twelveHour: true) == "3:00 pm")
+  #expect(Formatting.when(nil, now: now, timeZone: utc) == "Unknown")
+  #expect(Formatting.when(now, now: now, timeZone: utc) == "15:00")
+  #expect(Formatting.when(now.addingTimeInterval(86400), now: now, timeZone: utc) == "Fri 15:00")
+  #expect(
+    Formatting.when(now.addingTimeInterval(6 * 86400), now: now, timeZone: utc) == "Wed 4 Nov")
+  #expect(Formatting.runOut(now, now: now, timeZone: utc) == "Runs out 15:00 if the pace holds")
+}
+
+@Test func statusUsesServerPercentAndProjectionWithMockupPrecedence() throws {
+  let feed = try fixture()
+  let now = try #require(Formatting.date(milliseconds: feed.generatedAt))
+  let utc = try #require(TimeZone(secondsFromGMT: 0))
+  var account = try #require(feed.accounts.first { !$0.limits.isEmpty })
+  account.state = .ready
+  account.lastSuccessAt = feed.generatedAt
+  account.observedAt = feed.generatedAt
+  var limit = try #require(account.limits.first)
+  limit.part = false
+  limit.percentLeft = 45
+  limit.runsOutAt = nil
+  account.limits = [limit]
+  #expect(Formatting.status(account, staleAfterMs: feed.staleAfterMs, now: now) == "45% left")
+  account.limits[0].runsOutAt = feed.generatedAt + 3600_000
+  #expect(
+    Formatting.status(account, staleAfterMs: feed.staleAfterMs, now: now, timeZone: utc).hasSuffix(
+      "if the pace holds"))
+  account.limits[0].percentLeft = 0
+  #expect(
+    Formatting.status(account, staleAfterMs: feed.staleAfterMs, now: now).hasPrefix("Out until"))
+  account.state = .reconnect_required
+  #expect(Formatting.status(account, staleAfterMs: feed.staleAfterMs, now: now) == "Sign in again")
+  account.state = .ready
+  account.lastSuccessAt = feed.generatedAt - 7200_000
+  #expect(Formatting.status(account, staleAfterMs: feed.staleAfterMs, now: now).hasPrefix("Stale,"))
+  account.lastSuccessAt = nil
+  account.limits[0].percentLeft = nil
+  account.charges = []
+  #expect(Formatting.status(account, staleAfterMs: feed.staleAfterMs, now: now) == "Unknown")
+}
+
+@Test func moneyInventoryAndChargesKeepUnitsAndUnknownsSeparate() throws {
+  #expect(Formatting.money(nil, unit: "USD") == "Unknown")
+  #expect(Formatting.money(8.2, unit: "USD") == "8.20 USD")
+  #expect(Formatting.inventory(nil, unit: "resets") == "Unknown resets")
+  #expect(Formatting.inventory(2, unit: "resets") == "2 resets")
+  var charge = try #require(fixture().accounts.flatMap(\.charges).first)
+  charge.value = 8.2
+  charge.unit = "USD"
+  charge.unlimited = false
+  charge.cap = .init(unit: "USD", value: 20)
+  #expect(Formatting.charge(charge) == "8.20 / 20.00 USD")
+  charge.cap = .init(unit: "credits", value: 20)
+  #expect(Formatting.charge(charge) == "8.20 USD / 20 credits")
+  charge.value = 61068.3876350001
+  charge.unit = "codex_credits"
+  charge.cap = nil
+  #expect(Formatting.charge(charge) == "61,068.39 Codex credits")
+  charge.value = 400
+  #expect(Formatting.charge(charge) == "400 Codex credits")
+  charge.value = nil
+  charge.availability = .unknown
+  #expect(Formatting.charge(charge) == "Unknown")
+  charge.availability = .not_authorized
+  #expect(Formatting.charge(charge) == "Not on this plan")
+  charge.unlimited = true
+  #expect(Formatting.charge(charge) == "Unlimited")
+}
+
+@Test func providerCreditLabelsRemainDistinctFromMoney() throws {
+  #expect(Formatting.unitLabel("codex_credits") == "Codex credits")
+  #expect(Formatting.unitLabel("grok_credits") == "Grok credits")
+  #expect(Formatting.unitLabel("gateway_credits") == "Gateway credits")
+  #expect(Formatting.unitLabel("USD") == "USD")
+  var charge = try #require(fixture().accounts.flatMap(\.charges).first)
+  charge.unit = "codex_credits"
+  charge.value = 25
+  charge.cap = nil
+  charge.unlimited = false
+  #expect(Formatting.charge(charge) == "25 Codex credits")
+}
+
+@Test func compactPercentagesKeepSmallNonzeroReadingsAndHideFloatingPointNoise() {
+  #expect(Formatting.barePercent(nil) == "Unknown")
+  #expect(Formatting.barePercent(0) == "0%")
+  #expect(Formatting.barePercent(0.04) == "1%")
+  #expect(Formatting.barePercent(0.4) == "1%")
+  #expect(Formatting.barePercent(21.200000000000003) == "21%")
+  #expect(Formatting.percentLeft(21.200000000000003) == "21% left")
+}
+
+@Test func percentBoundariesAndUnitTotals() {
+  #expect(Formatting.barePercent(99.9) == "99%")
+  #expect(Formatting.barePercent(100) == "100%")
+  #expect(Formatting.barePercent(52.2) == "52%")
+  #expect(Formatting.barePercent(.nan) == "Unknown")
+  #expect(Formatting.unitTotal([nil, 12], unit: "USD") == "USD unknown")
+  #expect(Formatting.unitTotal([20, 28], unit: "grok_credits") == "48.00 Grok credits")
+}
+
+@Test func repeatedWeeklyLabelsUseModelWindow() throws {
+  let account = try #require(fixture().accounts.first { $0.provider == .claude })
+  let weekly = try #require(account.limits.first { $0.key == "seven_day" })
+  let model = try #require(account.limits.first { $0.key.hasPrefix("limits.") })
+  #expect(Presentation.limitLabel(weekly, in: account) == "Weekly")
+  #expect(Presentation.limitLabel(model, in: account) == model.window)
+  var single = account
+  single.limits = [model]
+  #expect(Presentation.limitLabel(model, in: single) == "Weekly")
+}
+
+@Test func lastCheckCountsSecondsThenMinutes() {
+  let now = Date(timeIntervalSince1970: 1_000_000)
+  #expect(Formatting.checked(now.addingTimeInterval(-2), now: now) == "just now")
+  #expect(Formatting.checked(now.addingTimeInterval(-12), now: now) == "12 sec ago")
+  #expect(Formatting.checked(now.addingTimeInterval(-59), now: now) == "59 sec ago")
+  #expect(Formatting.checked(now.addingTimeInterval(-61), now: now) == "1 min ago")
+  #expect(Formatting.checked(nil, now: now) == "Unknown")
+}
+
+@Test func limitsShowRoomLeftOrShareUsed() {
+  #expect(Formatting.shown(37, view: .left) == 37)
+  #expect(Formatting.shown(37, view: .used) == 63)
+  #expect(Formatting.shown(nil, view: .used) == nil)
+  #expect(Formatting.share(37, view: .left) == "37% left")
+  #expect(Formatting.share(37, view: .used) == "63% used")
+  #expect(Formatting.share(nil, view: .used) == "Unknown")
+}

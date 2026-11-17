@@ -178,3 +178,16 @@ test("a write failure removes the staged file and reports it", async () => {
   expect(out.lines[0]).toContain("EACCES");
   expect(removed).toEqual(["/home/u/.local/bin/headroom.new"]);
 });
+
+test("inside the Mac app the update is left to the app and nothing changes on disk", async () => {
+  const h = harness();
+  const path = "/Applications/Headroom.app/Contents/Resources/headroom";
+  expect(detectInstall(path, false)).toBe("app");
+  const outcome = await runUpdate({ check: false }, { ...h.deps, execPath: path }, false);
+  expect(outcome.code).toBe(0);
+  expect(outcome.lines.join("\n")).toContain("came with Headroom for Mac");
+  expect(outcome.lines.join("\n")).toContain("Update the app");
+  expect(h.urls).toEqual([]);
+  expect(h.files.size).toBe(0);
+  expect(h.renames).toEqual([]);
+});

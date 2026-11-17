@@ -1,6 +1,6 @@
 # Notifications
 
-Headroom tells the owner when an account needs attention. The browser builds each notification from the latest overview and the owner's settings, then shows it in the bell. The server builds the same events after each collection pass and delivers them to Telegram chats and webhooks the owner set up. Every notification is a `NotificationEvent`; read state stays in the browser.
+Headroom tells the owner when an account needs attention. The browser builds each notification from the latest overview and the owner's settings, then shows it in the bell. The server builds the same events after each collection pass and delivers them to Telegram chats and webhooks the owner set up. Every notification is a `NotificationEvent`; the server keeps which ones the owner has read, so the browser and the Mac app agree.
 
 Code: `packages/view-model/src/notifications.ts` (detection, shared by the web app and the server), `packages/view-model/src/automation.ts` (what the Automations settings list), `packages/core/src/notification-event.ts` (event schema), `packages/core/src/settings.ts` (settings). Enumerations are in `packages/core/src/enums.ts` and [the data model](data-model.md). The detected events, auto-reset rule and budgets behind the newer kinds are specified in [ADR 0003](../decisions/0003-owner-automations.md).
 
@@ -74,7 +74,8 @@ Rules that apply to every kind:
 - Claude reports the weekly all-models limit and model-scoped weekly limits that overlap it. When the all-models limit and a scoped limit are both low with the same tone, only the tighter one is raised. With different tones, both are raised.
 - Money is in USD. Grok, Codex and Vercel figures are credits and never use a dollar sign. Units are never converted.
 - Event notices come from `connection.events` (the last 7 days, at most 20) and show for 72 hours after `occurredAt`. Budget notices come from `connection.automation.budgets`; the overview carries both, so the browser bell and server delivery derive the same notices. Expiring credits come from the Wallet's top-ups, passed to the derivation as `topUps`.
-- Read state stays in the browser. Ids of switched-off kinds are kept so a toggle does not mark them unread again.
+- Read state lives on the server, in `notice_reads` (see [the data model](data-model.md)), and is shared by every browser and the Mac app ([ADR 0005](../decisions/0005-shared-notice-read-state.md)). The browser reads it with `GET /api/notices/read` and writes with `PUT /api/notices/read`; the Mac app uses `PUT /api/app/v1/notices/read` and the `read` flag on each feed notice. Both sides use the same notice id, which does not depend on the time zone or the time style. Ids of switched-off kinds are kept so a toggle does not mark them unread again.
+- The browser polls the set every minute, shows a mark at once and sends it. If the send fails, it loads the server's set again. A mark is kept for 90 days and removed on a later write, because a notice id changes with each period. A browser that still holds read ids in local storage sends them to the server on its first load and then clears them. Demo Mode keeps its read state in memory and never calls these routes.
 
 ## Settings
 

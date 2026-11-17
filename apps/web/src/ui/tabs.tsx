@@ -12,7 +12,8 @@ export interface TabItem<T extends string> {
 /**
  * Tabs that choose one value. Left and Right move between them and select as they go; Home and End jump to the
  * ends. Put the content in an element with `role="tabpanel"` and pass its id as `panelId`. With `indicator`, a
- * line under the chosen tab slides to the next one. `className` and `tabClassName` carry the look.
+ * line under the chosen tab slides to the next one; in a vertical list it is a highlight behind the chosen tab, and
+ * Up and Down move instead. `className` and `tabClassName` carry the look.
  */
 export function Tabs<T extends string>(props: {
   /** Accessible name of the tab list. */
@@ -24,8 +25,10 @@ export function Tabs<T extends string>(props: {
   readonly className?: string;
   readonly tabClassName?: string;
   readonly indicator?: boolean;
+  readonly orientation?: "horizontal" | "vertical";
 }) {
-  const { tabs, value, onChange, indicator = false } = props;
+  const { tabs, value, onChange, indicator = false, orientation = "horizontal" } = props;
+  const vertical = orientation === "vertical";
   const list = useRef<HTMLDivElement>(null);
   const mark = useRef<HTMLSpanElement>(null);
   const at = tabs.findIndex((tab) => tab.value === value);
@@ -45,6 +48,8 @@ export function Tabs<T extends string>(props: {
       if (arriving) markEl.setAttribute("data-snap", "");
       markEl.style.setProperty("--tab-x", `${chosen.offsetLeft}px`);
       markEl.style.setProperty("--tab-w", `${chosen.offsetWidth}px`);
+      markEl.style.setProperty("--tab-y", `${chosen.offsetTop}px`);
+      markEl.style.setProperty("--tab-h", `${chosen.offsetHeight}px`);
       if (arriving) {
         markEl.getBoundingClientRect();
         markEl.removeAttribute("data-snap");
@@ -58,7 +63,9 @@ export function Tabs<T extends string>(props: {
   }, [at, indicator]);
 
   const move = (event: KeyboardEvent<HTMLDivElement>): void => {
-    const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : null;
+    const forward = vertical ? "ArrowDown" : "ArrowRight";
+    const back = vertical ? "ArrowUp" : "ArrowLeft";
+    const step = event.key === forward ? 1 : event.key === back ? -1 : null;
     const target =
       event.key === "Home"
         ? 0
@@ -80,6 +87,7 @@ export function Tabs<T extends string>(props: {
       className={cx("tabs", props.className)}
       role="tablist"
       aria-label={props.label}
+      aria-orientation={orientation}
       tabIndex={-1}
       onKeyDown={move}
     >

@@ -1,7 +1,7 @@
-import type { OverviewConnection } from "../../api.ts";
-import { isInactive, meterWindows, type MeterWindow } from "@headroom/view-model/accounts";
-import type { History, HistoryConnection, HistorySeries } from "@headroom/view-model/history";
-import { accountName, planLabel, providerName } from "@headroom/view-model/labels";
+import type { OverviewConnection } from "./overview.ts";
+import { isInactive, meterWindows, type MeterWindow } from "./accounts.ts";
+import type { History, HistoryConnection, HistorySeries } from "./history.ts";
+import { accountName, planLabel, providerName } from "./labels.ts";
 import type { Provider } from "@headroom/core/contracts";
 
 /**
@@ -23,7 +23,7 @@ export interface Reading {
 }
 
 /** A window that has already reset. */
-interface PastWindow {
+export interface PastWindow {
   readonly key: string;
   readonly start: number;
   /** The reset, or when the limit opened early. */
@@ -41,7 +41,7 @@ interface PastWindow {
 }
 
 /** An account's main limit: its current window, the projection, and the closed windows in range. */
-interface LimitStory {
+export interface LimitStory {
   readonly key: string;
   readonly kind: LimitKind;
   readonly start: number;
@@ -362,5 +362,73 @@ export function buildAnalytics(
       retentionDays: history.retentionDays,
       empty: known.every((entry) => entry.coverage.readings === 0),
     },
+  };
+}
+
+export type FitVerdict = "too_small" | "fits" | "room_to_spare" | "thin";
+
+export interface PlanFitWindow {
+  readonly start: number;
+  readonly end: number;
+  /** Rounded peak, 0..100. */
+  readonly peak: number;
+  readonly hours: number;
+  readonly hit: boolean;
+  readonly early: boolean;
+}
+
+export interface PlanFit {
+  readonly unit: "week" | "month" | "window";
+  readonly windows: readonly PlanFitWindow[];
+  readonly hits: number;
+  readonly average: number;
+  readonly highest: number;
+  readonly lockedHours: number;
+  /** US dollars a month left unused at the average peak; null when the price is unknown. */
+  readonly unusedUsd: number | null;
+  readonly verdict: FitVerdict;
+}
+
+/** Share of windows at the limit that makes a plan too small. */
+const HIT_SHARE = 0.3;
+/** An average peak under this, with no heavy locking, means room to spare. */
+const ROOM_AVG = 45;
+/** Complete windows an account needs before a plan is called too small or too big. */
+export const MIN_WINDOWS = 2;
+
+function verdictOf(windows: readonly PlanFitWindow[], hits: number, average: number): FitVerdict {
+  if (windows.length < MIN_WINDOWS) return "thin";
+  if (hits / windows.length >= HIT_SHARE) return "too_small";
+  return average < ROOM_AVG ? "room_to_spare" : "fits";
+}
+
+/** How the account's main limit did over the `spanMs` before `now`; null when no window closed in that span. */
+export function planFitOf(account: AccountStory, now: number, spanMs: number): PlanFit | null {
+  const limit = account.primary;
+  const windows = limit.past
+    .filter((window) => window.end > now - spanMs && window.end <= now)
+    .map((window) => ({
+      start: window.start,
+      end: window.end,
+      peak: Math.round(window.peak),
+      hours: window.hoursAtLimit,
+      hit: window.limitHitAt !== null || window.peak >= 100,
+      early: window.ended === "reset_early",
+    }));
+  if (windows.length === 0) return null;
+  const hits = windows.filter((window) => window.hit).length;
+  const average = Math.round(
+    windows.reduce((total, window) => total + window.peak, 0) / windows.length,
+  );
+  const cost = account.monthlyCost;
+  return {
+    unit: limit.kind === "weekly" ? "week" : limit.kind === "cycle" ? "month" : "window",
+    windows,
+    hits,
+    average,
+    highest: Math.max(...windows.map((window) => window.peak)),
+    lockedHours: Math.round(windows.reduce((total, window) => total + window.hours, 0)),
+    unusedUsd: cost === null ? null : (cost * (100 - average)) / 100,
+    verdict: verdictOf(windows, hits, average),
   };
 }

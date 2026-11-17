@@ -9,6 +9,7 @@ import {
   displayCurrencyOf,
   emptyBook,
   monthlyOf,
+  monthlyUsd,
   providerSpend,
   suggestPrices,
   summarize,
@@ -59,6 +60,25 @@ describe("monthlyOf", () => {
 
   test("Not set stays unknown", () => {
     expect(monthlyOf(null)).toBeNull();
+  });
+});
+
+describe("monthlyUsd", () => {
+  test("a USD price is dollars", () => {
+    expect(monthlyUsd(paid(usd(20)), null, false)).toEqual({ usd: 20, note: "" });
+  });
+
+  test("a free plan is a known zero", () => {
+    expect(monthlyUsd({ kind: "free" }, null, false)).toEqual({ usd: 0, note: "" });
+  });
+
+  test("an unset price, a failed Wallet and a missing rate are unknown with a reason", () => {
+    expect(monthlyUsd(null, null, false)).toEqual({ usd: null, note: "Price not set" });
+    expect(monthlyUsd(paid(usd(20)), null, true)).toEqual({ usd: null, note: "Price unavailable" });
+    expect(monthlyUsd(paid(inr(1000)), {}, false)).toEqual({
+      usd: null,
+      note: "Price in INR, no rate",
+    });
   });
 });
 

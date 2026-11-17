@@ -30,7 +30,7 @@ describe("public routes", () => {
     const ctx = testContext({ HEADROOM_TRUSTED_ORIGINS: "https://app.example.com" });
     const response = await createApp(ctx).request(url(ctx, "/healthz"));
     const csp = response.headers.get("content-security-policy") ?? "";
-    expect(csp).toContain("frame-ancestors 'self' http://localhost:8080 https://app.example.com");
+    expect(csp).toContain("frame-ancestors 'self' http://localhost:4323 https://app.example.com");
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("img-src 'self' data: https://api.dicebear.com;");
     expect(csp).toContain("connect-src 'self';");
@@ -59,6 +59,28 @@ describe("built web UI", () => {
 
       const route = await app.request(url(ctx, "/settings"));
       expect(await route.text()).toContain("shell");
+      expect((await app.request(url(ctx, "/favicon.png"))).status).toBe(404);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("icons allow cross-origin embedding; other responses stay same-origin", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "headroom-web-"));
+    try {
+      writeFileSync(join(dir, "index.html"), "<!doctype html><title>shell</title>");
+      writeFileSync(join(dir, "favicon.svg"), "<svg/>");
+      const ctx = testContext({ HEADROOM_WEB_DIR: dir });
+      const app = createApp(ctx);
+      const corp = async (path: string) =>
+        (await app.request(url(ctx, path))).headers.get("cross-origin-resource-policy");
+
+      const icon = await app.request(url(ctx, "/favicon.svg"));
+      expect(icon.headers.get("cross-origin-resource-policy")).toBe("cross-origin");
+      expect(icon.headers.get("content-security-policy")).toContain("frame-ancestors 'self'");
+      expect(await corp("/settings")).toBe("same-origin");
+      expect(await corp("/healthz")).toBe("same-origin");
+      expect(await corp("/api/setup")).toBe("same-origin");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

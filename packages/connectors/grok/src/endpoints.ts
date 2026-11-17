@@ -7,6 +7,8 @@
 export const billingUrl = "https://cli-chat-proxy.grok.com/v1/billing?format=credits";
 export const settingsUrl = "https://cli-chat-proxy.grok.com/v1/settings";
 export const tokenUrl = "https://auth.x.ai/oauth2/token";
+/** OIDC userinfo, listed in https://auth.x.ai/.well-known/openid-configuration. Supplies the email the CLI token lacks. */
+export const userinfoUrl = "https://auth.x.ai/oauth2/userinfo";
 
 /** OIDC client id the CLI stores in its auth file; used only when the file omits it. */
 export const defaultClientId = "b1a00492-073a-47ea-816f-4c329264a828";

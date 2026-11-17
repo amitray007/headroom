@@ -15,6 +15,7 @@ export type ViewId = (typeof views)[number]["id"];
 export type Route =
   | { page: ViewId }
   | { page: "connect" }
+  | { page: "pair"; code: string }
   | { page: "reconnect"; id: string }
   | { page: "gallery" };
 
@@ -27,10 +28,18 @@ export function viewOf(route: Route): ViewId | null {
   return isView(route.page) ? route.page : null;
 }
 
+/** "k7pqx4" and "K7P-QX4" name the same pairing code; show it as the Mac does. */
+function pairingCode(raw: string): string {
+  const code = raw.replaceAll("-", "").toUpperCase();
+  return code.length === 6 ? `${code.slice(0, 3)}-${code.slice(3)}` : raw.toUpperCase();
+}
+
 /** Parse a location hash such as "#/reconnect/abc" into a route; unknown hashes show the Overview. */
 export function parseRoute(hash: string): Route {
   const [, first, second] = hash.replace(/^#/, "").split("/");
   if (first === "connect") return { page: "connect" };
+  if (first === "pair" && second)
+    return { page: "pair", code: pairingCode(decodeURIComponent(second)) };
   if (first === "reconnect" && second) return { page: "reconnect", id: decodeURIComponent(second) };
   if (first === "dev" && second === "ui") return { page: "gallery" };
   return { page: isView(first) ? first : "overview" };
@@ -53,6 +62,8 @@ export function href(route: Route): string {
       return `#/${route.page}`;
     case "connect":
       return "#/connect";
+    case "pair":
+      return `#/pair/${encodeURIComponent(route.code)}`;
     case "reconnect":
       return `#/reconnect/${encodeURIComponent(route.id)}`;
     case "gallery":

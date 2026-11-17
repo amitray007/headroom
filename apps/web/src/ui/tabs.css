@@ -24,3 +24,20 @@
 .tabs-mark[data-snap] {
   transition: none;
 }
+/* Vertical: a highlight sits behind the chosen tab and glides to the next one. */
+.tabs[aria-orientation="vertical"] .tabs-mark {
+  top: 0;
+  bottom: auto;
+  height: var(--tab-h, 0px);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  translate: var(--tab-x, 0px) var(--tab-y, 0px);
+  transition:
+    translate var(--dur-standard) var(--ease-in-out),
+    height var(--dur-standard) var(--ease-in-out),
+    opacity var(--dur-fast) var(--ease-standard);
+}
+.tabs[aria-orientation="vertical"] [role="tab"] {
+  position: relative;
+  z-index: 1;
+}

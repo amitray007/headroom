@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { cx } from "./cx.ts";
 
 /** A row of mutually exclusive options. `full` spreads them across the width of the container. */
@@ -9,6 +11,8 @@ export function Segmented<T extends string>(props: {
     readonly label: string;
     /** Dims this option and ignores presses. */
     readonly disabled?: boolean;
+    /** Decorative mark before the label. */
+    readonly icon?: ReactNode;
   }[];
   /** Accessible name of the group. */
   readonly label: string;
@@ -30,6 +34,11 @@ export function Segmented<T extends string>(props: {
           disabled={option.disabled === true}
           onClick={() => props.onChange(option.value)}
         >
+          {option.icon === undefined ? null : (
+            <span className="seg-icon" aria-hidden="true">
+              {option.icon}
+            </span>
+          )}
           {option.label}
         </button>
       ))}

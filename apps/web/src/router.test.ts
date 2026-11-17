@@ -13,6 +13,9 @@ describe("router", () => {
     expect(parseRoute("#/connect")).toEqual({ page: "connect" });
     expect(parseRoute("#/reconnect/x")).toEqual({ page: "reconnect", id: "x" });
     expect(parseRoute("#/dev/ui")).toEqual({ page: "gallery" });
+    expect(parseRoute("#/pair/k7pqx4")).toEqual({ page: "pair", code: "K7P-QX4" });
+    expect(parseRoute("#/pair/K7P-QX4")).toEqual({ page: "pair", code: "K7P-QX4" });
+    expect(parseRoute("#/pair")).toEqual({ page: "overview" });
   });
   test("unknown and retired hashes show the Overview", () => {
     expect(parseRoute("#/nope")).toEqual({ page: "overview" });
@@ -20,6 +23,10 @@ describe("router", () => {
     expect(parseRoute("#/account")).toEqual({ page: "overview" });
   });
   test("round-trips", () => {
+    expect(parseRoute(href({ page: "pair", code: "K7P-QX4" }))).toEqual({
+      page: "pair",
+      code: "K7P-QX4",
+    });
     expect(parseRoute(href({ page: "reconnect", id: "a b" }))).toEqual({
       page: "reconnect",
       id: "a b",

@@ -1,3 +1,9 @@
+import {
+  MIN_WINDOWS,
+  planFitOf,
+  type FitVerdict,
+  type PlanFit,
+} from "@headroom/view-model/analytics";
 import { shortDate } from "@headroom/view-model/time";
 import { useRef, useState, type PointerEvent, type ReactNode, type RefObject } from "react";
 
@@ -33,10 +39,6 @@ const views = [
   { value: "actions", label: "Actions" },
 ] as const;
 
-/** Verdict thresholds. */
-const HIT_SHARE = 0.3; // share of windows at the limit that makes a plan too small
-const ROOM_AVG = 45; // average peak under this, with no heavy locking, means room to spare
-
 /** Action thresholds. */
 const MIN_BLOCKED_HOURS = 8; // locked working hours in 30 days before a change is worth making
 const SIBLING_ROOM_MAX = 80; // a sibling takes work only if it stayed under this while the account was locked
@@ -46,9 +48,6 @@ const DOWNSIZE_PRICE = 50; // dollars a month
 const CANCEL_AVG = 25;
 /** A plan whose busiest window came this close to the limit is never called too big. */
 const DOWNSIZE_MAX_PEAK = 90;
-
-/** Complete windows an account needs before a plan is called too small or too big. */
-const MIN_WINDOWS = 2;
 
 const spanMs = 90 * 24 * hour;
 const monthNames = [
@@ -66,13 +65,12 @@ const monthNames = [
   "Dec",
 ] as const;
 
-const verdicts = [
-  { glyph: "↑", word: "Too small" },
-  { glyph: "✓", word: "Fits" },
-  { glyph: "↓", word: "Room to spare" },
-  { glyph: "·", word: "Not enough history yet" },
-] as const;
-type VerdictIndex = 0 | 1 | 2 | 3;
+const verdicts = {
+  too_small: { glyph: "↑", word: "Too small" },
+  fits: { glyph: "✓", word: "Fits" },
+  room_to_spare: { glyph: "↓", word: "Room to spare" },
+  thin: { glyph: "·", word: "Not enough history yet" },
+} as const satisfies Record<FitVerdict, { readonly glyph: string; readonly word: string }>;
 
 function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? "" : "s"}`;
@@ -84,68 +82,20 @@ function money(value: number): string {
 
 // ---------------------------------------------------------------- history
 
-interface Cell {
-  readonly start: number;
-  readonly end: number;
-  readonly peak: number;
-  readonly hours: number;
-  readonly hit: boolean;
-}
-
-interface History {
+interface History extends PlanFit {
   readonly account: AccountSeries;
-  readonly unit: "week" | "month" | "window";
-  readonly cells: readonly Cell[];
-  readonly hits: number;
-  readonly average: number;
-  readonly highest: number;
-  readonly locked: number;
-  /** Dollars a month left unused at the average peak. Null when the account has no price. */
-  readonly unused: number | null;
-  readonly verdict: VerdictIndex;
 }
 
 function historyOf(account: AccountSeries, now: number): History | null {
-  const limit = account.story.primary;
-  const cells = limit.past
-    .filter((window) => window.end > now - spanMs && window.end <= now)
-    .map((window) => ({
-      start: window.start,
-      end: window.end,
-      peak: Math.round(window.peak),
-      hours: window.hoursAtLimit,
-      hit: window.limitHitAt !== null || window.peak >= 100,
-    }));
-  if (cells.length === 0) return null;
-  const hits = cells.filter((cell) => cell.hit).length;
-  const average = Math.round(cells.reduce((total, cell) => total + cell.peak, 0) / cells.length);
-  const cost = account.story.monthlyCost;
-  const verdict: VerdictIndex =
-    cells.length < MIN_WINDOWS
-      ? 3
-      : hits / cells.length >= HIT_SHARE
-        ? 0
-        : average < ROOM_AVG
-          ? 2
-          : 1;
-  return {
-    account,
-    unit: limit.kind === "weekly" ? "week" : limit.kind === "cycle" ? "month" : "window",
-    cells,
-    hits,
-    average,
-    highest: Math.max(...cells.map((cell) => cell.peak)),
-    locked: Math.round(cells.reduce((total, cell) => total + cell.hours, 0)),
-    unused: cost === null ? null : (cost * (100 - average)) / 100,
-    verdict,
-  };
+  const fit = planFitOf(account.story, now, spanMs);
+  return fit === null ? null : { account, ...fit };
 }
 
 function compareHistory(a: History, b: History): number {
   return b.hits - a.hits || b.average - a.average || a.account.label.localeCompare(b.account.label);
 }
 
-function Verdict(props: { readonly verdict: VerdictIndex }) {
+function Verdict(props: { readonly verdict: FitVerdict }) {
   const verdict = verdicts[props.verdict];
   return (
     <span className="fit-verdict" data-v={props.verdict}>
@@ -185,14 +135,14 @@ function Tile(props: {
 }
 
 function observation(history: History): string {
-  const { hits, cells, unit, average, highest, locked } = history;
-  if (history.verdict === 0) {
-    return `Hit the limit in ${hits} of ${cells.length} ${unit}s. A bigger plan would have avoided ~${locked} locked hours.`;
+  const { hits, windows, unit, average, highest, lockedHours } = history;
+  if (history.verdict === "too_small") {
+    return `Hit the limit in ${hits} of ${windows.length} ${unit}s. A bigger plan would have avoided ~${lockedHours} locked hours.`;
   }
-  if (history.verdict === 2) {
+  if (history.verdict === "room_to_spare") {
     return `Peaks averaged ${average}%. Highest: ${highest}%. A smaller plan could cover this, if one exists.`;
   }
-  return `Peaks averaged ${average}%. Hit the limit in ${hits} of ${cells.length} ${unit}s. The size fits.`;
+  return `Peaks averaged ${average}%. Hit the limit in ${hits} of ${windows.length} ${unit}s. The size fits.`;
 }
 
 /** Peak per window as columns: danger where it hit the limit, a dashed average, the limit line, the current window outlined. */
@@ -212,7 +162,7 @@ function PeakColumns(props: {
   const base = top + plotHeight;
   const plotWidth = width - right;
   const columns = [
-    ...history.cells.map((cell) => ({ ...cell, current: false })),
+    ...history.windows.map((cell) => ({ ...cell, current: false })),
     {
       start: limit.start,
       end: now,
@@ -343,17 +293,17 @@ function HistoryPanel(props: {
         <Tile
           label="At the limit"
           value={String(history.hits)}
-          small={`of ${history.cells.length} ${unit}s`}
+          small={`of ${history.windows.length} ${unit}s`}
         />
         <Tile
           label="Locked"
-          value={history.locked > 0 ? `${history.locked} h` : "None"}
+          value={history.lockedHours > 0 ? `${history.lockedHours} h` : "None"}
           small="in 90 days"
         />
-        {history.unused === null ? (
+        {history.unusedUsd === null ? (
           <Tile label="Unused" value="Unknown" small="no price set" />
         ) : (
-          <Tile label="Unused" value={`~${money(history.unused)}`} small="a month, estimate" />
+          <Tile label="Unused" value={`~${money(history.unusedUsd)}`} small="a month, estimate" />
         )}
       </div>
       <p className="fit-sec">
@@ -464,7 +414,7 @@ function HistoryGrid(props: {
                   {months.map((at) => (
                     <line key={at} className="fit-month" x1={x(at)} x2={x(at)} y1={0} y2="100%" />
                   ))}
-                  {history.cells.map((cell) => {
+                  {history.windows.map((cell) => {
                     const xa = x(Math.max(cell.start, from)) + 1;
                     const xb = x(Math.min(cell.end, props.now)) - 1;
                     const title = `${account.label} · ${history.unit} of ${shortDate(cell.start)}`;
@@ -531,22 +481,22 @@ function HistoryGrid(props: {
 function summaryLine(history: History): { readonly big: string; readonly cap: string } {
   const label = history.account.label;
   const unit = history.unit;
-  if (history.verdict === 3) {
+  if (history.verdict === "thin") {
     return {
       big: `${label}: not enough history yet`,
       cap: `Needs ${MIN_WINDOWS} complete ${unit}s to judge the plan`,
     };
   }
   const unused =
-    history.unused === null
+    history.unusedUsd === null
       ? history.account.story.priceNote.toLowerCase()
-      : `~${money(history.unused)} of ${dollars(history.account.story.monthlyCost ?? 0)} a month unused (est.)`;
+      : `~${money(history.unusedUsd)} of ${dollars(history.account.story.monthlyCost ?? 0)} a month unused (est.)`;
   return {
     big:
       history.hits > 0
-        ? `${label} hit the limit in ${history.hits} of ${history.cells.length} ${unit}s`
-        : `${label} never hit the limit in ${history.cells.length} ${unit}s`,
-    cap: `Average peak ${history.average}%, locked ${history.locked} h, ${unused}`,
+        ? `${label} hit the limit in ${history.hits} of ${history.windows.length} ${unit}s`
+        : `${label} never hit the limit in ${history.windows.length} ${unit}s`,
+    cap: `Average peak ${history.average}%, locked ${history.lockedHours} h, ${unused}`,
   };
 }
 
@@ -1174,21 +1124,21 @@ export function PlanFitCard(props: { readonly series: Series }) {
 
 /** The History view's headline, worst plan first: how many plans are too small and how many have room. */
 function historyLine(rows: readonly History[]): { readonly big: string; readonly cap: string } {
-  if (!rows.some((row) => row.verdict !== 3)) {
+  if (!rows.some((row) => row.verdict !== "thin")) {
     return {
       big: "Not enough history yet",
       cap: `Plan Fit needs ${MIN_WINDOWS} complete windows of an account`,
     };
   }
-  const small = rows.filter((row) => row.verdict === 0).length;
-  const room = rows.filter((row) => row.verdict === 2).length;
+  const small = rows.filter((row) => row.verdict === "too_small").length;
+  const room = rows.filter((row) => row.verdict === "room_to_spare").length;
   const worst = rows[0];
   return {
     big: `${plural(small, "plan")} ${small === 1 ? "is" : "are"} too small, ${room} ${room === 1 ? "has" : "have"} room to spare`,
     cap:
       worst === undefined || worst.hits === 0
         ? "No account hit its limit in 90 days"
-        : `${worst.account.label} hit the limit in ${worst.hits} of ${worst.cells.length} ${worst.unit}s`,
+        : `${worst.account.label} hit the limit in ${worst.hits} of ${worst.windows.length} ${worst.unit}s`,
   };
 }
 

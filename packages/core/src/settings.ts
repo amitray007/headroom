@@ -5,6 +5,7 @@ import { type Db, schema } from "./db/index.ts";
 import { notificationKinds, type NotificationKind } from "./enums.ts";
 import {
   kindSwitches,
+  refreshIntervalOptions,
   settingsSchema,
   type KindSwitches,
   type Settings,
@@ -17,8 +18,6 @@ export { settingsSchema, type Settings };
  * one owner. The schema is the single list of keys: unknown stored keys are dropped on read,
  * missing or invalid ones take their default.
  */
-
-const refreshIntervalOptions = [5, 10, 15, 30] as const;
 
 const ownerRow = "owner";
 

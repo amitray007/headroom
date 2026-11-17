@@ -28,6 +28,7 @@ import {
   LeaseStore,
   openDatabase,
   OrderStore,
+  NoticeReadStore,
   SettingsStore,
   SnapshotStore,
   upgradeIdentities,
@@ -40,6 +41,7 @@ import type { Fetch } from "./notify/http.ts";
 import { overviewConnections } from "./overview-model.ts";
 import { deriveNotifications, expiringTopUps } from "@headroom/view-model/notifications";
 
+import { PairingService } from "./pairing.ts";
 import { createRegistry } from "./registry.ts";
 
 /** Everything the routes need, built once at start or once per test. */
@@ -56,6 +58,10 @@ export interface AppContext {
   readonly connections: ConnectionStore;
   readonly snapshots: SnapshotStore;
   readonly settings: SettingsStore;
+  /** Which notices the owner has read, shared by the dashboard and the apps. */
+  readonly noticeReads: NoticeReadStore;
+  /** Device pairings for the Mac app; in memory only (D48). */
+  readonly pairings: PairingService;
   readonly order: OrderStore;
   readonly wallet: WalletStore;
   /** Account events the collector noticed, and the owner's automation settings (ADR 0003). */
@@ -145,6 +151,7 @@ export function bootstrap(options: BootstrapOptions): AppContext {
   const order = new OrderStore(db, now);
   const wallet = new WalletStore(db, now);
   const settings = new SettingsStore(db, config.refreshIntervalSeconds, now);
+  const noticeReads = new NoticeReadStore(db, now);
   const runner = new CliLoginRunner({ attemptsDir: join(config.dataDir, "attempts") });
   if (databasePath !== ":memory:") runner.sweep();
   const available =
@@ -206,6 +213,8 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     connections,
     snapshots,
     settings,
+    noticeReads,
+    pairings: new PairingService(now),
     order,
     wallet,
     accountEvents,

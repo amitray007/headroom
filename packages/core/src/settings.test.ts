@@ -32,7 +32,9 @@ describe("settings", () => {
         mutedProviders: [],
       },
     });
-    expect(nearestRefreshMinutes(60)).toBe(5);
+    expect(nearestRefreshMinutes(60)).toBe(2);
+    expect(nearestRefreshMinutes(120)).toBe(2);
+    expect(nearestRefreshMinutes(240)).toBe(5);
     expect(nearestRefreshMinutes(600)).toBe(10);
     expect(nearestRefreshMinutes(1500)).toBe(30);
     expect(nearestRefreshMinutes(86_400)).toBe(30);

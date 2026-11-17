@@ -101,3 +101,26 @@ test("install refuses to run under bun and failures surface", () => {
   expect(runService("install", failing.deps).lines[0]).toContain("no bus");
   expect(runService("install", fake("win32").deps).code).toBe(1);
 });
+
+test("launchd plist names the Mac app that bundles the binary", () => {
+  const plist = launchdPlist("/h", "/l", undefined, "club.theblank.headroom.mac");
+  expect(plist).toContain(
+    "<key>AssociatedBundleIdentifiers</key>\n  <array>\n    <string>club.theblank.headroom.mac</string>\n  </array>",
+  );
+  expect(launchdPlist("/h", "/l", undefined)).not.toContain("AssociatedBundleIdentifiers");
+});
+
+test("an invalid bundle id is ignored", () => {
+  for (const bad of ["", "nodots", "a..b", "a.b c", "<x>.y", "a.b/c", `a.${"b".repeat(160)}`]) {
+    expect(launchdPlist("/h", "/l", undefined, bad)).not.toContain("AssociatedBundleIdentifiers");
+  }
+});
+
+test("service install writes the bundle id from the environment into the plist", () => {
+  const { deps, written } = fake("darwin", { bundleId: "club.theblank.headroom.mac" });
+  expect(runService("install", deps).code).toBe(0);
+  expect(written.get(plistPath("/home/amy"))).toContain("club.theblank.headroom.mac");
+  const plain = fake("darwin");
+  runService("install", plain.deps);
+  expect(plain.written.get(plistPath("/home/amy"))).not.toContain("AssociatedBundleIdentifiers");
+});

@@ -20,6 +20,9 @@ const originSchema = z.url().transform((value, ctx) => {
 
 const allProviders = providerSchema.options.join(",");
 
+/** First port the native server tries when none is set (D49). The Docker image pins 8080 itself. */
+export const DEFAULT_PORT = 4323;
+
 export const configSchema = z.object({
   /** Directory for headroom.db and attempt scratch directories. Backed up as a unit. */
   dataDir: z.string().min(1),
@@ -27,7 +30,8 @@ export const configSchema = z.object({
   masterKeyFile: z.string().min(1),
   /** Session signing secret file, created on first run. Rotating it signs everyone out. */
   authSecretFile: z.string().min(1),
-  port: z.coerce.number().int().min(1).max(65535).default(8080),
+  /** Set only by the owner (HEADROOM_PORT or --port) and then strict. Unset, the server picks a free port from DEFAULT_PORT up. */
+  port: z.coerce.number().int().min(1).max(65535).optional(),
   /** Interface to listen on. Loopback unless the owner opens it up; containers set 0.0.0.0. */
   host: z.string().min(1).default("127.0.0.1"),
   /** Public origin, e.g. https://headroom.example.com. Enables Secure cookies, passkeys and origin checks. */
@@ -150,9 +154,9 @@ export function loadConfig(
   return configSchema.parse(raw);
 }
 
-/** The origin Headroom believes it is served from: the public URL, else localhost on the port. */
+/** The origin Headroom believes it is served from: the public URL, else localhost on the bound port. */
 export function baseUrl(config: Config): string {
-  return config.publicUrl ?? `http://localhost:${config.port}`;
+  return config.publicUrl ?? `http://localhost:${config.port ?? DEFAULT_PORT}`;
 }
 
 export function isProviderEnabled(config: Config, provider: Provider): boolean {

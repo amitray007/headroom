@@ -1,5 +1,7 @@
 import {
   accountActionKindSchema,
+  apiTokenKindSchema,
+  appPairingStatusSchema,
   accountActionStateSchema,
   attemptStateSchema,
   authMethodSchema,
@@ -32,6 +34,7 @@ import {
   type OverviewConnection,
 } from "@headroom/view-model/overview";
 import type { Cost, TopUp, WalletBook } from "@headroom/view-model/wallet";
+import { noticeReadSetSchema } from "@headroom/view-model/app-feed";
 import { historyWireSchema, type History } from "@headroom/view-model/history";
 import { z } from "zod";
 
@@ -98,13 +101,68 @@ const tokenSchema = z.object({
   createdAt: z.number(),
   lastUsedAt: z.number().nullable(),
   expiresAt: z.number().nullable(),
+  /** `refresh` lets the device change Refresh Every; every token can read. */
+  scopes: z.array(z.enum(["read", "refresh"])),
+  /** Devices lists `device` tokens and Agents lists `agent` tokens. An older server sends none. */
+  kind: apiTokenKindSchema.default("device"),
 });
-const tokensSchema = z.object({ tokens: z.array(tokenSchema) });
+const pairingSchema = z.object({
+  name: z.string(),
+  status: appPairingStatusSchema,
+  expiresAt: z.number(),
+});
+const tokensSchema = z.object({
+  tokens: z.array(tokenSchema),
+  /** Null when the server has no public URL; the browser then uses its own origin. */
+  mcpUrl: z.string().nullable().default(null),
+});
+
+/** Two synthetic linked devices and one agent for Demo Mode. Their starts are made up and match no key. */
+function demoTokens(now: number): ApiToken[] {
+  const day = 86_400_000;
+  return [
+    {
+      id: "demo-token-studio",
+      name: "Studio MacBook Pro",
+      prefix: "hr_",
+      start: "hr_Demo7xQa",
+      createdAt: now - 12 * day,
+      lastUsedAt: now - 4 * 60_000,
+      expiresAt: null,
+      scopes: ["read", "refresh"],
+      kind: "device",
+    },
+    {
+      id: "demo-token-desk",
+      name: "Desk Mac mini",
+      prefix: "hr_",
+      start: "hr_Demo2mKp",
+      createdAt: now - 40 * day,
+      lastUsedAt: now - 3 * day,
+      expiresAt: null,
+      scopes: ["read"],
+      kind: "device",
+    },
+    {
+      id: "demo-token-agent",
+      name: "Claude Code",
+      prefix: "hr_",
+      start: "hr_Demo9vLc",
+      createdAt: now - 5 * day,
+      lastUsedAt: now - 20 * 60_000,
+      expiresAt: null,
+      scopes: ["read"],
+      kind: "agent",
+    },
+  ];
+}
 export type ApiToken = z.infer<typeof tokenSchema>;
 const createdTokenSchema = z.object({
   id: z.string(),
   name: z.string().nullable(),
   key: z.string(),
+  /** Null when the server has no public URL; the browser then uses its own origin. */
+  mcpUrl: z.string().nullable().default(null),
 });
 const meSchema = z.object({ id: z.string(), name: z.string(), email: z.string() });
 const providersSchema = z.object({
@@ -406,10 +464,10 @@ export const api = {
   ),
   tokens: () =>
     demoOn()
-      ? Promise.resolve({ tokens: [] as ApiToken[] })
+      ? Promise.resolve({ tokens: demoTokens(Date.now()), mcpUrl: null })
       : request("GET", "/api/tokens", tokensSchema),
-  createToken: changesAccount((name: string) =>
-    request("POST", "/api/tokens", createdTokenSchema, { name }),
+  createToken: changesAccount((name: string, refresh: boolean, kind: ApiToken["kind"] = "device") =>
+    request("POST", "/api/tokens", createdTokenSchema, { name, refresh, kind }),
   ),
   revokeToken: changesAccount((id: string) =>
     request(
@@ -418,9 +476,20 @@ export const api = {
       z.object({ success: z.literal(true) }),
     ),
   ),
+  pairing: (code: string) =>
+    request("GET", `/api/pairings/${encodeURIComponent(code)}`, pairingSchema),
+  decidePairing: (code: string, decision: "approve" | "deny") =>
+    request(
+      "POST",
+      `/api/pairings/${encodeURIComponent(code)}/${decision}`,
+      z.object({ success: z.literal(true) }),
+    ),
   settings: () => request("GET", "/api/settings", settingsEnvelopeSchema),
   saveSettings: (settings: Settings) =>
     request("PUT", "/api/settings", settingsEnvelopeSchema, settings),
+  noticeReads: () => request("GET", "/api/notices/read", noticeReadSetSchema),
+  setNoticeRead: (ids: string[], read: boolean) =>
+    request("PUT", "/api/notices/read", noticeReadSetSchema, { ids, read }),
   connection: (id: string) =>
     demoOn() && isDemoId(id)
       ? refuseInDemo<z.infer<typeof connectionDetailSchema>>(demoConnectRefusal)

@@ -1,4 +1,6 @@
 import {
+  apiTokenScopeSchema,
+  appPairingStatusSchema,
   availabilitySchema,
   connectionStateSchema,
   currencySchema,
@@ -6,6 +8,7 @@ import {
   notificationEventSchema,
   providerSchema,
   reconnectReasonSchema,
+  refreshIntervalMinutesSchema,
   type MetricKind,
   type Provider,
 } from "@headroom/core/contracts";
@@ -17,6 +20,7 @@ import { accountName, planLabel } from "./labels.ts";
 import {
   deriveNotifications,
   expiringTopUps,
+  isScopedWeekly,
   metricOf,
   numberOf,
   projectedRunOut,
@@ -67,7 +71,53 @@ export const appWhoamiSchema = z.strictObject({
   apiVersion: z.literal(1),
   serverVersion: z.string(),
   tokenName: z.string().nullable(),
+  /**
+   * `read` always; `refresh` when the owner let this token change Refresh Every. Optional in the
+   * contract because servers before D44 omit it, and a client must still accept them.
+   */
+  scopes: z.array(apiTokenScopeSchema).optional(),
 });
+
+/** The body of `POST /api/app/v1/pair`: the name the owner sees on the approval page. */
+export const appPairStartBodySchema = z.strictObject({ name: z.string().trim().min(1).max(40) });
+
+/**
+ * The answer to `POST /api/app/v1/pair` (D48). The app shows `code` and opens
+ * `<server>/#/pair/<code>`; it keeps `deviceCode` secret and polls with it every `interval`
+ * seconds until `expiresIn` seconds pass.
+ */
+export const appPairStartSchema = z.strictObject({
+  code: z.string(),
+  deviceCode: z.string(),
+  expiresIn: z.number().int().positive(),
+  interval: z.number().int().positive(),
+});
+
+/** The body of `POST /api/app/v1/pair/token`. */
+export const appPairTokenBodySchema = z.strictObject({ deviceCode: z.string().min(1).max(200) });
+
+/** The answer to `POST /api/app/v1/pair/token`. `token` comes once, with `approved`. */
+export const appPairTokenSchema = z.strictObject({
+  status: appPairingStatusSchema,
+  token: z.string().optional(),
+});
+
+/** The body and the response of `PUT /api/app/v1/settings/refresh`. */
+export const appRefreshSchema = z.strictObject({
+  refreshIntervalMinutes: refreshIntervalMinutesSchema,
+});
+
+/** Most ids one read call may carry. The dashboard never holds more notices than this. */
+export const noticeReadLimit = 500;
+
+/** The body of `PUT /api/app/v1/notices/read` and of the dashboard's `PUT /api/notices/read`. */
+export const noticeReadBodySchema = z.strictObject({
+  ids: z.array(z.string().min(1).max(300)).max(noticeReadLimit),
+  read: z.boolean(),
+});
+
+/** Every notice id marked read, as `GET /api/notices/read` and the dashboard's `PUT` answer. */
+export const noticeReadSetSchema = z.strictObject({ ids: z.array(z.string()) });
 
 /** The only account projection exposed to native clients. Add fields here explicitly. */
 export const appFeedSchema = z.strictObject({
@@ -102,7 +152,7 @@ export const appFeedSchema = z.strictObject({
       .strictObject({ accountId: z.string(), metricKey: z.string(), at: instant })
       .nullable(),
   }),
-  notices: z.array(notificationEventSchema),
+  notices: z.array(notificationEventSchema.extend({ read: z.boolean() })),
 });
 
 type Feed = z.infer<typeof appFeedSchema>;
@@ -120,6 +170,8 @@ interface FeedInput {
   readonly wallet: WalletBook;
   readonly rates: Rates | null;
   readonly tzOffsetMinutes: number;
+  /** Ids of the notices the owner has read. */
+  readonly read: ReadonlySet<string>;
 }
 
 const chargeKinds: ReadonlySet<MetricKind> = new Set([
@@ -197,9 +249,31 @@ function bankedOf(
   };
 }
 
+/** A limit inside the account's total: Cursor's Auto and API pools, Claude's model weeklies. */
+function isPartLimit(provider: Provider, key: string): boolean {
+  return (
+    isScopedWeekly(provider, key) ||
+    (provider === "cursor" && ["included.auto_percent", "included.api_percent"].includes(key))
+  );
+}
+
 /** Pure: the caller supplies the representation time, preferences, Wallet and stored rates. */
-export function buildAppFeed(input: FeedInput): Feed {
-  const accounts = input.connections.map((connection) => {
+type FeedAccount = Feed["accounts"][number];
+
+/** The parts of the feed input the accounts and summary read. */
+type StatusInput = Pick<
+  FeedInput,
+  "connections" | "providerOrder" | "wallet" | "rates" | "generatedAt"
+>;
+
+/** The feed's accounts and summary, without notices, for callers that never show them. */
+export interface AppStatus {
+  readonly accounts: FeedAccount[];
+  readonly summary: Feed["summary"];
+}
+
+function feedAccounts(connections: readonly OverviewConnection[], generatedAt: number) {
+  return connections.map((connection): FeedAccount => {
     const panel = presentPanel(connection);
     return {
       id: connection.id,
@@ -216,7 +290,7 @@ export function buildAppFeed(input: FeedInput): Feed {
         const runsOutAt = projectedRunOut(
           connection,
           window,
-          connection.snapshot?.observedAt ?? input.generatedAt,
+          connection.snapshot?.observedAt ?? generatedAt,
         );
         return {
           key: window.key,
@@ -231,9 +305,7 @@ export function buildAppFeed(input: FeedInput): Feed {
           // The notices' recent-rate projection, anchored to the reading rather than the request,
           // without the pacing notice's one-day lead: the popover shows any run-out before the reset.
           runsOutAt,
-          part:
-            connection.provider === "cursor" &&
-            ["included.auto_percent", "included.api_percent"].includes(window.key),
+          part: isPartLimit(connection.provider, window.key),
           interface: metricOf(connection, window.key)?.interface ?? connection.interface,
         };
       }),
@@ -241,6 +313,33 @@ export function buildAppFeed(input: FeedInput): Feed {
       banked: bankedOf(connection, panel),
     };
   });
+}
+
+/** The earliest future reset of an exhausted whole limit on a ready or partial account. */
+export function nextLimitBackOf(
+  accounts: readonly FeedAccount[],
+  now: number,
+): Feed["summary"]["nextLimitBack"] {
+  return (
+    accounts
+      .filter((account) => account.state === "ready" || account.state === "partial")
+      .flatMap((account) =>
+        account.limits
+          .filter(
+            (limit) =>
+              !limit.part &&
+              limit.percentLeft === 0 &&
+              limit.resetsAt !== null &&
+              limit.resetsAt > now,
+          )
+          .map((limit) => ({ accountId: account.id, metricKey: limit.key, at: limit.resetsAt! })),
+      )
+      .toSorted((a, b) => a.at - b.at)[0] ?? null
+  );
+}
+
+export function buildAppStatus(input: StatusInput): AppStatus {
+  const accounts = feedAccounts(input.connections, input.generatedAt);
   const totals = new Map<string, number | null>();
   for (const charge of accounts.flatMap((account) => account.charges)) {
     if (charge.kind !== "spend") continue;
@@ -258,21 +357,20 @@ export function buildAppFeed(input: FeedInput): Feed {
     input.generatedAt,
   );
   const hasCost = wallet.counts.paid + wallet.counts.free + wallet.counts.included > 0;
-  const nextLimitBack =
-    accounts
-      .filter((account) => account.state === "ready" || account.state === "partial")
-      .flatMap((account) =>
-        account.limits
-          .filter(
-            (limit) =>
-              !limit.part &&
-              limit.percentLeft === 0 &&
-              limit.resetsAt !== null &&
-              limit.resetsAt > input.generatedAt,
-          )
-          .map((limit) => ({ accountId: account.id, metricKey: limit.key, at: limit.resetsAt! })),
-      )
-      .toSorted((a, b) => a.at - b.at)[0] ?? null;
+  return {
+    accounts,
+    summary: {
+      monthlyPlanTotal: hasCost && wallet.monthly.missing === 0 ? wallet.monthly.money : null,
+      extraSpend: [...totals]
+        .toSorted(([a], [b]) => a.localeCompare(b))
+        .map(([unit, value]) => ({ unit, value })),
+      nextLimitBack: nextLimitBackOf(accounts, input.generatedAt),
+    },
+  };
+}
+
+export function buildAppFeed(input: FeedInput): Feed {
+  const { accounts, summary } = buildAppStatus(input);
   const notices = deriveNotifications(
     input.connections,
     {
@@ -284,6 +382,7 @@ export function buildAppFeed(input: FeedInput): Feed {
     expiringTopUps(input.wallet.topUps),
   ).map((event) =>
     Object.assign({}, event, {
+      read: input.read.has(event.id),
       links: input.dashboardUrl === null ? {} : { dashboard: input.dashboardUrl },
     }),
   );
@@ -296,13 +395,7 @@ export function buildAppFeed(input: FeedInput): Feed {
     dashboardUrl: input.dashboardUrl,
     providerOrder: [...input.providerOrder],
     accounts,
-    summary: {
-      monthlyPlanTotal: hasCost && wallet.monthly.missing === 0 ? wallet.monthly.money : null,
-      extraSpend: [...totals]
-        .toSorted(([a], [b]) => a.localeCompare(b))
-        .map(([unit, value]) => ({ unit, value })),
-      nextLimitBack,
-    },
+    summary,
     notices,
   });
 }
