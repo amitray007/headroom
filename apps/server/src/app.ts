@@ -142,6 +142,8 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/wallet", walletRoutes(ctx));
 
   app.route("/api", api);
+  // An unknown API path is an API error, not a client-side route for the web UI.
+  app.all("/api/*", (c) => c.json({ error: "not_found" }, 404));
   // Headroom offers no OAuth: an MCP client's discovery probe gets 404, not the web UI's index page.
   app.get("/.well-known/*", (c) => c.json({ error: "not_found" }, 404));
 
