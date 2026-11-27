@@ -14,7 +14,7 @@
     "@headroom/core": "workspace:*",
     "@headroom/view-model": "workspace:*",
     "@modelcontextprotocol/server": "2.4.0",
-    "hono": "4.13.13",
+    "hono": "4.13.16",
     "zod": "4.6.7"
   }
 }
