@@ -4,11 +4,14 @@ import {
   acceptsLabel,
   clockLeft,
   defaultMethod,
+  inputPending,
   isTerminal,
   isUsable,
   pasteInputKind,
   shouldPoll,
+  stepKey,
   stoppedReason,
+  submissionWaitMs,
   unavailableNote,
 } from "./steps.ts";
 import type { Attempt } from "../api.ts";
@@ -44,6 +47,20 @@ describe("attempt states", () => {
   test("never poll after a terminal state", () => {
     expect(shouldPoll(attempt("succeeded", 2000))).toBe(false);
     expect(shouldPoll(attempt("expired"))).toBe(false);
+  });
+  test("an accepted input stays pending until the attempt leaves its step", () => {
+    const waiting = attempt("awaiting_input", 2000);
+    const submitted = { key: stepKey(waiting), at: 1000 };
+    expect(inputPending(waiting, submitted, 2000)).toBe(true);
+    expect(inputPending(waiting, null, 2000)).toBe(false);
+    expect(inputPending(attempt("validating"), submitted, 2000)).toBe(false);
+    expect(inputPending({ ...waiting, id: "a2" }, submitted, 2000)).toBe(false);
+    expect(inputPending(null, submitted, 2000)).toBe(false);
+  });
+  test("the form takes a new input once the wait runs out", () => {
+    const waiting = attempt("awaiting_input", 2000);
+    const submitted = { key: stepKey(waiting), at: 1000 };
+    expect(inputPending(waiting, submitted, 1000 + submissionWaitMs)).toBe(false);
   });
 });
 
