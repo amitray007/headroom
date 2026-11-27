@@ -16,10 +16,13 @@ import { CheckStage, SignInStage } from "./stages.tsx";
 import {
   clockLeft,
   defaultMethod,
+  inputPending,
   isTerminal,
   isUsable,
   shouldPoll,
+  stepKey,
   stoppedReason,
+  type Submission,
   unavailableNote,
 } from "./steps.ts";
 
@@ -73,6 +76,7 @@ export function ConnectFlow(props: FlowProps) {
   const [startError, setStartError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [submitted, setSubmitted] = useState<Submission | null>(null);
   const generation = useRef(0);
   const live = useRef<Attempt | null>(null);
   const started = useRef(false);
@@ -176,7 +180,10 @@ export function ConnectFlow(props: FlowProps) {
     setError(null);
     try {
       const next = await api.submitInput(attempt.id, input);
-      if (generation.current === mine) setAttempt(next);
+      if (generation.current === mine) {
+        setSubmitted({ key: stepKey(next), at: Date.now() });
+        setAttempt(next);
+      }
     } catch (cause) {
       if (generation.current === mine) setError(messageOf(cause));
     } finally {
@@ -188,6 +195,7 @@ export function ConnectFlow(props: FlowProps) {
   const stopped = attempt !== null && isTerminal(attempt.state) && attempt.state !== "succeeded";
   const failed = startError !== null || stopped;
   const succeeded = attempt?.state === "succeeded";
+  const pending = inputPending(attempt, submitted, now);
   const checking = attempt?.state === "validating";
 
   let statusKey = "starting";
@@ -203,7 +211,7 @@ export function ConnectFlow(props: FlowProps) {
   } else if (succeeded) {
     statusKey = "done";
     statusNode = <span className="status">Connected</span>;
-  } else if (checking) {
+  } else if (checking || pending) {
     statusKey = "checking";
     statusNode = (
       <span className="status">
@@ -332,7 +340,7 @@ export function ConnectFlow(props: FlowProps) {
           provider={name}
           method={attempt.method}
           step={attempt.nextStep}
-          busy={busy}
+          busy={busy || pending}
           onSubmit={(input) => void submit(input)}
           onCancel={cancel}
         />

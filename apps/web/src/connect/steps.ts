@@ -20,6 +20,37 @@ export function shouldPoll(attempt: Attempt): boolean {
   );
 }
 
+/** An input the server accepted, for the step it answered. */
+export interface Submission {
+  readonly key: string;
+  readonly at: number;
+}
+
+/** How long the form waits on an accepted input before it takes a new one. */
+export const submissionWaitMs = 15_000;
+
+/** Identifies the step an input answers, so a later step or a new attempt ends the wait. */
+export function stepKey(attempt: Attempt): string {
+  return `${attempt.id}:${attempt.nextStep?.kind ?? "none"}`;
+}
+
+/**
+ * Whether an accepted input is still being worked on. A CLI sign-in can answer the submit before
+ * the CLI finishes, leaving the attempt on the same step until a later poll sees the result. The
+ * wait is capped: a CLI that rejects the code may keep running and ask for another.
+ */
+export function inputPending(
+  attempt: Attempt | null,
+  submitted: Submission | null,
+  now: number,
+): boolean {
+  return (
+    attempt?.state === "awaiting_input" &&
+    submitted?.key === stepKey(attempt) &&
+    now - submitted.at < submissionWaitMs
+  );
+}
+
 /** Whether the server can start `method` here. A method the server did not report on is usable. */
 export function isUsable(method: AuthMethod, availability: readonly MethodAvailability[]): boolean {
   return availability.find((entry) => entry.method === method)?.available !== false;
