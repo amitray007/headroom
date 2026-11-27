@@ -336,6 +336,15 @@ export class ConnectionStore {
       .run();
   }
 
+  /** Replace the stored label when a collection reports a newer one, such as a renamed plan. */
+  relabel(id: string, label: string): void {
+    this.db
+      .update(schema.connections)
+      .set({ label, updatedAt: this.now() })
+      .where(eq(schema.connections.id, id))
+      .run();
+  }
+
   markSuccess(
     id: string,
     observedAt: Date,

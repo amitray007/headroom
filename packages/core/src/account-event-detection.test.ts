@@ -108,6 +108,31 @@ describe("reset_granted", () => {
     expect(events).toEqual([]);
   });
 
+  test("credits missing from a reading with a positive count are not new when they come back", () => {
+    // The detail call failed: the count came from the usage body and the list was empty.
+    const events = detect({
+      previous: reading([inventory(2)], []),
+      current: reading([inventory(2)], [credit("a"), credit("b")]),
+    });
+    expect(events).toEqual([]);
+  });
+
+  test("a failed detail call does not read as banked resets used", () => {
+    const events = detect({
+      previous: reading(
+        [inventory(1), metric({ providerMetricKey: "primary", valueNum: 80, resetsAt: t0 + hour })],
+        [credit("a")],
+      ),
+      current: reading(
+        [inventory(1), metric({ providerMetricKey: "primary", valueNum: 0, resetsAt: t0 + hour })],
+        [],
+      ),
+    });
+    expect(events).toEqual([
+      expect.objectContaining({ detail: expect.not.objectContaining({ bankedUsed: true }) }),
+    ]);
+  });
+
   test("a Claude list that shifted its index-derived ids does not fire without a rise", () => {
     // Grant 0 was used up and a longer grant moved into its slot: same ids, new expiry, same count.
     const events = detect({

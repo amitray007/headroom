@@ -18,7 +18,7 @@ export function originalNote(amount: Amount, suffix = ""): string | null {
   return amount.original === null ? null : `${formatMoney(amount.original)}${suffix}`;
 }
 
-/** "Claude Max 20x": the provider and its plan, or its account name when no plan is reported. */
+/** "Claude Ultra": the provider and its plan, or its account name when no plan is reported. */
 export function renewalName(connection: OverviewConnection): string {
   return `${providerName(connection.provider)} ${planLabel(connection.plan) ?? accountName(connection)}`;
 }

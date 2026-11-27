@@ -124,7 +124,7 @@ export interface WalletTopUp extends TopUp {
 
 /** A list price Headroom suggests when the owner sets a cost. A starting value only; the owner's entry wins. */
 export interface PriceSuggestion {
-  /** For example "Max 20x". */
+  /** For example "Ultra". */
   readonly label: string;
   readonly price: Money;
   readonly cycle: Cycle;
@@ -382,8 +382,9 @@ const catalog: Partial<Record<Provider, readonly CatalogEntry[]>> = {
     // https://claude.com/pricing
     entry("Pro", 20, "monthly", ["pro"]),
     entry("Pro annual", 200, "annual", ["pro"]),
-    entry("Max 5x", 100, "monthly", ["max5x", "max"]),
-    entry("Max 20x", 200, "monthly", ["max20x", "max"]),
+    // Max 5x became Max and Max 20x became Ultra on 2026-10-30; older labels still say "max".
+    entry("Max", 100, "monthly", ["max5x", "max"]),
+    entry("Ultra", 200, "monthly", ["ultra", "max20x"], ["max"]),
   ],
   codex: [
     // https://learn.chatgpt.com/docs/pricing

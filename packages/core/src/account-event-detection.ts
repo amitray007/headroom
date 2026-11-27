@@ -154,11 +154,16 @@ function creditKey(provider: Provider, credit: ReadingCredit): string {
     : credit.providerCreditId;
 }
 
-/** Whether the reading reports its reset inventory. A withheld or unknown one is not "no credits". */
+/**
+ * Whether the reading reports its reset inventory and lists its credits. A withheld or unknown count is not
+ * "no credits", and neither is a positive count with an empty list: Codex keeps the count when its detail call fails.
+ */
 function hasInventory(reading: Reading): boolean {
-  return reading.metrics.some(
+  const count = reading.metrics.find(
     (m) => m.kind === "reset_inventory" && m.availability === "available" && m.valueNum !== null,
   );
+  if (count === undefined) return false;
+  return count.valueNum === 0 || reading.resetCredits.length > 0;
 }
 
 function detectResetGranted(input: DetectInput, previous: Reading): EventDraft[] {
