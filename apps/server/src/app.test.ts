@@ -60,6 +60,16 @@ describe("built web UI", () => {
       const route = await app.request(url(ctx, "/settings"));
       expect(await route.text()).toContain("shell");
       expect((await app.request(url(ctx, "/favicon.png"))).status).toBe(404);
+
+      const unknown = await Promise.all(
+        ["/api/nope", "/api/tokens%0A", "/api/mcp%0A"].map(async (path) => {
+          const response = await app.request(url(ctx, path));
+          return { status: response.status, body: await response.json() };
+        }),
+      );
+      for (const response of unknown) {
+        expect(response).toEqual({ status: 404, body: { error: "not_found" } });
+      }
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
