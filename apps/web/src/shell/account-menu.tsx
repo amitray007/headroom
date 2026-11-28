@@ -39,9 +39,9 @@ export function AccountMenu(props: {
   const update = useAvailableUpdate();
   return (
     <Menu
-      label="Account Menu"
+      label={update ? "Account Menu, update available" : "Account Menu"}
       trigger={<Avatar seed={props.name} />}
-      triggerClassName="avatar"
+      triggerClassName={update ? "avatar has-update" : "avatar"}
       openOnHover
     >
       <MenuWho lead="Signed in as" name={props.name} face={<Avatar seed={props.name} />} />
