@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import type { UsageView } from "@headroom/core/contracts";
+
 import { type Fetch, post } from "./notify/http.ts";
 
 /**
@@ -20,27 +22,16 @@ const posthogKey = "phc_mFhU4x7B3Ze55gPVQJozu9tpkEzTtUh3kBdq2PtDi2uN";
 export const posthogUrl = "https://hd.headroom.theblank.club/batch/";
 /** More sign-ins than this in a day are not reported one by one. */
 const connectEventCap = 50;
+/** More Mac app and widget versions than this in a day are not listed. */
+const macClientCap = 20;
+/** The least time between two feedback messages. */
+const feedbackCooldownMs = 30_000;
 
 const hour = 60 * 60_000;
 const day = 24 * hour;
 
 /** Where the owner looked at Headroom: the web dashboard, the Mac app feed, or an MCP agent. */
 export type Surface = "web" | "mac" | "mcp";
-
-/** Dashboard pages the web app reports when the owner opens them. */
-export const usageViews = [
-  "overview",
-  "detailed",
-  "compare",
-  "timeline",
-  "wallet",
-  "analytics",
-  "connect",
-] as const;
-export type UsageView = (typeof usageViews)[number];
-
-/** Longest feedback message, in characters. */
-export const feedbackMaxLength = 2000;
 
 export interface ConnectCount {
   readonly provider: string;
@@ -80,8 +71,13 @@ export interface TelemetryOptions {
   /** Both the owner setting and HEADROOM_TELEMETRY must allow it. Read at send time. */
   readonly enabled: () => boolean;
   readonly installId: () => string;
-  /** The daily facts; `since` is when the last daily event went out, or a day ago. */
+  /** The daily facts for activity that finished at or after `since`. */
   readonly facts: (since: number) => DailyFacts;
+  /**
+   * When activity was last reported, or last kept back because usage stats were off. Kept on disk
+   * so a restart or a switch back on never reports the same or an opted-out period.
+   */
+  readonly watermark: { read(): number | null; write(at: number): void };
   readonly key?: string;
   readonly log?: (level: "debug" | "info" | "warn" | "error", message: string) => void;
 }
@@ -132,13 +128,13 @@ function providerEvents(version: string, facts: DailyFacts): Event[] {
 
 /** One event per finished sign-in, up to a daily cap, so counts and rates need no sum. */
 function connectEvents(version: string, connects: readonly ConnectCount[]): Event[] {
-  const events = connects.flatMap((row) =>
-    Array.from({ length: row.count }, () => ({
-      event: "connect_result",
-      properties: { version, provider: row.provider, method: row.method, state: row.state },
-    })),
-  );
-  return events.slice(0, connectEventCap);
+  const events: Event[] = [];
+  for (const row of connects) {
+    const properties = { version, provider: row.provider, method: row.method, state: row.state };
+    const room = Math.min(row.count, connectEventCap - events.length);
+    for (let i = 0; i < room; i++) events.push({ event: "connect_result", properties });
+  }
+  return events;
 }
 
 function openedEvent(
@@ -169,6 +165,8 @@ export class TelemetryService {
   private viewed = new Set<Surface>();
   private views = new Set<UsageView>();
   private clients = new Set<string>();
+  private lastFeedbackAt: number | null = null;
+  private wasOff = false;
   private readonly key: string;
 
   constructor(private readonly deps: TelemetryOptions) {
@@ -179,8 +177,12 @@ export class TelemetryService {
   start(): void {
     if (this.timer) return;
     const run = (): void => {
-      // An unwritable data directory makes the install ID throw; the ping is skipped, nothing else.
-      this.tick().catch(() => this.deps.log?.("debug", "usage ping skipped: no install ID"));
+      this.tick().catch((error: unknown) =>
+        this.deps.log?.(
+          "debug",
+          `usage ping skipped: ${error instanceof Error ? error.name : "error"}`,
+        ),
+      );
     };
     this.timer = setInterval(run, hour);
     run();
@@ -204,31 +206,42 @@ export class TelemetryService {
   /** Remember a Mac app or widget version that read the feed, until the next daily event. */
   markClient(userAgent: string | undefined): void {
     const client = macClientOf(userAgent);
-    if (client && this.clients.size < 20) this.clients.add(client);
+    if (client && this.clients.size < macClientCap) this.clients.add(client);
   }
 
   /**
-   * Send the owner's message. It is an explicit press, so it goes out with usage stats off; only a
-   * missing project key stops it. The message is sent as typed, with the version and nothing else.
+   * Send the owner's message. It is an explicit press, so it goes out with usage stats off; then it
+   * carries a one-off ID instead of the install ID, so it cannot be joined to earlier events. The
+   * message is sent as typed, with the version and nothing else.
    */
-  async sendFeedback(message: string): Promise<"sent" | "unavailable" | "failed"> {
+  async sendFeedback(message: string): Promise<"sent" | "unavailable" | "too_soon" | "failed"> {
     if (!this.key) return "unavailable";
-    const sent = await this.send([
-      { event: "feedback", properties: { version: this.deps.version, message } },
-    ]);
+    const at = this.deps.now().getTime();
+    if (this.lastFeedbackAt !== null && at - this.lastFeedbackAt < feedbackCooldownMs) {
+      return "too_soon";
+    }
+    this.lastFeedbackAt = at;
+    const event = { event: "feedback", properties: { version: this.deps.version, message } };
+    const sent = await this.send([event], this.deps.enabled() ? undefined : randomUUID());
     return sent ? "sent" : "failed";
   }
 
   /** Send the daily events when a day has passed, and `opened` when anything was viewed. */
   async tick(): Promise<void> {
+    const at = this.deps.now().getTime();
     if (!this.key || !this.deps.enabled()) {
       this.forget();
+      if (this.key) this.deps.watermark.write(at);
+      this.wasOff = true;
       return;
     }
-    const at = this.deps.now().getTime();
+    // Back on: nothing from the time it was off is reported, not even the last hour.
+    if (this.wasOff) this.deps.watermark.write(at);
+    this.wasOff = false;
     if (this.lastDailyAt === null || at - this.lastDailyAt >= day) {
-      const facts = this.deps.facts(this.lastDailyAt ?? at - day);
+      const facts = this.deps.facts(Math.max(this.deps.watermark.read() ?? 0, at - day));
       this.lastDailyAt = at;
+      this.deps.watermark.write(at);
       const clients = [...this.clients];
       this.clients.clear();
       const { version } = this.deps;
@@ -252,9 +265,18 @@ export class TelemetryService {
     this.clients.clear();
   }
 
-  /** One request to PostHog's batch route. Every event is anonymous: no person profile, no GeoIP. */
-  private async send(events: readonly Event[]): Promise<boolean> {
-    const distinctId = this.deps.installId();
+  /**
+   * One request to PostHog's batch route. Every event is anonymous: no person profile, no GeoIP.
+   * Returns false, never throws, when the install ID cannot be read or the request fails.
+   */
+  private async send(events: readonly Event[], oneOffId?: string): Promise<boolean> {
+    let distinctId: string;
+    try {
+      distinctId = oneOffId ?? this.deps.installId();
+    } catch {
+      this.deps.log?.("debug", "usage ping not sent: no install ID");
+      return false;
+    }
     const body = JSON.stringify({
       api_key: this.key,
       batch: events.map(({ event, properties }) => ({
@@ -273,6 +295,28 @@ export class TelemetryService {
     if (status) this.deps.log?.("debug", `usage ping not sent: ${status}`);
     return status === null;
   }
+}
+
+/** The watermark as a file in the data directory. A missing or unreadable file reads as null. */
+export function fileWatermark(dataDir: string): TelemetryOptions["watermark"] {
+  const path = join(dataDir, "usage-watermark");
+  return {
+    read: () => {
+      try {
+        const value = Number.parseInt(readFileSync(path, "utf8"), 10);
+        return Number.isFinite(value) ? value : null;
+      } catch {
+        return null;
+      }
+    },
+    write: (at) => {
+      try {
+        writeFileSync(path, `${at}\n`, { mode: 0o600 });
+      } catch {
+        // An unwritable data directory only risks reporting a period twice.
+      }
+    },
+  };
 }
 
 /** A random ID kept in the data directory, so a restart counts as the same install. */

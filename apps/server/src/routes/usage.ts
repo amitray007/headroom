@@ -1,9 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
+import { feedbackMaxLength, usageViews } from "@headroom/core/contracts";
+
 import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
-import { feedbackMaxLength, usageViews } from "../telemetry.ts";
 
 const viewBody = z.object({ view: z.enum(usageViews) });
 const feedbackBody = z.object({ message: z.string().trim().min(1).max(feedbackMaxLength) });
@@ -24,6 +25,7 @@ export function usageRoutes(ctx: AppContext): Hono<Env> {
     if (!body.success) return c.json({ error: "invalid_body" }, 400);
     const result = await ctx.telemetry.sendFeedback(body.data.message);
     if (result === "sent") return c.body(null, 204);
+    if (result === "too_soon") return c.json({ error: "feedback_too_soon" }, 429);
     return c.json(
       { error: result === "unavailable" ? "feedback_unavailable" : "feedback_failed" },
       503,

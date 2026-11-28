@@ -170,7 +170,7 @@ The scheduler reads `refreshIntervalMinutes` on every tick, so a change applies 
 
 `GET /api/version` needs a session and returns `{ version, update }`. `update` is `{ version, notesUrl }` when GitHub's latest release is newer than the running server, otherwise null. The server asks GitHub at most once a day and keeps the last answer when a check fails ([ADR 0007](../decisions/0007-usage-stats.md)).
 
-`POST /api/usage/view` takes `{ view }`, one of `overview`, `detailed`, `compare`, `timeline`, `wallet`, `analytics` or `connect`, and answers `204`; the usage stats report it in the next hourly event. `POST /api/feedback` takes `{ message }`, 1 to 2,000 characters after trimming, and answers `204` once PostHog accepted it, `400 invalid_body`, or `503` with `feedback_unavailable` (the build has no project key) or `feedback_failed`. Both need a session.
+`POST /api/usage/view` takes `{ view }`, one of `overview`, `detailed`, `compare`, `timeline`, `wallet`, `analytics` or `connect`, and answers `204`; the usage stats report it in the next hourly event. `POST /api/feedback` takes `{ message }`, 1 to 2,000 characters after trimming, and answers `204` once PostHog accepted it, `400 invalid_body`, `429 feedback_too_soon` within 30 seconds of the last message, or `503` with `feedback_unavailable` (the build has no project key) or `feedback_failed`. Both need a session.
 
 ## Wallet
 

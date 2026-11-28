@@ -16,10 +16,11 @@ Headroom holds provider credentials, so anything it sends out must carry no acco
   - `provider_daily`, once a day for each provider with accounts or refreshes: `version`, `provider`, `accounts`, `refreshes`, `refresh_failed` and one `refresh_<outcome>` count per sync run outcome seen since the last one.
   - `connect_result`, once a day, one per sign-in attempt that finished since the last one, up to 50: `version`, `provider`, `method` and `state`.
   - `opened`, at most once an hour, only when the owner looked at Headroom since the last one: `version`, `surfaces` (a list of `web`, `mac` and `mcp`) and `views` (the dashboard pages opened: `overview`, `detailed`, `compare`, `timeline`, `wallet`, `analytics`, `connect`).
-  - `feedback`, only when the owner sends a message from Settings or the avatar menu: `version` and the message as typed, at most 2,000 characters. It is an explicit press, so it goes out even with usage stats off.
+  - `feedback`, only when the owner sends a message from Settings or the avatar menu: `version` and the message as typed, at most 2,000 characters. It is an explicit press, so it goes out even with usage stats off; then it carries a one-off ID instead of the install ID, so it cannot be joined to earlier events. The server accepts one message every 30 seconds.
 - Every value except the feedback message is a count, a flag or a fixed enum value. Nothing else is sent: no account emails, logins or IDs, no credentials, balances, limits, usage figures, error text, host names or provider responses.
 - The `usageStats` setting, "Share Usage Stats" on the Privacy tab of Settings, is on by default and the owner can switch it off. `HEADROOM_TELEMETRY=false` turns the pings off whatever the setting says. Both are read at send time, so a change needs no restart.
 - A failed send is dropped and never retried, and it never shows an error.
+- `<data dir>/usage-watermark` records when activity was last reported, or kept back while usage stats were off. A restart never reports the same sign-ins or refreshes twice, and switching usage stats back on never reports the time they were off. The daily window is at most one day.
 - The update notice is separate from the pings. `GET /api/version` asks GitHub's latest-release API at most once a day and returns the running version and a newer release with its notes page. The avatar menu then shows "Update to X.Y.Z", which opens the release notes. This check sends nothing about the install and works with the pings off.
 
 ## Alternatives

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, renameSync, rmSync, writeFileSync } from "node:fs";
 
+import type { Fetch } from "./notify/http.ts";
 import { plistPath, unitPath } from "./service.ts";
 
 const releasesApi = "https://api.github.com/repos/amitray007/headroom/releases/latest";
@@ -125,9 +126,7 @@ export interface LatestRelease {
 }
 
 /** The newest server release on GitHub, or a one-line reason it could not be read. Throws nothing. */
-export async function latestRelease(
-  fetchFn: (url: string, init: RequestInit) => Promise<Response>,
-): Promise<LatestRelease | string> {
+export async function latestRelease(fetchFn: Fetch): Promise<LatestRelease | string> {
   try {
     const response = await fetchFn(releasesApi, {
       headers: { accept: "application/vnd.github+json", "user-agent": "headroom-update" },

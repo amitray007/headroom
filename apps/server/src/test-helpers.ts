@@ -4,6 +4,18 @@ import { type AppContext, bootstrap } from "./bootstrap.ts";
 import type { DeriveNotifications } from "./notify/dispatcher.ts";
 import type { Fetch } from "./notify/http.ts";
 
+/** Tests never reach the network: a call nobody stubbed fails like an offline host. */
+const offline: Fetch = () => Promise.reject(new TypeError("fetch failed: tests are offline"));
+
+/** The install ID and watermark in memory, so no test writes to a real data directory. */
+function memoryTelemetryState() {
+  let watermark: number | null = null;
+  return {
+    installId: () => "test-install",
+    watermark: { read: () => watermark, write: (at: number) => void (watermark = at) },
+  };
+}
+
 /** In-memory context with throwaway secrets; never touches the filesystem. */
 export function testContext(
   env: Record<string, string> = {},
@@ -13,6 +25,8 @@ export function testContext(
     now?: () => Date;
     fetch?: Fetch;
     derive?: DeriveNotifications;
+    /** The PostHog project key. Empty by default, so nothing is sent. */
+    telemetryKey?: string;
   } = {},
 ): AppContext {
   return bootstrap({
@@ -21,10 +35,11 @@ export function testContext(
     keyring: crypto.createKeyring({ 1: crypto.parseKeyHex(crypto.generateKeyHex()) }),
     authSecret: crypto.generateKeyHex(),
     rateLimit: options.rateLimit ?? false,
-    telemetryKey: "",
+    telemetryKey: options.telemetryKey ?? "",
+    telemetryState: memoryTelemetryState(),
     connectors: options.connectors ?? [],
     ...(options.now ? { now: options.now } : {}),
-    ...(options.fetch ? { fetch: options.fetch } : {}),
+    fetch: options.fetch ?? offline,
     ...(options.derive ? { derive: options.derive } : {}),
   });
 }

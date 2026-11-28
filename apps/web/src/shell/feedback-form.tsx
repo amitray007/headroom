@@ -1,19 +1,22 @@
 import { type FormEvent, type KeyboardEvent, useId, useState } from "react";
 
+import { feedbackMaxLength } from "@headroom/core/contracts";
+
 import { api, ApiError, demoRefusal, isDemoRefusal } from "../api.ts";
 import { Button } from "../ui/button.tsx";
 import { DrawnCheck } from "../ui/drawn-check.tsx";
 import { Section } from "./settings-rows.tsx";
 import "./feedback-form.css";
 
-/** The server rejects a longer message. */
-const feedbackLimit = 2000;
 /** The count appears only once a message gets close to the limit. */
 const countFrom = 1800;
 
 function failureText(cause: unknown): string {
   if (cause instanceof ApiError && cause.code === "feedback_unavailable") {
     return "This build cannot send feedback.";
+  }
+  if (cause instanceof ApiError && cause.code === "feedback_too_soon") {
+    return "Wait a moment before sending more.";
   }
   if (isDemoRefusal(cause)) return demoRefusal;
   return "Could not send. Try again.";
@@ -81,7 +84,7 @@ export function FeedbackForm() {
           <textarea
             id={id}
             value={message}
-            maxLength={feedbackLimit}
+            maxLength={feedbackMaxLength}
             rows={6}
             placeholder="The Wallet could show monthly totals…"
             onChange={(event) => setMessage(event.target.value)}
@@ -91,8 +94,11 @@ export function FeedbackForm() {
           <div className="fb-bar">
             <span className="fb-meta">Sent anonymously with your version.</span>
             {message.length >= countFrom ? (
-              <span className="fb-count" data-full={message.length >= feedbackLimit || undefined}>
-                {feedbackLimit - message.length}
+              <span
+                className="fb-count"
+                data-full={message.length >= feedbackMaxLength || undefined}
+              >
+                {feedbackMaxLength - message.length}
               </span>
             ) : null}
             <Button

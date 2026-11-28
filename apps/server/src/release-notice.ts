@@ -1,3 +1,4 @@
+import type { Fetch } from "./notify/http.ts";
 import { compareVersions, latestRelease, type LatestRelease } from "./update.ts";
 
 const day = 24 * 60 * 60_000;
@@ -10,7 +11,7 @@ export interface VersionView {
 
 export interface ReleaseNoticeOptions {
   readonly version: string;
-  readonly fetch: (url: string, init: RequestInit) => Promise<Response>;
+  readonly fetch: Fetch;
   readonly now: () => Date;
 }
 

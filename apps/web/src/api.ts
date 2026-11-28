@@ -26,6 +26,7 @@ import {
   type AutoResetRule,
   type Settings,
   type SubmitInput,
+  type UsageView,
 } from "@headroom/core/contracts";
 import {
   metricSchema,
@@ -260,6 +261,7 @@ const versionSchema = z.object({
   version: z.string(),
   update: z.object({ version: z.string(), notesUrl: z.url() }).nullable(),
 });
+export type AvailableUpdate = NonNullable<z.infer<typeof versionSchema>["update"]>;
 
 const overviewSchema = z.object({
   connections: z.array(overviewConnectionSchema),
@@ -409,7 +411,7 @@ export const api = {
   /** The maintainer receives the message anonymously with the Headroom version. */
   sendFeedback: (message: string) => request("POST", "/api/feedback", z.undefined(), { message }),
   /** Fire and forget: the usage count of a view. A failure is not worth a word. */
-  markView: (view: string): Promise<void> =>
+  markView: (view: UsageView): Promise<void> =>
     request("POST", "/api/usage/view", z.undefined(), { view }).then(
       () => undefined,
       () => undefined,

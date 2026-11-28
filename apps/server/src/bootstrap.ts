@@ -44,7 +44,12 @@ import { deriveNotifications, expiringTopUps } from "@headroom/view-model/notifi
 import { PairingService } from "./pairing.ts";
 import { createRegistry } from "./registry.ts";
 import { ReleaseNotice } from "./release-notice.ts";
-import { loadOrCreateInstallId, TelemetryService } from "./telemetry.ts";
+import {
+  fileWatermark,
+  loadOrCreateInstallId,
+  TelemetryService,
+  type TelemetryOptions,
+} from "./telemetry.ts";
 import { activityFacts } from "./telemetry-facts.ts";
 import { detectInstall } from "./update.ts";
 import { version } from "./version.ts";
@@ -116,6 +121,8 @@ export interface BootstrapOptions {
   readonly derive?: DeriveNotifications;
   /** Override the PostHog project key; tests pass "" so nothing reaches PostHog. */
   readonly telemetryKey?: string;
+  /** Override the install ID and watermark files; tests keep them in memory. */
+  readonly telemetryState?: Pick<TelemetryOptions, "installId" | "watermark">;
   /** Disconnect waits this long for a collection in flight; tests shorten it. Default 30 seconds. */
   readonly disconnectWaitMs?: number;
   readonly now?: () => Date;
@@ -210,7 +217,9 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     fetch: fetchFn,
     now,
     enabled: () => config.telemetry && settings.get().usageStats,
-    installId: memo(() => loadOrCreateInstallId(config.dataDir)),
+    installId:
+      options.telemetryState?.installId ?? memo(() => loadOrCreateInstallId(config.dataDir)),
+    watermark: options.telemetryState?.watermark ?? fileWatermark(config.dataDir),
     facts: (since) => ({
       platform: process.platform,
       arch: process.arch,

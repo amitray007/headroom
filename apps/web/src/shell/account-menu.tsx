@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { api } from "../api.ts";
+import { api, type AvailableUpdate } from "../api.ts";
 import { authClient } from "../auth.ts";
 import { isDemoSite } from "../lib/site.ts";
 import { Avatar, GearIcon, MessageIcon, SignOutIcon, SparkleIcon, UserIcon } from "../icons.tsx";
@@ -10,7 +10,7 @@ import { Segmented } from "../ui/segmented.tsx";
 
 /** A newer Headroom release, asked once per page load. A failed read shows nothing. */
 function useAvailableUpdate() {
-  const [update, setUpdate] = useState<{ version: string; notesUrl: string } | null>(null);
+  const [update, setUpdate] = useState<AvailableUpdate | null>(null);
   useEffect(() => {
     let live = true;
     api.version().then(

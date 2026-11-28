@@ -9,6 +9,25 @@ function harness() {
   return { ctx, app: createApp(ctx) };
 }
 
+/** A context with a project key and a recording fake for PostHog and GitHub. */
+function keyed(posthog: () => Response = () => Response.json({ status: "Ok" })) {
+  const urls: string[] = [];
+  const ctx = testContext(
+    {},
+    {
+      telemetryKey: "phc_test",
+      fetch: (input) => {
+        urls.push(input);
+        if (input.includes("api.github.com")) {
+          return Promise.resolve(Response.json({ tag_name: "v99.0.0" }));
+        }
+        return Promise.resolve(posthog());
+      },
+    },
+  );
+  return { ctx, app: createApp(ctx), urls };
+}
+
 describe("usage routes", () => {
   test("need a signed-in owner", async () => {
     const h = harness();
@@ -47,6 +66,45 @@ describe("usage routes", () => {
     const none = await post("Love it");
     expect(none.status).toBe(503);
     expect(await none.json()).toEqual({ error: "feedback_unavailable" });
+  });
+});
+
+describe("feedback with a project key", () => {
+  test("sends once, then asks the owner to wait", async () => {
+    const h = keyed();
+    const cookie = await signedIn(h.ctx, h.app);
+    const post = () =>
+      h.app.request(
+        url(h.ctx, "/api/feedback"),
+        jsonPost(h.ctx, { message: "Love it" }, { cookie }),
+      );
+    expect((await post()).status).toBe(204);
+    const again = await post();
+    expect(again.status).toBe(429);
+    expect(await again.json()).toEqual({ error: "feedback_too_soon" });
+    expect(h.urls).toHaveLength(1);
+  });
+
+  test("a PostHog failure answers 503 feedback_failed", async () => {
+    const h = keyed(() => new Response("no", { status: 500 }));
+    const cookie = await signedIn(h.ctx, h.app);
+    const response = await h.app.request(
+      url(h.ctx, "/api/feedback"),
+      jsonPost(h.ctx, { message: "Love it" }, { cookie }),
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "feedback_failed" });
+  });
+});
+
+describe("version route", () => {
+  test("needs a session and offers a newer release with its notes", async () => {
+    const h = keyed();
+    expect((await h.app.request(url(h.ctx, "/api/version"))).status).toBe(401);
+    const cookie = await signedIn(h.ctx, h.app);
+    const response = await h.app.request(url(h.ctx, "/api/version"), { headers: { cookie } });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ update: { version: "99.0.0" } });
   });
 });
 

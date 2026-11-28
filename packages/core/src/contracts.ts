@@ -3,6 +3,7 @@
  * describe what the API sends and accepts. No database, crypto or Bun-only imports.
  */
 export * from "./enums.ts";
+export { feedbackMaxLength, usageViews, type UsageView } from "./usage.ts";
 export {
   methodAvailabilitySchema,
   nextStepPayloadSchema,
