@@ -12,7 +12,7 @@ import { type Fetch, post } from "./notify/http.ts";
  */
 
 /** PostHog's public project key: it can only write events. Empty sends nothing. */
-const posthogKey = "";
+const posthogKey = "phc_mFhU4x7B3Ze55gPVQJozu9tpkEzTtUh3kBdq2PtDi2uN";
 /**
  * PostHog's managed reverse proxy on a neutral subdomain, so DNS blocklists that list
  * posthog.com do not drop the events (docs/operations/usage-stats.md).

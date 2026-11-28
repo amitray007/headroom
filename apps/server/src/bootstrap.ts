@@ -114,6 +114,8 @@ export interface BootstrapOptions {
   readonly fetch?: Fetch;
   /** Builds notification events from the overview. */
   readonly derive?: DeriveNotifications;
+  /** Override the PostHog project key; tests pass "" so nothing reaches PostHog. */
+  readonly telemetryKey?: string;
   /** Disconnect waits this long for a collection in flight; tests shorten it. Default 30 seconds. */
   readonly disconnectWaitMs?: number;
   readonly now?: () => Date;
@@ -216,6 +218,7 @@ export function bootstrap(options: BootstrapOptions): AppContext {
       accounts: accountsPerProvider(connections.list()),
       ...activityFacts(sqlite, settings.get(), since),
     }),
+    ...(options.telemetryKey === undefined ? {} : { key: options.telemetryKey }),
     log,
   });
   const releases = new ReleaseNotice({ version, fetch: fetchFn, now });

@@ -20,7 +20,7 @@ Every event is anonymous: `distinct_id` is the install ID, `$process_person_prof
 
 1. Create a project on PostHog US Cloud named Headroom.
 2. In Project settings, turn on **Discard client IP data**. Turn off autocapture, heatmaps, session replay and surveys: Headroom sends no browser events, and these only add noise.
-3. Copy the project token (`phc_…`) into `posthogKey` in `apps/server/src/telemetry.ts`. The token can only write events, so it is safe in source.
+3. The project token (`phc_…`) is `posthogKey` in `apps/server/src/telemetry.ts`. It can only write events, so it is safe in source.
 
 ## Route events through the proxy
 
@@ -28,9 +28,9 @@ DNS blocklists such as Pi-hole, NextDNS and AdGuard list `posthog.com`, and they
 
 1. In Organization settings, open **Managed reverse proxy** and add `hd.headroom.theblank.club`. Keep the name neutral: names with `analytics`, `tracking`, `telemetry` or `posthog` land on blocklists.
 2. Add the CNAME record that PostHog shows to the `theblank.club` DNS zone (the record for `hd.headroom`). On Cloudflare, set it to **DNS only**.
-3. Wait until PostHog shows the proxy as live. `posthogUrl` in `apps/server/src/telemetry.ts` already points at `https://hd.headroom.theblank.club/batch/`.
+3. Wait until PostHog shows the proxy as live. `posthogUrl` in `apps/server/src/telemetry.ts` points at `https://hd.headroom.theblank.club/batch/`.
 
-Until the proxy is live, every send fails quietly and feedback answers `feedback_failed`.
+Until the proxy is live, every send fails quietly and feedback answers `feedback_failed`. The proxy for this project is live.
 
 ## Describe the events
 
@@ -99,4 +99,4 @@ LIMIT 200
 
 ## Check the setup
 
-Start a development server with the key set and `HEADROOM_TELEMETRY` unset. Within a minute, the Activity view shows `install_active` and one `provider_daily` per linked provider. Open the dashboard and wait for the next hourly tick to see `opened`.
+`mise.toml` sets `HEADROOM_TELEMETRY=false`, so development runs send nothing. To test, comment that line out and run `mise run dev`. Within a minute, the Activity view shows `install_active` and one `provider_daily` per linked provider. Open the dashboard and wait for the next hourly tick to see `opened`.

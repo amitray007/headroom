@@ -21,6 +21,7 @@ export function testContext(
     keyring: crypto.createKeyring({ 1: crypto.parseKeyHex(crypto.generateKeyHex()) }),
     authSecret: crypto.generateKeyHex(),
     rateLimit: options.rateLimit ?? false,
+    telemetryKey: "",
     connectors: options.connectors ?? [],
     ...(options.now ? { now: options.now } : {}),
     ...(options.fetch ? { fetch: options.fetch } : {}),
