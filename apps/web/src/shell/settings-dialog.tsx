@@ -19,6 +19,7 @@ import {
   GearIcon,
   KeyIcon,
   LinkIcon,
+  MessageIcon,
   PlugIcon,
   ResetIcon,
 } from "../icons.tsx";
@@ -33,6 +34,7 @@ import { AgentsTab } from "./agents-tab.tsx";
 import { AutomationsTab } from "./automations-tab.tsx";
 import { DevicesTab } from "./devices-tab.tsx";
 import { ChannelsTab } from "./delivery/tab.tsx";
+import { FeedbackForm } from "./feedback-form.tsx";
 import { ExchangeRatesSection } from "./exchange-rates-section.tsx";
 import { ProviderCards } from "./provider-cards.tsx";
 import { ProvidersTab } from "./providers-tab.tsx";
@@ -143,6 +145,7 @@ const sections = [
   { value: "devices", label: "Devices", icon: <KeyIcon /> },
   { value: "agents", label: "Agents", icon: <AgentIcon /> },
   { value: "privacy", label: "Privacy", icon: <EyeIcon /> },
+  { value: "feedback", label: "Feedback", icon: <MessageIcon /> },
 ] as const;
 
 const tabs = sections.map((section) => ({
@@ -483,6 +486,8 @@ function AccountActions(props: { readonly change: (patch: SettingsPatch) => void
 /** The owner's preferences, in tabs. Every change applies at once and is saved by the settings store. */
 export function SettingsDialog(props: {
   readonly open: boolean;
+  /** The tab shown each time the dialog opens. */
+  readonly openOn: SettingsTab;
   /** Providers with a connected account, in the saved order. */
   readonly providers: readonly Provider[];
   /** The accounts the Automations tab lists; null until the overview loads. */
@@ -494,16 +499,16 @@ export function SettingsDialog(props: {
   const store = useSettings();
   const { loaded, loadFailed } = store;
   const [retrying, setRetrying] = useState(false);
-  const [tab, setTab] = useState<SettingsTab>("general");
+  const [tab, setTab] = useState<SettingsTab>(props.openOn);
   const [direction, setDirection] = useState<SwapDirection>("swap");
   const [wasOpen, setWasOpen] = useState(props.open);
   const panelId = useId();
   const narrow = useNarrow();
   const { demo } = useDevicePrefs();
-  // The dialog opens on General every time.
+  // The dialog opens on the tab that asked for it every time.
   if (props.open !== wasOpen) {
     setWasOpen(props.open);
-    if (props.open) setTab("general");
+    if (props.open) setTab(props.openOn);
   }
   const retry = (): void => {
     setRetrying(true);
@@ -573,6 +578,7 @@ export function SettingsDialog(props: {
                   <UsageStats change={change} />
                 </>
               ) : null}
+              {tab === "feedback" ? <FeedbackForm /> : null}
             </SlideSwap>
           </div>
         </WaitingContext>

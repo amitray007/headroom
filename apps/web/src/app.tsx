@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState } from "
 
 import { AuthSkeleton, SignedOutPage, Unreachable } from "./auth-pages.tsx";
 import { PairPage } from "./pair-page.tsx";
-import { isDemoId } from "./api.ts";
+import { api, isDemoId } from "./api.ts";
 import { authClient } from "./auth.ts";
 import { ConnectSkeleton } from "./connect/skeletons.tsx";
 import { DashboardPage } from "./dashboard/page.tsx";
@@ -118,6 +118,11 @@ function SignedIn(props: { readonly name: string }) {
     const storage = browserStorage();
     if (storage !== null && view !== null) saveView(storage, view);
   }, [view]);
+  // Each view or connect page opened counts once, anonymously. The demo site has no server to tell.
+  const counted = view ?? (route.page === "connect" ? "connect" : null);
+  useEffect(() => {
+    if (counted !== null && !isDemoSite) void api.markView(counted);
+  }, [counted]);
   return (
     <Shell
       view={view}

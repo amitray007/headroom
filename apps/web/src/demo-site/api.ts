@@ -145,5 +145,6 @@ export function handleDemoRequest(method: string, url: string, body: unknown): R
     return Response.json({ settings });
   }
   if (verb === "POST" && path === "/api/exchange-rates/refresh") return rates();
+  if (verb === "POST" && path === "/api/usage/view") return new Response(null, { status: 204 });
   return refusal();
 }

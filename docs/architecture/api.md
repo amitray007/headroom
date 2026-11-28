@@ -24,7 +24,8 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 | `PUT /api/wallet/costs/:connectionId`, `DELETE /api/wallet/costs/:connectionId` | Set the cost of one connection, or clear it back to Not set |
 | `POST /api/wallet/top-ups`, `PUT /api/wallet/top-ups/:id`, `DELETE /api/wallet/top-ups/:id` | Record a top-up, edit one, or remove one |
 | `GET /api/exchange-rates`, `POST /api/exchange-rates/refresh` | The daily reference rates the Wallet converts with; the POST fetches them again now, at most once a minute, and touches no account |
-| `GET /api/version` | The running version and a newer release, if any, see [Version](#version) |
+| `GET /api/version` | The running version and a newer release, if any, see [Version](#version-and-usage) |
+| `POST /api/usage/view`, `POST /api/feedback` | The page the web app opened, and the owner's feedback message, see [Version](#version-and-usage) |
 | `GET /api/tokens`, `POST /api/tokens`, `DELETE /api/tokens/:id` | Session-only device token management, see [API tokens](#api-tokens) |
 | `GET /api/app/v1/feed?tz=<minutes>` | Token-only account feed, notices and Wallet summary, see [App feed](#app-feed) |
 | `GET /api/app/v1/whoami` | Token-only API version, server version, token name and scopes |
@@ -165,9 +166,11 @@ The response carries no provider account id or workspace id. The detail route is
 
 The scheduler reads `refreshIntervalMinutes` on every tick, so a change applies without a restart. The overview reports it as `refreshIntervalMs`. It reads `historyRetentionDays` each time it prunes, so that change needs no restart either (D29).
 
-## Version
+## Version and usage
 
 `GET /api/version` needs a session and returns `{ version, update }`. `update` is `{ version, notesUrl }` when GitHub's latest release is newer than the running server, otherwise null. The server asks GitHub at most once a day and keeps the last answer when a check fails ([ADR 0007](../decisions/0007-usage-stats.md)).
+
+`POST /api/usage/view` takes `{ view }`, one of `overview`, `detailed`, `compare`, `timeline`, `wallet`, `analytics` or `connect`, and answers `204`; the usage stats report it in the next hourly event. `POST /api/feedback` takes `{ message }`, 1 to 2,000 characters after trimming, and answers `204` once PostHog accepted it, `400 invalid_body`, or `503` with `feedback_unavailable` (the build has no project key) or `feedback_failed`. Both need a session.
 
 ## Wallet
 

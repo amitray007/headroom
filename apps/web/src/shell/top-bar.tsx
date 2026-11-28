@@ -18,6 +18,7 @@ export function TopBar(props: {
   readonly name: string;
   readonly notifications: NotificationsView;
   readonly onSettings: () => void;
+  readonly onFeedback: () => void;
   readonly onAccount: () => void;
 }) {
   return (
@@ -33,7 +34,12 @@ export function TopBar(props: {
           </ButtonLink>
         )}
         <NotificationCentre notifications={props.notifications} />
-        <AccountMenu name={props.name} onSettings={props.onSettings} onAccount={props.onAccount} />
+        <AccountMenu
+          name={props.name}
+          onSettings={props.onSettings}
+          onFeedback={props.onFeedback}
+          onAccount={props.onAccount}
+        />
       </nav>
     </header>
   );

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type { Fetch } from "./notify/http.ts";
-import { loadOrCreateInstallId, posthogUrl, TelemetryService } from "./telemetry.ts";
+import { loadOrCreateInstallId, macClientOf, posthogUrl, TelemetryService } from "./telemetry.ts";
 
 const hour = 3_600_000;
 
@@ -20,16 +20,19 @@ function setup(options: { enabled?: boolean; key?: string; respond?: () => Respo
     return Promise.resolve(options.respond?.() ?? Response.json({ status: "Ok" }));
   };
   const service = new TelemetryService({
+    version: "0.2.0",
     fetch,
     now: () => new Date(now),
     enabled: () => enabled,
     installId: () => "install-1",
     facts: () => ({
-      version: "0.2.0",
       platform: "linux",
       arch: "x64",
       install: "docker",
       accounts: { codex: 2, cursor: 1 },
+      connects: { "codex.device_code.succeeded": 1 },
+      refreshes: { "codex.succeeded": 90, "cursor.rate_limited": 2 },
+      features: { account_actions: false, auto_reset_rules: 1 },
     }),
     key: options.key ?? "phc_test",
   });
@@ -60,6 +63,10 @@ describe("telemetry", () => {
             install: "docker",
             accounts: { codex: 2, cursor: 1 },
             account_total: 3,
+            connects: { "codex.device_code.succeeded": 1 },
+            refreshes: { "codex.succeeded": 90, "cursor.rate_limited": 2 },
+            features: { account_actions: false, auto_reset_rules: 1 },
+            mac_clients: [],
           },
         },
       },
@@ -76,6 +83,8 @@ describe("telemetry", () => {
     h.service.markViewed("web");
     h.service.markViewed("mac");
     h.service.markViewed("web");
+    h.service.markView("wallet");
+    h.service.markView("analytics");
     h.advance(hour);
     await h.service.tick();
     expect(h.sent[1]?.body["event"]).toBe("opened");
@@ -84,6 +93,7 @@ describe("telemetry", () => {
       $geoip_disable: true,
       version: "0.2.0",
       surfaces: ["mac", "web"],
+      views: ["analytics", "wallet"],
     });
 
     h.advance(23 * hour);
@@ -107,6 +117,37 @@ describe("telemetry", () => {
     keyless.service.markViewed("web");
     await keyless.service.tick();
     expect(keyless.sent).toEqual([]);
+  });
+
+  test("reports Mac app and widget versions from the user agent, and nothing else", async () => {
+    expect(macClientOf("Headroom/1.2.0 CFNetwork/1568 Darwin/25.0.0")).toBe("Headroom/1.2.0");
+    expect(macClientOf("HeadroomWidgets/1.2.0")).toBe("HeadroomWidgets/1.2.0");
+    expect(macClientOf("curl/8.0")).toBeNull();
+    expect(macClientOf(undefined)).toBeNull();
+    const h = setup();
+    h.service.markClient("Headroom/1.2.0 CFNetwork/1568 Darwin/25.0.0");
+    h.service.markClient("Mozilla/5.0");
+    await h.service.tick();
+    expect(h.sent[0]?.body["properties"]).toMatchObject({ mac_clients: ["Headroom/1.2.0"] });
+  });
+
+  test("feedback is sent as typed with the version, even with usage stats off", async () => {
+    const h = setup({ enabled: false });
+    expect(await h.service.sendFeedback("Love the Wallet")).toBe("sent");
+    expect(h.sent[0]?.body).toEqual({
+      api_key: "phc_test",
+      event: "feedback",
+      distinct_id: "install-1",
+      properties: {
+        $process_person_profile: false,
+        $geoip_disable: true,
+        version: "0.2.0",
+        message: "Love the Wallet",
+      },
+    });
+    expect(await setup({ key: "" }).service.sendFeedback("hi")).toBe("unavailable");
+    const failing = setup({ respond: () => new Response("no", { status: 500 }) });
+    expect(await failing.service.sendFeedback("hi")).toBe("failed");
   });
 
   test("a failed send is dropped without throwing", async () => {

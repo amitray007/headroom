@@ -52,6 +52,7 @@ export function appRoutes(ctx: AppContext): Hono<Env> {
   });
   app.get("/feed", (c) => {
     ctx.telemetry.markViewed("mac");
+    ctx.telemetry.markClient(c.req.header("user-agent"));
     const tz = parseTz(c.req.query("tz"));
     if (tz === null) return c.json({ error: "invalid_tz" }, 400);
     const now = ctx.now().getTime();

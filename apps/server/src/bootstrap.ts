@@ -45,6 +45,7 @@ import { PairingService } from "./pairing.ts";
 import { createRegistry } from "./registry.ts";
 import { ReleaseNotice } from "./release-notice.ts";
 import { loadOrCreateInstallId, TelemetryService } from "./telemetry.ts";
+import { activityFacts } from "./telemetry-facts.ts";
 import { detectInstall } from "./update.ts";
 import { version } from "./version.ts";
 
@@ -203,16 +204,17 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     actions,
   });
   const telemetry = new TelemetryService({
+    version,
     fetch: fetchFn,
     now,
     enabled: () => config.telemetry && settings.get().usageStats,
     installId: memo(() => loadOrCreateInstallId(config.dataDir)),
-    facts: () => ({
-      version,
+    facts: (since) => ({
       platform: process.platform,
       arch: process.arch,
       install: detectInstall(process.execPath, existsSync("/.dockerenv")),
       accounts: accountsPerProvider(connections.list()),
+      ...activityFacts(sqlite, settings.get(), since),
     }),
     log,
   });

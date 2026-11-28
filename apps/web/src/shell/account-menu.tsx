@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api.ts";
 import { authClient } from "../auth.ts";
 import { isDemoSite } from "../lib/site.ts";
-import { Avatar, GearIcon, SignOutIcon, SparkleIcon, UserIcon } from "../icons.tsx";
+import { Avatar, GearIcon, MessageIcon, SignOutIcon, SparkleIcon, UserIcon } from "../icons.tsx";
 import { useDevicePrefs } from "../lib/device-prefs.ts";
 import { Menu, MenuBlock, MenuItem, MenuSeparator, MenuWho } from "../ui/menu.tsx";
 import { Segmented } from "../ui/segmented.tsx";
@@ -32,6 +32,7 @@ function useAvailableUpdate() {
 export function AccountMenu(props: {
   readonly name: string;
   readonly onSettings: () => void;
+  readonly onFeedback: () => void;
   readonly onAccount: () => void;
 }) {
   const prefs = useDevicePrefs();
@@ -66,6 +67,9 @@ export function AccountMenu(props: {
           Update to {update.version}
         </MenuItem>
       ) : null}
+      <MenuItem icon={<MessageIcon />} onSelect={props.onFeedback}>
+        Send Feedback
+      </MenuItem>
       <MenuItem icon={<GearIcon />} onSelect={props.onSettings}>
         Settings
       </MenuItem>

@@ -406,6 +406,14 @@ async function request<T>(
 }
 
 export const api = {
+  /** The maintainer receives the message anonymously with the Headroom version. */
+  sendFeedback: (message: string) => request("POST", "/api/feedback", z.undefined(), { message }),
+  /** Fire and forget: the usage count of a view. A failure is not worth a word. */
+  markView: (view: string): Promise<void> =>
+    request("POST", "/api/usage/view", z.undefined(), { view }).then(
+      () => undefined,
+      () => undefined,
+    ),
   channels: () => request("GET", "/api/delivery/channels", channelListSchema),
   createChannel: (channel: NewChannel) =>
     request("POST", "/api/delivery/channels", channelCreatedSchema, channel),

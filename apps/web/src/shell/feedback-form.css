@@ -1,0 +1,36 @@
+.fb {
+  display: grid;
+  padding-top: 8px;
+  gap: 12px;
+}
+.fb textarea {
+  font: 400 var(--text-base) / 1.5 var(--font);
+  padding: 12px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--foreground);
+  resize: vertical;
+  min-height: 140px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.fb textarea:focus {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
+.fb-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.fb-count {
+  margin-inline-start: auto;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.fb-note {
+  margin: 0;
+  font-size: var(--text-sm);
+}
