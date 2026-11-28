@@ -17,7 +17,7 @@ const posthogKey = "";
  * PostHog's managed reverse proxy on a neutral subdomain, so DNS blocklists that list
  * posthog.com do not drop the events (docs/operations/usage-stats.md).
  */
-export const posthogUrl = "https://relay.theblank.club/batch/";
+export const posthogUrl = "https://hd.headroom.theblank.club/batch/";
 /** More sign-ins than this in a day are not reported one by one. */
 const connectEventCap = 50;
 

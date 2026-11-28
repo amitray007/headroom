@@ -26,9 +26,9 @@ Every event is anonymous: `distinct_id` is the install ID, `$process_person_prof
 
 DNS blocklists such as Pi-hole, NextDNS and AdGuard list `posthog.com`, and they block the Headroom server as well as browsers. PostHog's managed reverse proxy is free on Cloud.
 
-1. In Organization settings, open **Managed reverse proxy** and add `relay.theblank.club`. Keep the name neutral: names with `analytics`, `tracking`, `telemetry` or `posthog` land on blocklists.
-2. Add the CNAME record that PostHog shows to the `theblank.club` DNS zone. On Cloudflare, set it to **DNS only**.
-3. Wait until PostHog shows the proxy as live. `posthogUrl` in `apps/server/src/telemetry.ts` already points at `https://relay.theblank.club/batch/`.
+1. In Organization settings, open **Managed reverse proxy** and add `hd.headroom.theblank.club`. Keep the name neutral: names with `analytics`, `tracking`, `telemetry` or `posthog` land on blocklists.
+2. Add the CNAME record that PostHog shows to the `theblank.club` DNS zone (the record for `hd.headroom`). On Cloudflare, set it to **DNS only**.
+3. Wait until PostHog shows the proxy as live. `posthogUrl` in `apps/server/src/telemetry.ts` already points at `https://hd.headroom.theblank.club/batch/`.
 
 Until the proxy is live, every send fails quietly and feedback answers `feedback_failed`.
 
