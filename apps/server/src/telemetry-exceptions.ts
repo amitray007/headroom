@@ -29,29 +29,41 @@ export function errorType(name: unknown): string {
 /**
  * A source path cut to the part inside the Headroom tree, so no home directory, host name or URL
  * origin is kept: `apps/server/src/x.ts`, `node_modules/hono/dist/x.js`, `assets/index-ab12.js`.
+ * Anything else keeps only its file name. Null when it does not look like a source file at all.
  */
-function sourcePath(raw: string): string {
-  const path = raw.replace(/^[a-z]+:\/\/[^/]*/i, "").replace(/[?#].*$/, "");
-  const inside = /(?:^|\/)((?:apps|packages|node_modules|assets)\/.*)$/.exec(path)?.[1];
-  if (inside !== undefined) return inside;
+function sourcePath(raw: string): string | null {
+  const path = raw
+    .replaceAll("\\", "/")
+    .replace(/^[a-z]+:\/\/[^/]*/i, "")
+    .replace(/[?#].*$/, "");
   if (path.includes("$bunfs")) return "headroom";
-  return path.split("/").pop() || "unknown";
+  const inside =
+    /^.*(?:^|\/)((?:apps\/(?:server|web)|packages\/(?:core|view-model|connectors)|node_modules|assets)\/.*)$/.exec(
+      path,
+    )?.[1];
+  if (inside !== undefined) return inside;
+  const name = path.split("/").pop() ?? "";
+  return /^[\w.-]+\.(?:js|mjs|cjs|ts|tsx)$/.test(name) ? name : null;
 }
 
+/** A plain identifier path, optionally after `async`, `new`, `get` or `set`. Anything else is not kept. */
 const safeFunction = (name: string): string =>
-  /^[\w$.<>[\] ]{1,100}$/.test(name) ? name : "anonymous";
+  /^(?:(?:async|new|get|set) )?[\w$.<>[\]]{1,100}$/.test(name) ? name : "anonymous";
 
-/** Frames from a V8 or JavaScriptCore stack (`at fn (path:1:2)` or `fn@path:1:2`), innermost first. */
+/**
+ * Frames from a V8 or JavaScriptCore stack (`at fn (path:1:2)` or `fn@path:1:2`), innermost first.
+ * A line that does not name a source file, such as the message line, is skipped.
+ */
 export function framesOf(stack: string): ExceptionFrame[] {
   const frames: ExceptionFrame[] = [];
   for (const line of stack.split("\n")) {
     const match =
-      /^\s*at (?:(.*?) \()?(.+?):(\d+):(\d+)\)?$/.exec(line) ??
-      /^(.*?)@(.+?):(\d+):(\d+)$/.exec(line);
-    if (!match) continue;
-    const filename = sourcePath(match[2] ?? "");
+      /^\s+at (?:(.*?) \()?(.+?):(\d+):(\d+)\)?$/.exec(line) ??
+      /^([^\s@:]*)@(.+?):(\d+):(\d+)$/.exec(line);
+    const filename = match ? sourcePath(match[2] ?? "") : null;
+    if (!match || filename === null) continue;
     frames.push({
-      function: safeFunction(match[1] ?? "anonymous"),
+      function: safeFunction(match[1] || "anonymous"),
       filename,
       lineno: Number(match[3]),
       colno: Number(match[4]),

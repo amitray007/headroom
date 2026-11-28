@@ -125,7 +125,8 @@ install_id() {
   fi
   id="$(od -An -N16 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n' |
     sed 's/^\(.\{8\}\)\(.\{4\}\)\(.\{4\}\)\(.\{4\}\)\(.\{12\}\)$/\1-\2-\3-\4-\5/')"
-  if [ -n "$data_dir" ] && [ -n "$id" ]; then
+  # Run as root (sudo), a new data directory would be root-owned and lock the server out of it.
+  if [ -n "$data_dir" ] && [ -n "$id" ] && [ "$(id -u)" != 0 ]; then
     (umask 077 && mkdir -p "$data_dir" && printf '%s\n' "$id" >"$file") 2>/dev/null || true
   fi
   printf '%s' "$id"

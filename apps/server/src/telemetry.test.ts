@@ -410,6 +410,26 @@ describe("telemetry", () => {
     expect(JSON.stringify(h.sent)).not.toContain("amy");
   });
 
+  test("message lines, user folders and Windows paths never become frames", () => {
+    const stack = [
+      "Error: Failed for bob@example.com:1:2",
+      "  at not-a-frame bob@example.com:1:2",
+      "Failed for bob@example.com:1:2",
+      "    at run (C:\\Users\\bob\\x.js:3:4)",
+      "    at go (/home/bob/apps/acme/y.ts:5:6)",
+      "    at load (/home/bob/packages/acme-secret/z.ts:7:8)",
+      "    at tick (/srv/headroom/apps/server/src/scheduler.ts:9:1)",
+    ].join("\n");
+    const frames = framesOf(stack);
+    expect(frames.map((frame) => frame.filename)).toEqual([
+      "x.js",
+      "y.ts",
+      "z.ts",
+      "apps/server/src/scheduler.ts",
+    ]);
+    expect(JSON.stringify(frames)).not.toMatch(/bob|acme|example/);
+  });
+
   test("browser frames keep the asset path, not the host", () => {
     expect(framesOf("render@https://headroom.tail1.ts.net/assets/index-ab12.js?v=1:3:9")).toEqual([
       {
