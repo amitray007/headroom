@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.1.19](https://github.com/amitray007/headroom/compare/v0.1.18...v0.1.19) (2026-11-28)
+
+
+### Features
+
+* anonymous usage stats and an update notice ([1795c43](https://github.com/amitray007/headroom/commit/1795c43de51641757029708a547c937554a5b8c0))
+* anonymous usage stats, feedback and an update notice ([790c656](https://github.com/amitray007/headroom/commit/790c656b8ec55a4c8143188a26f58ef7e32b00fb))
+* report automation, delivery, errors and update clicks; count installs and site visits ([25fd570](https://github.com/amitray007/headroom/commit/25fd5702092eb7e67cab9427019b096a56492b63))
+* report sign-in, refresh and feature use; add Send Feedback ([1dff02e](https://github.com/amitray007/headroom/commit/1dff02e5888a60db5910b741948d14cdfa1ddf07))
+* richer usage stats, error tracking and one install ID ([928802a](https://github.com/amitray007/headroom/commit/928802aeac8997553913b6bb52f301e09b7b35ea))
+* richer usage stats, error tracking and one install ID ([0845685](https://github.com/amitray007/headroom/commit/0845685b59c80a3d3d625fa370b55b666bf6a9e5))
+* send usage stats through a proxy domain as flat PostHog events ([3d0eab6](https://github.com/amitray007/headroom/commit/3d0eab62c89b530548273d6a4a6b9a2ab33aa2fe))
+* set the PostHog project key; development sends no usage stats ([fb19dd4](https://github.com/amitray007/headroom/commit/fb19dd40b97a91fac337dfd99b1535745eac9d2c))
+* show a dot on the avatar when an update is available ([fb89978](https://github.com/amitray007/headroom/commit/fb8997850ca1fc164842c3a877e13cc228e4ea10))
+
+
+### Bug Fixes
+
+* address review findings for usage stats ([00b9b91](https://github.com/amitray007/headroom/commit/00b9b915f9648933f68590dad10de5680a900223))
+* answer unknown API paths with a JSON 404 ([7561c19](https://github.com/amitray007/headroom/commit/7561c19f7aea26ef66b13db21a1b4ee6ec80ab04))
+* answer unknown API paths with a JSON 404 ([f82e885](https://github.com/amitray007/headroom/commit/f82e885dd3a7b10563504176b63f495530a8a367))
+* **deps:** update bun.lock for hono 4.13.16 ([a64b5d1](https://github.com/amitray007/headroom/commit/a64b5d1f539eac2d4d662b3115f35b04b6009a59))
+* keep message lines, user folders and root-owned data dirs out of usage stats ([1255c56](https://github.com/amitray007/headroom/commit/1255c564a143f933665314b070929e96ab055b8c))
+* keep the connect button busy until the CLI accepts the code ([e381331](https://github.com/amitray007/headroom/commit/e381331b7e647000722331d48f9ab4490608a052))
+* keep the connect button busy until the CLI accepts the code ([03617b0](https://github.com/amitray007/headroom/commit/03617b0bc432d2852bc02346ee3cb0f2f4c57347))
+* match the GitHub host exactly in a test and drop comments that restate code ([2166974](https://github.com/amitray007/headroom/commit/2166974facd6b647aecf6664a0f9f563821da4c8))
+* move Share Usage Stats to the Privacy tab ([1826dc8](https://github.com/amitray007/headroom/commit/1826dc8ada8de27a671de4b69f5eb1bd3cd125c6))
+* redesign the feedback form as a composer card ([52cc724](https://github.com/amitray007/headroom/commit/52cc724668a5f5447c66d855284c60805b4c5f7a))
+* send usage stats through hd.headroom.theblank.club ([f95442b](https://github.com/amitray007/headroom/commit/f95442b3e7d5e63c2b1b58f10fb4328b16e3946e))
+* show Claude's renamed Ultra plan instead of a stale Max ([34da4f8](https://github.com/amitray007/headroom/commit/34da4f86bcb1bb8bd1b81b12dadf977986bcd31b))
+* show Claude's renamed Ultra plan instead of a stale Max ([5505e78](https://github.com/amitray007/headroom/commit/5505e78ad036e3e672a4fbd3347b1c0c32fbc64c))
+* stop re-announcing Codex banked resets after a failed detail call ([53c6ea6](https://github.com/amitray007/headroom/commit/53c6ea656cde4f34444cb34027e2e0e0dccba189))
+* stop re-announcing Codex banked resets after a failed detail call ([b9397e1](https://github.com/amitray007/headroom/commit/b9397e182a269827837a632c455c0a4ec47c8237))
+
 ## [0.1.18](https://github.com/amitray007/headroom/compare/v0.1.17...v0.1.18) (2026-11-07)
 
 
