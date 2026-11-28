@@ -77,7 +77,10 @@ export function createMcpServer(ctx: AppContext, history: SharedHistory): McpSer
       inputSchema: statusInput,
       annotations,
     },
-    (input) => text(formatStatus(currentAppStatus(ctx, ctx.now().getTime()), input.provider)),
+    (input) => {
+      ctx.telemetry.markTool("status");
+      return text(formatStatus(currentAppStatus(ctx, ctx.now().getTime()), input.provider));
+    },
   );
   server.registerTool(
     "history",
@@ -87,7 +90,10 @@ export function createMcpServer(ctx: AppContext, history: SharedHistory): McpSer
       inputSchema: historyInput,
       annotations,
     },
-    (input) => text(historyText(ctx, history, input)),
+    (input) => {
+      ctx.telemetry.markTool("history");
+      return text(historyText(ctx, history, input));
+    },
   );
   return server;
 }

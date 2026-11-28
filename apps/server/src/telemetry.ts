@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { UsageAction, UsageView } from "@headroom/core/contracts";
 
 import { type Fetch, post } from "./notify/http.ts";
+import { exceptionProperties, type ExceptionReport } from "./telemetry-exceptions.ts";
 import { compareVersions, type InstallKind } from "./update.ts";
 
 /**
@@ -25,6 +26,8 @@ export const posthogUrl = "https://hd.headroom.theblank.club/batch/";
 const occurrenceCap = 50;
 /** More Mac app and widget versions than this in a day are not listed. */
 const macClientCap = 20;
+/** More distinct errors than this in an hour are not reported. */
+const exceptionCap = 20;
 /** The least time between two feedback messages. */
 const feedbackCooldownMs = 30_000;
 
@@ -62,6 +65,21 @@ export type DeliveryCount = {
   readonly count: number;
 };
 
+export type AvailabilityCount = {
+  readonly provider: string;
+  readonly availability: string;
+  readonly count: number;
+};
+
+type PlanCount = {
+  readonly provider: string;
+  readonly plan: string;
+  readonly count: number;
+};
+
+/** The event format version. Raise it when a property changes meaning, so old and new data stay apart. */
+const schemaVersion = 1;
+
 /** A grouped count. Every other field is a fixed enum value sent as an event property. */
 type Counted = { readonly count: number } & Readonly<Record<string, string | number | null>>;
 
@@ -82,8 +100,14 @@ export interface DailyFacts {
   readonly deliveries: readonly DeliveryCount[];
   /** The newest release the update notice knows of, or null before its first check. */
   readonly latestVersion: string | null;
-  /** Which owner features are in use; each key is sent as `feature_<key>`. */
-  readonly features: Readonly<Record<string, number | boolean>>;
+  /** Metrics in each connection's newest reading, by availability. */
+  readonly metrics: readonly AvailabilityCount[];
+  /** Linked accounts per provider and plan tier, such as `pro`. */
+  readonly plans: readonly PlanCount[];
+  /** The connectors HEADROOM_ENABLED_PROVIDERS turns on. */
+  readonly enabledProviders: readonly string[];
+  /** Which owner features and display settings are in use; each key is sent as `feature_<key>`. */
+  readonly features: Readonly<Record<string, number | boolean | string>>;
 }
 
 type Properties = Record<string, unknown>;
@@ -121,6 +145,7 @@ function installEvent(version: string, facts: DailyFacts, clients: readonly stri
       install: facts.install,
       account_total: Object.values(facts.accounts).reduce((sum, n) => sum + n, 0),
       providers: Object.keys(facts.accounts).toSorted(),
+      enabled_providers: facts.enabledProviders.toSorted(),
       mac_clients: clients.toSorted(),
       latest_version: facts.latestVersion,
       update_available:
@@ -135,6 +160,7 @@ function providerEvents(version: string, facts: DailyFacts): Event[] {
   const providers = new Set([
     ...Object.keys(facts.accounts),
     ...facts.refreshes.map((row) => row.provider),
+    ...facts.metrics.map((row) => row.provider),
   ]);
   return [...providers].toSorted().map((provider) => {
     const rows = facts.refreshes.filter((row) => row.provider === provider);
@@ -149,6 +175,11 @@ function providerEvents(version: string, facts: DailyFacts): Event[] {
         refreshes: total,
         refresh_failed: total - succeeded,
         ...Object.fromEntries(rows.map((row) => [`refresh_${row.outcome}`, row.count])),
+        ...Object.fromEntries(
+          facts.metrics
+            .filter((row) => row.provider === provider)
+            .map((row) => [`metrics_${row.availability}`, row.count]),
+        ),
       },
     };
   });
@@ -175,6 +206,7 @@ function openedEvent(
   surfaces: readonly Surface[],
   views: readonly UsageView[],
   actions: readonly UsageAction[],
+  tools: readonly string[],
 ): Event {
   return {
     event: "opened",
@@ -183,8 +215,19 @@ function openedEvent(
       surfaces: surfaces.toSorted(),
       views: views.toSorted(),
       actions: actions.toSorted(),
+      mcp_tools: tools.toSorted(),
     },
   };
+}
+
+/** The period a daily event covers, so a short first window after a restart reads as short. */
+function withWindow(events: readonly Event[], from: number, to: number): Event[] {
+  const window = {
+    window_start: new Date(from).toISOString(),
+    window_end: new Date(to).toISOString(),
+    window_hours: Math.round(((to - from) / hour) * 10) / 10,
+  };
+  return events.map((event) => ({ ...event, properties: { ...event.properties, ...window } }));
 }
 
 /**
@@ -217,6 +260,8 @@ export class TelemetryService {
   private surfaces = new Set<Surface>();
   private views = new Set<UsageView>();
   private actions = new Set<UsageAction>();
+  private tools = new Set<string>();
+  private exceptions = new Map<string, { report: ExceptionReport; count: number }>();
   private errors = new Map<string, { where: string; error: string; count: number }>();
   private clients = new Set<string>();
   private lastFeedbackAt: number | null = null;
@@ -258,6 +303,23 @@ export class TelemetryService {
 
   markAction(action: UsageAction): void {
     this.actions.add(action);
+  }
+
+  /**
+   * Queue a caught error for PostHog error tracking, sent with the next hourly check. The same error
+   * from the same place is sent once with a count.
+   */
+  captureException(report: ExceptionReport): void {
+    const top = report.frames.find((frame) => frame.in_app);
+    const key = `${report.source}|${report.type}|${report.where}|${top?.filename}:${top?.lineno}`;
+    const seen = this.exceptions.get(key);
+    if (seen) seen.count += 1;
+    else if (this.exceptions.size < exceptionCap) this.exceptions.set(key, { report, count: 1 });
+  }
+
+  /** Remember an MCP tool an agent called, by its registered name. */
+  markTool(name: string): void {
+    this.tools.add(name);
   }
 
   /** Count an error-level log line by where and class, until the next daily events. */
@@ -305,7 +367,8 @@ export class TelemetryService {
     if (this.wasOff) this.deps.watermark.write(at);
     this.wasOff = false;
     if (this.lastDailyAt === null || at - this.lastDailyAt >= day) {
-      const facts = this.deps.facts(Math.max(this.deps.watermark.read() ?? 0, at - day));
+      const from = Math.max(this.deps.watermark.read() ?? 0, at - day);
+      const facts = this.deps.facts(from);
       this.lastDailyAt = at;
       this.deps.watermark.write(at);
       const clients = [...this.clients];
@@ -313,14 +376,24 @@ export class TelemetryService {
       this.clients.clear();
       this.errors.clear();
       const { version } = this.deps;
-      await this.send([
+      const daily = [
         installEvent(version, facts, clients),
         ...providerEvents(version, facts),
         ...occurrenceEvents("connect_result", version, facts.connects),
         ...occurrenceEvents("action_result", version, facts.actions),
         ...countedEvents("delivery_daily", version, facts.deliveries),
         ...countedEvents("server_error", version, errors),
-      ]);
+        ...countedEvents("plan_daily", version, facts.plans),
+      ];
+      await this.send(withWindow(daily, from, at));
+    }
+    if (this.exceptions.size > 0) {
+      const errors = [...this.exceptions.values()].map(({ report, count }) => ({
+        event: "$exception",
+        properties: { version: this.deps.version, count, ...exceptionProperties(report) },
+      }));
+      this.exceptions.clear();
+      await this.send(errors);
     }
     if (this.surfaces.size > 0) {
       const opened = openedEvent(
@@ -328,8 +401,10 @@ export class TelemetryService {
         [...this.surfaces],
         [...this.views],
         [...this.actions],
+        [...this.tools],
       );
       this.actions.clear();
+      this.tools.clear();
       this.surfaces.clear();
       this.views.clear();
       await this.send([opened]);
@@ -340,6 +415,8 @@ export class TelemetryService {
     this.surfaces.clear();
     this.views.clear();
     this.actions.clear();
+    this.tools.clear();
+    this.exceptions.clear();
     this.clients.clear();
     this.errors.clear();
   }
@@ -360,8 +437,10 @@ export class TelemetryService {
       api_key: this.key,
       batch: events.map(({ event, properties }) => ({
         event,
+        // A fresh UUID per event lets PostHog drop a duplicate if a request is ever sent twice.
+        uuid: randomUUID(),
         distinct_id: distinctId,
-        properties: { ...properties, ...anonymous },
+        properties: { ...properties, schema: schemaVersion, ...anonymous },
       })),
     });
     const result = await post(

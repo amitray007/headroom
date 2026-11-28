@@ -6,18 +6,20 @@ This guide sets up the PostHog project that receives Headroom's anonymous usage 
 
 | Event | When | Properties |
 | --- | --- | --- |
-| `install_active` | Once a day and on each start | `version`, `os`, `install`, `account_total`, `providers` (list), `mac_clients` (list), `latest_version`, `update_available`, `feature_*` |
-| `provider_daily` | Once a day, per provider with accounts or refreshes | `version`, `provider`, `accounts`, `refreshes`, `refresh_failed`, `refresh_<outcome>` |
+| `install_active` | Once a day and on each start | `version`, `os`, `install`, `account_total`, `providers` (list), `enabled_providers` (list), `mac_clients` (list), `latest_version`, `update_available`, `feature_*` |
+| `provider_daily` | Once a day, per provider with accounts or refreshes | `version`, `provider`, `accounts`, `refreshes`, `refresh_failed`, `refresh_<outcome>`, `metrics_<availability>` |
+| `plan_daily` | Once a day, per provider and plan tier | `version`, `provider`, `plan`, `count` |
 | `connect_result` | Once a day, one per finished sign-in, up to 50 | `version`, `provider`, `method`, `state` |
 | `action_result` | Once a day, one per account action that ended, up to 50 | `version`, `provider`, `action`, `origin`, `state` |
 | `delivery_daily` | Once a day, per channel type and result | `version`, `channel`, `status`, `failure`, `count` |
 | `server_error` | Once a day, per place and error class | `version`, `where`, `error`, `count` |
-| `opened` | At most hourly, after a view | `version`, `surfaces` (list), `views` (list), `actions` (list) |
+| `opened` | At most hourly, after a view | `version`, `surfaces` (list), `views` (list), `actions` (list), `mcp_tools` (list) |
+| `$exception` | At most hourly, per error class and place | `version`, `count`, `where`, `source`, `$exception_list` |
 | `feedback` | When the owner presses Send | `version`, `message` |
 
 The `feature_*` properties are `feature_account_actions`, `feature_auto_reset_rules`, `feature_spend_budgets`, `feature_wallet_costs`, `feature_wallet_top_ups`, `feature_channels_telegram`, `feature_channels_webhook`, `feature_refresh_minutes` and `feature_history_days`. `refresh_<outcome>` uses the sync run outcomes in `packages/core/src/enums.ts`, such as `refresh_rate_limited`.
 
-Every event is anonymous: `distinct_id` is the install ID, `$process_person_profile` is false and `$geoip_disable` is true. All events go in one request to `/batch/`.
+Every event carries `schema` (now 1) and a unique `uuid`. Daily events also carry `window_start`, `window_end` and `window_hours`; divide a count by `window_hours` / 24 to compare a short first window after a restart with a full day. Every event is anonymous: `distinct_id` is the install ID, `$process_person_profile` is false and `$geoip_disable` is true. All events go in one request to `/batch/`.
 
 Two more sources write to the same project. Filter on `source` to keep them apart from server events:
 
@@ -130,6 +132,16 @@ Insight alerts, checked daily and also sent by email:
 ## Current project
 
 The Headroom project (US Cloud, id 773216) is set up as this guide describes: IP data discarded, browser capture features off, the starter dashboard and the GeoIP transformation removed, **Headroom usage** as the home dashboard, and the Slack destinations and alerts on. Event and property descriptions wait for the first events, which arrive with the first release that includes the usage stats.
+
+## Keep the data
+
+PostHog's free plan keeps raw events for one year. To keep them longer, add a batch export:
+
+1. Create a Cloudflare R2 bucket, such as `headroom-posthog`, and an R2 API token with write access to that bucket only.
+2. In PostHog, open Data pipelines, add a destination of type S3, and choose the R2 endpoint (`https://<account-id>.r2.cloudflarestorage.com`), the bucket, the token and Parquet format, exported daily.
+3. The first million exported rows a month are free, far above Headroom's volume.
+
+Exported rows keep `schema`, `uuid` and the window fields, so the files can be read and deduplicated without PostHog.
 
 ## Check the setup
 

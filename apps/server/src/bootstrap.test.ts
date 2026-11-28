@@ -8,7 +8,7 @@ import { loadConfig, ownerExists } from "@headroom/core";
 import { credentialFixture } from "@headroom/core/testing";
 
 import { describeDatabase } from "./app.ts";
-import { bootstrap, loadOrCreateSecretFile } from "./bootstrap.ts";
+import { bootstrap, loadOrCreateSecretFile, planTier } from "./bootstrap.ts";
 
 function base64Json(value: unknown): string {
   return Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -188,5 +188,15 @@ describe("bootstrap", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("plan tier", () => {
+  test("keeps only known tier words and multipliers", () => {
+    expect(planTier("claude", "amy@example.com (Max 20x)")).toBe("max_20x");
+    expect(planTier("codex", "amy@example.com (Pro)")).toBe("pro");
+    expect(planTier("cursor", "amy@example.com (Acme Corp Teams)")).toBe("teams");
+    expect(planTier("cursor", "amy@example.com (Acme Corp)")).toBe("other");
+    expect(planTier("codex", "amy@example.com")).toBe("none");
   });
 });

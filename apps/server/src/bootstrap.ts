@@ -28,9 +28,11 @@ import {
   LeaseStore,
   openDatabase,
   OrderStore,
+  type Provider,
   NoticeReadStore,
   SettingsStore,
   SnapshotStore,
+  splitLabel,
   upgradeIdentities,
   WalletStore,
 } from "@headroom/core";
@@ -231,6 +233,8 @@ export function bootstrap(options: BootstrapOptions): AppContext {
       arch: process.arch,
       install: detectInstall(process.execPath, existsSync("/.dockerenv")),
       accounts: accountsPerProvider(connections.list()),
+      plans: plansPerProvider(connections.list()),
+      enabledProviders: config.enabledProviders,
       latestVersion: releases.known(),
       ...activityFacts(sqlite, settings.get(), since),
     }),
@@ -305,6 +309,54 @@ function accountsPerProvider(
   const counts: Record<string, number> = {};
   for (const row of rows) counts[row.provider] = (counts[row.provider] ?? 0) + 1;
   return counts;
+}
+
+/** Plan words a provider label may carry. Anything else, such as a workspace name, is dropped. */
+const planWords = new Set([
+  "free",
+  "go",
+  "plus",
+  "pro",
+  "max",
+  "team",
+  "teams",
+  "business",
+  "enterprise",
+  "edu",
+  "starter",
+  "standard",
+  "ultra",
+  "premium",
+  "supergrok",
+  "heavy",
+  "individual",
+  "hobby",
+]);
+
+/** A label's plan reduced to known tier words and multipliers, such as `max_20x`, or `other`. */
+export function planTier(provider: Provider, label: string): string {
+  const { plan } = splitLabel(provider, label);
+  if (plan === null) return "none";
+  const words = plan
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((word) => planWords.has(word) || /^\d{1,3}x$/.test(word));
+  return words.length === 0 ? "other" : words.join("_");
+}
+
+/** Linked accounts per provider and plan tier, for the daily usage stats. */
+function plansPerProvider(
+  rows: readonly { readonly provider: Provider; readonly label: string }[],
+): { provider: string; plan: string; count: number }[] {
+  const counts = new Map<string, { provider: string; plan: string; count: number }>();
+  for (const row of rows) {
+    const plan = planTier(row.provider, row.label);
+    const key = `${row.provider}:${plan}`;
+    const seen = counts.get(key);
+    if (seen) seen.count += 1;
+    else counts.set(key, { provider: row.provider, plan, count: 1 });
+  }
+  return [...counts.values()];
 }
 
 /** Run `make` on the first call only, so the install ID file is touched only when a ping is sent. */

@@ -7,6 +7,7 @@ import "@fontsource-variable/geist-mono/wght.css";
 import { App } from "./app.tsx";
 import { ErrorBoundary } from "./error-boundary.tsx";
 import { applyStoredPrefs, browserStorage, readView } from "./lib/device-prefs.ts";
+import { reportUncaughtErrors } from "./lib/report-error.ts";
 import { restoreView } from "./router.ts";
 import "./styles/tokens.css";
 import "./styles/base.css";
@@ -20,6 +21,8 @@ import "./styles/controls.css";
 // The test is written out here, not imported, so the bundler can drop the dynamic import with its chunk.
 const demoSite = import.meta.env.MODE === "demo" ? await import("./demo-site/index.ts") : null;
 demoSite?.installDemoSite();
+
+reportUncaughtErrors(window);
 
 // Appearance, Privacy Mode, Demo Mode and density are on the page before the first render, so nothing flashes.
 const storage = browserStorage();

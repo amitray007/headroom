@@ -1,5 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
+import { reportError } from "./lib/report-error.ts";
+
 interface Props {
   readonly children: ReactNode;
 }
@@ -15,6 +17,7 @@ export class ErrorBoundary extends Component<Props, { failed: boolean }> {
     // The only console use in the web app: surface render failures to the developer.
     // oxlint-disable-next-line no-console
     console.error(error, info.componentStack);
+    reportError(error, "render");
   }
 
   override render(): ReactNode {

@@ -1,13 +1,24 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { feedbackMaxLength, usageActions, usageViews } from "@headroom/core/contracts";
+import {
+  feedbackMaxLength,
+  usageActions,
+  usageViews,
+  webErrorPlaces,
+} from "@headroom/core/contracts";
 
 import type { AppContext } from "../bootstrap.ts";
 import { type Env, requireSession } from "../middleware/session.ts";
+import { errorType, framesOf } from "../telemetry-exceptions.ts";
 
 const viewBody = z.object({ view: z.enum(usageViews) });
 const actionBody = z.object({ action: z.enum(usageActions) });
+const errorBody = z.object({
+  type: z.string().max(100),
+  where: z.enum(webErrorPlaces),
+  stack: z.string().max(16_000),
+});
 const feedbackBody = z.object({ message: z.string().trim().min(1).max(feedbackMaxLength) });
 
 /** The web app's page views and presses, and the owner's feedback, both sent on by the usage stats service (ADR 0007). */
@@ -25,6 +36,19 @@ export function usageRoutes(ctx: AppContext): Hono<Env> {
     const body = actionBody.safeParse(await c.req.json().catch(() => null));
     if (!body.success) return c.json({ error: "invalid_body" }, 400);
     ctx.telemetry.markAction(body.data.action);
+    return c.body(null, 204);
+  });
+
+  // The browser sends the raw stack; the server keeps only the class and cleaned frames.
+  app.post("/usage/error", requireSession(ctx), async (c) => {
+    const body = errorBody.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "invalid_body" }, 400);
+    ctx.telemetry.captureException({
+      type: errorType(body.data.type),
+      where: body.data.where,
+      source: "web",
+      frames: framesOf(body.data.stack),
+    });
     return c.body(null, 204);
   });
 

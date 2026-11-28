@@ -15,6 +15,7 @@ import { createApp, version } from "./app.ts";
 import { bootstrap } from "./bootstrap.ts";
 import { bindFirstFree, resolveCandidates, savePort } from "./port.ts";
 import { Scheduler } from "./scheduler.ts";
+import { reportOf } from "./telemetry-exceptions.ts";
 import { runService, systemServiceDeps } from "./service.ts";
 import { insideDocker, runUpdate, systemUpdateDeps } from "./update.ts";
 
@@ -120,6 +121,7 @@ const scheduler = new Scheduler({
   retentionDays: () => ctx.settings.get().historyRetentionDays,
   afterTick: (now) => ctx.dispatcher.dispatch(now).then(() => undefined),
   log: ctx.log,
+  report: (where, error) => ctx.telemetry.captureException(reportOf(error, where, "server")),
 });
 scheduler.start();
 // Fetches the Wallet's exchange rates now and every 24 hours.

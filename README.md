@@ -218,10 +218,10 @@ Report a vulnerability privately as described in [SECURITY.md](SECURITY.md).
 
 Headroom sends anonymous usage stats so the maintainer knows how many installs run, which connectors people use and which ones fail. The server sends them, never your browser or the Mac app. Each event carries a random install ID and:
 
-- once a day: the Headroom version, OS and install method; how many accounts you linked per provider; how many sign-ins and refreshes finished per provider and result; which features you use (counts and on/off only); how account actions and notification sends turned out; error class names and counts; the newest release it has seen; and the Mac app versions that read the feed
-- at most once an hour, only if you opened Headroom: the version, where you opened it (web, Mac app or MCP), which dashboard pages, and whether you opened the release notes from the update notice
+- once a day: the Headroom version, OS and install method; how many accounts you linked per provider; how many sign-ins and refreshes finished per provider and result; which features you use (counts and on/off only); how account actions and notification sends turned out; error class names and counts; the plan tier of each account (such as Pro) and your display settings; the newest release it has seen; and the Mac app versions that read the feed
+- at most once an hour, only if you opened Headroom: the version, where you opened it (web, Mac app or MCP), which dashboard pages, whether you opened the release notes from the update notice, and which MCP tools agents called
 
-It never sends account emails or IDs, credentials, balances, limits, usage figures, error text or host names, and the IP address is discarded. Turn it off with Share Usage Stats on the Privacy tab of Settings, or set `HEADROOM_TELEMETRY=false`. [ADR 0007](docs/decisions/0007-usage-stats.md) lists every field.
+When something fails, it sends the error type and where in Headroom's code it happened, never the error message. It never sends account emails or IDs, credentials, balances, limits, usage figures, error text or host names, and the IP address is discarded. Turn it off with Share Usage Stats on the Privacy tab of Settings, or set `HEADROOM_TELEMETRY=false`. [ADR 0007](docs/decisions/0007-usage-stats.md) lists every field.
 
 Send Feedback, in Settings and the avatar menu, sends your message and the version to the maintainer. It asks for no email.
 

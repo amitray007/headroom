@@ -4,6 +4,7 @@ import type { Settings } from "@headroom/core";
 
 import type {
   ActionCount,
+  AvailabilityCount,
   ConnectCount,
   DailyFacts,
   DeliveryCount,
@@ -42,7 +43,10 @@ function refreshesSince(sqlite: Database, since: number): RefreshCount[] {
 }
 
 /** Which owner features are switched on or hold entries. Counts and flags only. */
-function featuresOf(sqlite: Database, settings: Settings): Record<string, number | boolean> {
+function featuresOf(
+  sqlite: Database,
+  settings: Settings,
+): Record<string, number | boolean | string> {
   const channels = countsOf(
     sqlite
       .query<Row, []>(
@@ -60,6 +64,18 @@ function featuresOf(sqlite: Database, settings: Settings): Record<string, number
     channels_webhook: channels["webhook"] ?? 0,
     refresh_minutes: settings.refreshIntervalMinutes,
     history_days: settings.historyRetentionDays,
+    limits_view: settings.limitsView,
+    low_threshold_percent: settings.lowThresholdPercent,
+    time_style: settings.timeStyle,
+    clock: settings.clock,
+    density: settings.density,
+    detailed_order: settings.detailedOrder,
+    keep_inactive_last: settings.keepInactiveLast,
+    wallet_currency: settings.walletCurrency ?? "auto",
+    notification_kinds_on: Object.values(settings.notifications.kinds).filter(Boolean).length,
+    notification_sessions: settings.notifications.includeSessions,
+    notification_lead_days: settings.notifications.resetLeadDays,
+    muted_providers: settings.notifications.mutedProviders.length,
   };
 }
 
@@ -88,13 +104,28 @@ function deliveriesSince(sqlite: Database, since: number): DeliveryCount[] {
     .all(since);
 }
 
+/** Metrics in each connection's newest reading, by provider and availability. Many `unknown` hint at a broken endpoint. */
+function metricAvailability(sqlite: Database): AvailabilityCount[] {
+  return sqlite
+    .query<AvailabilityCount, []>(
+      `SELECT c.provider AS provider, m.availability AS availability, count(*) AS count
+       FROM metrics m
+       JOIN snapshots s ON s.id = m.snapshot_id
+       JOIN connections c ON c.id = s.connection_id
+       WHERE s.id = (SELECT id FROM snapshots WHERE connection_id = c.id ORDER BY observed_at DESC LIMIT 1)
+       GROUP BY c.provider, m.availability ORDER BY c.provider, m.availability`,
+    )
+    .all();
+}
+
 /** The database half of the daily facts. */
 export function activityFacts(
   sqlite: Database,
   settings: Settings,
   since: number,
-): Pick<DailyFacts, "connects" | "refreshes" | "actions" | "deliveries" | "features"> {
+): Pick<DailyFacts, "connects" | "refreshes" | "actions" | "deliveries" | "metrics" | "features"> {
   return {
+    metrics: metricAvailability(sqlite),
     connects: connectsSince(sqlite, since),
     actions: actionsSince(sqlite, since),
     deliveries: deliveriesSince(sqlite, since),
