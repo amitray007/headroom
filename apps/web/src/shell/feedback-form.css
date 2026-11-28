@@ -1,36 +1,103 @@
-.fb {
+/* Feedback: a composer card like the Agents setup card, with its action bar at the bottom. */
+.fb-lead {
+  margin: 0 0 8px;
+  max-width: 36em;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.fb-card {
   display: grid;
-  padding-top: 8px;
-  gap: 12px;
-}
-.fb textarea {
-  font: 400 var(--text-base) / 1.5 var(--font);
-  padding: 12px 16px;
-  border-radius: 18px;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  overflow: hidden;
   border: 1px solid var(--border-strong);
+  border-radius: var(--radius-panel);
   background: var(--surface);
-  color: var(--foreground);
-  resize: vertical;
-  min-height: 140px;
+  transition: border-color var(--dur-fast) var(--ease-standard);
+}
+.fb-card:focus-within {
+  border-color: var(--text-muted);
+}
+.fb-card textarea {
+  display: block;
   width: 100%;
+  min-height: 144px;
   box-sizing: border-box;
+  padding: 16px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--foreground);
+  font: 400 var(--text-base) / 1.55 var(--font);
 }
-.fb textarea:focus {
-  outline: 2px solid var(--border-strong);
-  outline-offset: 2px;
+.fb-card textarea::placeholder {
+  color: var(--text-muted);
 }
-.fb-foot {
+
+.fb-bar {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  min-height: 48px;
+  padding: 8px 8px 8px 16px;
+  box-sizing: border-box;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+}
+.fb-meta {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  color: var(--text-muted);
 }
 .fb-count {
-  margin-inline-start: auto;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
 }
-.fb-note {
-  margin: 0;
+.fb-count[data-full] {
+  color: var(--danger);
+}
+
+.fb-error {
+  margin: 8px 0 0;
   font-size: var(--text-sm);
+  color: var(--danger);
+}
+
+.fb-sent {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 32px 16px 24px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface-muted);
+  text-align: center;
+  font-size: var(--text-sm);
+}
+.fb-sent b {
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+.fb-sent-mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--success) 14%, transparent);
+  color: var(--success);
+}
+.fb-sent-mark svg {
+  width: 20px;
+  height: 20px;
+}
+.fb-sent .btn {
+  margin-top: 12px;
 }
