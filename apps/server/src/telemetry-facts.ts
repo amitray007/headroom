@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 
 import type { Settings } from "@headroom/core";
 
-import type { DailyFacts } from "./telemetry.ts";
+import type { ConnectCount, DailyFacts, RefreshCount } from "./telemetry.ts";
 
 type Row = { readonly key: string; readonly n: number };
 
@@ -15,29 +15,27 @@ function count(sqlite: Database, sql: string): number {
   return sqlite.query<{ n: number }, []>(sql).get()?.n ?? 0;
 }
 
-/** Sign-in attempts that finished since `since`, by `provider.method.state`. */
-function connectsSince(sqlite: Database, since: number): Record<string, number> {
-  const rows = sqlite
-    .query<Row, [number]>(
-      `SELECT provider || '.' || method || '.' || state AS key, count(*) AS n FROM auth_attempts
+/** Sign-in attempts that finished since `since`. */
+function connectsSince(sqlite: Database, since: number): ConnectCount[] {
+  return sqlite
+    .query<ConnectCount, [number]>(
+      `SELECT provider, method, state, count(*) AS count FROM auth_attempts
        WHERE state IN ('succeeded', 'failed', 'expired', 'cancelled') AND updated_at >= ?
-       GROUP BY key`,
+       GROUP BY provider, method, state ORDER BY provider, method, state`,
     )
     .all(since);
-  return countsOf(rows);
 }
 
-/** Refreshes that finished since `since`, by `provider.outcome`. */
-function refreshesSince(sqlite: Database, since: number): Record<string, number> {
-  const rows = sqlite
-    .query<Row, [number]>(
-      `SELECT c.provider || '.' || r.outcome AS key, count(*) AS n FROM sync_runs r
+/** Refreshes that finished since `since`. */
+function refreshesSince(sqlite: Database, since: number): RefreshCount[] {
+  return sqlite
+    .query<RefreshCount, [number]>(
+      `SELECT c.provider AS provider, r.outcome AS outcome, count(*) AS count FROM sync_runs r
        JOIN connections c ON c.id = r.connection_id
        WHERE r.outcome IS NOT NULL AND r.finished_at >= ?
-       GROUP BY key`,
+       GROUP BY c.provider, r.outcome ORDER BY c.provider, r.outcome`,
     )
     .all(since);
-  return countsOf(rows);
 }
 
 /** Which owner features are switched on or hold entries. Counts and flags only. */

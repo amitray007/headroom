@@ -9,14 +9,40 @@ import type { Fetch } from "./notify/http.ts";
 import { loadOrCreateInstallId, macClientOf, posthogUrl, TelemetryService } from "./telemetry.ts";
 
 const hour = 3_600_000;
+const anonymous = { $process_person_profile: false, $geoip_disable: true };
+
+const batchSchema = z.object({
+  api_key: z.string(),
+  batch: z.array(
+    z.object({
+      event: z.string(),
+      distinct_id: z.string(),
+      properties: z.record(z.string(), z.unknown()),
+    }),
+  ),
+});
+
+const event = (name: string, properties: Record<string, unknown>) => ({
+  event: name,
+  distinct_id: "install-1",
+  properties: { ...properties, ...anonymous },
+});
+const connect = (provider: string, method: string, state: string) =>
+  event("connect_result", { version: "0.2.0", provider, method, state });
+
+/** Event names of every request, flattened. */
+const names = (sent: readonly z.infer<typeof batchSchema>[]): string[] =>
+  sent.flatMap((request) => request.batch.map((item) => item.event));
 
 function setup(options: { enabled?: boolean; key?: string; respond?: () => Response } = {}) {
   let now = 1_700_000_000_000;
   let enabled = options.enabled ?? true;
-  const sent: { url: string; body: Record<string, unknown> }[] = [];
+  const sent: z.infer<typeof batchSchema>[] = [];
+  const urls: string[] = [];
   const fetch: Fetch = (url, init) => {
     const body = typeof init.body === "string" ? init.body : "{}";
-    sent.push({ url, body: z.record(z.string(), z.unknown()).parse(JSON.parse(body)) });
+    urls.push(url);
+    sent.push(batchSchema.parse(JSON.parse(body)));
     return Promise.resolve(options.respond?.() ?? Response.json({ status: "Ok" }));
   };
   const service = new TelemetryService({
@@ -30,8 +56,15 @@ function setup(options: { enabled?: boolean; key?: string; respond?: () => Respo
       arch: "x64",
       install: "docker",
       accounts: { codex: 2, cursor: 1 },
-      connects: { "codex.device_code.succeeded": 1 },
-      refreshes: { "codex.succeeded": 90, "cursor.rate_limited": 2 },
+      connects: [
+        { provider: "codex", method: "device_code", state: "succeeded", count: 1 },
+        { provider: "cursor", method: "api_key", state: "failed", count: 2 },
+      ],
+      refreshes: [
+        { provider: "codex", outcome: "succeeded", count: 90 },
+        { provider: "cursor", outcome: "rate_limited", count: 2 },
+        { provider: "cursor", outcome: "succeeded", count: 40 },
+      ],
       features: { account_actions: false, auto_reset_rules: 1 },
     }),
     key: options.key ?? "phc_test",
@@ -39,46 +72,62 @@ function setup(options: { enabled?: boolean; key?: string; respond?: () => Respo
   return {
     service,
     sent,
+    urls,
     advance: (ms: number) => (now += ms),
     setEnabled: (value: boolean) => (enabled = value),
   };
 }
 
 describe("telemetry", () => {
-  test("sends exactly the listed daily properties, anonymously", async () => {
+  test("sends exactly the listed daily events in one anonymous batch", async () => {
     const h = setup();
     await h.service.tick();
+    expect(h.urls).toEqual([posthogUrl]);
     expect(h.sent).toEqual([
       {
-        url: posthogUrl,
-        body: {
-          api_key: "phc_test",
-          event: "install_active",
-          distinct_id: "install-1",
-          properties: {
-            $process_person_profile: false,
-            $geoip_disable: true,
+        api_key: "phc_test",
+        batch: [
+          event("install_active", {
             version: "0.2.0",
             os: "linux-x64",
             install: "docker",
-            accounts: { codex: 2, cursor: 1 },
             account_total: 3,
-            connects: { "codex.device_code.succeeded": 1 },
-            refreshes: { "codex.succeeded": 90, "cursor.rate_limited": 2 },
-            features: { account_actions: false, auto_reset_rules: 1 },
+            providers: ["codex", "cursor"],
             mac_clients: [],
-          },
-        },
+            feature_account_actions: false,
+            feature_auto_reset_rules: 1,
+          }),
+          event("provider_daily", {
+            version: "0.2.0",
+            provider: "codex",
+            accounts: 2,
+            refreshes: 90,
+            refresh_failed: 0,
+            refresh_succeeded: 90,
+          }),
+          event("provider_daily", {
+            version: "0.2.0",
+            provider: "cursor",
+            accounts: 1,
+            refreshes: 42,
+            refresh_failed: 2,
+            refresh_rate_limited: 2,
+            refresh_succeeded: 40,
+          }),
+          connect("codex", "device_code", "succeeded"),
+          connect("cursor", "api_key", "failed"),
+          connect("cursor", "api_key", "failed"),
+        ],
       },
     ]);
   });
 
-  test("sends the daily event once a day and opened only after a view", async () => {
+  test("sends the daily events once a day and opened only after a view", async () => {
     const h = setup();
     await h.service.tick();
     h.advance(hour);
     await h.service.tick();
-    expect(h.sent.map((s) => s.body["event"])).toEqual(["install_active"]);
+    expect(h.sent).toHaveLength(1);
 
     h.service.markViewed("web");
     h.service.markViewed("mac");
@@ -87,22 +136,23 @@ describe("telemetry", () => {
     h.service.markView("analytics");
     h.advance(hour);
     await h.service.tick();
-    expect(h.sent[1]?.body["event"]).toBe("opened");
-    expect(h.sent[1]?.body["properties"]).toEqual({
-      $process_person_profile: false,
-      $geoip_disable: true,
-      version: "0.2.0",
-      surfaces: ["mac", "web"],
-      views: ["analytics", "wallet"],
-    });
+    expect(h.sent[1]?.batch).toEqual([
+      {
+        event: "opened",
+        distinct_id: "install-1",
+        properties: {
+          version: "0.2.0",
+          surfaces: ["mac", "web"],
+          views: ["analytics", "wallet"],
+          ...anonymous,
+        },
+      },
+    ]);
 
     h.advance(23 * hour);
     await h.service.tick();
-    expect(h.sent.map((s) => s.body["event"])).toEqual([
-      "install_active",
-      "opened",
-      "install_active",
-    ]);
+    expect(h.sent).toHaveLength(3);
+    expect(h.sent[2]?.batch[0]?.event).toBe("install_active");
   });
 
   test("sends nothing when turned off or without a project key", async () => {
@@ -111,7 +161,8 @@ describe("telemetry", () => {
     await off.service.tick();
     off.setEnabled(true);
     await off.service.tick();
-    expect(off.sent.map((s) => s.body["event"])).toEqual(["install_active"]);
+    expect(names(off.sent)).not.toContain("opened");
+    expect(names(off.sent)[0]).toBe("install_active");
 
     const keyless = setup({ key: "" });
     keyless.service.markViewed("web");
@@ -128,23 +179,19 @@ describe("telemetry", () => {
     h.service.markClient("Headroom/1.2.0 CFNetwork/1568 Darwin/25.0.0");
     h.service.markClient("Mozilla/5.0");
     await h.service.tick();
-    expect(h.sent[0]?.body["properties"]).toMatchObject({ mac_clients: ["Headroom/1.2.0"] });
+    expect(h.sent[0]?.batch[0]?.properties).toMatchObject({ mac_clients: ["Headroom/1.2.0"] });
   });
 
   test("feedback is sent as typed with the version, even with usage stats off", async () => {
     const h = setup({ enabled: false });
     expect(await h.service.sendFeedback("Love the Wallet")).toBe("sent");
-    expect(h.sent[0]?.body).toEqual({
-      api_key: "phc_test",
-      event: "feedback",
-      distinct_id: "install-1",
-      properties: {
-        $process_person_profile: false,
-        $geoip_disable: true,
-        version: "0.2.0",
-        message: "Love the Wallet",
+    expect(h.sent[0]?.batch).toEqual([
+      {
+        event: "feedback",
+        distinct_id: "install-1",
+        properties: { version: "0.2.0", message: "Love the Wallet", ...anonymous },
       },
-    });
+    ]);
     expect(await setup({ key: "" }).service.sendFeedback("hi")).toBe("unavailable");
     const failing = setup({ respond: () => new Response("no", { status: 500 }) });
     expect(await failing.service.sendFeedback("hi")).toBe("failed");

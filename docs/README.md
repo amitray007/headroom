@@ -36,6 +36,7 @@ Each dossier describes metrics, connection steps, tools, limitations and sources
 - [Deployment and credential storage](architecture/deployment.md): single binary, SQLite, master key and backups.
 - [Self-hosting on a tailnet](operations/tailscale.md): Docker Compose or Dokploy with a private Tailscale address, the environment, moving data, backups.
 - [Releases](operations/releases.md): Conventional Commits, the release pull request, image tags and rollback.
+- [Usage stats in PostHog](operations/usage-stats.md): the PostHog project, the reverse proxy, the dashboard and alerts for the anonymous usage stats.
 - [Install](operations/install.md): the installer, Homebrew, package runners, Docker, data locations, start at login, updating and uninstalling.
 - [Evidence register](research/evidence.md): proof levels and earlier observations.
 - [Tools and packages](research/tools.md): what can be reused and what it does not solve.

@@ -61,8 +61,11 @@ describe("activity facts", () => {
     insert.run("c", "awaiting_user", 2_000);
     insert.run("d", "succeeded", 500);
     expect(activityFacts(ctx.sqlite, ctx.settings.get(), 1_000)).toEqual({
-      connects: { "codex.device_code.failed": 1, "codex.device_code.succeeded": 1 },
-      refreshes: {},
+      connects: [
+        { provider: "codex", method: "device_code", state: "failed", count: 1 },
+        { provider: "codex", method: "device_code", state: "succeeded", count: 1 },
+      ],
+      refreshes: [],
       features: {
         account_actions: false,
         auto_reset_rules: 0,

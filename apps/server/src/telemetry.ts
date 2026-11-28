@@ -5,15 +5,21 @@ import { join } from "node:path";
 import { type Fetch, post } from "./notify/http.ts";
 
 /**
- * Anonymous usage pings to PostHog (ADR 0007). One `install_active` event a day, at most one
- * `opened` event an hour, and a `feedback` event when the owner sends one. Every property is
- * listed in `dailyProperties`, `openedProperties` and `sendFeedback`; nothing else leaves the
+ * Anonymous usage pings to PostHog (ADR 0007). Once a day: `install_active`, one `provider_daily`
+ * per provider in use, and one `connect_result` per finished sign-in. At most hourly: `opened`.
+ * On the owner's press: `feedback`. Every property is built in this file; nothing else leaves the
  * server. A failed send is dropped and never retried.
  */
 
 /** PostHog's public project key: it can only write events. Empty sends nothing. */
 const posthogKey = "";
-export const posthogUrl = "https://us.i.posthog.com/i/v0/e/";
+/**
+ * PostHog's managed reverse proxy on a neutral subdomain, so DNS blocklists that list
+ * posthog.com do not drop the events (docs/operations/usage-stats.md).
+ */
+export const posthogUrl = "https://relay.theblank.club/batch/";
+/** More sign-ins than this in a day are not reported one by one. */
+const connectEventCap = 50;
 
 const hour = 60 * 60_000;
 const day = 24 * hour;
@@ -36,22 +42,36 @@ export type UsageView = (typeof usageViews)[number];
 /** Longest feedback message, in characters. */
 export const feedbackMaxLength = 2000;
 
-type Counts = Readonly<Record<string, number>>;
+export interface ConnectCount {
+  readonly provider: string;
+  readonly method: string;
+  readonly state: string;
+  readonly count: number;
+}
 
-/** Everything the daily event reports. Every value is a count, a flag or an enum value. */
+export interface RefreshCount {
+  readonly provider: string;
+  readonly outcome: string;
+  readonly count: number;
+}
+
+/** Everything the daily events report. Every value is a count, a flag or an enum value. */
 export interface DailyFacts {
   readonly platform: string;
   readonly arch: string;
   readonly install: string;
   /** Linked accounts per provider. Counts only, never which accounts. */
-  readonly accounts: Counts;
-  /** Finished sign-in attempts since the last daily event, by `provider.method.state`. */
-  readonly connects: Counts;
-  /** Finished refreshes since the last daily event, by `provider.outcome`. */
-  readonly refreshes: Counts;
-  /** Which owner features are in use. */
+  readonly accounts: Readonly<Record<string, number>>;
+  /** Sign-in attempts that finished since the last daily events. */
+  readonly connects: readonly ConnectCount[];
+  /** Refreshes that finished since the last daily events. */
+  readonly refreshes: readonly RefreshCount[];
+  /** Which owner features are in use; each key is sent as `feature_<key>`. */
   readonly features: Readonly<Record<string, number | boolean>>;
 }
+
+type Properties = Record<string, unknown>;
+type Event = { readonly event: string; readonly properties: Properties };
 
 export interface TelemetryOptions {
   readonly version: string;
@@ -68,31 +88,68 @@ export interface TelemetryOptions {
 
 const anonymous = { $process_person_profile: false, $geoip_disable: true } as const;
 
-function dailyProperties(
-  version: string,
-  facts: DailyFacts,
-  clients: readonly string[],
-): Record<string, unknown> {
+function installEvent(version: string, facts: DailyFacts, clients: readonly string[]): Event {
+  const features = Object.fromEntries(
+    Object.entries(facts.features).map(([key, value]) => [`feature_${key}`, value]),
+  );
   return {
-    ...anonymous,
-    version,
-    os: `${facts.platform}-${facts.arch}`,
-    install: facts.install,
-    accounts: facts.accounts,
-    account_total: Object.values(facts.accounts).reduce((sum, n) => sum + n, 0),
-    connects: facts.connects,
-    refreshes: facts.refreshes,
-    features: facts.features,
-    mac_clients: clients.toSorted(),
+    event: "install_active",
+    properties: {
+      version,
+      os: `${facts.platform}-${facts.arch}`,
+      install: facts.install,
+      account_total: Object.values(facts.accounts).reduce((sum, n) => sum + n, 0),
+      providers: Object.keys(facts.accounts).toSorted(),
+      mac_clients: clients.toSorted(),
+      ...features,
+    },
   };
 }
 
-function openedProperties(
+/** One event per provider that has accounts or refreshed, so PostHog can break down by provider. */
+function providerEvents(version: string, facts: DailyFacts): Event[] {
+  const providers = new Set([
+    ...Object.keys(facts.accounts),
+    ...facts.refreshes.map((row) => row.provider),
+  ]);
+  return [...providers].toSorted().map((provider) => {
+    const rows = facts.refreshes.filter((row) => row.provider === provider);
+    const total = rows.reduce((sum, row) => sum + row.count, 0);
+    const succeeded = rows.find((row) => row.outcome === "succeeded")?.count ?? 0;
+    return {
+      event: "provider_daily",
+      properties: {
+        version,
+        provider,
+        accounts: facts.accounts[provider] ?? 0,
+        refreshes: total,
+        refresh_failed: total - succeeded,
+        ...Object.fromEntries(rows.map((row) => [`refresh_${row.outcome}`, row.count])),
+      },
+    };
+  });
+}
+
+/** One event per finished sign-in, up to a daily cap, so counts and rates need no sum. */
+function connectEvents(version: string, connects: readonly ConnectCount[]): Event[] {
+  const events = connects.flatMap((row) =>
+    Array.from({ length: row.count }, () => ({
+      event: "connect_result",
+      properties: { version, provider: row.provider, method: row.method, state: row.state },
+    })),
+  );
+  return events.slice(0, connectEventCap);
+}
+
+function openedEvent(
   version: string,
   surfaces: readonly Surface[],
   views: readonly UsageView[],
-): Record<string, unknown> {
-  return { ...anonymous, version, surfaces: surfaces.toSorted(), views: views.toSorted() };
+): Event {
+  return {
+    event: "opened",
+    properties: { version, surfaces: surfaces.toSorted(), views: views.toSorted() },
+  };
 }
 
 /**
@@ -156,11 +213,13 @@ export class TelemetryService {
    */
   async sendFeedback(message: string): Promise<"sent" | "unavailable" | "failed"> {
     if (!this.key) return "unavailable";
-    const sent = await this.send("feedback", { ...anonymous, version: this.deps.version, message });
+    const sent = await this.send([
+      { event: "feedback", properties: { version: this.deps.version, message } },
+    ]);
     return sent ? "sent" : "failed";
   }
 
-  /** Send the daily event when a day has passed, and `opened` when anything was viewed. */
+  /** Send the daily events when a day has passed, and `opened` when anything was viewed. */
   async tick(): Promise<void> {
     if (!this.key || !this.deps.enabled()) {
       this.forget();
@@ -172,13 +231,18 @@ export class TelemetryService {
       this.lastDailyAt = at;
       const clients = [...this.clients];
       this.clients.clear();
-      await this.send("install_active", dailyProperties(this.deps.version, facts, clients));
+      const { version } = this.deps;
+      await this.send([
+        installEvent(version, facts, clients),
+        ...providerEvents(version, facts),
+        ...connectEvents(version, facts.connects),
+      ]);
     }
     if (this.viewed.size > 0) {
-      const opened = openedProperties(this.deps.version, [...this.viewed], [...this.views]);
+      const opened = openedEvent(this.deps.version, [...this.viewed], [...this.views]);
       this.viewed.clear();
       this.views.clear();
-      await this.send("opened", opened);
+      await this.send([opened]);
     }
   }
 
@@ -188,12 +252,16 @@ export class TelemetryService {
     this.clients.clear();
   }
 
-  private async send(event: string, properties: Record<string, unknown>): Promise<boolean> {
+  /** One request to PostHog's batch route. Every event is anonymous: no person profile, no GeoIP. */
+  private async send(events: readonly Event[]): Promise<boolean> {
+    const distinctId = this.deps.installId();
     const body = JSON.stringify({
       api_key: this.key,
-      event,
-      distinct_id: this.deps.installId(),
-      properties,
+      batch: events.map(({ event, properties }) => ({
+        event,
+        distinct_id: distinctId,
+        properties: { ...properties, ...anonymous },
+      })),
     });
     const result = await post(
       this.deps.fetch,
@@ -202,7 +270,7 @@ export class TelemetryService {
       body,
     );
     const status = typeof result === "string" ? result : result.ok ? null : `HTTP ${result.status}`;
-    if (status) this.deps.log?.("debug", `usage ping ${event} not sent: ${status}`);
+    if (status) this.deps.log?.("debug", `usage ping not sent: ${status}`);
     return status === null;
   }
 }
