@@ -10,7 +10,7 @@ export function overviewRoutes(ctx: AppContext): Hono<Env> {
   app.use(requireSession(ctx));
 
   app.get("/", (c) => {
-    ctx.telemetry.markViewed("web");
+    ctx.telemetry.markSurface("web");
     const now = ctx.now().getTime();
     const staleAfterMs = ctx.config.staleAfterSeconds * 1000;
     const connections = overviewConnections(ctx, now);

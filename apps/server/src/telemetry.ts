@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { UsageView } from "@headroom/core/contracts";
 
 import { type Fetch, post } from "./notify/http.ts";
+import type { InstallKind } from "./update.ts";
 
 /**
  * Anonymous usage pings to PostHog (ADR 0007). Once a day: `install_active`, one `provider_daily`
@@ -50,7 +51,7 @@ export interface RefreshCount {
 export interface DailyFacts {
   readonly platform: string;
   readonly arch: string;
-  readonly install: string;
+  readonly install: InstallKind;
   /** Linked accounts per provider. Counts only, never which accounts. */
   readonly accounts: Readonly<Record<string, number>>;
   /** Sign-in attempts that finished since the last daily events. */
@@ -162,7 +163,7 @@ export function macClientOf(userAgent: string | undefined): string | null {
 export class TelemetryService {
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastDailyAt: number | null = null;
-  private viewed = new Set<Surface>();
+  private surfaces = new Set<Surface>();
   private views = new Set<UsageView>();
   private clients = new Set<string>();
   private lastFeedbackAt: number | null = null;
@@ -193,9 +194,9 @@ export class TelemetryService {
     this.timer = null;
   }
 
-  /** Remember that a surface read the dashboard since the last hourly check. */
-  markViewed(surface: Surface): void {
-    this.viewed.add(surface);
+  /** Remember that a surface (web, Mac app, MCP) read the dashboard since the last hourly check. */
+  markSurface(surface: Surface): void {
+    this.surfaces.add(surface);
   }
 
   /** Remember a dashboard page the web app opened. */
@@ -251,16 +252,16 @@ export class TelemetryService {
         ...connectEvents(version, facts.connects),
       ]);
     }
-    if (this.viewed.size > 0) {
-      const opened = openedEvent(this.deps.version, [...this.viewed], [...this.views]);
-      this.viewed.clear();
+    if (this.surfaces.size > 0) {
+      const opened = openedEvent(this.deps.version, [...this.surfaces], [...this.views]);
+      this.surfaces.clear();
       this.views.clear();
       await this.send([opened]);
     }
   }
 
   private forget(): void {
-    this.viewed.clear();
+    this.surfaces.clear();
     this.views.clear();
     this.clients.clear();
   }

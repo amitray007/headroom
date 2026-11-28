@@ -261,7 +261,6 @@ const versionSchema = z.object({
   version: z.string(),
   update: z.object({ version: z.string(), notesUrl: z.url() }).nullable(),
 });
-export type AvailableUpdate = NonNullable<z.infer<typeof versionSchema>["update"]>;
 
 const overviewSchema = z.object({
   connections: z.array(overviewConnectionSchema),

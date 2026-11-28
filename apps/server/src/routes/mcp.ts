@@ -13,7 +13,7 @@ export function mcpRoutes(ctx: AppContext, history: SharedHistory): Hono<Env> {
     onerror: (error) => ctx.log("warn", `mcp: ${error.name}`),
   });
   app.post("/", (c) => {
-    ctx.telemetry.markViewed("mcp");
+    ctx.telemetry.markSurface("mcp");
     return handler.fetch(c.req.raw);
   });
   return app;

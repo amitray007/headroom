@@ -1,27 +1,15 @@
-import { useEffect, useState } from "react";
-
-import { api, type AvailableUpdate } from "../api.ts";
+import { api } from "../api.ts";
 import { authClient } from "../auth.ts";
 import { isDemoSite } from "../lib/site.ts";
 import { Avatar, GearIcon, MessageIcon, SignOutIcon, SparkleIcon, UserIcon } from "../icons.tsx";
 import { useDevicePrefs } from "../lib/device-prefs.ts";
+import { useLoad } from "../lib/load.ts";
 import { Menu, MenuBlock, MenuItem, MenuSeparator, MenuWho } from "../ui/menu.tsx";
 import { Segmented } from "../ui/segmented.tsx";
 
 /** A newer Headroom release, asked once per page load. A failed read shows nothing. */
 function useAvailableUpdate() {
-  const [update, setUpdate] = useState<AvailableUpdate | null>(null);
-  useEffect(() => {
-    let live = true;
-    api.version().then(
-      (view) => live && setUpdate(view.update),
-      () => undefined,
-    );
-    return () => {
-      live = false;
-    };
-  }, []);
-  return update;
+  return useLoad(() => api.version(), "version").data?.update ?? null;
 }
 
 /**

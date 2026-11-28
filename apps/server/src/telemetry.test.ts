@@ -145,9 +145,9 @@ describe("telemetry", () => {
     await h.service.tick();
     expect(h.sent).toHaveLength(1);
 
-    h.service.markViewed("web");
-    h.service.markViewed("mac");
-    h.service.markViewed("web");
+    h.service.markSurface("web");
+    h.service.markSurface("mac");
+    h.service.markSurface("web");
     h.service.markView("wallet");
     h.service.markView("analytics");
     h.advance(hour);
@@ -173,7 +173,7 @@ describe("telemetry", () => {
 
   test("sends nothing when turned off or without a project key", async () => {
     const off = setup({ enabled: false });
-    off.service.markViewed("web");
+    off.service.markSurface("web");
     await off.service.tick();
     off.setEnabled(true);
     await off.service.tick();
@@ -181,7 +181,7 @@ describe("telemetry", () => {
     expect(names(off.sent)[0]).toBe("install_active");
 
     const keyless = setup({ key: "" });
-    keyless.service.markViewed("web");
+    keyless.service.markSurface("web");
     await keyless.service.tick();
     expect(keyless.sent).toEqual([]);
   });
