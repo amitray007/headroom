@@ -95,12 +95,20 @@ LIMIT 200
 
 ## Alerts
 
-- On **Feedback per day**, an alert above 0, checked daily, emails you on each day a message arrives. For instant delivery, add a Slack, Discord or webhook destination for the `feedback` event in Data pipelines.
-- On **Refresh failure rate**, an alert above 0.2, checked daily. A spike for one provider often means its API changed.
+Slack, through the PostHog Slack connection, posts to #headroom:
+
+- **Slack: feedback**: each `feedback` event, with the message and version, as it arrives.
+- **Slack: failed sign-ins**: each `connect_result` with state `failed` or `expired`. These arrive with the daily batch.
+- **Slack: alert Refresh failures above 20%**: the insight alert below, when it fires.
+
+Insight alerts, checked daily and also sent by email:
+
+- **Refresh failure rate** above 0.2. A spike for one provider often means its API changed.
+- **Feedback per day** above 0, a daily email backup for the Slack message.
 
 ## Current project
 
-The Headroom project (US Cloud, id 773216) is set up as this guide describes: IP data discarded, browser capture features off, the starter dashboard removed, **Headroom usage** as the home dashboard, and both alerts on. Event and property descriptions wait for the first events, which arrive with the first release that includes the usage stats.
+The Headroom project (US Cloud, id 773216) is set up as this guide describes: IP data discarded, browser capture features off, the starter dashboard and the GeoIP transformation removed, **Headroom usage** as the home dashboard, and the Slack destinations and alerts on. Event and property descriptions wait for the first events, which arrive with the first release that includes the usage stats.
 
 ## Check the setup
 
