@@ -53,7 +53,7 @@ main() {
 
   say ""
   say "Installed $("${install_dir}/headroom" --version) to ${install_dir}/headroom"
-  count_install "$os" "$arch" "$version"
+  count_install "$os" "$arch" "$version" "${install_dir}/headroom"
 
   say ""
   say "Next:"
@@ -114,6 +114,23 @@ verify() {
   [ "$actual" = "$expected" ] || die "checksum mismatch for ${asset} (expected ${expected}, got ${actual}); nothing was installed"
 }
 
+# The server's install ID, created here when the data directory has none, so the server's own usage
+# stats count this install under the same random ID. Falls back to a one-off ID.
+install_id() {
+  data_dir="$("$1" paths 2>/dev/null | sed -n 's/^data: *//p')"
+  file="${data_dir}/install-id"
+  if [ -n "$data_dir" ] && [ -s "$file" ]; then
+    head -n 1 "$file" | tr -cd '0-9a-f-'
+    return 0
+  fi
+  id="$(od -An -N16 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n' |
+    sed 's/^\(.\{8\}\)\(.\{4\}\)\(.\{4\}\)\(.\{4\}\)\(.\{12\}\)$/\1-\2-\3-\4-\5/')"
+  if [ -n "$data_dir" ] && [ -n "$id" ]; then
+    (umask 077 && mkdir -p "$data_dir" && printf '%s\n' "$id" >"$file") 2>/dev/null || true
+  fi
+  printf '%s' "$id"
+}
+
 # One anonymous event so the maintainer can count installs (ADR 0007). A random ID, the OS, the CPU and
 # the version asked for; it never waits more than 3 seconds and never fails the install.
 count_install() {
@@ -123,7 +140,7 @@ count_install() {
   command -v curl >/dev/null 2>&1 || return 0
   asked="custom"
   if [ "$3" = "latest" ] || printf '%s' "$3" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then asked="$3"; fi
-  id="$(od -An -N16 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n')"
+  id="$(install_id "$4")"
   body="{\"api_key\":\"phc_mFhU4x7B3Ze55gPVQJozu9tpkEzTtUh3kBdq2PtDi2uN\",\"batch\":[{\"event\":\"install_script\",\"distinct_id\":\"${id:-unknown}\",\"properties\":{\"os\":\"$1\",\"arch\":\"$2\",\"version\":\"${asked}\",\"\$process_person_profile\":false,\"\$geoip_disable\":true}}]}"
   curl -fsS -m 3 -o /dev/null -H 'content-type: application/json' --data "$body" \
     https://hd.headroom.theblank.club/batch/ >/dev/null 2>&1 || true

@@ -45,6 +45,8 @@ export interface SchedulerOptions {
   readonly retentionDays?: () => number;
   readonly now?: () => Date;
   readonly log?: (level: "debug" | "info" | "warn" | "error", message: string) => void;
+  /** Receives each caught error with where it happened, for error tracking. Its failure is ignored. */
+  readonly report?: (where: string, error: unknown) => void;
 }
 
 /** How often old history is pruned. The first prune runs on the first tick after startup. */
@@ -64,12 +66,22 @@ export class Scheduler {
     this.now = deps.now ?? (() => new Date());
   }
 
+  /** Log a caught error and hand it to error tracking. */
+  private fail(where: string, message: string, error: unknown): void {
+    this.deps.log?.("error", message);
+    try {
+      this.deps.report?.(where, error);
+    } catch {
+      // Error tracking never stops the scheduler.
+    }
+  }
+
   start(): void {
     if (this.timer) return;
     this.stopped = false;
     const run = (): void => {
       this.tick().catch((error: unknown) =>
-        this.deps.log?.("error", `tick failed: ${errorClass(error)}`),
+        this.fail("tick", `tick failed: ${errorClass(error)}`, error),
       );
     };
     this.timer = setInterval(run, this.deps.tickMs ?? 30_000);
@@ -110,7 +122,7 @@ export class Scheduler {
           await this.deps.connect.expire(id);
           this.deps.log?.("info", `expired attempt ${id}`);
         } catch (error) {
-          this.deps.log?.("error", `expiring attempt ${id} failed: ${errorClass(error)}`);
+          this.fail("expire attempt", `expiring attempt ${id} failed: ${errorClass(error)}`, error);
         }
       }
       for (const connection of this.deps.connections.list()) {
@@ -136,7 +148,7 @@ export class Scheduler {
           await this.runHook("watch", this.deps.watch, connection.id);
         } catch (error) {
           // The class only: the message could carry provider text.
-          this.deps.log?.("error", `collecting ${connection.id} failed: ${errorClass(error)}`);
+          this.fail("collect", `collecting ${connection.id} failed: ${errorClass(error)}`, error);
         }
       }
     } finally {
@@ -155,7 +167,7 @@ export class Scheduler {
     try {
       await hook(connectionId, this.now().getTime());
     } catch (error) {
-      this.deps.log?.("error", `${name} hook failed: ${errorClass(error)}`);
+      this.fail(`${name} hook`, `${name} hook failed: ${errorClass(error)}`, error);
     }
   }
 
@@ -176,7 +188,7 @@ export class Scheduler {
         `pruned history: ${pruned.snapshots} snapshots, ${pruned.syncRuns} runs, ${events} events`,
       );
     } catch (error) {
-      this.deps.log?.("error", `history prune failed: ${errorClass(error)}`);
+      this.fail("history prune", `history prune failed: ${errorClass(error)}`, error);
     }
   }
 
@@ -187,7 +199,7 @@ export class Scheduler {
       await this.deps.afterTick(this.now().getTime());
     } catch (error) {
       // The class only: the message could carry a URL with a secret in it.
-      this.deps.log?.("error", `after-tick hook failed: ${errorClass(error)}`);
+      this.fail("after-tick hook", `after-tick hook failed: ${errorClass(error)}`, error);
     }
   }
 

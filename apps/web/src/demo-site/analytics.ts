@@ -72,6 +72,7 @@ export function startAnalytics(): void {
       capture_pageleave: false,
       disable_session_recording: true,
       disable_surveys: true,
+      capture_exceptions: true,
       advanced_disable_flags: true,
       ip: false,
     });

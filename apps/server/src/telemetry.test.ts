@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type { Fetch } from "./notify/http.ts";
+import { framesOf, reportOf } from "./telemetry-exceptions.ts";
 import {
   errorOf,
   loadOrCreateInstallId,
@@ -15,13 +16,21 @@ import {
 } from "./telemetry.ts";
 
 const hour = 3_600_000;
-const anonymous = { $process_person_profile: false, $geoip_disable: true };
+const anonymous = { schema: 1, $process_person_profile: false, $geoip_disable: true };
+const start = 1_700_000_000_000;
+/** The window the first daily batch covers: the day before the first tick. */
+const firstWindow = {
+  window_start: new Date(start - 24 * 3_600_000).toISOString(),
+  window_end: new Date(start).toISOString(),
+  window_hours: 24,
+};
 
 const batchSchema = z.object({
   api_key: z.string(),
   batch: z.array(
     z.object({
       event: z.string(),
+      uuid: z.uuid(),
       distinct_id: z.string(),
       properties: z.record(z.string(), z.unknown()),
     }),
@@ -30,11 +39,15 @@ const batchSchema = z.object({
 
 const event = (name: string, properties: Record<string, unknown>) => ({
   event: name,
+  uuid: expect.any(String),
   distinct_id: "install-1",
   properties: { ...properties, ...anonymous },
 });
+/** A daily event: it also carries the window it covers. */
+const daily = (name: string, properties: Record<string, unknown>) =>
+  event(name, { ...properties, ...firstWindow });
 const connect = (provider: string, method: string, state: string) =>
-  event("connect_result", { version: "0.2.0", provider, method, state });
+  daily("connect_result", { version: "0.2.0", provider, method, state });
 
 /** Event names of every request, flattened. */
 const names = (sent: readonly z.infer<typeof batchSchema>[]): string[] =>
@@ -98,6 +111,15 @@ function setup(
           { channel: "webhook", status: "failed", failure: "unauthorized", count: 3 },
         ],
         latestVersion: "0.3.0",
+        metrics: [
+          { provider: "codex", availability: "available", count: 4 },
+          { provider: "codex", availability: "unknown", count: 1 },
+        ],
+        plans: [
+          { provider: "codex", plan: "pro", count: 2 },
+          { provider: "cursor", plan: "other", count: 1 },
+        ],
+        enabledProviders: ["cursor", "codex"],
         features: { account_actions: false, auto_reset_rules: 1 },
       };
     },
@@ -126,27 +148,30 @@ describe("telemetry", () => {
       {
         api_key: "phc_test",
         batch: [
-          event("install_active", {
+          daily("install_active", {
             version: "0.2.0",
             os: "linux-x64",
             install: "docker",
             account_total: 3,
             providers: ["codex", "cursor"],
+            enabled_providers: ["codex", "cursor"],
             mac_clients: [],
             latest_version: "0.3.0",
             update_available: true,
             feature_account_actions: false,
             feature_auto_reset_rules: 1,
           }),
-          event("provider_daily", {
+          daily("provider_daily", {
             version: "0.2.0",
             provider: "codex",
             accounts: 2,
             refreshes: 90,
             refresh_failed: 0,
             refresh_succeeded: 90,
+            metrics_available: 4,
+            metrics_unknown: 1,
           }),
-          event("provider_daily", {
+          daily("provider_daily", {
             version: "0.2.0",
             provider: "cursor",
             accounts: 1,
@@ -158,34 +183,36 @@ describe("telemetry", () => {
           connect("codex", "device_code", "succeeded"),
           connect("cursor", "api_key", "failed"),
           connect("cursor", "api_key", "failed"),
-          event("action_result", {
+          daily("action_result", {
             version: "0.2.0",
             provider: "codex",
             action: "consume_reset_credit",
             origin: "automation",
             state: "succeeded",
           }),
-          event("delivery_daily", {
+          daily("delivery_daily", {
             version: "0.2.0",
             channel: "telegram",
             status: "delivered",
             failure: null,
             count: 12,
           }),
-          event("delivery_daily", {
+          daily("delivery_daily", {
             version: "0.2.0",
             channel: "webhook",
             status: "failed",
             failure: "unauthorized",
             count: 3,
           }),
-          event("server_error", { version: "0.2.0", where: "tick", error: "TypeError", count: 2 }),
-          event("server_error", {
+          daily("server_error", { version: "0.2.0", where: "tick", error: "TypeError", count: 2 }),
+          daily("server_error", {
             version: "0.2.0",
             where: "request",
             error: "RangeError",
             count: 1,
           }),
+          daily("plan_daily", { version: "0.2.0", provider: "codex", plan: "pro", count: 2 }),
+          daily("plan_daily", { version: "0.2.0", provider: "cursor", plan: "other", count: 1 }),
         ],
       },
     ]);
@@ -204,20 +231,19 @@ describe("telemetry", () => {
     h.service.markView("wallet");
     h.service.markView("analytics");
     h.service.markAction("update_opened");
+    h.service.markTool("status");
+    h.service.markTool("history");
+    h.service.markTool("status");
     h.advance(hour);
     await h.service.tick();
     expect(h.sent[1]?.batch).toEqual([
-      {
-        event: "opened",
-        distinct_id: "install-1",
-        properties: {
-          version: "0.2.0",
-          surfaces: ["mac", "web"],
-          views: ["analytics", "wallet"],
-          actions: ["update_opened"],
-          ...anonymous,
-        },
-      },
+      event("opened", {
+        version: "0.2.0",
+        surfaces: ["mac", "web"],
+        views: ["analytics", "wallet"],
+        actions: ["update_opened"],
+        mcp_tools: ["history", "status"],
+      }),
     ]);
 
     h.advance(23 * hour);
@@ -257,11 +283,7 @@ describe("telemetry", () => {
     const on = setup();
     expect(await on.service.sendFeedback("Love the Wallet")).toBe("sent");
     expect(on.sent[0]?.batch).toEqual([
-      {
-        event: "feedback",
-        distinct_id: "install-1",
-        properties: { version: "0.2.0", message: "Love the Wallet", ...anonymous },
-      },
+      event("feedback", { version: "0.2.0", message: "Love the Wallet" }),
     ]);
 
     const off = setup({ enabled: false });
@@ -324,6 +346,82 @@ describe("telemetry", () => {
     expect(errorOf("Weird: 42")).toEqual({ where: "other", error: "unknown" });
   });
 
+  test("caught errors go to error tracking once per place, with a count and cleaned frames", async () => {
+    const h = setup();
+    const error = new TypeError("token sk-secret rejected for amy@example.com");
+    error.stack = [
+      "TypeError: token sk-secret rejected for amy@example.com",
+      "    at refresh (/Users/amy/headroom/packages/connectors/src/codex.ts:42:7)",
+      "    at async collect (/Users/amy/headroom/apps/server/src/scheduler.ts:140:11)",
+      "    at fetch (/Users/amy/headroom/node_modules/hono/dist/index.js:9:3)",
+    ].join("\n");
+    h.service.captureException(reportOf(error, "collect", "server"));
+    h.service.captureException(reportOf(error, "collect", "server"));
+    await h.service.tick();
+    const exception = h.sent[1]?.batch[0];
+    expect(exception?.event).toBe("$exception");
+    expect(exception?.properties).toEqual({
+      version: "0.2.0",
+      count: 2,
+      where: "collect",
+      source: "server",
+      $exception_list: [
+        {
+          type: "TypeError",
+          value: "collect",
+          mechanism: { handled: true, synthetic: false },
+          stacktrace: {
+            type: "raw",
+            frames: [
+              {
+                function: "fetch",
+                filename: "node_modules/hono/dist/index.js",
+                lineno: 9,
+                colno: 3,
+                in_app: false,
+                platform: "custom",
+                lang: "javascript",
+              },
+              {
+                function: "async collect",
+                filename: "apps/server/src/scheduler.ts",
+                lineno: 140,
+                colno: 11,
+                in_app: true,
+                platform: "custom",
+                lang: "javascript",
+              },
+              {
+                function: "refresh",
+                filename: "packages/connectors/src/codex.ts",
+                lineno: 42,
+                colno: 7,
+                in_app: true,
+                platform: "custom",
+                lang: "javascript",
+              },
+            ],
+          },
+        },
+      ],
+      ...anonymous,
+    });
+    expect(JSON.stringify(h.sent)).not.toContain("sk-secret");
+    expect(JSON.stringify(h.sent)).not.toContain("amy");
+  });
+
+  test("browser frames keep the asset path, not the host", () => {
+    expect(framesOf("render@https://headroom.tail1.ts.net/assets/index-ab12.js?v=1:3:9")).toEqual([
+      {
+        function: "render",
+        filename: "assets/index-ab12.js",
+        lineno: 3,
+        colno: 9,
+        in_app: true,
+      },
+    ]);
+  });
+
   test("sign-ins beyond the daily cap are not sent one by one", async () => {
     const h = setup();
     const many = new TelemetryService({
@@ -348,6 +446,9 @@ describe("telemetry", () => {
         actions: [],
         deliveries: [],
         latestVersion: null,
+        metrics: [],
+        plans: [],
+        enabledProviders: [],
         features: {},
       }),
       key: "phc_test",

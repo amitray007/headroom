@@ -28,6 +28,7 @@ import {
   type SubmitInput,
   type UsageAction,
   type UsageView,
+  type WebErrorPlace,
 } from "@headroom/core/contracts";
 import {
   metricSchema,
@@ -413,6 +414,16 @@ export const api = {
   /** Fire and forget: the usage count of a view. A failure is not worth a word. */
   markView: (view: UsageView): Promise<void> =>
     request("POST", "/api/usage/view", z.undefined(), { view }).then(
+      () => undefined,
+      () => undefined,
+    ),
+  /** Fire and forget: a caught error's class and stack. The server keeps only cleaned frames. */
+  reportError: (type: string, where: WebErrorPlace, stack: string): Promise<void> =>
+    request("POST", "/api/usage/error", z.undefined(), {
+      type: type.slice(0, 100),
+      where,
+      stack: stack.slice(0, 16_000),
+    }).then(
       () => undefined,
       () => undefined,
     ),

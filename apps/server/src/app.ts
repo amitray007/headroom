@@ -32,6 +32,7 @@ import { providerRoutes } from "./routes/providers.ts";
 import { noticeRoutes } from "./routes/notices.ts";
 import { settingsRoutes } from "./routes/settings.ts";
 import { usageRoutes } from "./routes/usage.ts";
+import { reportOf } from "./telemetry-exceptions.ts";
 import { walletRoutes } from "./routes/wallet.ts";
 import {
   isRootImage,
@@ -47,6 +48,7 @@ export function createApp(ctx: AppContext): Hono {
 
   app.onError((error, c) => {
     ctx.log("error", `${c.req.method} ${c.req.path}: ${error.name}`);
+    ctx.telemetry.captureException(reportOf(error, `request ${c.req.method}`, "server"));
     return c.json({ error: "internal_error" }, 500);
   });
 

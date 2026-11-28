@@ -7,7 +7,9 @@ export {
   feedbackMaxLength,
   usageActions,
   usageViews,
+  webErrorPlaces,
   type UsageAction,
+  type WebErrorPlace,
   type UsageView,
 } from "./usage.ts";
 export {

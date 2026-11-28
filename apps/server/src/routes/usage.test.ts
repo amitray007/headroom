@@ -52,6 +52,20 @@ describe("usage routes", () => {
     ]);
   });
 
+  test("a web error keeps only its class and cleaned frames", async () => {
+    const h = harness();
+    const cookie = await signedIn(h.ctx, h.app);
+    const post = (body: unknown) =>
+      h.app.request(url(h.ctx, "/api/usage/error"), jsonPost(h.ctx, body, { cookie }));
+    const ok = await post({
+      type: "TypeError",
+      where: "render",
+      stack: "TypeError: x\n    at render (https://my.host.ts.net/assets/index-a1.js:1:2)",
+    });
+    expect(ok.status).toBe(204);
+    expect((await post({ type: "TypeError", where: "elsewhere", stack: "" })).status).toBe(400);
+  });
+
   test("a view is accepted only from the known list", async () => {
     const h = harness();
     const cookie = await signedIn(h.ctx, h.app);
@@ -136,6 +150,7 @@ describe("activity facts", () => {
       refreshes: [],
       actions: [],
       deliveries: [],
+      metrics: [],
       features: {
         account_actions: false,
         auto_reset_rules: 0,
@@ -146,6 +161,18 @@ describe("activity facts", () => {
         channels_webhook: 0,
         refresh_minutes: 15,
         history_days: 90,
+        limits_view: "used",
+        low_threshold_percent: 30,
+        time_style: "countdown",
+        clock: "24h",
+        density: "comfortable",
+        detailed_order: "urgency",
+        keep_inactive_last: true,
+        wallet_currency: "auto",
+        notification_kinds_on: expect.any(Number),
+        notification_sessions: true,
+        notification_lead_days: 3,
+        muted_providers: 0,
       },
     });
   });
