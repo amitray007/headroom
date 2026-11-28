@@ -4,7 +4,8 @@ import { existsSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { plistPath, unitPath } from "./service.ts";
 
 const releasesApi = "https://api.github.com/repos/amitray007/headroom/releases/latest";
-const downloadBase = "https://github.com/amitray007/headroom/releases/download";
+const releasePages = "https://github.com/amitray007/headroom/releases";
+const downloadBase = `${releasePages}/download`;
 
 /** How this binary reached the machine. Only a standalone install updates itself. */
 export type InstallKind = "app" | "homebrew" | "npm" | "python" | "docker" | "standalone";
@@ -117,6 +118,34 @@ async function getBytes(deps: UpdateDeps, url: string): Promise<Uint8Array> {
   return new Uint8Array(await response.arrayBuffer());
 }
 
+export interface LatestRelease {
+  readonly version: string;
+  /** The release page, which carries the notes. */
+  readonly notesUrl: string;
+}
+
+/** The newest server release on GitHub, or a one-line reason it could not be read. Throws nothing. */
+export async function latestRelease(
+  fetchFn: (url: string, init: RequestInit) => Promise<Response>,
+): Promise<LatestRelease | string> {
+  try {
+    const response = await fetchFn(releasesApi, {
+      headers: { accept: "application/vnd.github+json", "user-agent": "headroom-update" },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return `Could not read the latest release (HTTP ${response.status}).`;
+    const body: unknown = await response.json();
+    const tag =
+      typeof body === "object" && body !== null && "tag_name" in body ? body.tag_name : undefined;
+    if (typeof tag !== "string" || !/^v?\d+\.\d+\.\d+/.test(tag)) {
+      return "The latest release has no usable version tag.";
+    }
+    return { version: tag.replace(/^v/, ""), notesUrl: `${releasePages}/tag/${tag}` };
+  } catch (error) {
+    return `Could not read the latest release: ${error instanceof Error ? error.name : "unknown error"}.`;
+  }
+}
+
 /** Run `headroom update`. With `check`, only report. Never throws; failures come back as code 1. */
 export async function runUpdate(
   options: { readonly check: boolean },
@@ -132,22 +161,9 @@ export async function runUpdate(
       return { code: 1, lines: [`No build exists for ${deps.platform} ${deps.arch}.`] };
     }
 
-    const response = await deps.fetch(releasesApi, {
-      headers: { accept: "application/vnd.github+json", "user-agent": "headroom-update" },
-    });
-    if (!response.ok) {
-      return {
-        code: 1,
-        lines: [`Could not read the latest release (HTTP ${response.status}).`],
-      };
-    }
-    const body: unknown = await response.json();
-    const tag =
-      typeof body === "object" && body !== null && "tag_name" in body ? body.tag_name : undefined;
-    if (typeof tag !== "string" || !/^v?\d+\.\d+\.\d+/.test(tag)) {
-      return { code: 1, lines: ["The latest release has no usable version tag."] };
-    }
-    const latest = tag.replace(/^v/, "");
+    const release = await latestRelease((url, init) => deps.fetch(url, init));
+    if (typeof release === "string") return { code: 1, lines: [release] };
+    const latest = release.version;
 
     if (compareVersions(latest, deps.version) <= 0) {
       return { code: 0, lines: [`headroom ${deps.version} is up to date.`] };

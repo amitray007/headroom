@@ -24,6 +24,7 @@ describe("settings", () => {
       walletCurrency: null,
       historyRetentionDays: 90,
       accountActions: false,
+      usageStats: true,
       providers: {},
       notifications: {
         kinds: kindSwitches(true),

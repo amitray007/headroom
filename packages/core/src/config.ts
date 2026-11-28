@@ -53,6 +53,11 @@ export const configSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  /** Off turns the anonymous usage pings off whatever the setting says (ADR 0007). */
+  telemetry: z
+    .enum(["true", "false", "1", "0"])
+    .default("true")
+    .transform((value) => value === "true" || value === "1"),
   /** Directory with the built web UI (index.html and assets). Empty disables static serving. */
   webDir: z.string().default("apps/web/dist"),
   /** Connectors the owner has turned on, comma separated. All seven by default (D36); list fewer to turn some off. */
@@ -92,6 +97,7 @@ const envKeys = {
   trustedOrigins: "HEADROOM_TRUSTED_ORIGINS",
   logLevel: "HEADROOM_LOG_LEVEL",
   trustProxy: "HEADROOM_TRUST_PROXY",
+  telemetry: "HEADROOM_TELEMETRY",
   webDir: "HEADROOM_WEB_DIR",
   enabledProviders: "HEADROOM_ENABLED_PROVIDERS",
   codexBin: "HEADROOM_CODEX_BIN",

@@ -43,6 +43,10 @@ import { deriveNotifications, expiringTopUps } from "@headroom/view-model/notifi
 
 import { PairingService } from "./pairing.ts";
 import { createRegistry } from "./registry.ts";
+import { ReleaseNotice } from "./release-notice.ts";
+import { loadOrCreateInstallId, TelemetryService } from "./telemetry.ts";
+import { detectInstall } from "./update.ts";
+import { version } from "./version.ts";
 
 /** Everything the routes need, built once at start or once per test. */
 export interface AppContext {
@@ -79,6 +83,10 @@ export interface AppContext {
   readonly dispatcher: NotificationDispatcher;
   /** The Wallet's exchange rates, fetched from the ECB via Frankfurter. Started in index.ts, like the scheduler. */
   readonly exchangeRates: ExchangeRateService;
+  /** Anonymous usage pings (ADR 0007). Started in index.ts; routes mark what the owner opened. */
+  readonly telemetry: TelemetryService;
+  /** The newest release, for the dashboard's update notice. */
+  readonly releases: ReleaseNotice;
   /** Outgoing HTTP for notification senders and exchange rates. */
   readonly fetch: Fetch;
   /** Origins allowed for CORS, Better Auth and frame-ancestors. Always includes the base URL. */
@@ -194,6 +202,21 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     events: accountEvents,
     actions,
   });
+  const telemetry = new TelemetryService({
+    fetch: fetchFn,
+    now,
+    enabled: () => config.telemetry && settings.get().usageStats,
+    installId: memo(() => loadOrCreateInstallId(config.dataDir)),
+    facts: () => ({
+      version,
+      platform: process.platform,
+      arch: process.arch,
+      install: detectInstall(process.execPath, existsSync("/.dockerenv")),
+      accounts: accountsPerProvider(connections.list()),
+    }),
+    log,
+  });
+  const releases = new ReleaseNotice({ version, fetch: fetchFn, now });
   const context: Omit<AppContext, "dispatcher" | "exchangeRates"> = {
     config,
     db,
@@ -227,6 +250,8 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     autoReset,
     channels,
     deliveries,
+    telemetry,
+    releases,
     fetch: fetchFn,
     trustedOrigins,
     now,
@@ -249,6 +274,21 @@ export function bootstrap(options: BootstrapOptions): AppContext {
   });
   const exchangeRates = new ExchangeRateService({ fetch: fetchFn, now, log });
   return { ...context, dispatcher, exchangeRates };
+}
+
+/** Linked accounts per provider, for the daily usage ping. */
+function accountsPerProvider(
+  rows: readonly { readonly provider: string }[],
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const row of rows) counts[row.provider] = (counts[row.provider] ?? 0) + 1;
+  return counts;
+}
+
+/** Run `make` on the first call only, so the install ID file is touched only when a ping is sent. */
+function memo<T>(make: () => T): () => T {
+  let value: { readonly v: T } | null = null;
+  return () => (value ??= { v: make() }).v;
 }
 
 /** Whether the database holds anything sealed with the master key. */

@@ -118,6 +118,8 @@ function getRoute(path: string): Response {
       return Response.json({ settings });
     case "/api/exchange-rates":
       return rates();
+    case "/api/version":
+      return Response.json({ version: "demo", update: null });
     case "/api/wallet":
       return Response.json({ costs: {}, topUps: [] });
     case "/api/delivery/channels":

@@ -255,6 +255,12 @@ const exchangeRatesSchema = z.object({
 });
 export type ExchangeRatesPayload = z.infer<typeof exchangeRatesSchema>;
 
+/** The running version and a newer release, when there is one. */
+const versionSchema = z.object({
+  version: z.string(),
+  update: z.object({ version: z.string(), notesUrl: z.url() }).nullable(),
+});
+
 const overviewSchema = z.object({
   connections: z.array(overviewConnectionSchema),
   /** The effective order of every provider, including those with no accounts. */
@@ -445,6 +451,7 @@ export const api = {
   ),
   // Reading rates and asking the server to fetch them again touch no account, so Demo Mode allows both.
   exchangeRates: () => request("GET", "/api/exchange-rates", exchangeRatesSchema),
+  version: () => request("GET", "/api/version", versionSchema),
   refreshExchangeRates: () => request("POST", "/api/exchange-rates/refresh", exchangeRatesSchema),
   wallet: () => request("GET", "/api/wallet", walletSchema),
   setCost: changesAccount((connectionId: string, cost: Cost) =>

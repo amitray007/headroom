@@ -140,6 +140,7 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/delivery", deliveryRoutes(ctx));
   api.route("/exchange-rates", exchangeRateRoutes(ctx));
   api.route("/wallet", walletRoutes(ctx));
+  api.get("/version", requireSession(ctx), async (c) => c.json(await ctx.releases.view()));
 
   app.route("/api", api);
   // An unknown API path is an API error, not a client-side route for the web UI.

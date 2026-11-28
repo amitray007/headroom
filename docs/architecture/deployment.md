@@ -16,6 +16,7 @@ The target is one Bun-compiled binary, one SQLite file, one key file and three l
 - `HEADROOM_PUBLIC_URL` is the public origin. It fixes the passkey relying party, Secure cookies and HSTS. `HEADROOM_TRUSTED_ORIGINS` adds origins allowed to call the API and embed the UI.
 - `HEADROOM_TRUST_PROXY=true` makes Headroom take the client address from the last entry of `X-Forwarded-For`, the one the proxy appended, for sign-in throttling. Leave it off unless a reverse proxy you control sets that header; otherwise the socket address is used and any client-supplied header is discarded.
 - `HEADROOM_ENABLED_PROVIDERS` lists the connectors that exist at runtime, default all seven. `HEADROOM_REFRESH_INTERVAL_SECONDS` sets the default of the owner's refresh-interval setting (the nearest of 5, 10, 15 or 30 minutes), which then wins. `HEADROOM_STALE_AFTER_SECONDS` tunes the stale notice.
+- `HEADROOM_TELEMETRY=false` (or `0`) turns off the anonymous usage pings, whatever the "Share Usage Stats" setting says. See [ADR 0007](../decisions/0007-usage-stats.md) for exactly what they send.
 - No environment variable controls account actions. They are off by default and run only after the owner switches on "Allow Account Actions" in Settings and confirms each action; until then the route answers 403 and the button is disabled.
 - TLS terminates at a reverse proxy. Headroom listens on one HTTP port and sets secure cookies when it sees a trusted forwarded scheme.
 - A long-running process is required. Serverless request lifetimes cannot own a device-code poll or a token refresh.

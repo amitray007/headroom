@@ -124,6 +124,8 @@ const scheduler = new Scheduler({
 scheduler.start();
 // Fetches the Wallet's exchange rates now and every 24 hours.
 ctx.exchangeRates.start();
+// Anonymous usage pings, unless the owner or HEADROOM_TELEMETRY turned them off (ADR 0007).
+ctx.telemetry.start();
 
 server.reload({ fetch: createApp(ctx).fetch });
 if (explicitPort === undefined) {
@@ -148,6 +150,7 @@ async function shutdown(signal: string): Promise<void> {
   shuttingDown = true;
   ctx.log("info", `received ${signal}, shutting down`);
   ctx.exchangeRates.stop();
+  ctx.telemetry.stop();
   try {
     const drained = await Promise.race([
       scheduler.stop().then(() => true),

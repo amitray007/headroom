@@ -208,6 +208,12 @@ function General(props: { readonly change: (patch: SettingsPatch) => void }) {
           format={(value) => (value === 365 ? "1 year" : `${value} days`)}
           onChange={(historyRetentionDays) => change({ historyRetentionDays })}
         />
+        <SwitchRow
+          title="Share Usage Stats"
+          note="Anonymous counts. No account data."
+          checked={settings.usageStats}
+          onChange={(usageStats) => change({ usageStats })}
+        />
       </Section>
       <Section title="Time">
         <ChoiceRow

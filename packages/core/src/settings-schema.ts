@@ -64,6 +64,8 @@ export const settingsSchema = z.object({
   historyRetentionDays,
   /** The owner's half of the account-actions gate; the server flag is the other half. */
   accountActions: z.boolean(),
+  /** Send the anonymous daily and opened pings (ADR 0007). On by default; HEADROOM_TELEMETRY=false overrides it. */
+  usageStats: z.boolean(),
   /** Per-provider display choices. A provider with no entry uses the defaults. */
   providers: z.partialRecord(providerSchema, providerPrefsSchema),
   notifications: z.object({

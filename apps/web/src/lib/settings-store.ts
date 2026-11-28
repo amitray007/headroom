@@ -14,6 +14,7 @@ export const defaultSettings: Settings = {
   keepInactiveLast: true,
   historyRetentionDays: 90,
   accountActions: false,
+  usageStats: true,
   providers: {},
   walletCurrency: null,
   notifications: {
