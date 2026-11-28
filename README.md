@@ -221,7 +221,7 @@ Headroom sends anonymous usage stats so the maintainer knows how many installs r
 - once a day: the Headroom version, OS, install method, and how many accounts you linked per provider
 - at most once an hour, only if you opened Headroom: the version and where you opened it (web, Mac app or MCP)
 
-It never sends account emails or IDs, credentials, balances, limits, usage figures or host names, and the IP address is discarded. Turn it off with Share Usage Stats in Settings, or set `HEADROOM_TELEMETRY=false`. [ADR 0007](docs/decisions/0007-usage-stats.md) lists every field.
+It never sends account emails or IDs, credentials, balances, limits, usage figures or host names, and the IP address is discarded. Turn it off with Share Usage Stats on the Privacy tab of Settings, or set `HEADROOM_TELEMETRY=false`. [ADR 0007](docs/decisions/0007-usage-stats.md) lists every field.
 
 ## Development
 

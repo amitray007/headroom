@@ -16,7 +16,7 @@ Headroom holds provider credentials, so anything it sends out must carry no acco
   - `opened`, at most once an hour, only when the owner looked at Headroom since the last one: `version` and `surfaces`, a list of `web` (the dashboard read the overview), `mac` (the Mac app read its feed) and `mcp` (an agent called the MCP server).
 - Every event sets `$process_person_profile: false` and `$geoip_disable: true`. The PostHog project has "Discard client IP data" on.
 - Nothing else is sent: no IP addresses kept, no account emails, logins or IDs, no credentials, balances, limits, usage figures, host names or provider responses.
-- The `usageStats` setting, "Share Usage Stats" in Settings, is on by default and the owner can switch it off. `HEADROOM_TELEMETRY=false` turns the pings off whatever the setting says. Both are read at send time, so a change needs no restart.
+- The `usageStats` setting, "Share Usage Stats" on the Privacy tab of Settings, is on by default and the owner can switch it off. `HEADROOM_TELEMETRY=false` turns the pings off whatever the setting says. Both are read at send time, so a change needs no restart.
 - A failed send is dropped and never retried, and it never shows an error.
 - The update notice is separate from the pings. `GET /api/version` asks GitHub's latest-release API at most once a day and returns the running version and a newer release with its notes page. The avatar menu then shows "Update to X.Y.Z", which opens the release notes. This check sends nothing about the install and works with the pings off.
 

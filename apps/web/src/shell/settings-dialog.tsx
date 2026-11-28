@@ -208,12 +208,6 @@ function General(props: { readonly change: (patch: SettingsPatch) => void }) {
           format={(value) => (value === 365 ? "1 year" : `${value} days`)}
           onChange={(historyRetentionDays) => change({ historyRetentionDays })}
         />
-        <SwitchRow
-          title="Share Usage Stats"
-          note="Anonymous counts. No account data."
-          checked={settings.usageStats}
-          onChange={(usageStats) => change({ usageStats })}
-        />
       </Section>
       <Section title="Time">
         <ChoiceRow
@@ -282,6 +276,21 @@ function Privacy() {
           onChange={prefs.setDemo}
         />
       )}
+    </Section>
+  );
+}
+
+/** A server setting, so it sits apart from the device switches above it. */
+function UsageStats(props: { readonly change: (patch: SettingsPatch) => void }) {
+  const { settings } = useSettings();
+  return (
+    <Section title="Usage Stats">
+      <SwitchRow
+        title="Share Usage Stats"
+        note="Anonymous counts. No account data."
+        checked={settings.usageStats}
+        onChange={(usageStats) => props.change({ usageStats })}
+      />
     </Section>
   );
 }
@@ -558,7 +567,12 @@ export function SettingsDialog(props: {
               {tab === "channels" ? <ChannelsTab /> : null}
               {props.open && tab === "devices" ? <DevicesTab key={String(demo)} /> : null}
               {props.open && tab === "agents" ? <AgentsTab key={String(demo)} /> : null}
-              {tab === "privacy" ? <Privacy /> : null}
+              {tab === "privacy" ? (
+                <>
+                  <Privacy />
+                  <UsageStats change={change} />
+                </>
+              ) : null}
             </SlideSwap>
           </div>
         </WaitingContext>
