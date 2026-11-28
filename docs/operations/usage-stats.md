@@ -53,6 +53,7 @@ Create a dashboard named **Headroom usage** with these insights.
 | Pages and surfaces | SQL, below |
 | Retention | Retention, `install_active` returning `install_active`, weekly |
 | Feedback | SQL, below |
+| Feedback per day | Trends, `feedback`, total count, daily, bars |
 
 Feature use, the share of active installs that use each feature in the last day:
 
@@ -94,8 +95,12 @@ LIMIT 200
 
 ## Alerts
 
-- In Data pipelines, add a destination (Slack, Discord, email or webhook) for the `feedback` event, so each message reaches you as it arrives.
-- On the Refresh failure rate insight, add an alert for a value above 0.2. A spike for one provider often means its API changed.
+- On **Feedback per day**, an alert above 0, checked daily, emails you on each day a message arrives. For instant delivery, add a Slack, Discord or webhook destination for the `feedback` event in Data pipelines.
+- On **Refresh failure rate**, an alert above 0.2, checked daily. A spike for one provider often means its API changed.
+
+## Current project
+
+The Headroom project (US Cloud, id 773216) is set up as this guide describes: IP data discarded, browser capture features off, the starter dashboard removed, **Headroom usage** as the home dashboard, and both alerts on. Event and property descriptions wait for the first events, which arrive with the first release that includes the usage stats.
 
 ## Check the setup
 
