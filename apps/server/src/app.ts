@@ -31,6 +31,7 @@ import { overviewRoutes } from "./routes/overview.ts";
 import { providerRoutes } from "./routes/providers.ts";
 import { noticeRoutes } from "./routes/notices.ts";
 import { settingsRoutes } from "./routes/settings.ts";
+import { usageRoutes } from "./routes/usage.ts";
 import { walletRoutes } from "./routes/wallet.ts";
 import {
   isRootImage,
@@ -140,6 +141,8 @@ export function createApp(ctx: AppContext): Hono {
   api.route("/delivery", deliveryRoutes(ctx));
   api.route("/exchange-rates", exchangeRateRoutes(ctx));
   api.route("/wallet", walletRoutes(ctx));
+  api.get("/version", requireSession(ctx), async (c) => c.json(await ctx.releases.view()));
+  api.route("/", usageRoutes(ctx));
 
   app.route("/api", api);
   // An unknown API path is an API error, not a client-side route for the web UI.

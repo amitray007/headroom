@@ -118,6 +118,8 @@ function getRoute(path: string): Response {
       return Response.json({ settings });
     case "/api/exchange-rates":
       return rates();
+    case "/api/version":
+      return Response.json({ version: "demo", update: null });
     case "/api/wallet":
       return Response.json({ costs: {}, topUps: [] });
     case "/api/delivery/channels":
@@ -143,5 +145,6 @@ export function handleDemoRequest(method: string, url: string, body: unknown): R
     return Response.json({ settings });
   }
   if (verb === "POST" && path === "/api/exchange-rates/refresh") return rates();
+  if (verb === "POST" && path === "/api/usage/view") return new Response(null, { status: 204 });
   return refusal();
 }

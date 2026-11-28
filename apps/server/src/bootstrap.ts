@@ -43,6 +43,16 @@ import { deriveNotifications, expiringTopUps } from "@headroom/view-model/notifi
 
 import { PairingService } from "./pairing.ts";
 import { createRegistry } from "./registry.ts";
+import { ReleaseNotice } from "./release-notice.ts";
+import {
+  fileWatermark,
+  loadOrCreateInstallId,
+  TelemetryService,
+  type TelemetryOptions,
+} from "./telemetry.ts";
+import { activityFacts } from "./telemetry-facts.ts";
+import { detectInstall } from "./update.ts";
+import { version } from "./version.ts";
 
 /** Everything the routes need, built once at start or once per test. */
 export interface AppContext {
@@ -79,6 +89,10 @@ export interface AppContext {
   readonly dispatcher: NotificationDispatcher;
   /** The Wallet's exchange rates, fetched from the ECB via Frankfurter. Started in index.ts, like the scheduler. */
   readonly exchangeRates: ExchangeRateService;
+  /** Anonymous usage pings (ADR 0007). Started in index.ts; routes mark what the owner opened. */
+  readonly telemetry: TelemetryService;
+  /** The newest release, for the dashboard's update notice. */
+  readonly releases: ReleaseNotice;
   /** Outgoing HTTP for notification senders and exchange rates. */
   readonly fetch: Fetch;
   /** Origins allowed for CORS, Better Auth and frame-ancestors. Always includes the base URL. */
@@ -105,6 +119,10 @@ export interface BootstrapOptions {
   readonly fetch?: Fetch;
   /** Builds notification events from the overview. */
   readonly derive?: DeriveNotifications;
+  /** Override the PostHog project key; tests pass "" so nothing reaches PostHog. */
+  readonly telemetryKey?: string;
+  /** Override the install ID and watermark files; tests keep them in memory. */
+  readonly telemetryState?: Pick<TelemetryOptions, "installId" | "watermark">;
   /** Disconnect waits this long for a collection in flight; tests shorten it. Default 30 seconds. */
   readonly disconnectWaitMs?: number;
   readonly now?: () => Date;
@@ -117,7 +135,13 @@ export interface BootstrapOptions {
  */
 export function bootstrap(options: BootstrapOptions): AppContext {
   const { config } = options;
-  const log = options.log ?? (() => undefined);
+  const baseLog = options.log ?? (() => undefined);
+  // Error lines are also counted by class for the usage stats, once the service exists below.
+  const errors: { count?: (message: string) => void } = {};
+  const log: AppContext["log"] = (level, message) => {
+    baseLog(level, message);
+    if (level === "error") errors.count?.(message);
+  };
   const databasePath = options.databasePath ?? join(config.dataDir, "headroom.db");
   // The database holds sessions and sealed credentials: only the app user may list its folder.
   if (databasePath !== ":memory:")
@@ -194,6 +218,27 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     events: accountEvents,
     actions,
   });
+  const telemetry = new TelemetryService({
+    version,
+    fetch: fetchFn,
+    now,
+    enabled: () => config.telemetry && settings.get().usageStats,
+    installId:
+      options.telemetryState?.installId ?? memo(() => loadOrCreateInstallId(config.dataDir)),
+    watermark: options.telemetryState?.watermark ?? fileWatermark(config.dataDir),
+    facts: (since) => ({
+      platform: process.platform,
+      arch: process.arch,
+      install: detectInstall(process.execPath, existsSync("/.dockerenv")),
+      accounts: accountsPerProvider(connections.list()),
+      latestVersion: releases.known(),
+      ...activityFacts(sqlite, settings.get(), since),
+    }),
+    ...(options.telemetryKey === undefined ? {} : { key: options.telemetryKey }),
+    log,
+  });
+  errors.count = (message) => telemetry.countError(message);
+  const releases = new ReleaseNotice({ version, fetch: fetchFn, now });
   const context: Omit<AppContext, "dispatcher" | "exchangeRates"> = {
     config,
     db,
@@ -227,6 +272,8 @@ export function bootstrap(options: BootstrapOptions): AppContext {
     autoReset,
     channels,
     deliveries,
+    telemetry,
+    releases,
     fetch: fetchFn,
     trustedOrigins,
     now,
@@ -249,6 +296,21 @@ export function bootstrap(options: BootstrapOptions): AppContext {
   });
   const exchangeRates = new ExchangeRateService({ fetch: fetchFn, now, log });
   return { ...context, dispatcher, exchangeRates };
+}
+
+/** Linked accounts per provider, for the daily usage ping. */
+function accountsPerProvider(
+  rows: readonly { readonly provider: string }[],
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const row of rows) counts[row.provider] = (counts[row.provider] ?? 0) + 1;
+  return counts;
+}
+
+/** Run `make` on the first call only, so the install ID file is touched only when a ping is sent. */
+function memo<T>(make: () => T): () => T {
+  let value: { readonly v: T } | null = null;
+  return () => (value ??= { v: make() }).v;
 }
 
 /** Whether the database holds anything sealed with the master key. */

@@ -352,3 +352,21 @@ describe("demo mode guard", () => {
     expect(isDemoId("c1")).toBe(false);
   });
 });
+
+describe("usage stats and feedback", () => {
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  test("sendFeedback posts the message", async () => {
+    const calls = stub(null, 204);
+    await api.sendFeedback("hello");
+    expect(calls).toEqual([{ method: "POST", path: "/api/feedback", body: { message: "hello" } }]);
+  });
+
+  test("markView posts the view and swallows a failure", async () => {
+    const calls = stub({ error: "boom" }, 500);
+    await api.markView("wallet");
+    expect(calls[0]).toEqual({ method: "POST", path: "/api/usage/view", body: { view: "wallet" } });
+  });
+});

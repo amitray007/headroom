@@ -24,6 +24,8 @@ Every route lives under `/api`. Instants are epoch milliseconds. All routes exce
 | `PUT /api/wallet/costs/:connectionId`, `DELETE /api/wallet/costs/:connectionId` | Set the cost of one connection, or clear it back to Not set |
 | `POST /api/wallet/top-ups`, `PUT /api/wallet/top-ups/:id`, `DELETE /api/wallet/top-ups/:id` | Record a top-up, edit one, or remove one |
 | `GET /api/exchange-rates`, `POST /api/exchange-rates/refresh` | The daily reference rates the Wallet converts with; the POST fetches them again now, at most once a minute, and touches no account |
+| `GET /api/version` | The running version and a newer release, if any, see [Version](#version-and-usage) |
+| `POST /api/usage/view`, `POST /api/usage/action`, `POST /api/feedback` | The page the web app opened, and the owner's feedback message, see [Version](#version-and-usage) |
 | `GET /api/tokens`, `POST /api/tokens`, `DELETE /api/tokens/:id` | Session-only device token management, see [API tokens](#api-tokens) |
 | `GET /api/app/v1/feed?tz=<minutes>` | Token-only account feed, notices and Wallet summary, see [App feed](#app-feed) |
 | `GET /api/app/v1/whoami` | Token-only API version, server version, token name and scopes |
@@ -153,6 +155,7 @@ The response carries no provider account id or workspace id. The detail route is
 | `keepInactiveLast` | boolean (the Detailed view keeps paused and disconnected accounts at the bottom) | true |
 | `historyRetentionDays` | 30, 90, 180, 365 (how long snapshots and sync runs are kept; the newest of each per connection is always kept) | 90 |
 | `accountActions` | boolean | false |
+| `usageStats` | boolean (send the anonymous usage pings; `HEADROOM_TELEMETRY=false` overrides it, see [ADR 0007](../decisions/0007-usage-stats.md)) | true |
 | `providers` | An object keyed by provider name; each value is `{ "hideZeroBalance": boolean }` (leave every balance figure of the provider out of its panels while it is exactly 0; spend figures stay). Only Claude offers it so far, covering Usage Credits and Cloud Credits; the Settings Providers tab shows the switch only for providers it applies to | `{}` |
 | `notifications` | An object, see below | see below |
 | `walletCurrency` | One of the Wallet currencies, or null (follow the browser's locale) | null |
@@ -162,6 +165,12 @@ The response carries no provider account id or workspace id. The detail route is
 `PUT /api/order` takes `{ providers, accounts }`: `providers` is a list of provider names and `accounts` maps a provider to a list of connection ids. It needs a session and returns `400 invalid_body` for a duplicate or unknown provider, or a connection id that is duplicated, unknown or on another provider. Partial input is allowed: providers not listed follow the listed ones in default order, and connections not listed follow the listed ones within their provider. All writes happen in one transaction, so a rejected request changes nothing. The response is the full effective order, `{ providers, accounts }`, with `accounts` holding every provider that has connections. A new connection has no position and lands last in its provider; reconnect and disconnect leave the other positions alone.
 
 The scheduler reads `refreshIntervalMinutes` on every tick, so a change applies without a restart. The overview reports it as `refreshIntervalMs`. It reads `historyRetentionDays` each time it prunes, so that change needs no restart either (D29).
+
+## Version and usage
+
+`GET /api/version` needs a session and returns `{ version, update }`. `update` is `{ version, notesUrl }` when GitHub's latest release is newer than the running server, otherwise null. The server asks GitHub at most once a day and keeps the last answer when a check fails ([ADR 0007](../decisions/0007-usage-stats.md)).
+
+`POST /api/usage/view` takes `{ view }`, one of `overview`, `detailed`, `compare`, `timeline`, `wallet`, `analytics` or `connect`, and answers `204`; the usage stats report it in the next hourly event. `POST /api/usage/action` takes `{ action }`, currently only `update_opened`, and answers `204`. `POST /api/feedback` takes `{ message }`, 1 to 2,000 characters after trimming, and answers `204` once PostHog accepted it, `400 invalid_body`, `429 feedback_too_soon` within 30 seconds of the last message, or `503` with `feedback_unavailable` (the build has no project key) or `feedback_failed`. Both need a session.
 
 ## Wallet
 

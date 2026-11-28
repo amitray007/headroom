@@ -15,6 +15,7 @@ test("defaults on macOS live under Application Support", () => {
     trustedOrigins: [],
     logLevel: "info",
     trustProxy: false,
+    telemetry: true,
     webDir: "apps/web/dist",
     enabledProviders: [
       "codex",

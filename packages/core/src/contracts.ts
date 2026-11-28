@@ -4,6 +4,13 @@
  */
 export * from "./enums.ts";
 export {
+  feedbackMaxLength,
+  usageActions,
+  usageViews,
+  type UsageAction,
+  type UsageView,
+} from "./usage.ts";
+export {
   methodAvailabilitySchema,
   nextStepPayloadSchema,
   submitInputSchema,

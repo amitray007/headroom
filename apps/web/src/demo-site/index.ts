@@ -1,4 +1,5 @@
 import { createDemoFetch } from "./fetch.ts";
+import { startAnalytics } from "./analytics.ts";
 import { isEmbedded, startEmbedBridge } from "./embed.ts";
 
 export { DemoBanner } from "./banner.tsx";
@@ -14,6 +15,7 @@ export function installDemoSite(): void {
   if (cleanPath(pathname) !== pathname) {
     window.history.replaceState(window.history.state, "", cleanPath(pathname) + search + hash);
   }
+  startAnalytics();
   window.fetch = createDemoFetch(window.fetch.bind(window), window.location.origin);
   if (isEmbedded(window.location.search)) {
     document.documentElement.setAttribute("data-embed", "");

@@ -7,6 +7,7 @@ import { useSettings } from "../lib/settings.tsx";
 import { lazyNamed } from "../lib/lazy-named.ts";
 import { ErrorNotice } from "../ui/error-notice.tsx";
 import type { NotificationsView } from "../lib/use-notifications.ts";
+import type { SettingsTab } from "./settings-dialog.tsx";
 import { TopBar } from "./top-bar.tsx";
 
 // The dialogs are rarely opened, so their code loads on first use and is fetched ahead once the page is idle.
@@ -47,6 +48,7 @@ export function Shell(props: {
   readonly children: ReactNode;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
   const [accountOpen, setAccountOpen] = useState(false);
   // A dialog is mounted from its first open on, so closing it keeps the exit and the focus return.
   const [settingsUsed, setSettingsUsed] = useState(false);
@@ -64,16 +66,19 @@ export function Shell(props: {
     const handle = setTimeout(prefetch, 2000);
     return () => clearTimeout(handle);
   }, []);
+  const openSettings = (tab: SettingsTab): void => {
+    setSettingsTab(tab);
+    setSettingsUsed(true);
+    setSettingsOpen(true);
+  };
   return (
     <div className="page">
       <TopBar
         view={props.view}
         name={props.name}
         notifications={props.notifications}
-        onSettings={() => {
-          setSettingsUsed(true);
-          setSettingsOpen(true);
-        }}
+        onSettings={() => openSettings("general")}
+        onFeedback={() => openSettings("feedback")}
         onAccount={() => {
           setAccountUsed(true);
           setAccountOpen(true);
@@ -85,6 +90,7 @@ export function Shell(props: {
         {settingsUsed ? (
           <SettingsDialog
             open={settingsOpen}
+            openOn={settingsTab}
             providers={props.providers}
             connections={props.connections}
             onAccountsChanged={props.onAccountsChanged}

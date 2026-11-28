@@ -899,10 +899,10 @@ time.when {
 
 /* Account menu: avatar trigger, floating panel with the only shadow on the page. */
 .avatar {
+  position: relative;
   width: 34px;
   height: 34px;
   padding: 0;
-  overflow: hidden;
   background: var(--surface-muted);
   color: var(--foreground);
   border: 1px solid var(--border);
@@ -923,6 +923,24 @@ time.when {
   width: 34px;
   height: 34px;
   display: block;
+}
+/* The face is clipped, not the button, so the update dot can sit over the edge. */
+.avatar > .avatar-face {
+  overflow: hidden;
+  border-radius: 50%;
+}
+/* A newer release: a dot on the avatar, like the bell's badge but without a count. */
+.avatar.has-update::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--background);
+  background: var(--success);
 }
 /* The bundled face and the remote one share one cell; the remote one fades in over it once loaded. */
 .avatar-face {

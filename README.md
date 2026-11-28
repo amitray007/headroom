@@ -214,6 +214,19 @@ Headroom has a read-only MCP server, so an agent such as Claude Code, Codex or C
 
 Report a vulnerability privately as described in [SECURITY.md](SECURITY.md).
 
+## Usage stats
+
+Headroom sends anonymous usage stats so the maintainer knows how many installs run, which connectors people use and which ones fail. The server sends them, never your browser or the Mac app. Each event carries a random install ID and:
+
+- once a day: the Headroom version, OS and install method; how many accounts you linked per provider; how many sign-ins and refreshes finished per provider and result; which features you use (counts and on/off only); how account actions and notification sends turned out; error class names and counts; the newest release it has seen; and the Mac app versions that read the feed
+- at most once an hour, only if you opened Headroom: the version, where you opened it (web, Mac app or MCP), which dashboard pages, and whether you opened the release notes from the update notice
+
+It never sends account emails or IDs, credentials, balances, limits, usage figures, error text or host names, and the IP address is discarded. Turn it off with Share Usage Stats on the Privacy tab of Settings, or set `HEADROOM_TELEMETRY=false`. [ADR 0007](docs/decisions/0007-usage-stats.md) lists every field.
+
+Send Feedback, in Settings and the avatar menu, sends your message and the version to the maintainer. It asks for no email.
+
+The installer sends one anonymous count with your OS, CPU and the version you asked for; set `HEADROOM_TELEMETRY=false` before running it to skip that.
+
 ## Development
 
 ```sh

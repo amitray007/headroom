@@ -26,6 +26,8 @@ import {
   type AutoResetRule,
   type Settings,
   type SubmitInput,
+  type UsageAction,
+  type UsageView,
 } from "@headroom/core/contracts";
 import {
   metricSchema,
@@ -255,6 +257,12 @@ const exchangeRatesSchema = z.object({
 });
 export type ExchangeRatesPayload = z.infer<typeof exchangeRatesSchema>;
 
+/** The running version and a newer release, when there is one. */
+const versionSchema = z.object({
+  version: z.string(),
+  update: z.object({ version: z.string(), notesUrl: z.url() }).nullable(),
+});
+
 const overviewSchema = z.object({
   connections: z.array(overviewConnectionSchema),
   /** The effective order of every provider, including those with no accounts. */
@@ -400,6 +408,20 @@ async function request<T>(
 }
 
 export const api = {
+  /** The maintainer receives the message anonymously with the Headroom version. */
+  sendFeedback: (message: string) => request("POST", "/api/feedback", z.undefined(), { message }),
+  /** Fire and forget: the usage count of a view. A failure is not worth a word. */
+  markView: (view: UsageView): Promise<void> =>
+    request("POST", "/api/usage/view", z.undefined(), { view }).then(
+      () => undefined,
+      () => undefined,
+    ),
+  /** Fire and forget: the usage count of an owner press. */
+  markAction: (action: UsageAction): Promise<void> =>
+    request("POST", "/api/usage/action", z.undefined(), { action }).then(
+      () => undefined,
+      () => undefined,
+    ),
   channels: () => request("GET", "/api/delivery/channels", channelListSchema),
   createChannel: (channel: NewChannel) =>
     request("POST", "/api/delivery/channels", channelCreatedSchema, channel),
@@ -445,6 +467,7 @@ export const api = {
   ),
   // Reading rates and asking the server to fetch them again touch no account, so Demo Mode allows both.
   exchangeRates: () => request("GET", "/api/exchange-rates", exchangeRatesSchema),
+  version: () => request("GET", "/api/version", versionSchema),
   refreshExchangeRates: () => request("POST", "/api/exchange-rates/refresh", exchangeRatesSchema),
   wallet: () => request("GET", "/api/wallet", walletSchema),
   setCost: changesAccount((connectionId: string, cost: Cost) =>

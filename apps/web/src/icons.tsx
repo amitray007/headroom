@@ -124,6 +124,9 @@ export const BellIcon = stroke(
     <path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" />
   </>,
 );
+export const MessageIcon = stroke(
+  <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />,
+);
 export const CloseIcon = stroke(<path d="M18 6 6 18M6 6l12 12" />);
 export const PencilIcon = stroke(<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />);
 export const EyeIcon = stroke(

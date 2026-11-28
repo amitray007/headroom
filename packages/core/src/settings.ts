@@ -44,6 +44,7 @@ export function defaultSettings(refreshIntervalSeconds: number): Settings {
     walletCurrency: null,
     historyRetentionDays: 90,
     accountActions: false,
+    usageStats: true,
     providers: {},
     notifications: {
       kinds: kindSwitches(true),
@@ -124,6 +125,7 @@ export function mergeSettings(stored: unknown, defaults: Settings): Settings {
       defaults.historyRetentionDays,
     ),
     accountActions: valid(flag, source["accountActions"], defaults.accountActions),
+    usageStats: valid(flag, source["usageStats"], defaults.usageStats),
     providers: valid(shape.providers, source["providers"], defaults.providers),
     notifications: {
       kinds: mergeKinds(saved, defaults.notifications.kinds),

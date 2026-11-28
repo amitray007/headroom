@@ -36,11 +36,12 @@ Each dossier describes metrics, connection steps, tools, limitations and sources
 - [Deployment and credential storage](architecture/deployment.md): single binary, SQLite, master key and backups.
 - [Self-hosting on a tailnet](operations/tailscale.md): Docker Compose or Dokploy with a private Tailscale address, the environment, moving data, backups.
 - [Releases](operations/releases.md): Conventional Commits, the release pull request, image tags and rollback.
+- [Usage stats in PostHog](operations/usage-stats.md): the PostHog project, the reverse proxy, the dashboard and alerts for the anonymous usage stats.
 - [Install](operations/install.md): the installer, Homebrew, package runners, Docker, data locations, start at login, updating and uninstalling.
 - [Evidence register](research/evidence.md): proof levels and earlier observations.
 - [Tools and packages](research/tools.md): what can be reused and what it does not solve.
 - [ACP assessment](research/acp.md): protocol scope and provider-specific gaps.
-- [Decisions](decisions/README.md): accepted product constraints and proposed implementation choices, with [ADR 0001](decisions/0001-direct-provider-clients.md) as the governing design record, [ADR 0002](decisions/0002-stack-and-tooling.md) for the stack and tooling, [ADR 0003](decisions/0003-owner-automations.md) for owner automations and detected account events, [ADR 0004](decisions/0004-mac-app.md) for Headroom for Mac, [ADR 0005](decisions/0005-shared-notice-read-state.md) for shared notice read state, and [ADR 0006](decisions/0006-mcp-server.md) for the read-only MCP server.
+- [Decisions](decisions/README.md): accepted product constraints and proposed implementation choices, with [ADR 0001](decisions/0001-direct-provider-clients.md) as the governing design record, [ADR 0002](decisions/0002-stack-and-tooling.md) for the stack and tooling, [ADR 0003](decisions/0003-owner-automations.md) for owner automations and detected account events, [ADR 0004](decisions/0004-mac-app.md) for Headroom for Mac, [ADR 0005](decisions/0005-shared-notice-read-state.md) for shared notice read state, [ADR 0006](decisions/0006-mcp-server.md) for the read-only MCP server, and [ADR 0007](decisions/0007-usage-stats.md) for anonymous usage stats and the update notice.
 - [Glossary](glossary.md): terms and units used across all dossiers.
 
 ## Maintaining these docs

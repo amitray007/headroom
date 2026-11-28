@@ -1,9 +1,16 @@
+import { api } from "../api.ts";
 import { authClient } from "../auth.ts";
 import { isDemoSite } from "../lib/site.ts";
-import { Avatar, GearIcon, SignOutIcon, UserIcon } from "../icons.tsx";
+import { Avatar, GearIcon, MessageIcon, SignOutIcon, SparkleIcon, UserIcon } from "../icons.tsx";
 import { useDevicePrefs } from "../lib/device-prefs.ts";
+import { useLoad } from "../lib/load.ts";
 import { Menu, MenuBlock, MenuItem, MenuSeparator, MenuWho } from "../ui/menu.tsx";
 import { Segmented } from "../ui/segmented.tsx";
+
+/** A newer Headroom release, asked once per page load. A failed read shows nothing. */
+function useAvailableUpdate() {
+  return useLoad(() => api.version(), "version").data?.update ?? null;
+}
 
 /**
  * The avatar menu, laid out as Arc's user menu: a header with the face and who is signed in, then groups of rows
@@ -13,14 +20,16 @@ import { Segmented } from "../ui/segmented.tsx";
 export function AccountMenu(props: {
   readonly name: string;
   readonly onSettings: () => void;
+  readonly onFeedback: () => void;
   readonly onAccount: () => void;
 }) {
   const prefs = useDevicePrefs();
+  const update = useAvailableUpdate();
   return (
     <Menu
-      label="Account Menu"
+      label={update ? "Account Menu, update available" : "Account Menu"}
       trigger={<Avatar seed={props.name} />}
-      triggerClassName="avatar"
+      triggerClassName={update ? "avatar has-update" : "avatar"}
       openOnHover
     >
       <MenuWho lead="Signed in as" name={props.name} face={<Avatar seed={props.name} />} />
@@ -38,6 +47,20 @@ export function AccountMenu(props: {
         />
       </MenuBlock>
       <MenuSeparator />
+      {update ? (
+        <MenuItem
+          icon={<SparkleIcon />}
+          onSelect={() => {
+            window.open(update.notesUrl, "_blank", "noopener");
+            if (!isDemoSite) void api.markAction("update_opened");
+          }}
+        >
+          Update to {update.version}
+        </MenuItem>
+      ) : null}
+      <MenuItem icon={<MessageIcon />} onSelect={props.onFeedback}>
+        Send Feedback
+      </MenuItem>
       <MenuItem icon={<GearIcon />} onSelect={props.onSettings}>
         Settings
       </MenuItem>
