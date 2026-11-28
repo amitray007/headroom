@@ -44,6 +44,46 @@
       data-website-id="80ab352c-5252-4142-8731-acf38fbccd1c"
       data-domains="headroom.theblank.club"
     ></script>
+    <!-- Anonymous PostHog events through our proxy: nothing is stored in the browser, so no cookies. -->
+    <script>
+      !(function (d, w) {
+        try {
+          var h = "https://hd.headroom.theblank.club",
+            s = [];
+          s._i = [];
+          s.__SV = 1;
+          s.init = function (k, c) {
+            var e = d.createElement("script");
+            e.async = true;
+            e.crossOrigin = "anonymous";
+            e.src = h + "/static/array.js";
+            d.head.appendChild(e);
+            s._i.push([k, c]);
+          };
+          s.capture = function (n, p) {
+            s.push(["capture", n, p]);
+          };
+          s.register = function (p) {
+            s.push(["register", p]);
+          };
+          w.posthog = s;
+          s.init("phc_mFhU4x7B3Ze55gPVQJozu9tpkEzTtUh3kBdq2PtDi2uN", {
+            api_host: h,
+            ui_host: "https://us.posthog.com",
+            persistence: "memory",
+            person_profiles: "identified_only",
+            autocapture: false,
+            capture_pageview: true,
+            capture_pageleave: false,
+            disable_session_recording: true,
+            disable_surveys: true,
+            advanced_disable_flags: true,
+            ip: false,
+          });
+          s.register({ source: "site" });
+        } catch (e) {}
+      })(document, window);
+    </script>
     <style>
       :root {
         color-scheme: light dark;
@@ -2466,6 +2506,36 @@
           });
         });
 
+        // Anonymous events. A blocked analytics script changes nothing.
+        const track = (name, props) => {
+          try {
+            window.posthog.capture(name, props);
+          } catch {}
+        };
+        const installMethods = {
+          "pane-installer": "installer",
+          "pane-brew": "homebrew",
+          "pane-npm": "npm",
+          "pane-pypi": "python",
+          "pane-mise": "mise",
+          "pane-docker": "docker",
+        };
+        document.addEventListener("click", (event) => {
+          const link = event.target.closest && event.target.closest("a[href]");
+          if (!link || !/^https:\/\/github\.com\/amitray007\/headroom(?![\w-])/.test(link.href))
+            return;
+          const place = link.closest("header")
+            ? "header"
+            : link.closest("footer")
+              ? "footer"
+              : link.closest("#install")
+                ? "install"
+                : link.closest(".badge-cta") === link
+                  ? "hero"
+                  : "page";
+          track("github_clicked", { place });
+        });
+
         // Copy: each pane copies its own commands, without the prompts.
         const note = document.getElementById("copied");
         for (const btn of document.querySelectorAll("#install .copy")) {
@@ -2481,6 +2551,7 @@
           const text = lines.join("\n");
           btn.setAttribute("aria-label", "Copy: " + lines[0].replace(/ \\$/, ""));
           btn.addEventListener("click", async () => {
+            track("install_copied", { method: installMethods[btn.closest(".pane").id] });
             let ok = false;
             try {
               await navigator.clipboard.writeText(text);

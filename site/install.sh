@@ -6,6 +6,8 @@
 #   HEADROOM_INSTALL_DIR    Where to put the binary. Default: $HOME/.local/bin.
 #   HEADROOM_DOWNLOAD_BASE  Releases URL prefix. Default: https://github.com/amitray007/headroom/releases.
 #                           Tests point it at a local fake release (file:// works).
+#   HEADROOM_TELEMETRY      false or 0 skips the one anonymous install count (OS, CPU and the version
+#                           asked for, nothing else). DO_NOT_TRACK=1 and a custom download base skip it too.
 #
 # Everything runs inside main, called on the last line, so a cut-off download never runs half a script.
 
@@ -51,6 +53,8 @@ main() {
 
   say ""
   say "Installed $("${install_dir}/headroom" --version) to ${install_dir}/headroom"
+  count_install "$os" "$arch" "$version"
+
   say ""
   say "Next:"
   say "  headroom --open             start Headroom and open the dashboard"
@@ -108,6 +112,21 @@ verify() {
     die "shasum or sha256sum is required to verify the download"
   fi
   [ "$actual" = "$expected" ] || die "checksum mismatch for ${asset} (expected ${expected}, got ${actual}); nothing was installed"
+}
+
+# One anonymous event so the maintainer can count installs (ADR 0007). A random ID, the OS, the CPU and
+# the version asked for; it never waits more than 3 seconds and never fails the install.
+count_install() {
+  [ -z "${HEADROOM_DOWNLOAD_BASE:-}" ] || return 0
+  case "${HEADROOM_TELEMETRY:-true}" in false | 0) return 0 ;; esac
+  [ "${DO_NOT_TRACK:-}" != "1" ] || return 0
+  command -v curl >/dev/null 2>&1 || return 0
+  asked="custom"
+  if [ "$3" = "latest" ] || printf '%s' "$3" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then asked="$3"; fi
+  id="$(od -An -N16 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n')"
+  body="{\"api_key\":\"phc_mFhU4x7B3Ze55gPVQJozu9tpkEzTtUh3kBdq2PtDi2uN\",\"batch\":[{\"event\":\"install_script\",\"distinct_id\":\"${id:-unknown}\",\"properties\":{\"os\":\"$1\",\"arch\":\"$2\",\"version\":\"${asked}\",\"\$process_person_profile\":false,\"\$geoip_disable\":true}}]}"
+  curl -fsS -m 3 -o /dev/null -H 'content-type: application/json' --data "$body" \
+    https://hd.headroom.theblank.club/batch/ >/dev/null 2>&1 || true
 }
 
 path_hint() {

@@ -42,6 +42,16 @@ describe("usage routes", () => {
     expect([view.status, feedback.status]).toEqual([401, 401]);
   });
 
+  test("an action is accepted only from the known list", async () => {
+    const h = harness();
+    const cookie = await signedIn(h.ctx, h.app);
+    const post = (action: string) =>
+      h.app.request(url(h.ctx, "/api/usage/action"), jsonPost(h.ctx, { action }, { cookie }));
+    expect([(await post("update_opened")).status, (await post("other")).status]).toEqual([
+      204, 400,
+    ]);
+  });
+
   test("a view is accepted only from the known list", async () => {
     const h = harness();
     const cookie = await signedIn(h.ctx, h.app);
@@ -124,6 +134,8 @@ describe("activity facts", () => {
         { provider: "codex", method: "device_code", state: "succeeded", count: 1 },
       ],
       refreshes: [],
+      actions: [],
+      deliveries: [],
       features: {
         account_actions: false,
         auto_reset_rules: 0,

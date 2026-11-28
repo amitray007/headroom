@@ -135,7 +135,13 @@ export interface BootstrapOptions {
  */
 export function bootstrap(options: BootstrapOptions): AppContext {
   const { config } = options;
-  const log = options.log ?? (() => undefined);
+  const baseLog = options.log ?? (() => undefined);
+  // Error lines are also counted by class for the usage stats, once the service exists below.
+  const errors: { count?: (message: string) => void } = {};
+  const log: AppContext["log"] = (level, message) => {
+    baseLog(level, message);
+    if (level === "error") errors.count?.(message);
+  };
   const databasePath = options.databasePath ?? join(config.dataDir, "headroom.db");
   // The database holds sessions and sealed credentials: only the app user may list its folder.
   if (databasePath !== ":memory:")
@@ -225,11 +231,13 @@ export function bootstrap(options: BootstrapOptions): AppContext {
       arch: process.arch,
       install: detectInstall(process.execPath, existsSync("/.dockerenv")),
       accounts: accountsPerProvider(connections.list()),
+      latestVersion: releases.known(),
       ...activityFacts(sqlite, settings.get(), since),
     }),
     ...(options.telemetryKey === undefined ? {} : { key: options.telemetryKey }),
     log,
   });
+  errors.count = (message) => telemetry.countError(message);
   const releases = new ReleaseNotice({ version, fetch: fetchFn, now });
   const context: Omit<AppContext, "dispatcher" | "exchangeRates"> = {
     config,

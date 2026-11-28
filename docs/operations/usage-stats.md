@@ -6,15 +6,29 @@ This guide sets up the PostHog project that receives Headroom's anonymous usage 
 
 | Event | When | Properties |
 | --- | --- | --- |
-| `install_active` | Once a day and on each start | `version`, `os`, `install`, `account_total`, `providers` (list), `mac_clients` (list), `feature_*` |
+| `install_active` | Once a day and on each start | `version`, `os`, `install`, `account_total`, `providers` (list), `mac_clients` (list), `latest_version`, `update_available`, `feature_*` |
 | `provider_daily` | Once a day, per provider with accounts or refreshes | `version`, `provider`, `accounts`, `refreshes`, `refresh_failed`, `refresh_<outcome>` |
 | `connect_result` | Once a day, one per finished sign-in, up to 50 | `version`, `provider`, `method`, `state` |
-| `opened` | At most hourly, after a view | `version`, `surfaces` (list), `views` (list) |
+| `action_result` | Once a day, one per account action that ended, up to 50 | `version`, `provider`, `action`, `origin`, `state` |
+| `delivery_daily` | Once a day, per channel type and result | `version`, `channel`, `status`, `failure`, `count` |
+| `server_error` | Once a day, per place and error class | `version`, `where`, `error`, `count` |
+| `opened` | At most hourly, after a view | `version`, `surfaces` (list), `views` (list), `actions` (list) |
 | `feedback` | When the owner presses Send | `version`, `message` |
 
 The `feature_*` properties are `feature_account_actions`, `feature_auto_reset_rules`, `feature_spend_budgets`, `feature_wallet_costs`, `feature_wallet_top_ups`, `feature_channels_telegram`, `feature_channels_webhook`, `feature_refresh_minutes` and `feature_history_days`. `refresh_<outcome>` uses the sync run outcomes in `packages/core/src/enums.ts`, such as `refresh_rate_limited`.
 
 Every event is anonymous: `distinct_id` is the install ID, `$process_person_profile` is false and `$geoip_disable` is true. All events go in one request to `/batch/`.
+
+Two more sources write to the same project. Filter on `source` to keep them apart from server events:
+
+| Event | Sent by | Properties |
+| --- | --- | --- |
+| `install_script` | `site/install.sh`, after a successful install | `os`, `arch`, `version` |
+| `$pageview` | the landing page and the demo | `source` (`site` or `demo`) |
+| `install_copied` | the landing page, on a Copy press | `source`, `method` |
+| `github_clicked` | the landing page, on a GitHub link | `source`, `place` |
+| `demo_view` | the demo, per view opened | `source`, `view`, `embedded` |
+| `demo_deploy_clicked` | the demo banner | `source`, `embedded` |
 
 ## Set up the project
 
@@ -54,6 +68,13 @@ Create a dashboard named **Headroom usage** with these insights.
 | Retention | Retention, `install_active` returning `install_active`, weekly |
 | Feedback | SQL, below |
 | Feedback per day | Trends, `feedback`, total count, daily, bars |
+| Automation results | Trends, `action_result`, total count, breakdown `origin` then `state`, stacked bars |
+| Notification delivery | Trends, `delivery_daily`, sum of `count`, breakdown `channel` then `status`, stacked bars |
+| Server errors | Trends, `server_error`, sum of `count`, breakdown `where` then `error`, table |
+| Update adoption | Trends, `install_active`, unique users, last 24 hours, breakdown `update_available`, pie |
+| Update notice opens | Trends, `opened` where `actions` contains `update_opened`, unique users, daily |
+| Installer runs | Trends, `install_script`, total count, daily, breakdown `os` |
+| Site and demo | Trends, `$pageview` unique sessions by `source`, plus `install_copied` by `method` and `demo_view` by `view` |
 
 Feature use, the share of active installs that use each feature in the last day:
 

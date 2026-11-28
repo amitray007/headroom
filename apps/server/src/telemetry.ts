@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { UsageView } from "@headroom/core/contracts";
+import type { UsageAction, UsageView } from "@headroom/core/contracts";
 
 import { type Fetch, post } from "./notify/http.ts";
-import type { InstallKind } from "./update.ts";
+import { compareVersions, type InstallKind } from "./update.ts";
 
 /**
  * Anonymous usage pings to PostHog (ADR 0007). Once a day: `install_active`, one `provider_daily`
@@ -21,8 +21,8 @@ const posthogKey = "phc_mFhU4x7B3Ze55gPVQJozu9tpkEzTtUh3kBdq2PtDi2uN";
  * posthog.com do not drop the events (docs/operations/usage-stats.md).
  */
 export const posthogUrl = "https://hd.headroom.theblank.club/batch/";
-/** More sign-ins than this in a day are not reported one by one. */
-const connectEventCap = 50;
+/** More occurrences of one event than this in a day are not reported one by one. */
+const occurrenceCap = 50;
 /** More Mac app and widget versions than this in a day are not listed. */
 const macClientCap = 20;
 /** The least time between two feedback messages. */
@@ -34,18 +34,36 @@ const day = 24 * hour;
 /** Where the owner looked at Headroom: the web dashboard, the Mac app feed, or an MCP agent. */
 export type Surface = "web" | "mac" | "mcp";
 
-export interface ConnectCount {
+export type ConnectCount = {
   readonly provider: string;
   readonly method: string;
   readonly state: string;
   readonly count: number;
-}
+};
 
-export interface RefreshCount {
+export type RefreshCount = {
   readonly provider: string;
   readonly outcome: string;
   readonly count: number;
-}
+};
+
+export type ActionCount = {
+  readonly provider: string;
+  readonly action: string;
+  readonly origin: string;
+  readonly state: string;
+  readonly count: number;
+};
+
+export type DeliveryCount = {
+  readonly channel: string;
+  readonly status: string;
+  readonly failure: string | null;
+  readonly count: number;
+};
+
+/** A grouped count. Every other field is a fixed enum value sent as an event property. */
+type Counted = { readonly count: number } & Readonly<Record<string, string | number | null>>;
 
 /** Everything the daily events report. Every value is a count, a flag or an enum value. */
 export interface DailyFacts {
@@ -58,6 +76,12 @@ export interface DailyFacts {
   readonly connects: readonly ConnectCount[];
   /** Refreshes that finished since the last daily events. */
   readonly refreshes: readonly RefreshCount[];
+  /** Account actions, pressed or automatic, that ended since the last daily events. */
+  readonly actions: readonly ActionCount[];
+  /** Notification sends last tried since the last daily events. */
+  readonly deliveries: readonly DeliveryCount[];
+  /** The newest release the update notice knows of, or null before its first check. */
+  readonly latestVersion: string | null;
   /** Which owner features are in use; each key is sent as `feature_<key>`. */
   readonly features: Readonly<Record<string, number | boolean>>;
 }
@@ -98,6 +122,9 @@ function installEvent(version: string, facts: DailyFacts, clients: readonly stri
       account_total: Object.values(facts.accounts).reduce((sum, n) => sum + n, 0),
       providers: Object.keys(facts.accounts).toSorted(),
       mac_clients: clients.toSorted(),
+      latest_version: facts.latestVersion,
+      update_available:
+        facts.latestVersion !== null && compareVersions(facts.latestVersion, version) > 0,
       ...features,
     },
   };
@@ -127,26 +154,50 @@ function providerEvents(version: string, facts: DailyFacts): Event[] {
   });
 }
 
-/** One event per finished sign-in, up to a daily cap, so counts and rates need no sum. */
-function connectEvents(version: string, connects: readonly ConnectCount[]): Event[] {
+/** One event per occurrence, up to a daily cap, so counts and rates need no sum. */
+function occurrenceEvents(event: string, version: string, rows: readonly Counted[]): Event[] {
   const events: Event[] = [];
-  for (const row of connects) {
-    const properties = { version, provider: row.provider, method: row.method, state: row.state };
-    const room = Math.min(row.count, connectEventCap - events.length);
-    for (let i = 0; i < room; i++) events.push({ event: "connect_result", properties });
+  for (const { count, ...fields } of rows) {
+    const properties = { version, ...fields };
+    const room = Math.min(count, occurrenceCap - events.length);
+    for (let i = 0; i < room; i++) events.push({ event, properties });
   }
   return events;
+}
+
+/** One event per group with its `count`, for results too frequent to send one by one. */
+function countedEvents(event: string, version: string, rows: readonly Counted[]): Event[] {
+  return rows.map((row) => ({ event, properties: { version, ...row } }));
 }
 
 function openedEvent(
   version: string,
   surfaces: readonly Surface[],
   views: readonly UsageView[],
+  actions: readonly UsageAction[],
 ): Event {
   return {
     event: "opened",
-    properties: { version, surfaces: surfaces.toSorted(), views: views.toSorted() },
+    properties: {
+      version,
+      surfaces: surfaces.toSorted(),
+      views: views.toSorted(),
+      actions: actions.toSorted(),
+    },
   };
+}
+
+/**
+ * Where a server error happened and its class, from an error log line such as `tick failed: TypeError`
+ * or `GET /api/x: RangeError`. Only the first word and the class name are kept; ids and paths are not.
+ */
+export function errorOf(message: string): { where: string; error: string } {
+  const name = /: ([A-Za-z]{1,40})$/.exec(message)?.[1] ?? "unknown";
+  if (/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) /.test(message)) {
+    return { where: "request", error: name };
+  }
+  const first = /^([a-z][a-z-]{0,30})\b/.exec(message)?.[1];
+  return { where: first ?? "other", error: name };
 }
 
 /**
@@ -165,6 +216,8 @@ export class TelemetryService {
   private lastDailyAt: number | null = null;
   private surfaces = new Set<Surface>();
   private views = new Set<UsageView>();
+  private actions = new Set<UsageAction>();
+  private errors = new Map<string, { where: string; error: string; count: number }>();
   private clients = new Set<string>();
   private lastFeedbackAt: number | null = null;
   private wasOff = false;
@@ -201,6 +254,19 @@ export class TelemetryService {
 
   markView(view: UsageView): void {
     this.views.add(view);
+  }
+
+  markAction(action: UsageAction): void {
+    this.actions.add(action);
+  }
+
+  /** Count an error-level log line by where and class, until the next daily events. */
+  countError(message: string): void {
+    const { where, error } = errorOf(message);
+    const key = `${where}:${error}`;
+    const seen = this.errors.get(key);
+    if (seen) seen.count += 1;
+    else if (this.errors.size < occurrenceCap) this.errors.set(key, { where, error, count: 1 });
   }
 
   /** Remember a Mac app or widget version that read the feed, until the next daily event. */
@@ -243,16 +309,27 @@ export class TelemetryService {
       this.lastDailyAt = at;
       this.deps.watermark.write(at);
       const clients = [...this.clients];
+      const errors = [...this.errors.values()];
       this.clients.clear();
+      this.errors.clear();
       const { version } = this.deps;
       await this.send([
         installEvent(version, facts, clients),
         ...providerEvents(version, facts),
-        ...connectEvents(version, facts.connects),
+        ...occurrenceEvents("connect_result", version, facts.connects),
+        ...occurrenceEvents("action_result", version, facts.actions),
+        ...countedEvents("delivery_daily", version, facts.deliveries),
+        ...countedEvents("server_error", version, errors),
       ]);
     }
     if (this.surfaces.size > 0) {
-      const opened = openedEvent(this.deps.version, [...this.surfaces], [...this.views]);
+      const opened = openedEvent(
+        this.deps.version,
+        [...this.surfaces],
+        [...this.views],
+        [...this.actions],
+      );
+      this.actions.clear();
       this.surfaces.clear();
       this.views.clear();
       await this.send([opened]);
@@ -262,7 +339,9 @@ export class TelemetryService {
   private forget(): void {
     this.surfaces.clear();
     this.views.clear();
+    this.actions.clear();
     this.clients.clear();
+    this.errors.clear();
   }
 
   /**

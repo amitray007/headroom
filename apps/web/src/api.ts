@@ -26,6 +26,7 @@ import {
   type AutoResetRule,
   type Settings,
   type SubmitInput,
+  type UsageAction,
   type UsageView,
 } from "@headroom/core/contracts";
 import {
@@ -412,6 +413,12 @@ export const api = {
   /** Fire and forget: the usage count of a view. A failure is not worth a word. */
   markView: (view: UsageView): Promise<void> =>
     request("POST", "/api/usage/view", z.undefined(), { view }).then(
+      () => undefined,
+      () => undefined,
+    ),
+  /** Fire and forget: the usage count of an owner press. */
+  markAction: (action: UsageAction): Promise<void> =>
+    request("POST", "/api/usage/action", z.undefined(), { action }).then(
       () => undefined,
       () => undefined,
     ),

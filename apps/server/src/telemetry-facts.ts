@@ -2,7 +2,13 @@ import type { Database } from "bun:sqlite";
 
 import type { Settings } from "@headroom/core";
 
-import type { ConnectCount, DailyFacts, RefreshCount } from "./telemetry.ts";
+import type {
+  ActionCount,
+  ConnectCount,
+  DailyFacts,
+  DeliveryCount,
+  RefreshCount,
+} from "./telemetry.ts";
 
 type Row = { readonly key: string; readonly n: number };
 
@@ -57,14 +63,41 @@ function featuresOf(sqlite: Database, settings: Settings): Record<string, number
   };
 }
 
+/** Account actions, owner-pressed or automatic, that ended since `since`. */
+function actionsSince(sqlite: Database, since: number): ActionCount[] {
+  return sqlite
+    .query<ActionCount, [number]>(
+      `SELECT c.provider AS provider, a.action AS action, a.origin AS origin, a.state AS state,
+         count(*) AS count FROM account_actions a
+       JOIN connections c ON c.id = a.connection_id
+       WHERE a.state IN ('succeeded', 'failed', 'uncertain') AND coalesce(a.completed_at, a.requested_at) >= ?
+       GROUP BY c.provider, a.action, a.origin, a.state ORDER BY c.provider, a.action, a.origin, a.state`,
+    )
+    .all(since);
+}
+
+/** Notification sends last tried since `since`, by channel type and result. */
+function deliveriesSince(sqlite: Database, since: number): DeliveryCount[] {
+  return sqlite
+    .query<DeliveryCount, [number]>(
+      `SELECT ch.type AS channel, d.status AS status, d.failure AS failure, count(*) AS count
+       FROM notification_deliveries d JOIN notification_channels ch ON ch.id = d.channel_id
+       WHERE d.last_attempt_at >= ?
+       GROUP BY ch.type, d.status, d.failure ORDER BY ch.type, d.status, d.failure`,
+    )
+    .all(since);
+}
+
 /** The database half of the daily facts. */
 export function activityFacts(
   sqlite: Database,
   settings: Settings,
   since: number,
-): Pick<DailyFacts, "connects" | "refreshes" | "features"> {
+): Pick<DailyFacts, "connects" | "refreshes" | "actions" | "deliveries" | "features"> {
   return {
     connects: connectsSince(sqlite, since),
+    actions: actionsSince(sqlite, since),
+    deliveries: deliveriesSince(sqlite, since),
     refreshes: refreshesSince(sqlite, since),
     features: featuresOf(sqlite, settings),
   };

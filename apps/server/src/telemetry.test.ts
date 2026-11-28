@@ -6,7 +6,13 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type { Fetch } from "./notify/http.ts";
-import { loadOrCreateInstallId, macClientOf, posthogUrl, TelemetryService } from "./telemetry.ts";
+import {
+  errorOf,
+  loadOrCreateInstallId,
+  macClientOf,
+  posthogUrl,
+  TelemetryService,
+} from "./telemetry.ts";
 
 const hour = 3_600_000;
 const anonymous = { $process_person_profile: false, $geoip_disable: true };
@@ -78,6 +84,20 @@ function setup(
           { provider: "cursor", outcome: "rate_limited", count: 2 },
           { provider: "cursor", outcome: "succeeded", count: 40 },
         ],
+        actions: [
+          {
+            provider: "codex",
+            action: "consume_reset_credit",
+            origin: "automation",
+            state: "succeeded",
+            count: 1,
+          },
+        ],
+        deliveries: [
+          { channel: "telegram", status: "delivered", failure: null, count: 12 },
+          { channel: "webhook", status: "failed", failure: "unauthorized", count: 3 },
+        ],
+        latestVersion: "0.3.0",
         features: { account_actions: false, auto_reset_rules: 1 },
       };
     },
@@ -97,6 +117,9 @@ function setup(
 describe("telemetry", () => {
   test("sends exactly the listed daily events in one anonymous batch", async () => {
     const h = setup();
+    h.service.countError("tick failed: TypeError");
+    h.service.countError("tick failed: TypeError");
+    h.service.countError("GET /api/connections/abc123: RangeError");
     await h.service.tick();
     expect(h.urls).toEqual([posthogUrl]);
     expect(h.sent).toEqual([
@@ -110,6 +133,8 @@ describe("telemetry", () => {
             account_total: 3,
             providers: ["codex", "cursor"],
             mac_clients: [],
+            latest_version: "0.3.0",
+            update_available: true,
             feature_account_actions: false,
             feature_auto_reset_rules: 1,
           }),
@@ -133,6 +158,34 @@ describe("telemetry", () => {
           connect("codex", "device_code", "succeeded"),
           connect("cursor", "api_key", "failed"),
           connect("cursor", "api_key", "failed"),
+          event("action_result", {
+            version: "0.2.0",
+            provider: "codex",
+            action: "consume_reset_credit",
+            origin: "automation",
+            state: "succeeded",
+          }),
+          event("delivery_daily", {
+            version: "0.2.0",
+            channel: "telegram",
+            status: "delivered",
+            failure: null,
+            count: 12,
+          }),
+          event("delivery_daily", {
+            version: "0.2.0",
+            channel: "webhook",
+            status: "failed",
+            failure: "unauthorized",
+            count: 3,
+          }),
+          event("server_error", { version: "0.2.0", where: "tick", error: "TypeError", count: 2 }),
+          event("server_error", {
+            version: "0.2.0",
+            where: "request",
+            error: "RangeError",
+            count: 1,
+          }),
         ],
       },
     ]);
@@ -150,6 +203,7 @@ describe("telemetry", () => {
     h.service.markSurface("web");
     h.service.markView("wallet");
     h.service.markView("analytics");
+    h.service.markAction("update_opened");
     h.advance(hour);
     await h.service.tick();
     expect(h.sent[1]?.batch).toEqual([
@@ -160,6 +214,7 @@ describe("telemetry", () => {
           version: "0.2.0",
           surfaces: ["mac", "web"],
           views: ["analytics", "wallet"],
+          actions: ["update_opened"],
           ...anonymous,
         },
       },
@@ -253,6 +308,22 @@ describe("telemetry", () => {
     expect(longGone.since).toEqual([1_700_000_000_000 - day]);
   });
 
+  test("error lines keep only where and the class, never ids or paths", () => {
+    expect(errorOf("collecting conn_8f2a failed: TypeError")).toEqual({
+      where: "collecting",
+      error: "TypeError",
+    });
+    expect(errorOf("POST /api/connections/conn_8f2a/refresh: SyntaxError")).toEqual({
+      where: "request",
+      error: "SyntaxError",
+    });
+    expect(errorOf("channel ch_1: stored config unreadable")).toEqual({
+      where: "channel",
+      error: "unknown",
+    });
+    expect(errorOf("Weird: 42")).toEqual({ where: "other", error: "unknown" });
+  });
+
   test("sign-ins beyond the daily cap are not sent one by one", async () => {
     const h = setup();
     const many = new TelemetryService({
@@ -274,6 +345,9 @@ describe("telemetry", () => {
         accounts: {},
         connects: [{ provider: "codex", method: "cli_login", state: "failed", count: 100_000 }],
         refreshes: [],
+        actions: [],
+        deliveries: [],
+        latestVersion: null,
         features: {},
       }),
       key: "phc_test",

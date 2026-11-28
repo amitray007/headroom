@@ -14,3 +14,7 @@ export type UsageView = (typeof usageViews)[number];
 
 /** Longest feedback message, in characters. */
 export const feedbackMaxLength = 2000;
+
+/** Owner presses the web app reports, such as opening the release notes from the update notice. */
+export const usageActions = ["update_opened"] as const;
+export type UsageAction = (typeof usageActions)[number];

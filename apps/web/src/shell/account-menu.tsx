@@ -50,7 +50,10 @@ export function AccountMenu(props: {
       {update ? (
         <MenuItem
           icon={<SparkleIcon />}
-          onSelect={() => window.open(update.notesUrl, "_blank", "noopener")}
+          onSelect={() => {
+            window.open(update.notesUrl, "_blank", "noopener");
+            if (!isDemoSite) void api.markAction("update_opened");
+          }}
         >
           Update to {update.version}
         </MenuItem>

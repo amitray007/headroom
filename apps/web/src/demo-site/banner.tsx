@@ -1,3 +1,4 @@
+import { trackDeployClick } from "./analytics.ts";
 import { isEmbedded } from "./embed.ts";
 import "./banner.css";
 
@@ -10,7 +11,12 @@ export function DemoBanner() {
         Demo with synthetic data.
         <span className="demo-banner-more"> Nothing here is a real account.</span>
       </span>
-      <a href="https://github.com/amitray007/headroom#quick-start" target="_blank" rel="noreferrer">
+      <a
+        href="https://github.com/amitray007/headroom#quick-start"
+        target="_blank"
+        rel="noreferrer"
+        onClick={trackDeployClick}
+      >
         Deploy your own
       </a>
     </aside>

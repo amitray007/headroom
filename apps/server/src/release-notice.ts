@@ -26,6 +26,11 @@ export class ReleaseNotice {
 
   constructor(private readonly deps: ReleaseNoticeOptions) {}
 
+  /** The newest release from the last check, without asking GitHub. */
+  known(): string | null {
+    return this.latest?.version ?? null;
+  }
+
   async view(): Promise<VersionView> {
     const at = this.deps.now().getTime();
     if (this.checkedAt === null || at - this.checkedAt >= day) {
