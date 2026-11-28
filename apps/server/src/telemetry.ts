@@ -17,7 +17,7 @@ import type { InstallKind } from "./update.ts";
 /** PostHog's public project key: it can only write events. Empty sends nothing. */
 const posthogKey = "phc_mFhU4x7B3Ze55gPVQJozu9tpkEzTtUh3kBdq2PtDi2uN";
 /**
- * PostHog's managed reverse proxy on a neutral subdomain, so DNS blocklists that list
+ * PostHog's managed reverse proxy on our own subdomain, so DNS blocklists that list
  * posthog.com do not drop the events (docs/operations/usage-stats.md).
  */
 export const posthogUrl = "https://hd.headroom.theblank.club/batch/";
@@ -199,7 +199,6 @@ export class TelemetryService {
     this.surfaces.add(surface);
   }
 
-  /** Remember a dashboard page the web app opened. */
   markView(view: UsageView): void {
     this.views.add(view);
   }

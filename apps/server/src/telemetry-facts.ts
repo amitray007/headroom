@@ -6,7 +6,6 @@ import type { ConnectCount, DailyFacts, RefreshCount } from "./telemetry.ts";
 
 type Row = { readonly key: string; readonly n: number };
 
-/** Turn grouped rows into `{ key: count }`. */
 function countsOf(rows: readonly Row[]): Record<string, number> {
   return Object.fromEntries(rows.map((row) => [row.key, row.n]));
 }
@@ -15,7 +14,6 @@ function count(sqlite: Database, sql: string): number {
   return sqlite.query<{ n: number }, []>(sql).get()?.n ?? 0;
 }
 
-/** Sign-in attempts that finished since `since`. */
 function connectsSince(sqlite: Database, since: number): ConnectCount[] {
   return sqlite
     .query<ConnectCount, [number]>(
@@ -26,7 +24,6 @@ function connectsSince(sqlite: Database, since: number): ConnectCount[] {
     .all(since);
 }
 
-/** Refreshes that finished since `since`. */
 function refreshesSince(sqlite: Database, since: number): RefreshCount[] {
   return sqlite
     .query<RefreshCount, [number]>(

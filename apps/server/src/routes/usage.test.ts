@@ -18,7 +18,7 @@ function keyed(posthog: () => Response = () => Response.json({ status: "Ok" })) 
       telemetryKey: "phc_test",
       fetch: (input) => {
         urls.push(input);
-        if (input.includes("api.github.com")) {
+        if (new URL(input).host === "api.github.com") {
           return Promise.resolve(Response.json({ tag_name: "v99.0.0" }));
         }
         return Promise.resolve(posthog());
